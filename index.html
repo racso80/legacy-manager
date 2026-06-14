@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0d0f14" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="Legacy Manager — Construye tu club. Forja tu legado." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Legacy Manager</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body, #root {
+        height: 100%;
+        background: #0d0f14;
+        font-family: system-ui, -apple-system, sans-serif;
+        color: #e8eaf0;
+        overflow: hidden;
+      }
+      #root {
+        display: flex;
+        flex-direction: column;
+        max-width: 540px;
+        margin: 0 auto;
+        height: 100dvh;
+      }
+      /* Loading spinner */
+      #loading {
+        position: fixed;
+        inset: 0;
+        background: #0d0f14;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        gap: 16px;
+        transition: opacity .3s;
+      }
+      #loading.hidden { opacity: 0; pointer-events: none; }
+      .spinner {
+        width: 40px; height: 40px;
+        border: 3px solid rgba(201,168,76,.2);
+        border-top-color: #c9a84c;
+        border-radius: 50%;
+        animation: spin .8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div id="loading">
+      <div style="width:60px;height:60px;background:linear-gradient(135deg,#c9a84c,#e8c96a);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:8px">⚽</div>
+      <div style="font-size:18px;font-weight:700;letter-spacing:3px;color:#c9a84c">LEGACY</div>
+      <div style="font-size:18px;font-weight:200;letter-spacing:5px;color:#e8eaf0">MANAGER</div>
+      <div class="spinner" style="margin-top:24px"></div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
