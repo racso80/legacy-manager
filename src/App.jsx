@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { resolveGameData, resolvePlayerPhoto, BUILT_IN_TEAMS } from "./data/dataLoader.js";
+import { resolvePlayerPhoto } from "./data/dataLoader.js";
 
 // ─── DATOS ───────────────────────────────────────────────────────────────────
 
@@ -513,30 +513,73 @@ function generatePlayers(teamId) {
 
 function generateFixtures() {
   const teamIds = TEAMS.map(t => t.id);
+  const n = teamIds.length; // 20
   const fixtures = [];
   let id = 1;
-  const rounds = [];
-  const n = teamIds.length;
-  const teams = [...teamIds];
-  for (let round = 0; round < n - 1; round++) {
-    const pairs = [];
+
+  // Circle (round-robin) algorithm — fixes the fixed team at position 0
+  // Each team plays home once and away once vs every other team across 38 jornadas
+  const rotating = [...teamIds.slice(1)]; // teams 1..19 rotate
+  const fixed    = teamIds[0];            // team 0 is fixed
+
+  const rounds = []; // 19 rounds × 10 pairs
+
+  for (let r = 0; r < n - 1; r++) {
+    const circle = [fixed, ...rotating];
+    const pairs  = [];
     for (let i = 0; i < n / 2; i++) {
-      pairs.push([teams[i], teams[n - 1 - i]]);
+      // Alternate which side is home to ensure balance across rounds
+      if ((r + i) % 2 === 0) {
+        pairs.push([circle[i], circle[n - 1 - i]]);
+      } else {
+        pairs.push([circle[n - 1 - i], circle[i]]);
+      }
     }
     rounds.push(pairs);
-    teams.splice(1, 0, teams.pop());
+    // Rotate: last element of rotating goes to front
+    rotating.unshift(rotating.pop());
   }
+
+  // Primera vuelta (J1–J19)
   rounds.forEach((pairs, r) => {
     pairs.forEach(([h, a]) => {
-      fixtures.push({ id: id++, matchday: r + 1, homeTeamId: h, awayTeamId: a, played: false, homeGoals: null, awayGoals: null, events: [] });
+      fixtures.push({
+        id: id++, matchday: r + 1,
+        homeTeamId: h, awayTeamId: a,
+        played: false, homeGoals: null, awayGoals: null, events: []
+      });
     });
   });
+
+  // Segunda vuelta (J20–J38): invertir local/visitante de la primera
   rounds.forEach((pairs, r) => {
     pairs.forEach(([h, a]) => {
-      fixtures.push({ id: id++, matchday: r + 20, homeTeamId: a, awayTeamId: h, played: false, homeGoals: null, awayGoals: null, events: [] });
+      fixtures.push({
+        id: id++, matchday: r + 20,
+        homeTeamId: a, awayTeamId: h,
+        played: false, homeGoals: null, awayGoals: null, events: []
+      });
     });
   });
-  return fixtures;
+
+  // Shuffle fixture order within each matchday so the sequence feels varied
+  // (keeps matchday grouping intact)
+  const byMatchday = {};
+  fixtures.forEach(f => {
+    if (!byMatchday[f.matchday]) byMatchday[f.matchday] = [];
+    byMatchday[f.matchday].push(f);
+  });
+  const shuffled = [];
+  Object.keys(byMatchday).sort((a,b)=>+a-+b).forEach(md => {
+    const arr = byMatchday[md];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    shuffled.push(...arr);
+  });
+
+  return shuffled;
 }
 
 function initStandings() {
@@ -866,16 +909,18 @@ function PlayerCard({ player, onSelect, selected }) {
         {/* ANVERSO */}
         <div style={{ position: "absolute", width: "100%", height: "100%", backfaceVisibility: "hidden", borderRadius: 12, overflow: "hidden", background: bg, border: borderStyle }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: acc }} />
-          {/* Foto del jugador — imagen real si existe, avatar si no */}
-          <div style={{ width:"100%", height:"100%", position:"relative", overflow:"hidden", background:`linear-gradient(180deg, ${bg} 0%, #0d0f14 100%)` }}>
+          {/* Foto del jugador — carga desde /players/{id}.png, fallback a avatar */}
+          <div style={{ width: "100%", height: "100%", position: "relative", background: `linear-gradient(180deg, ${bg} 0%, #0d0f14 100%)` }}>
             <img
-              src={resolvePlayerPhoto(player)}
+              src={player.imageUrl || `/players/${player.id}.png`}
               alt={player.name}
-              onError={e => { e.target.style.display="none"; e.target.nextSibling.style.display="flex"; }}
-              style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center", display:"block" }}
+              onError={e => { e.currentTarget.style.display = "none"; e.currentTarget.nextSibling.style.display = "flex"; }}
+              onLoad={e => { e.currentTarget.style.display = "block"; e.currentTarget.nextSibling.style.display = "none"; }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block", position: "absolute", inset: 0 }}
             />
-            <div style={{ display:"none", width:"100%", height:"100%", position:"absolute", top:0, alignItems:"flex-end", justifyContent:"center" }}>
-              <div style={{ fontSize:80, opacity:0.18, paddingBottom:60 }}>👤</div>
+            {/* Fallback avatar si no hay foto */}
+            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center", position: "absolute", inset: 0 }}>
+              <div style={{ fontSize: 80, opacity: 0.18, paddingBottom: 60 }}>👤</div>
             </div>
           </div>
           {/* Media y posición arriba izquierda */}
@@ -1099,26 +1144,43 @@ function FinancesScreen({ game }) {
 }
 
 function BottomNav({ screen, setScreen, disabled }) {
-  const tabs = [
+  const row1 = [
     { id: "dashboard",  icon: "🏠", label: "Inicio" },
     { id: "squad",      icon: "👥", label: "Plantilla" },
     { id: "lineup",     icon: "📋", label: "Alineación" },
-    { id: "standings",  icon: "🏆", label: "Liga" },
+    { id: "tactics",    icon: "⚙️", label: "Tácticas" },
+    { id: "calendar",   icon: "📅", label: "Calendario" },
+  ];
+  const row2 = [
+    { id: "standings",  icon: "🏆", label: "Clasificación" },
     { id: "finances",   icon: "💶", label: "Finanzas" },
   ];
   if (disabled) return null;
+
+  const NavBtn = ({ t }) => {
+    const active = screen === t.id;
+    return (
+      <button onClick={() => setScreen(t.id)}
+        style={{ flex:1, background:"transparent", border:"none",
+          borderTop:`2px solid ${active?"#c9a84c":"transparent"}`,
+          padding:"7px 2px 5px", cursor:"pointer", display:"flex",
+          flexDirection:"column", alignItems:"center", gap:2, transition:"border-color .15s", minWidth:0 }}>
+        <span style={{ fontSize:16, lineHeight:1, filter:active?"none":"grayscale(.5) opacity(.5)" }}>{t.icon}</span>
+        <span style={{ fontSize:9, fontWeight:active?700:500, color:active?"#c9a84c":"#4b5563",
+          letterSpacing:".1px", transition:"color .15s", whiteSpace:"nowrap" }}>{t.label}</span>
+      </button>
+    );
+  };
+
   return (
-    <div style={{ background:"#10131c", borderTop:"1px solid rgba(255,255,255,.07)", display:"flex", paddingBottom:"env(safe-area-inset-bottom,0px)" }}>
-      {tabs.map(t => {
-        const active = screen === t.id;
-        return (
-          <button key={t.id} onClick={() => setScreen(t.id)}
-            style={{ flex:1, background:"transparent", border:"none", borderTop:`2px solid ${active?"#c9a84c":"transparent"}`, padding:"9px 4px 7px", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:3, transition:"border-color .15s" }}>
-            <span style={{ fontSize:18, lineHeight:1, filter: active ? "none" : "grayscale(.4) opacity(.6)" }}>{t.icon}</span>
-            <span style={{ fontSize:10, fontWeight: active?700:500, color: active?"#c9a84c":"#4b5563", letterSpacing:".2px", transition:"color .15s" }}>{t.label}</span>
-          </button>
-        );
-      })}
+    <div style={{ background:"#10131c", borderTop:"1px solid rgba(255,255,255,.07)", paddingBottom:"env(safe-area-inset-bottom,0px)", flexShrink:0 }}>
+      <div style={{ display:"flex" }}>
+        {row1.map(t => <NavBtn key={t.id} t={t} />)}
+      </div>
+      <div style={{ height:1, background:"rgba(255,255,255,.05)", margin:"0 8px" }}/>
+      <div style={{ display:"flex" }}>
+        {row2.map(t => <NavBtn key={t.id} t={t} />)}
+      </div>
     </div>
   );
 }
@@ -1654,16 +1716,7 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
         </div>
       )}
 
-      {/* Accesos rápidos */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
-        {[["📅","Calendario","calendar"],["⚙️","Tácticas","tactics"],["💶","Finanzas","finances"]].map(([icon,label,id])=>(
-          <button key={id} onClick={()=>setScreen(id)}
-            style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:8, padding:"10px 4px", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-            <span style={{ fontSize:20 }}>{icon}</span>
-            <span style={{ fontSize:11, fontWeight:600, color:"#9aa0b4" }}>{label}</span>
-          </button>
-        ))}
-      </div>
+      {/* Accesos rápidos — ya están en la barra de navegación */}
     </div>
   );
 }
@@ -1681,8 +1734,8 @@ function SquadScreen({ players }) {
           </button>
         ))}
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 12 }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
           {shown.map(p => <PlayerCard key={p.id} player={p} />)}
         </div>
       </div>
@@ -1804,10 +1857,10 @@ function LineupScreen({ players, lineup, setLineup }) {
       </div>
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-        {/* Campo + lista jugadores */}
-        <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
-          {/* Campo */}
-          <div style={{ width:"52%", flexShrink:0, position:"relative", background:"#061206", borderRight:"1px solid rgba(255,255,255,.06)", overflow:"hidden" }}>
+        {/* Campo + lista jugadores - en móvil se apilan verticalmente */}
+        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          {/* Campo - altura fija en móvil */}
+          <div style={{ height:220, flexShrink:0, position:"relative", background:"#061206", borderBottom:"1px solid rgba(255,255,255,.06)", overflow:"hidden" }}>
             <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%" }} viewBox="0 0 100 100" preserveAspectRatio="none">
               <rect x="5" y="2" width="90" height="96" fill="none" stroke="rgba(255,255,255,.09)" strokeWidth=".8"/>
               <line x1="5" y1="50" x2="95" y2="50" stroke="rgba(255,255,255,.09)" strokeWidth=".8"/>
@@ -1836,8 +1889,8 @@ function LineupScreen({ players, lineup, setLineup }) {
             })}
           </div>
 
-          {/* Panel derecho: instrucción + filtros + jugadores */}
-          <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          {/* Panel de jugadores debajo del campo */}
+          <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", borderTop:"1px solid rgba(255,255,255,.05)" }}>
             {activeSlot && (
               <div style={{ background:"#c9a84c22", borderBottom:"1px solid #c9a84c44", padding:"7px 12px", flexShrink:0 }}>
                 <div style={{ fontSize:11, color:"#c9a84c", fontWeight:700 }}>
@@ -3047,20 +3100,14 @@ const SAVE_KEY = "legacy_manager_save";
 export default function App({ externalData, onReady }) {
   useGlobalStyles();
 
-  // Merge external data.json with built-in data
-  const resolvedData = resolveGameData(externalData);
-  // Patch REAL_SQUADS with external player data if available
-  if (externalData?.players) {
-    Object.assign(REAL_SQUADS, externalData.players);
-  }
-  // Patch TEAMS array with external team data if available
+  // Merge external data.json with built-in data if available
+  if (externalData?.players) Object.assign(REAL_SQUADS, externalData.players);
   if (externalData?.teams) {
     externalData.teams.forEach(et => {
       const idx = TEAMS.findIndex(t => t.id === et.id);
       if (idx !== -1) Object.assign(TEAMS[idx], et);
     });
   }
-
   const [screen, setScreen]       = useState("menu");
   const [game, setGame]           = useState(null);
   const [lineup, setLineup]       = useState(Array(11).fill(null));
@@ -3071,8 +3118,6 @@ export default function App({ externalData, onReady }) {
 
   useEffect(() => {
     try { if (localStorage.getItem(SAVE_KEY)) setHasSave(true); } catch (e) {}
-    // Signal to index.html that React is ready (hides loading spinner)
-    if (onReady) setTimeout(onReady, 100);
   }, []);
 
   const saveGame = useCallback((g) => {
