@@ -1582,8 +1582,8 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
   const nextFixture = game.fixtures.find(f => !f.played && (f.homeTeamId===game.teamId||f.awayTeamId===game.teamId));
   const lastResults = game.fixtures.filter(f => f.played && (f.homeTeamId===game.teamId||f.awayTeamId===game.teamId)).slice(-5);
   const players   = game.players;
-  const avgMorale  = Math.round(players.reduce((s,p)=>s+p.morale,0)/players.length);
-  const avgFatigue = Math.round(players.reduce((s,p)=>s+p.fatigue,0)/players.length);
+  const avgMorale  = Math.round(players.reduce((s,p) => s + (p.morale  ?? 75), 0) / Math.max(1, players.length));
+  const avgFatigue = Math.round(players.reduce((s,p) => s + (p.fatigue ?? 20), 0) / Math.max(1, players.length));
   const injured    = players.filter(p=>p.injured).length;
   const suspended  = players.filter(p=>p.suspended).length;
   const season     = game.season ?? "2025";
@@ -3108,12 +3108,7 @@ const SAVE_KEY = "legacy_manager_save";
 export default function App({ externalData }) {
   useGlobalStyles();
   if (externalData?.players) Object.assign(REAL_SQUADS, externalData.players);
-  if (externalData?.teams) {
-    externalData.teams.forEach(et => {
-      const idx = TEAMS.findIndex(t => t.id === et.id);
-      if (idx !== -1) Object.assign(TEAMS[idx], et);
-    });
-  }
+  if (externalData?.teams) { externalData.teams.forEach(et => { const idx=TEAMS.findIndex(t=>t.id===et.id); if(idx!==-1) Object.assign(TEAMS[idx],et); }); }
   const [screen, setScreen]       = useState("menu");
   const [game, setGame]           = useState(null);
   const [lineup, setLineup]       = useState(Array(11).fill(null));

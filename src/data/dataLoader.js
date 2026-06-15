@@ -61,14 +61,21 @@ export function resolveGameData(externalData) {
   const enrichedPlayers = {}
   teams.forEach(team => {
     enrichedPlayers[team.id] = (players[team.id] ?? []).map(p => ({
-      fatigue:    p.fatigue    ?? Math.floor(Math.random() * 20),
-      morale:     p.morale     ?? 70 + Math.floor(Math.random() * 25),
-      injured:    p.injured    ?? false,
-      injuryGames:p.injuryGames ?? 0,
-      suspended:  p.suspended  ?? false,
-      suspGames:  p.suspGames  ?? 0,
-      yellowCards:p.yellowCards ?? 0,
-      ...p, // datos del JSON tienen prioridad
+      // Estado de juego con valores por defecto seguros
+      fatigue:     typeof p.fatigue     === 'number' ? p.fatigue     : Math.floor(Math.random() * 20),
+      morale:      typeof p.morale      === 'number' ? p.morale      : 70 + Math.floor(Math.random() * 25),
+      injured:     p.injured    ?? false,
+      injuryGames: p.injuryGames ?? 0,
+      suspended:   p.suspended  ?? false,
+      suspGames:   p.suspGames  ?? 0,
+      yellowCards: p.yellowCards ?? 0,
+      salary:      p.salary ?? (p.overall >= 88 ? 250 : p.overall >= 84 ? 150 : p.overall >= 80 ? 90 : p.overall >= 76 ? 55 : p.overall >= 72 ? 30 : 16),
+      imageUrl:    p.imageUrl ?? '',
+      ...p, // datos del JSON tienen prioridad sobre los defaults
+      // Pero forzamos los numéricos a ser números válidos
+      fatigue:     typeof p.fatigue === 'number' && !isNaN(p.fatigue) ? p.fatigue : Math.floor(Math.random() * 20),
+      morale:      typeof p.morale  === 'number' && !isNaN(p.morale)  ? p.morale  : 70 + Math.floor(Math.random() * 25),
+      overall:     typeof p.overall === 'number' && !isNaN(p.overall) ? p.overall : 72,
     }))
   })
 
