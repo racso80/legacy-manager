@@ -1,8 +1,5 @@
 {
-  "_info": "Este archivo es opcional. Si existe, el juego carga los datos de aquí en lugar de los datos integrados en el bundle. Genéralo desde el Admin Panel de Legacy Manager.",
-  "_uso": "1. Abre el Admin Panel en Claude · 2. Edita equipos/jugadores · 3. Exporta data.json · 4. Reemplaza este archivo · 5. git push",
+  "_info": "Archivo vacío — el juego usa los datos integrados en el bundle. Para actualizar datos, exporta desde el Admin Panel y reemplaza este archivo.",
   "teams": [],
-  "players": {},
-  "exportedAt": null,
-  "version": "1.0"
+  "players": {}
 }

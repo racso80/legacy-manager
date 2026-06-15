@@ -3097,7 +3097,7 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
 
 const SAVE_KEY = "legacy_manager_save";
 
-export default function App({ externalData, onReady }) {
+export default function App({ externalData }) {
   useGlobalStyles();
 
   // Merge external data.json with built-in data if available
