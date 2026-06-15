@@ -988,48 +988,29 @@ function FinancesScreen({ game }) {
   const team    = TEAMS.find(t => t.id === game.teamId);
   const players = game.players;
   const matchday = game.matchday;
-
-  // Presupuesto inicial del equipo (en millones)
   const budgetTotal = team.budget;
-
-  // Masa salarial semanal (suma de salarios de todos los jugadores)
-  const weeklyWages = players.reduce((s, p) => s + (p.salary ?? 0), 0); // en €K
-  const monthlyWages = weeklyWages * 4;   // aproximado
-  const seasonWages  = weeklyWages * 38;  // 38 semanas (una por jornada)
-
-  // Ingresos estimados por jornada jugada
+  const weeklyWages = players.reduce((s, p) => s + (p.salary ?? 0), 0);
+  const monthlyWages = weeklyWages * 4;
+  const seasonWages  = weeklyWages * 38;
   const matchdaysPlayed = Math.max(0, matchday - 1);
-  const incomePerMatch  = Math.round(budgetTotal * 1000 * 0.02); // 2% del presupuesto por partido (€K)
+  const incomePerMatch  = Math.round(budgetTotal * 1000 * 0.02);
   const totalIncome     = matchdaysPlayed * incomePerMatch;
-
-  // Gasto total hasta ahora
   const totalWageSpent  = matchdaysPlayed * weeklyWages;
-
-  // Balance
   const balance = totalIncome - totalWageSpent;
   const balanceColor = balance >= 0 ? "#22c55e" : "#ef4444";
-
-  // Presupuesto disponible restante (del presupuesto inicial en €K)
   const budgetK       = budgetTotal * 1000;
   const budgetLeft    = budgetK - totalWageSpent + totalIncome;
   const budgetPct     = Math.max(0, Math.min(100, Math.round((budgetLeft / budgetK) * 100)));
   const budgetColor   = budgetPct >= 60 ? "#22c55e" : budgetPct >= 30 ? "#f59e0b" : "#ef4444";
-
-  // Top 5 salarios
   const topEarners = [...players].sort((a,b)=>(b.salary??0)-(a.salary??0)).slice(0,7);
-
-  // Desglose por grupo
   const groupWages = { POR:0, DEF:0, MED:0, DEL:0 };
   players.forEach(p => { if (groupWages[p.group] !== undefined) groupWages[p.group] += (p.salary??0); });
   const totalGroupWage = Object.values(groupWages).reduce((s,v)=>s+v,0);
-
-  const fmt = (v) => v >= 1000 ? `€${(v/1000).toFixed(1)}M` : `€${v}K`;
+  const fmt  = (v) => v >= 1000 ? `€${(v/1000).toFixed(1)}M` : `€${v}K`;
   const fmtW = (v) => `€${v}K/sem`;
 
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
-
-      {/* Balance general */}
       <div style={{ background:"#1a1f2e", border:"1px solid rgba(201,168,76,.2)", borderRadius:12, padding:16, marginBottom:14 }}>
         <div style={{ fontSize:11, color:"#c9a84c", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>BALANCE TEMPORADA</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
@@ -1055,19 +1036,16 @@ function FinancesScreen({ game }) {
             <div style={{ fontSize:10, color:"#4b5563", marginTop:2 }}>de {fmt(budgetK)} inicial</div>
           </div>
         </div>
-        {/* Barra presupuesto */}
         <div style={{ marginTop:10 }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
             <span style={{ fontSize:10, color:"#6b7280" }}>Presupuesto consumido</span>
             <span style={{ fontSize:10, color:budgetColor, fontWeight:700 }}>{budgetPct}% restante</span>
           </div>
           <div style={{ height:6, background:"#1e2330", borderRadius:3, overflow:"hidden" }}>
-            <div style={{ width:`${budgetPct}%`, height:"100%", background:budgetColor, borderRadius:3, transition:"width .3s" }}/>
+            <div style={{ width:`${budgetPct}%`, height:"100%", background:budgetColor, borderRadius:3 }}/>
           </div>
         </div>
       </div>
-
-      {/* Masa salarial */}
       <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:12 }}>
         <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>MASA SALARIAL</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:14 }}>
@@ -1078,7 +1056,6 @@ function FinancesScreen({ game }) {
             </div>
           ))}
         </div>
-        {/* Desglose por línea */}
         <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, marginBottom:8 }}>DESGLOSE POR LÍNEA</div>
         {Object.entries(groupWages).map(([group, wages]) => {
           const pct = totalGroupWage > 0 ? Math.round((wages/totalGroupWage)*100) : 0;
@@ -1097,8 +1074,6 @@ function FinancesScreen({ game }) {
           );
         })}
       </div>
-
-      {/* Top salarios */}
       <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:12 }}>
         <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>MAYORES SALARIOS</div>
         {topEarners.map((p, i) => {
@@ -1121,8 +1096,6 @@ function FinancesScreen({ game }) {
           );
         })}
       </div>
-
-      {/* Resumen rápido */}
       <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:4 }}>
         <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>RESUMEN DEL CLUB</div>
         {[
@@ -1143,6 +1116,298 @@ function FinancesScreen({ game }) {
   );
 }
 
+// ─── MERCADO DE FICHAJES ─────────────────────────────────────────────────────
+
+function TransferMarketScreen({ game, onTransfer }) {
+  const [tab, setTab]         = useState("comprar"); // comprar | vender | historial
+  const [filter, setFilter]   = useState({ pos:"", min:60, max:99, search:"" });
+  const [selected, setSelected] = useState(null); // jugador seleccionado para fichar
+  const [selling, setSelling]   = useState(null); // jugador propio a vender
+  const [confirm, setConfirm]   = useState(null); // {type:"buy"|"sell", player}
+
+  const team    = TEAMS.find(t => t.id === game.teamId);
+  const players = game.players;
+  const matchday = game.matchday;
+
+  // Presupuesto disponible (igual que en finanzas)
+  const budgetK      = (team.budget ?? 50) * 1000;
+  const weeklyWages  = players.reduce((s,p) => s + (p.salary ?? 0), 0);
+  const matchPlayed  = Math.max(0, matchday - 1);
+  const income       = matchPlayed * Math.round(budgetK * 0.02);
+  const wages        = matchPlayed * weeklyWages;
+  const budgetLeft   = Math.round(budgetK - wages + income);
+  const fmt          = v => v >= 1000 ? `€${(v/1000).toFixed(1)}M` : `€${v}K`;
+
+  // Valor de mercado = media * 500K aproximado (simplificado)
+  const marketValue  = p => {
+    const base = p.overall >= 88 ? 80000 : p.overall >= 84 ? 50000 : p.overall >= 80 ? 30000
+               : p.overall >= 76 ? 18000 : p.overall >= 72 ? 10000 : p.overall >= 68 ? 5000 : 2000;
+    const ageMod = p.age <= 23 ? 1.4 : p.age <= 27 ? 1.2 : p.age <= 30 ? 1.0 : p.age <= 33 ? 0.7 : 0.4;
+    return Math.round(base * ageMod);
+  };
+
+  // Salario sugerido al fichar
+  const suggestedSalary = p => p.salary ?? (
+    p.overall >= 88 ? 250 : p.overall >= 84 ? 150 : p.overall >= 80 ? 90
+    : p.overall >= 76 ? 55 : p.overall >= 72 ? 30 : 16
+  );
+
+  // Jugadores disponibles en el mercado (de otros equipos, filtrados)
+  const allOtherPlayers = TEAMS
+    .filter(t => t.id !== game.teamId)
+    .flatMap(t => (REAL_SQUADS[t.id] ?? []).map(p => ({ ...p, _teamId: t.id, _teamName: t.name, _teamColor: t.color })));
+
+  const marketPlayers = allOtherPlayers.filter(p => {
+    if (filter.search && !p.name.toLowerCase().includes(filter.search.toLowerCase())) return false;
+    if (filter.pos && p.pos !== filter.pos) return false;
+    if (p.overall < filter.min || p.overall > filter.max) return false;
+    return true;
+  }).sort((a,b) => b.overall - a.overall).slice(0, 60);
+
+  // Historial de fichajes
+  const history = game.transfers ?? [];
+
+  const canAfford = p => budgetLeft >= marketValue(p);
+
+  const doBuy = (player) => {
+    const cost   = marketValue(player);
+    const salary = suggestedSalary(player);
+    if (budgetLeft < cost) return;
+    onTransfer({
+      type: "buy",
+      player: { ...player, fatigue:15, morale:75, injured:false, injuryGames:0,
+                suspended:false, suspGames:0, yellowCards:0, salary },
+      cost, salary,
+      fromTeamId: player._teamId,
+    });
+    setConfirm(null); setSelected(null);
+  };
+
+  const doSell = (player) => {
+    const value = marketValue(player);
+    onTransfer({ type:"sell", player, value });
+    setConfirm(null); setSelling(null);
+  };
+
+  const POSITIONS = ['','POR','DFC','LD','LI','MCD','MC','MCO','ED','EI','DC'];
+  const acc = (p) => RARITY_ACCENT[p.rarity] ?? "#9aa0b4";
+
+  return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+
+      {/* Presupuesto header */}
+      <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"10px 14px", flexShrink:0 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div>
+            <div style={{ fontSize:10, color:"#6b7280", fontWeight:600, letterSpacing:".4px" }}>PRESUPUESTO DISPONIBLE</div>
+            <div style={{ fontSize:22, fontWeight:800, color: budgetLeft > 0 ? "#22c55e" : "#ef4444", marginTop:2 }}>{fmt(budgetLeft)}</div>
+          </div>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:10, color:"#6b7280" }}>Masa salarial semanal</div>
+            <div style={{ fontSize:14, fontWeight:600, color:"#f59e0b" }}>{fmt(weeklyWages)}/sem</div>
+          </div>
+        </div>
+        {/* Barra presupuesto */}
+        <div style={{ height:3, background:"#1e2330", borderRadius:2, marginTop:8, overflow:"hidden" }}>
+          <div style={{ width:`${Math.max(0,Math.min(100,Math.round((budgetLeft/budgetK)*100)))}%`, height:"100%",
+            background: budgetLeft > budgetK*0.5 ? "#22c55e" : budgetLeft > budgetK*0.2 ? "#f59e0b" : "#ef4444", borderRadius:2 }}/>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display:"flex", background:"#161a24", borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
+        {[["comprar","🛒 Comprar"],["vender","💰 Vender"],["historial","📋 Historial"]].map(([id,label])=>(
+          <button key={id} onClick={()=>setTab(id)}
+            style={{ flex:1, background:"transparent", border:"none", borderBottom:tab===id?"2px solid #c9a84c":"2px solid transparent",
+              color:tab===id?"#c9a84c":"#6b7280", padding:"9px 6px", fontSize:12, fontWeight:tab===id?700:500, cursor:"pointer" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* COMPRAR */}
+      {tab === "comprar" && (
+        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          {/* Filtros */}
+          <div style={{ padding:"8px 12px", background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
+            <div style={{ display:"flex", gap:6 }}>
+              <input value={filter.search} onChange={e=>setFilter(f=>({...f,search:e.target.value}))}
+                placeholder="🔍 Buscar jugador..."
+                style={{ flex:2, background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", padding:"6px 9px", borderRadius:6, fontSize:12, fontFamily:"inherit" }}/>
+              <select value={filter.pos} onChange={e=>setFilter(f=>({...f,pos:e.target.value}))}
+                style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", padding:"6px 8px", borderRadius:6, fontSize:11, fontFamily:"inherit" }}>
+                {POSITIONS.map(p=><option key={p} value={p}>{p||"Pos"}</option>)}
+              </select>
+              <select value={`${filter.min}-${filter.max}`} onChange={e=>{
+                const [mn,mx]=e.target.value.split('-').map(Number);
+                setFilter(f=>({...f,min:mn,max:mx}));
+              }} style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", padding:"6px 8px", borderRadius:6, fontSize:11, fontFamily:"inherit" }}>
+                <option value="60-99">Media</option>
+                <option value="85-99">85-99 ⭐</option>
+                <option value="80-84">80-84</option>
+                <option value="75-79">75-79</option>
+                <option value="70-74">70-74</option>
+                <option value="60-69">&lt;70</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ flex:1, overflowY:"auto", padding:"10px 12px" }}>
+            <div style={{ fontSize:10, color:"#6b7280", marginBottom:8, fontWeight:600 }}>{marketPlayers.length} JUGADORES DISPONIBLES</div>
+            {marketPlayers.map(p => {
+              const val   = marketValue(p);
+              const can   = budgetLeft >= val;
+              const alreadyOwned = players.some(pl => pl.id === p.id);
+              return (
+                <div key={p.id} onClick={()=>!alreadyOwned&&setSelected(p)}
+                  style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", marginBottom:6,
+                    background: selected?.id===p.id ? "rgba(201,168,76,.1)" : "#161a24",
+                    border:`1px solid ${selected?.id===p.id?"#c9a84c44":alreadyOwned?"rgba(34,197,94,.2)":"rgba(255,255,255,.06)"}`,
+                    borderRadius:9, cursor: alreadyOwned ? "default" : "pointer", opacity: alreadyOwned ? .6 : 1 }}>
+                  {/* Media */}
+                  <div style={{ width:36, height:36, borderRadius:8, background:`${acc(p)}22`, display:"flex", alignItems:"center",
+                    justifyContent:"center", fontSize:14, fontWeight:800, color:acc(p), flexShrink:0 }}>{p.overall}</div>
+                  {/* Info */}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color: alreadyOwned?"#22c55e":"#e8eaf0",
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {p.name} {alreadyOwned?"✓":""}
+                    </div>
+                    <div style={{ fontSize:10, color:"#6b7280", marginTop:1 }}>
+                      {p.pos} · {p.age}a · <span style={{ color:p._teamColor }}>{p._teamName}</span>
+                    </div>
+                  </div>
+                  {/* Valor */}
+                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color: can?"#22c55e":"#ef4444" }}>{fmt(val)}</div>
+                    <div style={{ fontSize:9, color:"#4b5563" }}>{fmt(suggestedSalary(p))}/sem</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Panel de fichar */}
+          {selected && (
+            <div style={{ background:"#1a1f2e", borderTop:"1px solid rgba(201,168,76,.2)", padding:"12px 14px", flexShrink:0 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+                <div style={{ width:40, height:40, borderRadius:9, background:`${acc(selected)}22`,
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, fontWeight:800, color:acc(selected) }}>{selected.overall}</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf0" }}>{selected.name}</div>
+                  <div style={{ fontSize:11, color:"#6b7280" }}>{selected.pos} · {selected.age}a · {selected._teamName}</div>
+                </div>
+                <button onClick={()=>setSelected(null)}
+                  style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#6b7280", cursor:"pointer", padding:"4px 8px", borderRadius:5, fontSize:12 }}>✕</button>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+                {[["Valor de mercado",fmt(marketValue(selected))],["Salario semanal",fmt(suggestedSalary(selected))+"/sem"],
+                  ["Presupuesto disp.",fmt(budgetLeft)],["Tras fichaje",fmt(budgetLeft-marketValue(selected))]
+                ].map(([l,v])=>(
+                  <div key={l} style={{ background:"#0d0f14", borderRadius:7, padding:"8px 10px" }}>
+                    <div style={{ fontSize:9, color:"#6b7280", fontWeight:600 }}>{l.toUpperCase()}</div>
+                    <div style={{ fontSize:13, fontWeight:700, color: l==="Tras fichaje"&&budgetLeft<marketValue(selected)?"#ef4444":"#e8eaf0", marginTop:2 }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={()=>canAfford(selected)?doBuy(selected):null}
+                className={canAfford(selected)?"btn-gold":""}
+                style={{ width:"100%", padding:12, borderRadius:8, fontSize:14, fontWeight:700, cursor:"pointer",
+                  ...(canAfford(selected)?{}:{background:"#374151",color:"#6b7280",border:"1px solid rgba(255,255,255,.08)"}) }}>
+                {canAfford(selected) ? `✓ Fichar a ${selected.name}` : "❌ Presupuesto insuficiente"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* VENDER */}
+      {tab === "vender" && (
+        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          <div style={{ flex:1, overflowY:"auto", padding:"10px 12px" }}>
+            <div style={{ fontSize:10, color:"#6b7280", marginBottom:8, fontWeight:600 }}>TU PLANTILLA — {players.length} JUGADORES</div>
+            {[...players].sort((a,b)=>b.overall-a.overall).map(p => {
+              const val = marketValue(p);
+              return (
+                <div key={p.id} onClick={()=>setSelling(selling?.id===p.id?null:p)}
+                  style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", marginBottom:6,
+                    background: selling?.id===p.id?"rgba(239,68,68,.08)":"#161a24",
+                    border:`1px solid ${selling?.id===p.id?"#ef444444":"rgba(255,255,255,.06)"}`,
+                    borderRadius:9, cursor:"pointer" }}>
+                  <div style={{ width:36, height:36, borderRadius:8, background:`${acc(p)}22`,
+                    display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:800, color:acc(p), flexShrink:0 }}>{p.overall}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
+                    <div style={{ fontSize:10, color:"#6b7280", marginTop:1 }}>{p.pos} · {p.age}a · {fmt(p.salary??0)}/sem</div>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:"#22c55e" }}>{fmt(val)}</div>
+                    <div style={{ fontSize:9, color:"#4b5563" }}>Valor</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {selling && (
+            <div style={{ background:"#1a1f2e", borderTop:"1px solid rgba(239,68,68,.2)", padding:"12px 14px", flexShrink:0 }}>
+              <div style={{ fontSize:12, color:"#9aa0b4", marginBottom:8 }}>
+                Vender <strong style={{ color:"#e8eaf0" }}>{selling.name}</strong> por <strong style={{ color:"#22c55e" }}>{fmt(marketValue(selling))}</strong>
+              </div>
+              <div style={{ fontSize:11, color:"#6b7280", marginBottom:10 }}>
+                Presupuesto tras venta: <span style={{ color:"#22c55e", fontWeight:700 }}>{fmt(budgetLeft + marketValue(selling))}</span>
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={()=>setSelling(null)} className="btn-ghost"
+                  style={{ flex:1, padding:10, borderRadius:8, fontSize:13, cursor:"pointer" }}>Cancelar</button>
+                <button onClick={()=>doSell(selling)}
+                  style={{ flex:1, padding:10, borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer",
+                    background:"linear-gradient(135deg,#22c55e,#16a34a)", color:"#fff", border:"none" }}>
+                  💰 Confirmar venta
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* HISTORIAL */}
+      {tab === "historial" && (
+        <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
+          {history.length === 0 ? (
+            <div style={{ textAlign:"center", color:"#4b5563", padding:"40px 0", fontSize:13 }}>
+              Aún no has realizado ningún fichaje.<br/>Busca jugadores en la pestaña Comprar.
+            </div>
+          ) : (
+            history.map((t,i)=>{
+              const isBuy = t.type === "buy";
+              return (
+                <div key={i} style={{ background:"#161a24", border:`1px solid ${isBuy?"rgba(201,168,76,.2)":"rgba(34,197,94,.2)"}`,
+                  borderRadius:9, padding:"12px 14px", marginBottom:8 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <div style={{ width:32, height:32, borderRadius:7, background:isBuy?"rgba(201,168,76,.15)":"rgba(34,197,94,.15)",
+                      display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>
+                      {isBuy?"🛒":"💰"}
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:"#e8eaf0" }}>{t.player.name}</div>
+                      <div style={{ fontSize:10, color:"#6b7280" }}>{t.player.pos} · J{t.matchday}</div>
+                    </div>
+                    <div style={{ textAlign:"right" }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:isBuy?"#ef4444":"#22c55e" }}>
+                        {isBuy?"-":"+"}{ fmt(isBuy?t.cost:t.value)}
+                      </div>
+                      <div style={{ fontSize:9, color:"#4b5563" }}>{isBuy?"Coste":"Ingreso"}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 function BottomNav({ screen, setScreen, disabled }) {
   const row1 = [
     { id: "dashboard",  icon: "🏠", label: "Inicio" },
@@ -1153,6 +1418,7 @@ function BottomNav({ screen, setScreen, disabled }) {
   ];
   const row2 = [
     { id: "standings",  icon: "🏆", label: "Clasificación" },
+    { id: "transfers",  icon: "🔄", label: "Fichajes" },
     { id: "finances",   icon: "💶", label: "Finanzas" },
   ];
   if (disabled) return null;
@@ -3285,12 +3551,49 @@ export default function App({ externalData }) {
     setScreen("dashboard");
   };
 
+  const handleTransfer = ({ type, player, cost, salary, value, fromTeamId }) => {
+    setGame(prev => {
+      const team = TEAMS.find(t => t.id === prev.teamId);
+      const budgetK = (team.budget ?? 50) * 1000;
+      const matchPlayed = Math.max(0, prev.matchday - 1);
+      const weeklyWages = prev.players.reduce((s,p) => s + (p.salary ?? 0), 0);
+      const income = matchPlayed * Math.round(budgetK * 0.02);
+      const wages  = matchPlayed * weeklyWages;
+      const budgetLeft = budgetK - wages + income;
+
+      let newPlayers = [...prev.players];
+
+      if (type === "buy") {
+        if (budgetLeft < cost) return prev; // no money
+        // Add player with new salary and state fields
+        const newPlayer = { ...player, salary, fatigue:15, morale:75,
+          injured:false, injuryGames:0, suspended:false, suspGames:0, yellowCards:0 };
+        newPlayers = [...newPlayers, newPlayer];
+        // Reduce team budget permanently
+        const teamIdx = TEAMS.findIndex(t => t.id === prev.teamId);
+        if (teamIdx !== -1) TEAMS[teamIdx].budget = Math.max(0, Math.round((budgetLeft - cost) / 1000));
+      } else if (type === "sell") {
+        newPlayers = newPlayers.filter(p => p.id !== player.id);
+        // Add sale value to budget
+        const teamIdx = TEAMS.findIndex(t => t.id === prev.teamId);
+        if (teamIdx !== -1) TEAMS[teamIdx].budget = Math.round((budgetLeft + value) / 1000);
+      }
+
+      const newTransfer = { type, player, cost, salary, value, fromTeamId,
+        matchday: prev.matchday };
+      const newGame = { ...prev, players: newPlayers,
+        transfers: [...(prev.transfers ?? []), newTransfer] };
+      saveGame(newGame, lineup);
+      return newGame;
+    });
+  };
+
   const headerTitle = {
     menu: null, teams: "Elige tu equipo", dashboard: "Mi Club",
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Fin de Temporada",
+    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes",
   };
   const showNav = !["menu","teams","match","summary","seasonEnd"].includes(screen);
   const inGame  = !["menu","teams"].includes(screen);
@@ -3334,6 +3637,7 @@ export default function App({ externalData }) {
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
+          {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} />}
           {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} lineup={lineup} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonEndScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} />}
