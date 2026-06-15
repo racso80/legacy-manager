@@ -700,7 +700,7 @@ function goalDesc(scorer, tactics, team) {
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics = DEFAULT_TACTICS) {
+function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics = DEFAULT_TACTICS, userIsHome = true) {
   const events = [];
   const mod    = tacticModifiers(tactics);
   const diff   = userStr - oppStr;
@@ -728,7 +728,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
     if (Math.random() < hGoalConv) {
       const isPenalty = Math.random() < 0.09;
       events.push({
-        minute: min(), type: isPenalty ? "PENALTY" : "GOAL", team: "home", playerId: scorer?.id,
+        minute: min(), type: isPenalty ? "PENALTY" : "GOAL", team: "user", playerId: scorer?.id,
         description: isPenalty
           ? `¡PENALTI! ${scorer?.name ?? "Delantero"} transforma desde los once metros. ⚽`
           : `⚽ GOL — ${goalDesc(scorer, tactics, "home")}`,
@@ -736,7 +736,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
     } else {
       const creator = pick([...mids, ...attackers].filter(Boolean));
       events.push({
-        minute: min(), type: "BIG_CHANCE", team: "home",
+        minute: min(), type: "BIG_CHANCE", team: "user",
         description: pick([
           `Ocasión clara de ${scorer?.name ?? "local"}. El disparo se va rozando el palo.`,
           `${creator?.name ?? "El centrocampista"} mete un pase de gol pero el portero adivina la esquina.`,
@@ -750,7 +750,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   if (Math.random() < aChanceProb) {
     if (Math.random() < aGoalConv) {
       events.push({
-        minute: min(), type: "GOAL", team: "away",
+        minute: min(), type: "GOAL", team: "opp",
         description: pick([
           `⚽ GOL VISITANTE — El rival sorprende con un disparo lejano inapelable.`,
           `⚽ GOL VISITANTE — Contragolpe letal, el delantero rival marca.`,
@@ -759,7 +759,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
       });
     } else {
       events.push({
-        minute: min(), type: "BIG_CHANCE", team: "away",
+        minute: min(), type: "BIG_CHANCE", team: "opp",
         description: pick([
           `El visitante falla una ocasión clarísima ante el portero.`,
           gk ? `¡Paradón de ${gk.name}! Mantiene el resultado vivo.` : `El portero lo para in extremis.`,
@@ -772,7 +772,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   // ── PARADA DESTACADA ──
   if (Math.random() < 0.12 + (tactics.mentalidad === "defensiva" ? 0.06 : 0) && gk) {
     events.push({
-      minute: min(), type: "SAVE", team: "home",
+      minute: min(), type: "SAVE", team: "user",
       description: pick([
         `🧤 Gran parada de ${gk.name}. El equipo le debe los tres puntos.`,
         `🧤 ${gk.name} vuela a su derecha y despeja el peligro.`,
@@ -786,7 +786,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   if (Math.random() < yellowBaseHome && allField.length) {
     const carded = pick(tactics.presion === "alta" ? (defs.length ? defs : allField) : allField);
     events.push({
-      minute: min(), type: "YELLOW", team: "home", playerId: carded?.id,
+      minute: min(), type: "YELLOW", team: "user", playerId: carded?.id,
       description: pick([
         `🟡 Tarjeta amarilla para ${carded?.name ?? "el jugador local"} por una entrada imprudente.`,
         `🟡 ${carded?.name ?? "El jugador"} llega tarde y ve la amarilla.`,
@@ -798,7 +798,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   // ── TARJETA AMARILLA VISITANTE ──
   if (Math.random() < 0.14) {
     events.push({
-      minute: min(), type: "YELLOW", team: "away",
+      minute: min(), type: "YELLOW", team: "opp",
       description: pick([
         `🟡 Tarjeta amarilla para el centrocampista visitante por una falta táctica.`,
         `🟡 El defensa visitante corta un contragolpe y ve la amarilla.`,
@@ -813,12 +813,12 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
     if (side === "home" && allField.length) {
       const sent = pick(allField);
       events.push({
-        minute: min(), type: "RED", team: "home", playerId: sent?.id,
+        minute: min(), type: "RED", team: "user", playerId: sent?.id,
         description: `🟥 ¡ROJA para ${sent?.name ?? "el local"}! El equipo se queda con diez.`,
       });
     } else {
       events.push({
-        minute: min(), type: "RED", team: "away",
+        minute: min(), type: "RED", team: "opp",
         description: `🟥 ¡ROJA para el visitante! Entrada temeraria y el árbitro no duda.`,
       });
     }
@@ -834,7 +834,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
     const injured   = Math.random() < 0.6 ? fatSorted[0] : pick(allField);
     const games     = pick([1, 1, 2, 3]);
     events.push({
-      minute: min(), type: "INJURY", team: "home", playerId: injured?.id, injuryGames: games,
+      minute: min(), type: "INJURY", team: "user", playerId: injured?.id, injuryGames: games,
       description: `🚑 Lesión de ${injured?.name ?? "el jugador"}. Tendrá que retirarse del campo.`,
     });
   }
@@ -2138,11 +2138,12 @@ function StandingsScreen({ standings, teamId, fixtures, players }) {
   // ── Goleadores: extraer de todos los eventos de fixtures jugados ──
   const scorerMap = {};  // playerId → { goals, name, teamId, overall, rarity, pos }
   fixtures.filter(f => f.played && f.events?.length).forEach(f => {
-    f.events.filter(e => (e.type==="GOAL"||e.type==="PENALTY") && e.team==="home" && e.playerId).forEach(e => {
+    f.events.filter(e => (e.type==="GOAL"||e.type==="PENALTY") && e.playerId).forEach(e => {
+      // team:"home" → fixture.homeTeamId, team:"away" → fixture.awayTeamId
+      const scoringTeamId = e.team === "home" ? f.homeTeamId : f.awayTeamId;
       if (!scorerMap[e.playerId]) {
-        // Buscar jugador en players (solo del equipo del usuario); para el resto inventar nombre del evento
         const pl = players?.find(p => p.id===e.playerId);
-        scorerMap[e.playerId] = { goals:0, name: pl?.name ?? "Jugador", teamId: f.homeTeamId, overall: pl?.overall??75, rarity: pl?.rarity??"GOLD", pos: pl?.pos??"DC", isUser: f.homeTeamId===teamId };
+        scorerMap[e.playerId] = { goals:0, name: pl?.name ?? "Jugador", teamId: scoringTeamId, overall: pl?.overall??75, rarity: pl?.rarity??"GOLD", pos: pl?.pos??"DC", isUser: scoringTeamId===teamId };
       }
       scorerMap[e.playerId].goals++;
     });
@@ -2490,7 +2491,7 @@ function TacticsScreen({ tactics, setTactics }) {
   );
 }
 
-function MatchScreen({ game, tactics, onMatchEnd }) {
+function MatchScreen({ game, tactics, lineup, onMatchEnd }) {
   const [segment, setSegment]   = useState(0);
   const [events, setEvents]     = useState([]);
   const [score, setScore]       = useState({ home: 0, away: 0 });
@@ -2517,12 +2518,21 @@ function MatchScreen({ game, tactics, onMatchEnd }) {
     const userStr = calcTeamStrength(livePlayer, isHome, tactics);
     const oppAvg  = TEAM_REAL_AVG[oppTeamId] ?? oppTeam.avg;
     const oppStr  = oppAvg + (Math.random() * 8 - 4);
-    const newEvs  = generateSegmentEvents(segment, livePlayer, userStr, oppStr, score, tactics);
+    const starterIds = lineup.filter(Boolean);
+    const starterPlayers = starterIds.length > 0
+      ? livePlayer.filter(p => starterIds.includes(p.id))
+      : livePlayer.filter(p => !p.injured && !p.suspended);
+    const newEvs  = generateSegmentEvents(segment, starterPlayers, userStr, oppStr, score, tactics, isHome);
 
     let hDelta = 0, aDelta = 0;
     newEvs.forEach(e => {
       if (e.type === "GOAL" || e.type === "PENALTY") {
-        if (e.team === "home") hDelta++; else aDelta++;
+        // e.team:"user" = user scored, e.team:"opp" = opponent scored
+        // Convert to home/away for score tracking
+        const scoringHome = (e.team === "user") === isHome;
+        if (scoringHome) hDelta++; else aDelta++;
+        // Normalize team for event storage
+        e.team = scoringHome ? "home" : "away";
       }
     });
 
@@ -2553,13 +2563,16 @@ function MatchScreen({ game, tactics, onMatchEnd }) {
   const avgFatigue = Math.round(livePlayer.filter(p=>!p.injured).reduce((s,p)=>s+p.fatigue,0) / Math.max(1,livePlayer.filter(p=>!p.injured).length));
   const fatColor   = avgFatigue <= 40 ? "#22c55e" : avgFatigue <= 65 ? "#f59e0b" : "#ef4444";
 
-  // Si el usuario es local → aparece a la IZQUIERDA; si visitante → a la DERECHA
-  const leftTeam  = isHome ? userTeam  : oppTeam;
-  const rightTeam = isHome ? oppTeam   : userTeam;
-  const leftGoals  = score.home;  // home siempre a la izquierda en el marcador
+  // El equipo LOCAL siempre a la IZQUIERDA, VISITANTE a la DERECHA
+  // score.home = goles del equipo que juega en casa (fixture.homeTeamId)
+  const homeTeam   = TEAMS.find(t => t.id === fixture.homeTeamId);
+  const awayTeam   = TEAMS.find(t => t.id === fixture.awayTeamId);
+  const leftTeam   = homeTeam;   // izquierda = local
+  const rightTeam  = awayTeam;   // derecha = visitante
+  const leftGoals  = score.home;
   const rightGoals = score.away;
-  const leftIsUser  = isHome;
-  const rightIsUser = !isHome;
+  const leftIsUser  = isHome;    // usuario es local → resaltado a la izquierda
+  const rightIsUser = !isHome;   // usuario es visitante → resaltado a la derecha
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -2571,14 +2584,14 @@ function MatchScreen({ game, tactics, onMatchEnd }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
           <div style={{ flex: 1, textAlign: "right" }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: leftIsUser ? "#c9a84c" : "#e8eaf0" }}>{leftTeam?.short}</div>
-            <div style={{ fontSize: 10, color: "#6b7280" }}>{leftIsUser ? "🏠 Local" : "Visitante"}</div>
+            <div style={{ fontSize: 10, color: "#6b7280" }}>🏠 Local{leftIsUser ? " ★" : ""}</div>
           </div>
           <div style={{ background: "#0d0f14", padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(201,168,76,.25)" }}>
             <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: 4, color: "#e8eaf0" }}>{leftGoals} - {rightGoals}</div>
           </div>
           <div style={{ flex: 1, textAlign: "left" }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: rightIsUser ? "#c9a84c" : "#e8eaf0" }}>{rightTeam?.short}</div>
-            <div style={{ fontSize: 10, color: "#6b7280" }}>{rightIsUser ? "✈️ Visitante" : "🏠 Local"}</div>
+            <div style={{ fontSize: 10, color: "#6b7280" }}>✈️ Visitante{rightIsUser ? " ★" : ""}</div>
           </div>
         </div>
         {/* Barra de tramos + stats rápidas */}
@@ -3113,14 +3126,32 @@ export default function App({ externalData }) {
     try { if (localStorage.getItem(SAVE_KEY)) setHasSave(true); } catch (e) {}
   }, []);
 
-  const saveGame = useCallback((g) => {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(g)); setHasSave(true); } catch (e) {}
-  }, []);
+  // Auto-guardar alineación cuando cambia
+  useEffect(() => {
+    if (!game) return;
+    saveGame(game, lineup);
+  }, [lineup]);
+
+  const saveGame = useCallback((g, lineupToSave) => {
+    try {
+      const toSave = { ...g, _lineup: lineupToSave !== undefined ? lineupToSave : lineup };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(toSave));
+      setHasSave(true);
+    } catch (e) {}
+  }, [lineup]);
 
   const loadGame = () => {
     try {
       const saved = localStorage.getItem(SAVE_KEY);
-      if (saved) { setGame(JSON.parse(saved)); setScreen("dashboard"); }
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed._lineup) {
+          setLineup(parsed._lineup);
+          delete parsed._lineup;
+        }
+        setGame(parsed);
+        setScreen("dashboard");
+      }
     } catch (e) {}
   };
 
@@ -3308,7 +3339,7 @@ export default function App({ externalData }) {
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
-          {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} onMatchEnd={handleMatchEnd} />}
+          {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} lineup={lineup} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonEndScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} />}
         </ScreenWrapper>
