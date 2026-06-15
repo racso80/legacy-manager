@@ -1197,18 +1197,21 @@ const GLOBAL_CSS = `
   @keyframes goalPop { 0% { transform:scale(1); } 40% { transform:scale(1.15); } 100% { transform:scale(1); } }
   @keyframes bounceIn { 0% { transform:scale(.8); opacity:0; } 60% { transform:scale(1.05); opacity:1; } 100% { transform:scale(1); } }
 
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  /* Asegura que todo ocupe el ancho correcto sin desbordar */
+  html, body { width: 100%; overflow: hidden; }
+  #root { width: 100%; max-width: 540px; }
+
+  /* Scrollbar fino */
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(201,168,76,.25); border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(201,168,76,.45); }
+  ::-webkit-scrollbar-thumb { background: rgba(201,168,76,.2); border-radius: 2px; }
 
   input::placeholder { color: #4b5563; }
   input:focus { outline: none; }
 
-  .screen-enter { animation: fadeIn .22s ease both; }
-  .screen-enter-up { animation: slideUp .22s ease both; }
+  .screen-enter { animation: fadeIn .2s ease both; }
 
   .btn-gold {
     background: linear-gradient(135deg,#c9a84c,#e8c96a);
@@ -1217,17 +1220,16 @@ const GLOBAL_CSS = `
     transition: transform .15s, box-shadow .15s, filter .15s;
     box-shadow: 0 4px 14px rgba(201,168,76,.3);
   }
-  .btn-gold:hover  { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(201,168,76,.45); filter: brightness(1.05); }
-  .btn-gold:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(201,168,76,.25); }
+  .btn-gold:hover  { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(201,168,76,.45); }
+  .btn-gold:active { transform: translateY(0); }
 
   .btn-ghost {
     background: rgba(255,255,255,.04); color: #e8eaf0;
     border: 1px solid rgba(255,255,255,.1); border-radius: 10px;
     font-weight: 600; cursor: pointer;
-    transition: background .15s, border-color .15s;
+    transition: background .15s;
   }
-  .btn-ghost:hover  { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
-  .btn-ghost:active { background: rgba(255,255,255,.03); }
+  .btn-ghost:hover { background: rgba(255,255,255,.08); }
 
   .card-hover { transition: transform .15s, box-shadow .15s; }
   .card-hover:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.4); }
@@ -1235,15 +1237,8 @@ const GLOBAL_CSS = `
   .goal-event { animation: goalPop .4s ease; }
   .bounce-in  { animation: bounceIn .35s cubic-bezier(.34,1.56,.64,1) both; }
 
-  .tab-active { border-bottom: 2px solid #c9a84c !important; color: #c9a84c !important; }
-  .tab-inactive { border-bottom: 2px solid transparent; color: #6b7280; }
-
-  .filter-active { background: #c9a84c !important; color: #1a1200 !important; }
-  .filter-inactive { background: #1e2330; color: #9aa0b4; }
-  .filter-inactive:hover { background: #252d3d; color: #e8eaf0; }
-
-  .rarity-special-glow { box-shadow: 0 0 16px rgba(196,181,253,.35); }
-  .rarity-gold-glow    { box-shadow: 0 0 12px rgba(201,168,76,.25); }
+  .rarity-special-glow { box-shadow: 0 0 14px rgba(196,181,253,.3); }
+  .rarity-gold-glow    { box-shadow: 0 0 10px rgba(201,168,76,.2); }
 `;
 
 function useGlobalStyles() {
@@ -1262,7 +1257,7 @@ function useGlobalStyles() {
 // Wrapper con animación de entrada para cada pantalla
 function ScreenWrapper({ children, animKey }) {
   return (
-    <div key={animKey} className="screen-enter" style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div key={animKey} className="screen-enter" style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minHeight:0 }}>
       {children}
     </div>
   );
@@ -1734,8 +1729,8 @@ function SquadScreen({ players }) {
           </button>
         ))}
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "12px 10px", boxSizing: "border-box" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, width: "100%" }}>
           {shown.map(p => <PlayerCard key={p.id} player={p} />)}
         </div>
       </div>
@@ -3099,8 +3094,6 @@ const SAVE_KEY = "legacy_manager_save";
 
 export default function App({ externalData }) {
   useGlobalStyles();
-
-  // Merge external data.json with built-in data if available
   if (externalData?.players) Object.assign(REAL_SQUADS, externalData.players);
   if (externalData?.teams) {
     externalData.teams.forEach(et => {
@@ -3277,7 +3270,7 @@ export default function App({ externalData }) {
   const inGame  = !["menu","teams"].includes(screen);
 
   return (
-    <div style={{ background:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:600, maxWidth:540, margin:"0 auto", display:"flex", flexDirection:"column", borderRadius:12, overflow:"hidden" }}>
+    <div style={{ background:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:540, margin:"0 auto", display:"flex", flexDirection:"column" }}>
       {screen !== "menu" && (
         <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"11px 14px", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
           {(inGame && screen !== "dashboard") && (
