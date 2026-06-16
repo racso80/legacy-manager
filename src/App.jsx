@@ -1408,6 +1408,7 @@ function TransferMarketScreen({ game, onTransfer }) {
     </div>
   );
 }
+
 function BottomNav({ screen, setScreen, disabled }) {
   const row1 = [
     { id: "dashboard",  icon: "🏠", label: "Inicio" },
@@ -2004,8 +2005,7 @@ function SquadScreen({ players }) {
   );
 }
 
-function LineupScreen({ players, lineup, setLineup }) {
-  const [formation, setFormation] = useState("4-3-3");
+function LineupScreen({ players, lineup, setLineup, formation, setFormation }) {
   const [activeSlot, setActiveSlot] = useState(null); // null | {type:'starter',idx} | {type:'sub',idx}
   const [subs, setSubs] = useState(Array(7).fill(null));
   const [filter, setFilter] = useState("ALL");
@@ -2031,11 +2031,11 @@ function LineupScreen({ players, lineup, setLineup }) {
       {slot:9,x:65,y:24},{slot:10,x:35,y:24},
     ],
     "4-2-3-1": [
-      {slot:0,x:50,y:88},
-      {slot:1,x:82,y:70},{slot:2,x:63,y:72},{slot:3,x:37,y:72},{slot:4,x:18,y:70},
-      {slot:5,x:65,y:55},{slot:6,x:35,y:55},
-      {slot:7,x:78,y:35},{slot:8,x:50,y:33},{slot:9,x:22,y:35},
-      {slot:10,x:50,y:18},
+      {slot:0, x:50,y:90},
+      {slot:1,x:84,y:73},{slot:2,x:63,y:76},{slot:3,x:37,y:76},{slot:4,x:16,y:73},
+      {slot:5,x:63,y:58},{slot:6,x:37,y:58},
+      {slot:7,x:80,y:36},{slot:8,x:50,y:38},{slot:9,x:20,y:36},
+      {slot:10,x:50,y:14},
     ],
     "3-5-2": [
       {slot:0,x:50,y:88},
@@ -3378,6 +3378,7 @@ export default function App({ externalData }) {
   const [screen, setScreen]       = useState("menu");
   const [game, setGame]           = useState(null);
   const [lineup, setLineup]       = useState(Array(11).fill(null));
+  const [formation, setFormation] = useState("4-3-3");
   const [tactics, setTactics]     = useState(DEFAULT_TACTICS);
   const [hasSave, setHasSave]     = useState(false);
   const [matchSummary, setMatchSummary]     = useState(null);
@@ -3387,19 +3388,23 @@ export default function App({ externalData }) {
     try { if (localStorage.getItem(SAVE_KEY)) setHasSave(true); } catch (e) {}
   }, []);
 
-  // Auto-guardar alineación cuando cambia
+  // Auto-guardar alineación y formación cuando cambian
   useEffect(() => {
     if (!game) return;
-    saveGame(game, lineup);
-  }, [lineup]);
+    saveGame(game, lineup, formation);
+  }, [lineup, formation]);
 
-  const saveGame = useCallback((g, lineupToSave) => {
+  const saveGame = useCallback((g, lineupToSave, formationToSave) => {
     try {
-      const toSave = { ...g, _lineup: lineupToSave !== undefined ? lineupToSave : lineup };
+      const toSave = {
+        ...g,
+        _lineup: lineupToSave !== undefined ? lineupToSave : lineup,
+        _formation: formationToSave !== undefined ? formationToSave : formation,
+      };
       localStorage.setItem(SAVE_KEY, JSON.stringify(toSave));
       setHasSave(true);
     } catch (e) {}
-  }, [lineup]);
+  }, [lineup, formation]);
 
   const loadGame = () => {
     try {
@@ -3409,6 +3414,10 @@ export default function App({ externalData }) {
         if (parsed._lineup) {
           setLineup(parsed._lineup);
           delete parsed._lineup;
+        }
+        if (parsed._formation) {
+          setFormation(parsed._formation);
+          delete parsed._formation;
         }
         setGame(parsed);
         setScreen("dashboard");
@@ -3632,7 +3641,7 @@ export default function App({ externalData }) {
           {screen === "teams"     && <TeamSelection onSelect={startNewGame} />}
           {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} />}
           {screen === "squad"     && game && <SquadScreen players={game.players} />}
-          {screen === "lineup"    && game && <LineupScreen players={game.players} lineup={lineup} setLineup={setLineup} />}
+          {screen === "lineup"    && game && <LineupScreen players={game.players} lineup={lineup} setLineup={setLineup} formation={formation} setFormation={setFormation} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} />}
