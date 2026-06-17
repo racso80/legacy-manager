@@ -680,9 +680,28 @@ function simAIGame(homeTeam, awayTeam) {
   const hStr = hAvg + 3 + (Math.random() * 10 - 5);
   const aStr = aAvg +     (Math.random() * 10 - 5);
   const diff = hStr - aStr;
-  const hGoals = Math.max(0, Math.round(Math.random() * 2.5 + diff * 0.04));
-  const aGoals = Math.max(0, Math.round(Math.random() * 2.2 - diff * 0.04));
-  return { homeGoals: Math.min(hGoals, 6), awayGoals: Math.min(aGoals, 6) };
+  const hGoals = Math.min(6, Math.max(0, Math.round(Math.random() * 2.5 + diff * 0.04)));
+  const aGoals = Math.min(6, Math.max(0, Math.round(Math.random() * 2.2 - diff * 0.04)));
+
+  // Generar eventos de gol con goleadores reales para que aparezcan en la clasificación de goleadores
+  const events = [];
+  const homeSquad = REAL_SQUADS[homeTeam.id] ?? [];
+  const awaySquad = REAL_SQUADS[awayTeam.id] ?? [];
+  const homeScorerPool = homeSquad.filter(p => p.group === "DEL").length ? homeSquad.filter(p => p.group === "DEL") : homeSquad.filter(p => p.group === "MED");
+  const awayScorerPool = awaySquad.filter(p => p.group === "DEL").length ? awaySquad.filter(p => p.group === "DEL") : awaySquad.filter(p => p.group === "MED");
+
+  for (let i = 0; i < hGoals; i++) {
+    const scorer = homeScorerPool.length ? pick(homeScorerPool) : null;
+    events.push({ minute: 1 + Math.floor(Math.random()*89), type: "GOAL", team: "home", playerId: scorer?.id,
+      description: `Gol de ${scorer?.name ?? homeTeam.name}.` });
+  }
+  for (let i = 0; i < aGoals; i++) {
+    const scorer = awayScorerPool.length ? pick(awayScorerPool) : null;
+    events.push({ minute: 1 + Math.floor(Math.random()*89), type: "GOAL", team: "away", playerId: scorer?.id,
+      description: `Gol de ${scorer?.name ?? awayTeam.name}.` });
+  }
+
+  return { homeGoals: hGoals, awayGoals: aGoals, events };
 }
 
 // Descripciones contextuales por estilo táctico
@@ -700,7 +719,7 @@ function goalDesc(scorer, tactics, team) {
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics = DEFAULT_TACTICS, userIsHome = true) {
+function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics = DEFAULT_TACTICS, userIsHome = true, oppSquad = []) {
   const events = [];
   const mod    = tacticModifiers(tactics);
   const diff   = userStr - oppStr;
@@ -721,6 +740,12 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   const allField  = players.filter(p => p.group !== "POR" && !p.injured && !p.suspended);
   const baseMin   = segment * 15 + 1;
   const min = () => baseMin + Math.floor(Math.random() * 14);
+
+  // Jugadores del rival disponibles para marcar (atacantes y mediocentros del equipo contrario)
+  const oppAttackers = oppSquad.filter(p => p.group === "DEL");
+  const oppMids      = oppSquad.filter(p => p.group === "MED");
+  const oppScorerPool = oppAttackers.length ? oppAttackers : (oppMids.length ? oppMids : oppSquad);
+  const pickOppScorer = () => oppScorerPool.length ? pick(oppScorerPool) : null;
 
   // ── ATAQUE LOCAL ──
   if (Math.random() < hChanceProb) {
@@ -749,21 +774,26 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   // ── ATAQUE VISITANTE ──
   if (Math.random() < aChanceProb) {
     if (Math.random() < aGoalConv) {
+      const oppScorer = pickOppScorer();
+      const isPenalty = Math.random() < 0.09;
       events.push({
-        minute: min(), type: "GOAL", team: "opp",
-        description: pick([
-          `⚽ GOL VISITANTE — El rival sorprende con un disparo lejano inapelable.`,
-          `⚽ GOL VISITANTE — Contragolpe letal, el delantero rival marca.`,
-          `⚽ GOL VISITANTE — Jugada ensayada a balón parado.`,
-        ]),
+        minute: min(), type: isPenalty ? "PENALTY" : "GOAL", team: "opp", playerId: oppScorer?.id,
+        description: isPenalty
+          ? `¡PENALTI! ${oppScorer?.name ?? "El rival"} no falla desde los once metros.`
+          : pick([
+              `⚽ GOL — ${oppScorer?.name ?? "El rival"} sorprende con un disparo lejano inapelable.`,
+              `⚽ GOL — Contragolpe letal, ${oppScorer?.name ?? "el delantero rival"} marca.`,
+              `⚽ GOL — ${oppScorer?.name ?? "El rival"} remata a placer una jugada ensayada a balón parado.`,
+            ]),
       });
     } else {
+      const oppScorer = pickOppScorer();
       events.push({
         minute: min(), type: "BIG_CHANCE", team: "opp",
         description: pick([
-          `El visitante falla una ocasión clarísima ante el portero.`,
+          `${oppScorer?.name ?? "El visitante"} falla una ocasión clarísima ante el portero.`,
           gk ? `¡Paradón de ${gk.name}! Mantiene el resultado vivo.` : `El portero lo para in extremis.`,
-          `Remate visitante que se va alto por muy poco.`,
+          `Remate de ${oppScorer?.name ?? "el rival"} que se va alto por muy poco.`,
         ]),
       });
     }
@@ -999,7 +1029,8 @@ function FinancesScreen({ game }) {
   const balance = totalIncome - totalWageSpent;
   const balanceColor = balance >= 0 ? "#22c55e" : "#ef4444";
   const budgetK       = budgetTotal * 1000;
-  const budgetLeft    = budgetK - totalWageSpent + totalIncome;
+  const budgetAdjustment = game.budgetAdjustment ?? 0; // €K acumulado de fichajes (negativo) y ventas (positivo)
+  const budgetLeft    = budgetK - totalWageSpent + totalIncome + budgetAdjustment;
   const budgetPct     = Math.max(0, Math.min(100, Math.round((budgetLeft / budgetK) * 100)));
   const budgetColor   = budgetPct >= 60 ? "#22c55e" : budgetPct >= 30 ? "#f59e0b" : "#ef4444";
   const topEarners = [...players].sort((a,b)=>(b.salary??0)-(a.salary??0)).slice(0,7);
@@ -1135,7 +1166,8 @@ function TransferMarketScreen({ game, onTransfer }) {
   const matchPlayed  = Math.max(0, matchday - 1);
   const income       = matchPlayed * Math.round(budgetK * 0.02);
   const wages        = matchPlayed * weeklyWages;
-  const budgetLeft   = Math.round(budgetK - wages + income);
+  const budgetAdjustment = game.budgetAdjustment ?? 0; // €K acumulado de fichajes/ventas previos
+  const budgetLeft   = Math.round(budgetK - wages + income + budgetAdjustment);
   const fmt          = v => v >= 1000 ? `€${(v/1000).toFixed(1)}M` : `€${v}K`;
 
   // Valor de mercado = media * 500K aproximado (simplificado)
@@ -1152,12 +1184,36 @@ function TransferMarketScreen({ game, onTransfer }) {
     : p.overall >= 76 ? 55 : p.overall >= 72 ? 30 : 16
   );
 
-  // Jugadores disponibles en el mercado (de otros equipos, filtrados)
+  // Jugadores disponibles en el mercado:
+  // 1) Plantillas de los otros 19 equipos (datos base, simplificado: no se gestionan sus ventas)
+  // 2) Jugadores vendidos por el usuario — vuelven a estar disponibles para refichar
+  const soldByUser = (game.transfers ?? [])
+    .filter(t => t.type === "sell")
+    .map(t => ({ ...t.player, _teamId: "agente_libre", _teamName: "Agente libre", _teamColor: "#6b7280" }));
+
+  // IDs de jugadores que el usuario fichó de otro equipo (para no duplicarlos en su origen)
+  const boughtFromOthers = new Set(
+    (game.transfers ?? []).filter(t => t.type === "buy" && t.fromTeamId).map(t => t.player.id)
+  );
+  // IDs de jugadores que el usuario vendió más tarde volvió a fichar (evitar duplicado en agentes libres)
+  const reboughtIds = new Set(
+    (game.transfers ?? []).filter(t => t.type === "buy").map(t => t.player.id)
+  );
+
   const allOtherPlayers = TEAMS
     .filter(t => t.id !== game.teamId)
-    .flatMap(t => (REAL_SQUADS[t.id] ?? []).map(p => ({ ...p, _teamId: t.id, _teamName: t.name, _teamColor: t.color })));
+    .flatMap(t => (REAL_SQUADS[t.id] ?? [])
+      .filter(p => !boughtFromOthers.has(p.id)) // ya fichado de ese equipo, no se repite
+      .map(p => ({ ...p, _teamId: t.id, _teamName: t.name, _teamColor: t.color })));
 
-  const marketPlayers = allOtherPlayers.filter(p => {
+  // Agentes libres: vendidos por el usuario que no han vuelto a fichar
+  const freeAgents = soldByUser.filter(p => !reboughtIds.has(p.id) || true)
+    .filter(p => !players.some(owned => owned.id === p.id)); // si ya los tienes, no aparecen
+
+  const allOtherPlayers2 = [...allOtherPlayers, ...freeAgents];
+
+  const marketPlayers = allOtherPlayers2.filter(p => {
+    if (players.some(owned => owned.id === p.id)) return false; // ya es tuyo, no aparece
     if (filter.search && !p.name.toLowerCase().includes(filter.search.toLowerCase())) return false;
     if (filter.pos && p.pos !== filter.pos) return false;
     if (p.overall < filter.min || p.overall > filter.max) return false;
@@ -1911,22 +1967,24 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
 
       {/* Próximo partido */}
       {nextFixture && !allPlayed && (() => {
-        const opp    = getOpponent(nextFixture);
-        const isHome = nextFixture.homeTeamId===game.teamId;
+        const opp     = getOpponent(nextFixture);
+        const isHome  = nextFixture.homeTeamId===game.teamId;
+        const homeT   = TEAMS.find(t=>t.id===nextFixture.homeTeamId);
+        const awayT   = TEAMS.find(t=>t.id===nextFixture.awayTeamId);
         return (
           <div style={{ background:"#1a1f2e", border:"1px solid rgba(255,255,255,.08)", borderRadius:10, padding:14, marginBottom:12 }}>
             <div style={{ fontSize:11, color:"#c9a84c", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>PRÓXIMO PARTIDO · J{nextFixture.matchday}</div>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
               <div style={{ textAlign:"center", flex:1 }}>
-                <div style={{ fontSize:14, fontWeight:700, color: isHome?"#c9a84c":"#e8eaf0" }}>{isHome?team.short:opp?.short}</div>
-                <div style={{ fontSize:10, color:"#22c55e" }}>{isHome?"🏠 Local":"✈️ Visitante"}</div>
+                <div style={{ fontSize:14, fontWeight:700, color: isHome?"#c9a84c":"#e8eaf0" }}>{homeT?.short}</div>
+                <div style={{ fontSize:10, color:"#22c55e" }}>🏠 Local{isHome?" ★":""}</div>
               </div>
               <div style={{ background:"#0d0f14", padding:"8px 14px", borderRadius:8, textAlign:"center" }}>
                 <div style={{ fontSize:18, fontWeight:700, color:"#c9a84c" }}>VS</div>
               </div>
               <div style={{ textAlign:"center", flex:1 }}>
-                <div style={{ fontSize:14, fontWeight:700, color:!isHome?"#c9a84c":"#e8eaf0" }}>{!isHome?team.short:opp?.short}</div>
-                <div style={{ fontSize:10, color:"#6b7280" }}>{!isHome?"🏠 Local":"✈️ Visitante"}</div>
+                <div style={{ fontSize:14, fontWeight:700, color:!isHome?"#c9a84c":"#e8eaf0" }}>{awayT?.short}</div>
+                <div style={{ fontSize:10, color:"#6b7280" }}>✈️ Visitante{!isHome?" ★":""}</div>
               </div>
             </div>
             <div style={{ fontSize:11, color:"#6b7280", textAlign:"center", marginTop:6 }}>
@@ -2005,9 +2063,8 @@ function SquadScreen({ players }) {
   );
 }
 
-function LineupScreen({ players, lineup, setLineup, formation, setFormation }) {
+function LineupScreen({ players, lineup, setLineup, formation, setFormation, subs, setSubs }) {
   const [activeSlot, setActiveSlot] = useState(null); // null | {type:'starter',idx} | {type:'sub',idx}
-  const [subs, setSubs] = useState(Array(7).fill(null));
   const [filter, setFilter] = useState("ALL");
 
   const formations = {
@@ -2134,17 +2191,27 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation }) {
             {posLayout.map(({slot, x, y}) => {
               const player = getStarter(slot);
               const posLabel = slotPositions[slot];
-              const acc = player ? RARITY_ACCENT[player.rarity] : "rgba(255,255,255,.3)";
+              const unavailable = player && (player.injured || player.suspended);
+              const acc = unavailable ? "#ef4444" : player ? RARITY_ACCENT[player.rarity] : "rgba(255,255,255,.3)";
               const active = isActiveStarter(slot);
               return (
                 <div key={slot} onClick={() => handlePitchSlot(slot)}
                   style={{ position:"absolute", left:`${x}%`, top:`${y}%`, transform:"translate(-50%,-50%)", cursor:"pointer", textAlign:"center", zIndex:2 }}>
-                  <div style={{ width:34, height:34, borderRadius:"50%", background: player?`${acc}30`:active?"rgba(201,168,76,.25)":"rgba(255,255,255,.06)", border:`2px solid ${active?"#c9a84c":player?acc:"rgba(255,255,255,.2)"}`, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto", transition:"all .15s", boxShadow: active?"0 0 8px #c9a84c66":"none" }}>
+                  <div style={{ width:34, height:34, borderRadius:"50%", position:"relative",
+                    background: unavailable?"rgba(239,68,68,.18)":player?`${acc}30`:active?"rgba(201,168,76,.25)":"rgba(255,255,255,.06)",
+                    border:`2px solid ${active?"#c9a84c":player?acc:"rgba(255,255,255,.2)"}`,
+                    display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto", transition:"all .15s",
+                    boxShadow: active?"0 0 8px #c9a84c66":unavailable?"0 0 8px #ef444466":"none" }}>
                     {player
                       ? <span style={{ fontSize:11, fontWeight:700, color:acc }}>{player.overall}</span>
                       : <span style={{ fontSize:8, color:"rgba(255,255,255,.35)" }}>{posLabel}</span>}
+                    {unavailable && (
+                      <span style={{ position:"absolute", top:-4, right:-4, fontSize:11, background:"#ef4444", borderRadius:"50%", width:14, height:14, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        {player.injured ? "🚑" : "🟥"}
+                      </span>
+                    )}
                   </div>
-                  {player && <div style={{ fontSize:8, color:"#e8eaf0", marginTop:1, maxWidth:44, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textShadow:"0 1px 3px #000" }}>{player.name.split(" ")[0]}</div>}
+                  {player && <div style={{ fontSize:8, color: unavailable?"#ef4444":"#e8eaf0", marginTop:1, maxWidth:44, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textShadow:"0 1px 3px #000" }}>{player.name.split(" ")[0]}</div>}
                 </div>
               );
             })}
@@ -2757,13 +2824,21 @@ function TacticsScreen({ tactics, setTactics }) {
   );
 }
 
-function MatchScreen({ game, tactics, lineup, onMatchEnd }) {
+function MatchScreen({ game, tactics, setTactics, lineup, setLineup, subs, setSubs, onMatchEnd }) {
   const [segment, setSegment]   = useState(0);
   const [events, setEvents]     = useState([]);
   const [score, setScore]       = useState({ home: 0, away: 0 });
   const [finished, setFinished] = useState(false);
-  const [tab, setTab]           = useState("eventos"); // eventos | tacticas
+  const [tab, setTab]           = useState("eventos"); // eventos | tacticas | cambios
   const [livePlayer, setLivePlayers] = useState(game.players);
+  const [subsUsed, setSubsUsed] = useState(0);
+  const MAX_SUBS = 5;
+  // Lesión pendiente de sustitución forzada: { playerId, name }
+  const [pendingInjury, setPendingInjury] = useState(null);
+  // Slot del titular que se quiere sustituir manualmente: index en lineup, o null
+  const [subbingSlot, setSubbingSlot] = useState(null);
+  // Banner de evento clave del último tramo (gol, tarjeta) — se autodescarta
+  const [keyEventBanner, setKeyEventBanner] = useState(null);
 
   const teamId  = game.teamId;
   const fixture = game.fixtures.find(f => !f.played && (f.homeTeamId === teamId || f.awayTeamId === teamId));
@@ -2779,6 +2854,32 @@ function MatchScreen({ game, tactics, lineup, onMatchEnd }) {
   const awayScore  = isHome ? score.away : score.home;
   const segments   = [15, 30, 45, 60, 75, 90];
 
+  // Realizar una sustitución: sale outId, entra inId (debe estar en el banco)
+  const doSubstitution = (outId, inId) => {
+    if (subsUsed >= MAX_SUBS) return;
+    const slotIdx = lineup.findIndex(id => id === outId);
+    if (slotIdx === -1) return;
+    const newLineup = [...lineup];
+    newLineup[slotIdx] = inId;
+    setLineup(newLineup);
+    // Quitar al jugador que entra del banco, poner al que sale en su lugar (puede seguir en el banco como "ya usado")
+    const benchIdx = subs.findIndex(id => id === inId);
+    if (benchIdx !== -1) {
+      const newSubs = [...subs];
+      newSubs[benchIdx] = null;
+      setSubs(newSubs);
+    }
+    setSubsUsed(n => n + 1);
+    const outP = livePlayer.find(p => p.id === outId);
+    const inP  = livePlayer.find(p => p.id === inId);
+    setEvents(ev => [...ev, {
+      minute: segments[Math.max(0,segment-1)] ?? segment*15, type: "SUBSTITUTION", team: "user", playerId: inId,
+      description: `🔄 Cambio: entra ${inP?.name ?? "jugador"} por ${outP?.name ?? "jugador"}.`,
+    }]);
+    setSubbingSlot(null);
+    setPendingInjury(null);
+  };
+
   const simNext = () => {
     if (finished || segment >= 6) return;
     const userStr = calcTeamStrength(livePlayer, isHome, tactics);
@@ -2788,7 +2889,8 @@ function MatchScreen({ game, tactics, lineup, onMatchEnd }) {
     const starterPlayers = starterIds.length > 0
       ? livePlayer.filter(p => starterIds.includes(p.id))
       : livePlayer.filter(p => !p.injured && !p.suspended);
-    const newEvs  = generateSegmentEvents(segment, starterPlayers, userStr, oppStr, score, tactics, isHome);
+    const oppSquad = REAL_SQUADS[oppTeamId] ?? [];
+    const newEvs  = generateSegmentEvents(segment, starterPlayers, userStr, oppStr, score, tactics, isHome, oppSquad);
 
     let hDelta = 0, aDelta = 0;
     newEvs.forEach(e => {
@@ -2802,20 +2904,44 @@ function MatchScreen({ game, tactics, lineup, onMatchEnd }) {
       }
     });
 
-    // Aplicar cansancio progresivo según tácticas
+    // Aplicar cansancio progresivo según tácticas — SOLO a los titulares en el campo
     const fatDelta = fatigueDeltaPerSegment(tactics);
-    setLivePlayers(prev => prev.map(p => ({
-      ...p,
-      fatigue: Math.min(100, Math.round(p.fatigue + (p.injured ? 0 : fatDelta + Math.random() * 2))),
-      // Lesiones generadas en eventos
-      injured: newEvs.some(e => e.type === "INJURY" && e.playerId === p.id) ? true : p.injured,
-      injuryGames: newEvs.some(e => e.type === "INJURY" && e.playerId === p.id)
-        ? (newEvs.find(e => e.type === "INJURY" && e.playerId === p.id)?.injuryGames ?? 1)
-        : p.injuryGames,
-    })));
+    const onFieldIds = new Set(starterPlayers.map(p => p.id));
+    setLivePlayers(prev => prev.map(p => {
+      const onField = onFieldIds.has(p.id);
+      return {
+        ...p,
+        // Solo los jugadores en el campo se cansan; los que no juegan descansan ligeramente
+        fatigue: p.injured ? p.fatigue
+          : onField
+            ? Math.min(100, Math.round(p.fatigue + fatDelta + Math.random() * 2))
+            : Math.max(0, Math.round(p.fatigue - 1)),
+        // Lesiones generadas en eventos
+        injured: newEvs.some(e => e.type === "INJURY" && e.playerId === p.id) ? true : p.injured,
+        injuryGames: newEvs.some(e => e.type === "INJURY" && e.playerId === p.id)
+          ? (newEvs.find(e => e.type === "INJURY" && e.playerId === p.id)?.injuryGames ?? 1)
+          : p.injuryGames,
+      };
+    }));
 
     setScore(s => ({ home: s.home + hDelta, away: s.away + aDelta }));
     setEvents(ev => [...ev, ...newEvs]);
+
+    // Mostrar un aviso destacado si hubo gol, tarjeta roja o amarilla en este tramo
+    const keyEv = newEvs.find(e => ["GOAL","PENALTY","RED","YELLOW"].includes(e.type));
+    if (keyEv) {
+      setKeyEventBanner(keyEv);
+      setTimeout(() => setKeyEventBanner(b => b === keyEv ? null : b), 4000);
+    }
+
+    // Si alguno de los nuestros se ha lesionado, ofrecer sustitución forzada inmediata
+    const newInjury = newEvs.find(e => e.type === "INJURY" && e.playerId && onFieldIds.has(e.playerId));
+    if (newInjury) {
+      const injuredP = livePlayer.find(p => p.id === newInjury.playerId);
+      setPendingInjury({ playerId: newInjury.playerId, name: injuredP?.name ?? "Jugador" });
+      setTab("cambios");
+    }
+
     const next = segment + 1;
     setSegment(next);
     if (next >= 6) setFinished(true);
@@ -2823,8 +2949,8 @@ function MatchScreen({ game, tactics, lineup, onMatchEnd }) {
 
   const endMatch = () => onMatchEnd(fixture.id, score.home, score.away, events, livePlayer);
 
-  const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",INJURY:"#f97316" };
-  const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÓN",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",INJURY:"LESIÓN" };
+  const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",INJURY:"#f97316",SUBSTITUTION:"#a855f7" };
+  const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÓN",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",INJURY:"LESIÓN",SUBSTITUTION:"CAMBIO" };
 
   const avgFatigue = Math.round(livePlayer.filter(p=>!p.injured).reduce((s,p)=>s+p.fatigue,0) / Math.max(1,livePlayer.filter(p=>!p.injured).length));
   const fatColor   = avgFatigue <= 40 ? "#22c55e" : avgFatigue <= 65 ? "#f59e0b" : "#ef4444";
@@ -2875,11 +3001,39 @@ function MatchScreen({ game, tactics, lineup, onMatchEnd }) {
         </div>
       </div>
 
-      {/* Tabs eventos / tácticas */}
+      {/* Aviso de evento clave (gol/tarjeta) del último tramo */}
+      {keyEventBanner && !pendingInjury && (
+        <div className="bounce-in" style={{
+          background: keyEventBanner.type==="RED" ? "#ef444422" : keyEventBanner.type==="YELLOW" ? "#fbbf2422" : "#22c55e22",
+          borderBottom: `1px solid ${keyEventBanner.type==="RED"?"#ef444455":keyEventBanner.type==="YELLOW"?"#fbbf2455":"#22c55e55"}`,
+          padding: "10px 14px", flexShrink: 0, display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize: 18 }}>{keyEventBanner.type==="RED"?"🟥":keyEventBanner.type==="YELLOW"?"🟨":"⚽"}</span>
+          <div style={{ flex: 1, fontSize: 12, color: "#e8eaf0", lineHeight: 1.4 }}>{keyEventBanner.description}</div>
+          <button onClick={() => setKeyEventBanner(null)}
+            style={{ background: "rgba(255,255,255,.08)", border: "none", color: "#9aa0b4", padding: "5px 9px", borderRadius: 6, fontSize: 11, cursor:"pointer" }}>✕</button>
+        </div>
+      )}
+
+      {/* Aviso de lesión — sustitución forzada */}
+      {pendingInjury && (
+        <div style={{ background: "#f9731622", borderBottom: "1px solid #f9731655", padding: "10px 14px", flexShrink: 0, display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize: 18 }}>🚑</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#f97316" }}>{pendingInjury.name} se ha lesionado</div>
+            <div style={{ fontSize: 11, color: "#9aa0b4" }}>Haz un cambio ahora o sigue con 10 jugadores</div>
+          </div>
+          <button onClick={() => { setSubbingSlot(lineup.findIndex(id=>id===pendingInjury.playerId)); setTab("cambios"); }}
+            className="btn-gold" style={{ padding: "7px 14px", borderRadius: 7, fontSize: 12 }}>Cambiar</button>
+          <button onClick={() => setPendingInjury(null)}
+            style={{ background: "rgba(255,255,255,.08)", border: "none", color: "#9aa0b4", padding: "7px 10px", borderRadius: 7, fontSize: 12, cursor:"pointer" }}>✕</button>
+        </div>
+      )}
+
+      {/* Tabs eventos / cambios / tácticas */}
       <div style={{ display: "flex", background: "#161a24", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
-        {[["eventos","📋 Eventos"],["tacticas","⚙️ Tácticas"]].map(([id,label]) => (
+        {[["eventos","📋 Eventos"],["cambios",`🔄 Cambios (${subsUsed}/${MAX_SUBS})`],["tacticas","⚙️ Tácticas"]].map(([id,label]) => (
           <button key={id} onClick={() => setTab(id)}
-            style={{ flex: 1, background: "transparent", border: "none", borderBottom: tab === id ? "2px solid #c9a84c" : "2px solid transparent", color: tab === id ? "#c9a84c" : "#6b7280", padding: "10px", fontSize: 12, fontWeight: tab === id ? 700 : 400, cursor: "pointer" }}>
+            style={{ flex: 1, background: "transparent", border: "none", borderBottom: tab === id ? "2px solid #c9a84c" : "2px solid transparent", color: tab === id ? "#c9a84c" : "#6b7280", padding: "10px 4px", fontSize: 11, fontWeight: tab === id ? 700 : 400, cursor: "pointer" }}>
             {label}
           </button>
         ))}
@@ -2910,12 +3064,76 @@ function MatchScreen({ game, tactics, lineup, onMatchEnd }) {
             </div>
           </div>
         )}
+        {tab === "cambios" && (
+          <div style={{ padding: 12 }}>
+            <div style={{ fontSize: 11, color: "#9aa0b4", background: "#1e2330", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
+              Te quedan <strong style={{ color: subsUsed>=MAX_SUBS?"#ef4444":"#22c55e" }}>{MAX_SUBS - subsUsed}</strong> cambios disponibles.
+            </div>
+            {subsUsed >= MAX_SUBS ? (
+              <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13, marginTop: 20 }}>Has usado todos tus cambios.</div>
+            ) : !subbingSlot && subbingSlot !== 0 ? (
+              <>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>SELECCIONA QUIÉN SALE</div>
+                {lineup.map((pid, idx) => {
+                  if (!pid) return null;
+                  const p = livePlayer.find(pl => pl.id === pid);
+                  if (!p) return null;
+                  const hurt = p.injured;
+                  return (
+                    <div key={idx} onClick={() => setSubbingSlot(idx)}
+                      style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", marginBottom:6,
+                        background: hurt ? "rgba(239,68,68,.08)" : "#161a24",
+                        border: hurt ? "1px solid rgba(239,68,68,.3)" : "1px solid rgba(255,255,255,.06)",
+                        borderRadius:8, cursor:"pointer" }}>
+                      <Initials name={p.name} size={30} rarity={p.rarity} borderRadius={6}/>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:12, fontWeight:600, color: hurt?"#ef4444":"#e8eaf0" }}>{p.name} {hurt?"🚑":""}</div>
+                        <div style={{ fontSize:10, color:"#6b7280" }}>{p.pos} · Cansancio {p.fatigue}</div>
+                      </div>
+                      <span style={{ fontSize:11, color:"#c9a84c" }}>Sacar →</span>
+                    </div>
+                  );
+                })}
+              </>
+            ) : (
+              <>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>
+                    SALE: {livePlayer.find(p=>p.id===lineup[subbingSlot])?.name}
+                  </div>
+                  <button onClick={() => setSubbingSlot(null)} style={{ background:"transparent", border:"none", color:"#6b7280", fontSize:11, cursor:"pointer" }}>← Cambiar</button>
+                </div>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>SELECCIONA QUIÉN ENTRA</div>
+                {subs.filter(Boolean).length === 0 && (
+                  <div style={{ textAlign:"center", color:"#6b7280", fontSize:13, marginTop:16 }}>No tienes suplentes disponibles en el banco.</div>
+                )}
+                {subs.map((pid, idx) => {
+                  if (!pid) return null;
+                  const p = livePlayer.find(pl => pl.id === pid);
+                  if (!p || p.injured || p.suspended) return null;
+                  return (
+                    <div key={idx} onClick={() => doSubstitution(lineup[subbingSlot], pid)}
+                      style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", marginBottom:6,
+                        background:"#161a24", border:"1px solid rgba(34,197,94,.25)", borderRadius:8, cursor:"pointer" }}>
+                      <Initials name={p.name} size={30} rarity={p.rarity} borderRadius={6}/>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:12, fontWeight:600, color:"#e8eaf0" }}>{p.name}</div>
+                        <div style={{ fontSize:10, color:"#6b7280" }}>{p.pos} · Cansancio {p.fatigue}</div>
+                      </div>
+                      <span style={{ fontSize:11, color:"#22c55e" }}>← Entra</span>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        )}
         {tab === "tacticas" && (
           <div style={{ padding: 12 }}>
             <div style={{ fontSize: 11, color: "#f59e0b", background: "#f59e0b11", border: "1px solid #f59e0b33", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
               Los cambios se aplican al siguiente tramo simulado.
             </div>
-            <TacticsInMatch tactics={tactics} />
+            <TacticsInMatch tactics={tactics} setTactics={setTactics} />
           </div>
         )}
       </div>
@@ -2951,21 +3169,33 @@ function MatchScreen({ game, tactics, lineup, onMatchEnd }) {
 }
 
 // Mini vista de tácticas dentro del partido (sin setTactics — sólo lectura)
-function TacticsInMatch({ tactics }) {
-  const rows = [
-    ["Mentalidad", tactics.mentalidad],
-    ["Presión",    tactics.presion],
-    ["Ritmo",      tactics.ritmo],
-    ["Estilo",     tactics.estilo],
-    ["Riesgo",     tactics.riesgo],
+function TacticsInMatch({ tactics, setTactics }) {
+  const fields = [
+    ["mentalidad", "Mentalidad", [["defensiva","Defensiva"],["equilibrada","Equilibrada"],["ofensiva","Ofensiva"]]],
+    ["presion",    "Presión",    [["baja","Baja"],["media","Media"],["alta","Alta"]]],
+    ["ritmo",      "Ritmo",      [["lento","Lento"],["normal","Normal"],["rapido","Rápido"]]],
+    ["estilo",     "Estilo",     [["directo","Directo"],["posesion","Posesión"],["bandas","Bandas"],["contraataque","Contraataque"]]],
+    ["riesgo",     "Riesgo",     [["conservador","Conservador"],["normal","Normal"],["agresivo","Agresivo"]]],
   ];
   const mod = tacticModifiers(tactics);
   return (
     <div>
-      {rows.map(([label, val]) => (
-        <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-          <span style={{ fontSize: 13, color: "#6b7280" }}>{label}</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#c9a84c", textTransform: "capitalize" }}>{val}</span>
+      {fields.map(([field, label, options]) => (
+        <div key={field} style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 6 }}>{label.toUpperCase()}</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {options.map(([val, disp]) => {
+              const active = tactics[field] === val;
+              return (
+                <button key={val} onClick={() => setTactics(t => ({ ...t, [field]: val }))}
+                  style={{ background: active ? "#c9a84c" : "#1e2330", color: active ? "#1a1200" : "#9aa0b4",
+                    border: `1px solid ${active ? "#c9a84c" : "rgba(255,255,255,.08)"}`, padding: "7px 12px",
+                    borderRadius: 7, fontSize: 12, fontWeight: active ? 700 : 400, cursor: "pointer" }}>
+                  {disp}
+                </button>
+              );
+            })}
+          </div>
         </div>
       ))}
       <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
@@ -3005,8 +3235,27 @@ function MatchSummaryScreen({ summary, onContinue }) {
     events: goalEvents.filter(e => e.playerId === id),
   })).filter(s => s.player);
 
-  // Goles del rival
+  // Goles del rival — extraer nombre del jugador desde playerId (si lo tenemos) o de la descripción
   const oppGoalEvents = events.filter(e => (e.type === "GOAL" || e.type === "PENALTY") && e.team === "away");
+  const extractOppName = (e) => {
+    // Buscar en el roster real del rival si tenemos playerId
+    if (e.playerId) {
+      const oppSquad = REAL_SQUADS[oppTeam?.id] ?? [];
+      const found = oppSquad.find(p => p.id === e.playerId);
+      if (found) return found.name;
+    }
+    // Fallback: extraer nombre de la descripción (texto entre "GOL — " y el verbo)
+    const m = e.description?.match(/GOL\s*(?:VISITANTE)?\s*[—-]\s*([A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ'.]*(?:\s[A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ'.]*){0,2})/);
+    return m ? m[1] : "Jugador rival";
+  };
+  const oppScorerMap = {};
+  oppGoalEvents.forEach(e => {
+    const name = extractOppName(e);
+    if (!oppScorerMap[name]) oppScorerMap[name] = { name, goals: 0, mins: [] };
+    oppScorerMap[name].goals++;
+    oppScorerMap[name].mins.push(e.minute + "'");
+  });
+  const oppScorers = Object.values(oppScorerMap);
 
   // Tarjetas del equipo del usuario
   const yellows  = events.filter(e => e.type === "YELLOW" && e.team === "home");
@@ -3084,14 +3333,16 @@ function MatchSummaryScreen({ summary, onContinue }) {
               </div>
             </div>
           ))}
-          {oppGoalEvents.map((e, i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6, opacity:.65 }}>
+          {oppScorers.map(({name, goals, mins}, i) => (
+            <div key={name+i} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6, opacity:.8 }}>
               <div style={{ width:32, height:32, borderRadius:6, background:"rgba(255,255,255,.06)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>👤</div>
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:12, color:"#9aa0b4" }}>{oppTeam?.name}</div>
-                <div style={{ fontSize:11, color:"#6b7280" }}>{e.minute}'</div>
+                <div style={{ fontSize:13, color:"#e8eaf0", fontWeight:600 }}>{name}</div>
+                <div style={{ fontSize:11, color:"#6b7280" }}>{oppTeam?.name} · {mins.join(", ")}</div>
               </div>
-              <span style={{ fontSize:16 }}>⚽</span>
+              <div style={{ display:"flex", gap:3 }}>
+                {Array(goals).fill(0).map((_,j) => <span key={j} style={{ fontSize:16 }}>⚽</span>)}
+              </div>
             </div>
           ))}
         </div>
@@ -3378,6 +3629,7 @@ export default function App({ externalData }) {
   const [screen, setScreen]       = useState("menu");
   const [game, setGame]           = useState(null);
   const [lineup, setLineup]       = useState(Array(11).fill(null));
+  const [subs, setSubs]           = useState(Array(7).fill(null));
   const [formation, setFormation] = useState("4-3-3");
   const [tactics, setTactics]     = useState(DEFAULT_TACTICS);
   const [hasSave, setHasSave]     = useState(false);
@@ -3388,23 +3640,24 @@ export default function App({ externalData }) {
     try { if (localStorage.getItem(SAVE_KEY)) setHasSave(true); } catch (e) {}
   }, []);
 
-  // Auto-guardar alineación y formación cuando cambian
+  // Auto-guardar alineación, suplentes y formación cuando cambian
   useEffect(() => {
     if (!game) return;
-    saveGame(game, lineup, formation);
-  }, [lineup, formation]);
+    saveGame(game, lineup, formation, subs);
+  }, [lineup, formation, subs]);
 
-  const saveGame = useCallback((g, lineupToSave, formationToSave) => {
+  const saveGame = useCallback((g, lineupToSave, formationToSave, subsToSave) => {
     try {
       const toSave = {
         ...g,
         _lineup: lineupToSave !== undefined ? lineupToSave : lineup,
         _formation: formationToSave !== undefined ? formationToSave : formation,
+        _subs: subsToSave !== undefined ? subsToSave : subs,
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(toSave));
       setHasSave(true);
     } catch (e) {}
-  }, [lineup, formation]);
+  }, [lineup, formation, subs]);
 
   const loadGame = () => {
     try {
@@ -3418,6 +3671,10 @@ export default function App({ externalData }) {
         if (parsed._formation) {
           setFormation(parsed._formation);
           delete parsed._formation;
+        }
+        if (parsed._subs) {
+          setSubs(parsed._subs);
+          delete parsed._subs;
         }
         setGame(parsed);
         setScreen("dashboard");
@@ -3448,7 +3705,7 @@ export default function App({ externalData }) {
           const ht = TEAMS.find(t => t.id === f.homeTeamId);
           const at = TEAMS.find(t => t.id === f.awayTeamId);
           const res = simAIGame(ht, at);
-          return { ...f, played: true, homeGoals: res.homeGoals, awayGoals: res.awayGoals, events: [] };
+          return { ...f, played: true, homeGoals: res.homeGoals, awayGoals: res.awayGoals, events: res.events ?? [] };
         }
         return f;
       });
@@ -3562,35 +3819,26 @@ export default function App({ externalData }) {
 
   const handleTransfer = ({ type, player, cost, salary, value, fromTeamId }) => {
     setGame(prev => {
-      const team = TEAMS.find(t => t.id === prev.teamId);
-      const budgetK = (team.budget ?? 50) * 1000;
-      const matchPlayed = Math.max(0, prev.matchday - 1);
-      const weeklyWages = prev.players.reduce((s,p) => s + (p.salary ?? 0), 0);
-      const income = matchPlayed * Math.round(budgetK * 0.02);
-      const wages  = matchPlayed * weeklyWages;
-      const budgetLeft = budgetK - wages + income;
-
       let newPlayers = [...prev.players];
+      const prevAdjustment = prev.budgetAdjustment ?? 0; // en €K, acumulado de fichajes/ventas
 
       if (type === "buy") {
-        if (budgetLeft < cost) return prev; // no money
-        // Add player with new salary and state fields
         const newPlayer = { ...player, salary, fatigue:15, morale:75,
           injured:false, injuryGames:0, suspended:false, suspGames:0, yellowCards:0 };
         newPlayers = [...newPlayers, newPlayer];
-        // Reduce team budget permanently
-        const teamIdx = TEAMS.findIndex(t => t.id === prev.teamId);
-        if (teamIdx !== -1) TEAMS[teamIdx].budget = Math.max(0, Math.round((budgetLeft - cost) / 1000));
       } else if (type === "sell") {
         newPlayers = newPlayers.filter(p => p.id !== player.id);
-        // Add sale value to budget
-        const teamIdx = TEAMS.findIndex(t => t.id === prev.teamId);
-        if (teamIdx !== -1) TEAMS[teamIdx].budget = Math.round((budgetLeft + value) / 1000);
       }
+
+      // Ajuste acumulado: comprar resta, vender suma (en €K)
+      const newAdjustment = type === "buy" ? prevAdjustment - cost
+                           : type === "sell" ? prevAdjustment + value
+                           : prevAdjustment;
 
       const newTransfer = { type, player, cost, salary, value, fromTeamId,
         matchday: prev.matchday };
       const newGame = { ...prev, players: newPlayers,
+        budgetAdjustment: newAdjustment,
         transfers: [...(prev.transfers ?? []), newTransfer] };
       saveGame(newGame, lineup);
       return newGame;
@@ -3641,13 +3889,13 @@ export default function App({ externalData }) {
           {screen === "teams"     && <TeamSelection onSelect={startNewGame} />}
           {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} />}
           {screen === "squad"     && game && <SquadScreen players={game.players} />}
-          {screen === "lineup"    && game && <LineupScreen players={game.players} lineup={lineup} setLineup={setLineup} formation={formation} setFormation={setFormation} />}
+          {screen === "lineup"    && game && <LineupScreen players={game.players} lineup={lineup} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={subs} setSubs={setSubs} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} />}
-          {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} lineup={lineup} onMatchEnd={handleMatchEnd} />}
+          {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={lineup} setLineup={setLineup} subs={subs} setSubs={setSubs} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonEndScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} />}
         </ScreenWrapper>
