@@ -4,26 +4,26 @@ import { resolvePlayerPhoto } from "./data/dataLoader.js";
 // ─── DATOS ───────────────────────────────────────────────────────────────────
 
 const TEAMS = [
-  { id: "athletic",    name: "Athletic Club",      short: "ATH", color: "#c9a84c", stadium: "San Mamés",               budget: 48,  avg: 79, obj: "Top 6",       city: "Bilbao" },
-  { id: "atletico",   name: "Atlético Madrid",     short: "ATM", color: "#c8102e", stadium: "Civitas Metropolitano",   budget: 120, avg: 85, obj: "Campeón",     city: "Madrid" },
-  { id: "barcelona",  name: "FC Barcelona",        short: "BAR", color: "#a50044", stadium: "Spotify Camp Nou",        budget: 180, avg: 88, obj: "Campeón",     city: "Barcelona" },
-  { id: "betis",      name: "Real Betis",          short: "BET", color: "#00a650", stadium: "Benito Villamarín",       budget: 65,  avg: 78, obj: "Top 6",       city: "Sevilla" },
-  { id: "celta",      name: "Celta de Vigo",       short: "CEL", color: "#6cb4e4", stadium: "Abanca Balaídos",         budget: 38,  avg: 75, obj: "Mitad tabla", city: "Vigo" },
-  { id: "espanyol",   name: "RCD Espanyol",        short: "ESP", color: "#005395", stadium: "Stage Front Stadium",     budget: 32,  avg: 74, obj: "Permanencia", city: "Barcelona" },
-  { id: "getafe",     name: "Getafe CF",           short: "GET", color: "#005ca9", stadium: "Coliseum",                budget: 28,  avg: 73, obj: "Permanencia", city: "Getafe" },
-  { id: "girona",     name: "Girona FC",           short: "GIR", color: "#b22222", stadium: "Montilivi",               budget: 44,  avg: 77, obj: "Top 10",      city: "Girona" },
-  { id: "laspalmas",  name: "Elche CF",            short: "ELC", color: "#006400", stadium: "Martínez Valero",         budget: 22,  avg: 73, obj: "Permanencia", city: "Elche" },
-  { id: "leganes",    name: "Levante UD",          short: "LEV", color: "#003DA5", stadium: "Estadio Ciudad de Valencia", budget: 24, avg: 72, obj: "Permanencia", city: "Valencia" },
-  { id: "mallorca",   name: "RCD Mallorca",        short: "MAL", color: "#c8102e", stadium: "Visit Mallorca Estadi",   budget: 30,  avg: 74, obj: "Permanencia", city: "Palma" },
-  { id: "osasuna",    name: "CA Osasuna",          short: "OSA", color: "#c8102e", stadium: "El Sadar",                budget: 32,  avg: 74, obj: "Mitad tabla", city: "Pamplona" },
-  { id: "rayo",       name: "Rayo Vallecano",      short: "RAY", color: "#c8102e", stadium: "Estadio de Vallecas",     budget: 25,  avg: 74, obj: "Permanencia", city: "Madrid" },
-  { id: "realmadrid", name: "Real Madrid",         short: "RMA", color: "#ffd700", stadium: "Santiago Bernabéu",       budget: 250, avg: 90, obj: "Campeón",     city: "Madrid" },
-  { id: "realsociedad",name: "Real Sociedad",      short: "RSO", color: "#003DA5", stadium: "Reale Arena",             budget: 72,  avg: 79, obj: "Top 6",       city: "San Sebastián" },
-  { id: "sevilla",    name: "Sevilla FC",          short: "SEV", color: "#e8001c", stadium: "Ramón Sánchez-Pizjuán",   budget: 85,  avg: 76, obj: "Top 10",      city: "Sevilla" },
-  { id: "valencia",   name: "Valencia CF",         short: "VAL", color: "#ff7f00", stadium: "Mestalla",                budget: 52,  avg: 75, obj: "Mitad tabla", city: "Valencia" },
-  { id: "valladolid", name: "Real Oviedo",         short: "OVI", color: "#003DA5", stadium: "Carlos Tartiere",         budget: 18,  avg: 72, obj: "Permanencia", city: "Oviedo" },
-  { id: "villarreal", name: "Villarreal CF",       short: "VIL", color: "#ffd700", stadium: "Estadio de la Cerámica",  budget: 78,  avg: 79, obj: "Top 6",       city: "Villarreal" },
-  { id: "alaves",     name: "Deportivo Alavés",    short: "ALA", color: "#007ac2", stadium: "Mendizorroza",            budget: 22,  avg: 72, obj: "Permanencia", city: "Vitoria" },
+  { id: "athletic",    name: "Athletic Club",      short: "ATH", color: "#c9a84c", stadium: "San Mamés",               budget: 48,  avg: 79, obj: "Top 6",       city: "Bilbao",        capacity: 53289, fanbase: 4 },
+  { id: "atletico",   name: "Atlético Madrid",     short: "ATM", color: "#c8102e", stadium: "Civitas Metropolitano",   budget: 120, avg: 85, obj: "Campeón",     city: "Madrid",        capacity: 70460, fanbase: 5 },
+  { id: "barcelona",  name: "FC Barcelona",        short: "BAR", color: "#a50044", stadium: "Spotify Camp Nou",        budget: 180, avg: 88, obj: "Campeón",     city: "Barcelona",     capacity: 105000, fanbase: 5 },
+  { id: "betis",      name: "Real Betis",          short: "BET", color: "#00a650", stadium: "Benito Villamarín",       budget: 65,  avg: 78, obj: "Top 6",       city: "Sevilla",       capacity: 60721, fanbase: 4 },
+  { id: "celta",      name: "Celta de Vigo",       short: "CEL", color: "#6cb4e4", stadium: "Abanca Balaídos",         budget: 38,  avg: 75, obj: "Mitad tabla", city: "Vigo",          capacity: 29000, fanbase: 3 },
+  { id: "espanyol",   name: "RCD Espanyol",        short: "ESP", color: "#005395", stadium: "Stage Front Stadium",     budget: 32,  avg: 74, obj: "Permanencia", city: "Barcelona",     capacity: 40500, fanbase: 2 },
+  { id: "getafe",     name: "Getafe CF",           short: "GET", color: "#005ca9", stadium: "Coliseum",                budget: 28,  avg: 73, obj: "Permanencia", city: "Getafe",        capacity: 17393, fanbase: 2 },
+  { id: "girona",     name: "Girona FC",           short: "GIR", color: "#b22222", stadium: "Montilivi",               budget: 44,  avg: 77, obj: "Top 10",      city: "Girona",        capacity: 14624, fanbase: 2 },
+  { id: "laspalmas",  name: "Elche CF",            short: "ELC", color: "#006400", stadium: "Martínez Valero",         budget: 22,  avg: 73, obj: "Permanencia", city: "Elche",         capacity: 33732, fanbase: 2 },
+  { id: "leganes",    name: "Levante UD",          short: "LEV", color: "#003DA5", stadium: "Estadio Ciudad de Valencia", budget: 24, avg: 72, obj: "Permanencia", city: "Valencia",    capacity: 26354, fanbase: 2 },
+  { id: "mallorca",   name: "RCD Mallorca",        short: "MAL", color: "#c8102e", stadium: "Visit Mallorca Estadi",   budget: 30,  avg: 74, obj: "Permanencia", city: "Palma",         capacity: 23142, fanbase: 2 },
+  { id: "osasuna",    name: "CA Osasuna",          short: "OSA", color: "#c8102e", stadium: "El Sadar",                budget: 32,  avg: 74, obj: "Mitad tabla", city: "Pamplona",      capacity: 23576, fanbase: 3 },
+  { id: "rayo",       name: "Rayo Vallecano",      short: "RAY", color: "#c8102e", stadium: "Estadio de Vallecas",     budget: 25,  avg: 74, obj: "Permanencia", city: "Madrid",        capacity: 14708, fanbase: 2 },
+  { id: "realmadrid", name: "Real Madrid",         short: "RMA", color: "#ffd700", stadium: "Santiago Bernabéu",       budget: 250, avg: 90, obj: "Campeón",     city: "Madrid",        capacity: 78297, fanbase: 5 },
+  { id: "realsociedad",name: "Real Sociedad",      short: "RSO", color: "#003DA5", stadium: "Reale Arena",             budget: 72,  avg: 79, obj: "Top 6",       city: "San Sebastián", capacity: 39313, fanbase: 4 },
+  { id: "sevilla",    name: "Sevilla FC",          short: "SEV", color: "#e8001c", stadium: "Ramón Sánchez-Pizjuán",   budget: 85,  avg: 76, obj: "Top 10",      city: "Sevilla",       capacity: 43883, fanbase: 4 },
+  { id: "valencia",   name: "Valencia CF",         short: "VAL", color: "#ff7f00", stadium: "Mestalla",                budget: 52,  avg: 75, obj: "Mitad tabla", city: "Valencia",      capacity: 49430, fanbase: 4 },
+  { id: "valladolid", name: "Real Oviedo",         short: "OVI", color: "#003DA5", stadium: "Carlos Tartiere",         budget: 18,  avg: 72, obj: "Permanencia", city: "Oviedo",        capacity: 30500, fanbase: 2 },
+  { id: "villarreal", name: "Villarreal CF",       short: "VIL", color: "#ffd700", stadium: "Estadio de la Cerámica",  budget: 78,  avg: 79, obj: "Top 6",       city: "Villarreal",    capacity: 23008, fanbase: 3 },
+  { id: "alaves",     name: "Deportivo Alavés",    short: "ALA", color: "#007ac2", stadium: "Mendizorroza",            budget: 22,  avg: 72, obj: "Permanencia", city: "Vitoria",       capacity: 19840, fanbase: 2 },
 ];
 
 // ─── PLANTILLAS REALES LALIGA 2025/26 ────────────────────────────────────────
@@ -1023,14 +1023,29 @@ function FinancesScreen({ game }) {
   const monthlyWages = weeklyWages * 4;
   const seasonWages  = weeklyWages * 38;
   const matchdaysPlayed = Math.max(0, matchday - 1);
-  const incomePerMatch  = Math.round(budgetTotal * 1000 * 0.02);
-  const totalIncome     = matchdaysPlayed * incomePerMatch;
   const totalWageSpent  = matchdaysPlayed * weeklyWages;
+
+  // ── Ingresos reales acumulados de cada jornada jugada ──
+  const incomeLog = game.incomeLog ?? [];
+  const totalGate    = incomeLog.reduce((s,e) => s + (e.gateRevenue ?? 0), 0);
+  const totalMembers = incomeLog.reduce((s,e) => s + (e.memberIncomePerHomeMatch ?? 0), 0);
+  const totalShop    = incomeLog.reduce((s,e) => s + (e.shopIncome ?? 0), 0);
+  const totalAds     = incomeLog.reduce((s,e) => s + (e.adIncome ?? 0), 0);
+  const totalIncome  = totalGate + totalMembers + totalShop + totalAds;
+  const homeMatchesPlayed = incomeLog.filter(e => e.isHome).length;
+  const avgAttendance = homeMatchesPlayed > 0
+    ? Math.round(incomeLog.filter(e=>e.isHome).reduce((s,e)=>s+(e.matchAttendance??0),0) / homeMatchesPlayed)
+    : 0;
+  const avgOccupancy = homeMatchesPlayed > 0
+    ? Math.round(incomeLog.filter(e=>e.isHome).reduce((s,e)=>s+(e.occupancy??0),0) / homeMatchesPlayed * 100)
+    : 0;
+  const lastIncome = incomeLog[incomeLog.length - 1];
+
   const balance = totalIncome - totalWageSpent;
   const balanceColor = balance >= 0 ? "#22c55e" : "#ef4444";
   const budgetK       = budgetTotal * 1000;
-  const budgetAdjustment = game.budgetAdjustment ?? 0; // €K acumulado de fichajes (negativo) y ventas (positivo)
-  const budgetLeft    = budgetK - totalWageSpent + totalIncome + budgetAdjustment;
+  const budgetAdjustment = game.budgetAdjustment ?? 0; // €K acumulado: ingresos de jornadas + fichajes/ventas
+  const budgetLeft    = budgetK - totalWageSpent + budgetAdjustment;
   const budgetPct     = Math.max(0, Math.min(100, Math.round((budgetLeft / budgetK) * 100)));
   const budgetColor   = budgetPct >= 60 ? "#22c55e" : budgetPct >= 30 ? "#f59e0b" : "#ef4444";
   const topEarners = [...players].sort((a,b)=>(b.salary??0)-(a.salary??0)).slice(0,7);
@@ -1039,6 +1054,8 @@ function FinancesScreen({ game }) {
   const totalGroupWage = Object.values(groupWages).reduce((s,v)=>s+v,0);
   const fmt  = (v) => v >= 1000 ? `€${(v/1000).toFixed(1)}M` : `€${v}K`;
   const fmtW = (v) => `€${v}K/sem`;
+  const fanLove = game.fanLove ?? 70;
+  const fanLoveColor = fanLove >= 70 ? "#22c55e" : fanLove >= 40 ? "#f59e0b" : "#ef4444";
 
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
@@ -1048,7 +1065,7 @@ function FinancesScreen({ game }) {
           <div style={{ background:"#0d0f14", borderRadius:8, padding:"10px 12px" }}>
             <div style={{ fontSize:10, color:"#6b7280", marginBottom:4 }}>INGRESOS</div>
             <div style={{ fontSize:20, fontWeight:700, color:"#22c55e" }}>{fmt(totalIncome)}</div>
-            <div style={{ fontSize:10, color:"#4b5563", marginTop:2 }}>{fmt(incomePerMatch)}/partido</div>
+            <div style={{ fontSize:10, color:"#4b5563", marginTop:2 }}>{incomeLog.length} jornadas con datos</div>
           </div>
           <div style={{ background:"#0d0f14", borderRadius:8, padding:"10px 12px" }}>
             <div style={{ fontSize:10, color:"#6b7280", marginBottom:4 }}>GASTOS</div>
@@ -1076,6 +1093,73 @@ function FinancesScreen({ game }) {
             <div style={{ width:`${budgetPct}%`, height:"100%", background:budgetColor, borderRadius:3 }}/>
           </div>
         </div>
+      </div>
+
+      {/* Cariño de la afición */}
+      <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:12, display:"flex", alignItems:"center", gap:14 }}>
+        <div style={{ fontSize:28 }}>❤️</div>
+        <div style={{ flex:1 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+            <span style={{ fontSize:11, color:"#6b7280", fontWeight:600 }}>CARIÑO DE LA AFICIÓN</span>
+            <span style={{ fontSize:12, fontWeight:700, color:fanLoveColor }}>{fanLove}/100</span>
+          </div>
+          <div style={{ height:5, background:"#1e2330", borderRadius:3, overflow:"hidden" }}>
+            <div style={{ width:`${fanLove}%`, height:"100%", background:fanLoveColor, borderRadius:3 }}/>
+          </div>
+          <div style={{ fontSize:10, color:"#4b5563", marginTop:4 }}>Sube ganando partidos · baja con derrotas y rachas negativas. Afecta la ocupación del estadio.</div>
+        </div>
+      </div>
+
+      {/* Desglose de ingresos por fuente */}
+      <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:12 }}>
+        <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>FUENTES DE INGRESOS</div>
+        {[
+          ["🎟️", "Taquilla", totalGate, "#22c55e", `${homeMatchesPlayed} partidos en casa`],
+          ["🎫", "Socios y abonados", totalMembers, "#3b82f6", "Cuota prorrateada por jornada"],
+          ["🛍️", "Tienda y merchandising", totalShop, "#c9a84c", "Todas las jornadas"],
+          ["📺", "Publicidad y patrocinios", totalAds, "#a855f7", "Ingreso fijo + posición en liga"],
+        ].map(([icon,label,val,color,sub]) => {
+          const pct = totalIncome > 0 ? Math.round((val/totalIncome)*100) : 0;
+          return (
+            <div key={label} style={{ marginBottom:10 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
+                <span style={{ fontSize:14 }}>{icon}</span>
+                <span style={{ fontSize:12, color:"#9aa0b4", flex:1 }}>{label}</span>
+                <span style={{ fontSize:13, fontWeight:700, color }}>{fmt(val)}</span>
+              </div>
+              <div style={{ height:4, background:"#1e2330", borderRadius:2, overflow:"hidden", marginLeft:22 }}>
+                <div style={{ width:`${pct}%`, height:"100%", background:color, borderRadius:2 }}/>
+              </div>
+              <div style={{ fontSize:9, color:"#4b5563", marginLeft:22, marginTop:2 }}>{sub} · {pct}% del total</div>
+            </div>
+          );
+        })}
+        {lastIncome && (
+          <div style={{ background:"#0d0f14", borderRadius:8, padding:"10px 12px", marginTop:8 }}>
+            <div style={{ fontSize:10, color:"#6b7280", marginBottom:6 }}>ÚLTIMA JORNADA (J{lastIncome.matchday})</div>
+            {lastIncome.isHome ? (
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#9aa0b4" }}>
+                <span>👥 {lastIncome.matchAttendance?.toLocaleString()} espectadores</span>
+                <span>{Math.round((lastIncome.occupancy??0)*100)}% aforo</span>
+              </div>
+            ) : (
+              <div style={{ fontSize:11, color:"#6b7280" }}>Partido a domicilio · sin ingresos de taquilla</div>
+            )}
+            <div style={{ fontSize:13, fontWeight:700, color:"#22c55e", marginTop:4 }}>+{fmt(lastIncome.total)} esta jornada</div>
+          </div>
+        )}
+        {avgAttendance > 0 && (
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:10 }}>
+            <div style={{ background:"#0d0f14", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+              <div style={{ fontSize:9, color:"#6b7280" }}>ASISTENCIA MEDIA</div>
+              <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf0" }}>{avgAttendance.toLocaleString()}</div>
+            </div>
+            <div style={{ background:"#0d0f14", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+              <div style={{ fontSize:9, color:"#6b7280" }}>OCUPACIÓN MEDIA</div>
+              <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf0" }}>{avgOccupancy}%</div>
+            </div>
+          </div>
+        )}
       </div>
       <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:12 }}>
         <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>MASA SALARIAL</div>
@@ -1160,14 +1244,13 @@ function TransferMarketScreen({ game, onTransfer }) {
   const players = game.players;
   const matchday = game.matchday;
 
-  // Presupuesto disponible (igual que en finanzas)
+  // Presupuesto disponible (igual que en finanzas) — los ingresos reales ya están en budgetAdjustment
   const budgetK      = (team.budget ?? 50) * 1000;
   const weeklyWages  = players.reduce((s,p) => s + (p.salary ?? 0), 0);
   const matchPlayed  = Math.max(0, matchday - 1);
-  const income       = matchPlayed * Math.round(budgetK * 0.02);
   const wages        = matchPlayed * weeklyWages;
-  const budgetAdjustment = game.budgetAdjustment ?? 0; // €K acumulado de fichajes/ventas previos
-  const budgetLeft   = Math.round(budgetK - wages + income + budgetAdjustment);
+  const budgetAdjustment = game.budgetAdjustment ?? 0; // €K acumulado: ingresos de jornadas + fichajes/ventas
+  const budgetLeft   = Math.round(budgetK - wages + budgetAdjustment);
   const fmt          = v => v >= 1000 ? `€${(v/1000).toFixed(1)}M` : `€${v}K`;
 
   // Valor de mercado = media * 500K aproximado (simplificado)
@@ -3214,7 +3297,7 @@ function TacticsInMatch({ tactics, setTactics }) {
 
 function MatchSummaryScreen({ summary, onContinue }) {
   const { userTeam, oppTeam, isHome, userGoals, oppGoals, matchday,
-          events, players, jornadaResults, newStandings, teamId } = summary;
+          events, players, jornadaResults, newStandings, teamId, income } = summary;
 
   const won  = userGoals > oppGoals;
   const drew = userGoals === oppGoals;
@@ -3316,6 +3399,45 @@ function MatchSummaryScreen({ summary, onContinue }) {
           <span style={{ fontSize:11, color:"#6b7280" }}>{userSt?.points} pts</span>
         </div>
       </div>
+
+      {/* Ingresos de la jornada */}
+      {income && (
+        <div style={{ background:"#161a24", border:"1px solid rgba(34,197,94,.2)", borderRadius:10, padding:14, marginBottom:12 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+            <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px" }}>💰 INGRESOS DE LA JORNADA</div>
+            <div style={{ fontSize:18, fontWeight:800, color:"#22c55e" }}>+€{income.total}K</div>
+          </div>
+          {income.isHome ? (
+            <>
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#9aa0b4", marginBottom:8 }}>
+                <span>👥 {income.matchAttendance?.toLocaleString()} espectadores</span>
+                <span>{Math.round((income.occupancy??0)*100)}% del aforo</span>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                {[["🎟️ Taquilla", income.gateRevenue], ["🎫 Socios", income.memberIncomePerHomeMatch],
+                  ["🛍️ Tienda", income.shopIncome], ["📺 Publicidad", income.adIncome]].map(([l,v])=>(
+                  <div key={l} style={{ background:"#0d0f14", borderRadius:6, padding:"6px 8px", display:"flex", justifyContent:"space-between" }}>
+                    <span style={{ fontSize:10, color:"#6b7280" }}>{l}</span>
+                    <span style={{ fontSize:11, fontWeight:700, color:"#e8eaf0" }}>€{v}K</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+              <div style={{ background:"#0d0f14", borderRadius:6, padding:"6px 8px", display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:10, color:"#6b7280" }}>🛍️ Tienda</span>
+                <span style={{ fontSize:11, fontWeight:700, color:"#e8eaf0" }}>€{income.shopIncome}K</span>
+              </div>
+              <div style={{ background:"#0d0f14", borderRadius:6, padding:"6px 8px", display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:10, color:"#6b7280" }}>📺 Publicidad</span>
+                <span style={{ fontSize:11, fontWeight:700, color:"#e8eaf0" }}>€{income.adIncome}K</span>
+              </div>
+              <div style={{ fontSize:10, color:"#4b5563", gridColumn:"1 / -1", marginTop:2 }}>Sin taquilla ni socios — partido a domicilio.</div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Goleadores */}
       {(scorers.length > 0 || oppGoalEvents.length > 0) && (
@@ -3692,6 +3814,50 @@ export default function App({ externalData }) {
     setScreen("dashboard");
   };
 
+// ─── SISTEMA DE INGRESOS DEL CLUB ───────────────────────────────────────────
+// Calcula los ingresos generados en una jornada concreta:
+// - Taquilla (solo si el partido es en casa): aforo × ocupación × precio entrada
+// - Socios: cuota de abonado prorrateada por jornada (solo si es partido en casa)
+// - Tienda/merchandising: ligado a fanbase y racha de resultados
+// - Publicidad/patrocinio: ingreso fijo prorrateado, sube con la posición en liga
+function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
+  const cap = team.capacity ?? 30000;
+  const fan = team.fanbase ?? 3; // 1-5
+
+  // ── Taquilla (solo en casa) ──
+  // Ocupación base según tamaño de afición + moral/cariño de la afición (fanLove 0-100) + si ganó el partido anterior
+  const baseOccupancy = 0.45 + fan * 0.07; // 0.52 - 0.80
+  const formBonus = won ? 0.08 : drew ? 0.02 : -0.05;
+  const loveBonus = ((fanLove ?? 70) - 70) * 0.002; // ±0.06 aprox
+  const occupancy = Math.max(0.25, Math.min(0.99, baseOccupancy + formBonus + loveBonus));
+  const ticketPrice = 18 + fan * 7; // €25-53 aprox según el tamaño del club
+  const matchAttendance = isHome ? Math.round(cap * occupancy) : 0;
+  const gateRevenue = isHome ? Math.round((matchAttendance * ticketPrice) / 1000) : 0; // en €K
+
+  // ── Socios (abonados) — solo ingresan en partidos de casa, prorrateado ──
+  // Se asume que el 55% del aforo son abonados con cuota anual ya pagada
+  const seasonMembers = Math.round(cap * 0.55);
+  const memberFeeSeason = 180 + fan * 60; // € por socio y temporada
+  const memberIncomePerHomeMatch = isHome ? Math.round((seasonMembers * memberFeeSeason) / 19 / 1000) : 0; // 19 partidos en casa, en €K
+
+  // ── Tienda / merchandising — todas las jornadas, sube con fanbase y resultados ──
+  const shopBase = 8 + fan * 6; // €K por jornada
+  const shopBonus = won ? 1.3 : drew ? 1.0 : 0.8;
+  const shopIncome = Math.round(shopBase * shopBonus);
+
+  // ── Publicidad y patrocinios — ingreso fijo por jornada, sube si vas arriba en la tabla ──
+  const adBase = 10 + fan * 5;
+  const posBonus = leaguePos ? Math.max(0, (21 - leaguePos) * 0.4) : 0; // más arriba, más visibilidad
+  const adIncome = Math.round(adBase + posBonus);
+
+  const total = gateRevenue + memberIncomePerHomeMatch + shopIncome + adIncome;
+
+  return {
+    gateRevenue, memberIncomePerHomeMatch, shopIncome, adIncome, total,
+    matchAttendance, occupancy, ticketPrice, isHome,
+  };
+}
+
   const handleMatchEnd = (fixtureId, homeGoals, awayGoals, events, livePlayer) => {
     let summaryData = null;
     setGame(prev => {
@@ -3730,6 +3896,16 @@ export default function App({ externalData }) {
       const oppGoals  = isHome ? awayGoals : homeGoals;
       const won = userGoals > oppGoals; const drew = userGoals === oppGoals;
       const moraleDelta = won ? 7 : drew ? 1 : -6;
+
+      // ── Calcular ingresos de esta jornada ──
+      const userTeamData = TEAMS.find(t => t.id === prev.teamId);
+      const userStPrev = newStandings.find(s => s.teamId === prev.teamId);
+      const sortedForPos = [...newStandings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference);
+      const leaguePos = sortedForPos.findIndex(s => s.teamId === prev.teamId) + 1;
+      const fanLove = prev.fanLove ?? 70; // cariño de la afición, 0-100
+      const incomeResult = calculateMatchdayIncome(userTeamData, isHome, won, drew, leaguePos, fanLove);
+      const newFanLove = Math.max(0, Math.min(100, fanLove + (won?3:drew?0:-4)));
+
       const yellowsInMatch = events.filter(e => e.type === "YELLOW" && e.team === "home").map(e => e.playerId);
       const redsInMatch    = events.filter(e => e.type === "RED"    && e.team === "home").map(e => e.playerId);
       const playersSource  = livePlayer ?? prev.players;
@@ -3761,8 +3937,14 @@ export default function App({ externalData }) {
         jornadaResults: finalFixtures.filter(f => f.matchday === matchday),
         newStandings,
         teamId:         prev.teamId,
+        income:         incomeResult,
       };
-      const newGame = { ...prev, fixtures: finalFixtures, standings: newStandings, players: newPlayers, matchday: matchday + 1, season: prev.season ?? "2025", history: prev.history ?? [] };
+      const newIncomeLog = [...(prev.incomeLog ?? []), { matchday, ...incomeResult }];
+      const newGame = { ...prev, fixtures: finalFixtures, standings: newStandings, players: newPlayers,
+        matchday: matchday + 1, season: prev.season ?? "2025", history: prev.history ?? [],
+        budgetAdjustment: (prev.budgetAdjustment ?? 0) + incomeResult.total,
+        incomeLog: newIncomeLog,
+        fanLove: newFanLove };
       saveGame(newGame);
 
       // Detectar fin de temporada (última jornada jugada)
