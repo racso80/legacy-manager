@@ -826,13 +826,15 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   }
 
   // ── TARJETA AMARILLA VISITANTE ──
+  const oppFieldPlayers = oppSquad.filter(p => p.group !== "POR");
   if (Math.random() < 0.14) {
+    const oppCarded = oppFieldPlayers.length ? pick(oppFieldPlayers) : null;
     events.push({
-      minute: min(), type: "YELLOW", team: "opp",
+      minute: min(), type: "YELLOW", team: "opp", playerId: oppCarded?.id,
       description: pick([
-        `🟡 Tarjeta amarilla para el centrocampista visitante por una falta táctica.`,
-        `🟡 El defensa visitante corta un contragolpe y ve la amarilla.`,
-        `🟡 Amonestación al capitán visitante por protestar.`,
+        `🟡 Tarjeta amarilla para ${oppCarded?.name ?? "el centrocampista visitante"} por una falta táctica.`,
+        `🟡 ${oppCarded?.name ?? "El defensa visitante"} corta un contragolpe y ve la amarilla.`,
+        `🟡 Amonestación para ${oppCarded?.name ?? "el capitán visitante"} por protestar.`,
       ]),
     });
   }
@@ -847,9 +849,10 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
         description: `🟥 ¡ROJA para ${sent?.name ?? "el local"}! El equipo se queda con diez.`,
       });
     } else {
+      const oppSent = oppFieldPlayers.length ? pick(oppFieldPlayers) : null;
       events.push({
-        minute: min(), type: "RED", team: "opp",
-        description: `🟥 ¡ROJA para el visitante! Entrada temeraria y el árbitro no duda.`,
+        minute: min(), type: "RED", team: "opp", playerId: oppSent?.id,
+        description: `🟥 ¡ROJA para ${oppSent?.name ?? "el visitante"}! Entrada temeraria y el árbitro no duda.`,
       });
     }
   }
@@ -2000,6 +2003,15 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
   const lineupValid      = lineupPlayers.length === 11;
   const lineupCount      = lineupPlayers.length;
 
+  // Presupuesto disponible REAL — mismo cálculo que en FinancesScreen, para que ambas pantallas coincidan
+  const weeklyWages   = players.reduce((s, p) => s + (p.salary ?? 0), 0);
+  const matchdaysPlayed = Math.max(0, game.matchday - 1);
+  const totalWageSpent  = matchdaysPlayed * weeklyWages;
+  const budgetK        = team.budget * 1000;
+  const budgetAdjustment = game.budgetAdjustment ?? 0;
+  const budgetLeft     = budgetK - totalWageSpent + budgetAdjustment;
+  const fmtBudget = (v) => v >= 1000 ? `€${(v/1000).toFixed(1)}M` : `€${Math.round(v)}K`;
+
   const getOpponent = (f) => TEAMS.find(t => t.id===(f.homeTeamId===game.teamId?f.awayTeamId:f.homeTeamId));
 
   // Racha últimos 5
@@ -2087,7 +2099,7 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
         {[
           ["Moral",      avgMorale,  avgMorale>=70?"#22c55e":avgMorale>=50?"#f59e0b":"#ef4444"],
           ["Cansancio",  avgFatigue, avgFatigue<=35?"#22c55e":avgFatigue<=60?"#f59e0b":"#ef4444"],
-          ["Presupuesto",`€${team.budget}M`, "#c9a84c"],
+          ["Presupuesto",fmtBudget(budgetLeft), budgetLeft>=0?"#c9a84c":"#ef4444"],
           ["Bajas",      injured+suspended, injured+suspended===0?"#22c55e":"#ef4444"],
         ].map(([label,val,color])=>(
           <div key={label} style={{ background:"#161a24", borderRadius:8, padding:"12px 14px" }}>
@@ -2275,6 +2287,7 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
               const player = getStarter(slot);
               const posLabel = slotPositions[slot];
               const unavailable = player && (player.injured || player.suspended);
+              const nearSuspension = player && !unavailable && (player.yellowCards ?? 0) >= 4;
               const acc = unavailable ? "#ef4444" : player ? RARITY_ACCENT[player.rarity] : "rgba(255,255,255,.3)";
               const active = isActiveStarter(slot);
               return (
@@ -2282,9 +2295,9 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
                   style={{ position:"absolute", left:`${x}%`, top:`${y}%`, transform:"translate(-50%,-50%)", cursor:"pointer", textAlign:"center", zIndex:2 }}>
                   <div style={{ width:34, height:34, borderRadius:"50%", position:"relative",
                     background: unavailable?"rgba(239,68,68,.18)":player?`${acc}30`:active?"rgba(201,168,76,.25)":"rgba(255,255,255,.06)",
-                    border:`2px solid ${active?"#c9a84c":player?acc:"rgba(255,255,255,.2)"}`,
+                    border:`2px solid ${active?"#c9a84c":unavailable?acc:nearSuspension?"#fbbf24":player?acc:"rgba(255,255,255,.2)"}`,
                     display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto", transition:"all .15s",
-                    boxShadow: active?"0 0 8px #c9a84c66":unavailable?"0 0 8px #ef444466":"none" }}>
+                    boxShadow: active?"0 0 8px #c9a84c66":unavailable?"0 0 8px #ef444466":nearSuspension?"0 0 6px #fbbf2466":"none" }}>
                     {player
                       ? <span style={{ fontSize:11, fontWeight:700, color:acc }}>{player.overall}</span>
                       : <span style={{ fontSize:8, color:"rgba(255,255,255,.35)" }}>{posLabel}</span>}
@@ -2293,8 +2306,13 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
                         {player.injured ? "🚑" : "🟥"}
                       </span>
                     )}
+                    {nearSuspension && (
+                      <span style={{ position:"absolute", top:-4, right:-4, fontSize:9, background:"#fbbf24", borderRadius:"50%", width:14, height:14, display:"flex", alignItems:"center", justifyContent:"center" }} title="4 amarillas, a una de sanción">
+                        🟨
+                      </span>
+                    )}
                   </div>
-                  {player && <div style={{ fontSize:8, color: unavailable?"#ef4444":"#e8eaf0", marginTop:1, maxWidth:44, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textShadow:"0 1px 3px #000" }}>{player.name.split(" ")[0]}</div>}
+                  {player && <div style={{ fontSize:8, color: unavailable?"#ef4444":nearSuspension?"#fbbf24":"#e8eaf0", marginTop:1, maxWidth:44, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textShadow:"0 1px 3px #000" }}>{player.name.split(" ")[0]}</div>}
                 </div>
               );
             })}
@@ -2324,13 +2342,21 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
                 const acc = RARITY_ACCENT[p.rarity];
                 const bg = inStarter ? `${acc}22` : inSub ? "rgba(59,130,246,.15)" : "#161a24";
                 const bdr = inStarter ? `${acc}55` : inSub ? "rgba(59,130,246,.4)" : "rgba(255,255,255,.06)";
+                const nearSuspension = (p.yellowCards ?? 0) >= 4;
                 return (
                   <div key={p.id} onClick={() => activeSlot && assignPlayer(p)}
                     style={{ display:"flex", alignItems:"center", gap:7, padding:"6px 8px", borderRadius:7, marginBottom:5, background:bg, border:`1px solid ${bdr}`, cursor:activeSlot?"pointer":"default" }}>
                     <Initials name={p.name} size={28} rarity={p.rarity} borderRadius={5}/>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
-                      <div style={{ fontSize:10, color:"#6b7280" }}>{p.pos} · {Math.round(p.fatigue)}% can</div>
+                      <div style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}>
+                        {p.name}
+                        {(p.yellowCards ?? 0) > 0 && (
+                          <span style={{ fontSize:9, color: nearSuspension?"#ef4444":"#fbbf24", fontWeight:700, display:"inline-flex", alignItems:"center", gap:1 }}>
+                            🟨{p.yellowCards}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize:10, color:"#6b7280" }}>{p.pos} · {Math.round(p.fatigue)}% can{nearSuspension?" · ⚠️ a 1 de sanción":""}</div>
                     </div>
                     <div style={{ fontSize:14, fontWeight:700, color:acc }}>{p.overall}</div>
                     {inStarter && <span style={{ fontSize:9, color:acc, fontWeight:700 }}>T</span>}
@@ -2347,8 +2373,8 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:11, color:"#6b7280", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
                       </div>
-                      {p.injured && <span style={{ fontSize:9, color:"#ef4444", fontWeight:700 }}>LESIÓN</span>}
-                      {p.suspended && <span style={{ fontSize:9, color:"#f59e0b", fontWeight:700 }}>SANCIÓN</span>}
+                      {p.injured && <span style={{ fontSize:9, color:"#ef4444", fontWeight:700 }}>LESIÓN{p.injuryGames?` ${p.injuryGames}J`:""}</span>}
+                      {p.suspended && <span style={{ fontSize:9, color:"#f59e0b", fontWeight:700 }}>SANCIÓN{p.yellowCards>=5?" (5 amarillas)":""}</span>}
                     </div>
                   ))}
                 </div>
@@ -2558,8 +2584,10 @@ function StandingsScreen({ standings, teamId, fixtures, players }) {
       // team:"home" → fixture.homeTeamId, team:"away" → fixture.awayTeamId
       const scoringTeamId = e.team === "home" ? f.homeTeamId : f.awayTeamId;
       if (!scorerMap[e.playerId]) {
-        const pl = players?.find(p => p.id===e.playerId);
-        scorerMap[e.playerId] = { goals:0, name: pl?.name ?? "Jugador", teamId: scoringTeamId, overall: pl?.overall??75, rarity: pl?.rarity??"GOLD", pos: pl?.pos??"DC", isUser: scoringTeamId===teamId };
+        // Buscar primero en la plantilla del usuario (datos en vivo), luego en la plantilla real del equipo rival
+        const pl = players?.find(p => p.id===e.playerId)
+          ?? (REAL_SQUADS[scoringTeamId] ?? []).find(p => p.id === e.playerId);
+        scorerMap[e.playerId] = { goals:0, name: pl?.name ?? "Jugador desconocido", teamId: scoringTeamId, overall: pl?.overall??75, rarity: pl?.rarity??"GOLD", pos: pl?.pos??"DC", isUser: scoringTeamId===teamId };
       }
       scorerMap[e.playerId].goals++;
     });
@@ -2907,7 +2935,7 @@ function TacticsScreen({ tactics, setTactics }) {
   );
 }
 
-function MatchScreen({ game, tactics, setTactics, lineup, setLineup, subs, setSubs, onMatchEnd }) {
+function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, lineup: baseLineup, setLineup: setBaseLineup, subs: baseSubs, setSubs: setBaseSubs, onMatchEnd }) {
   const [segment, setSegment]   = useState(0);
   const [events, setEvents]     = useState([]);
   const [score, setScore]       = useState({ home: 0, away: 0 });
@@ -2922,6 +2950,15 @@ function MatchScreen({ game, tactics, setTactics, lineup, setLineup, subs, setSu
   const [subbingSlot, setSubbingSlot] = useState(null);
   // Banner de evento clave del último tramo (gol, tarjeta) — se autodescarta
   const [keyEventBanner, setKeyEventBanner] = useState(null);
+  // Posesión del balón (% del equipo del usuario) — se actualiza tras cada tramo
+  const [possession, setPossession] = useState(50);
+
+  // Copias LOCALES de alineación, banco y táctica — los cambios durante el partido
+  // son solo para este partido y nunca tocan el estado persistente de App.
+  // Al terminar el partido se descartan automáticamente (no se sincronizan de vuelta).
+  const [lineup, setLineup] = useState(baseLineup);
+  const [subs, setSubs]     = useState(baseSubs);
+  const [tactics, setTactics] = useState(baseTactics);
 
   const teamId  = game.teamId;
   const fixture = game.fixtures.find(f => !f.played && (f.homeTeamId === teamId || f.awayTeamId === teamId));
@@ -2974,6 +3011,14 @@ function MatchScreen({ game, tactics, setTactics, lineup, setLineup, subs, setSu
       : livePlayer.filter(p => !p.injured && !p.suspended);
     const oppSquad = REAL_SQUADS[oppTeamId] ?? [];
     const newEvs  = generateSegmentEvents(segment, starterPlayers, userStr, oppStr, score, tactics, isHome, oppSquad);
+
+    // Calcular posesión del tramo según fuerza relativa, estilo táctico y algo de variación
+    const strDiff = userStr - oppStr;
+    let basePoss = 50 + strDiff * 1.1;
+    if (tactics.estilo === "posesion") basePoss += 8;
+    if (tactics.estilo === "directo" || tactics.estilo === "contraataque") basePoss -= 6;
+    const segmentPoss = Math.max(28, Math.min(78, Math.round(basePoss + (Math.random() * 10 - 5))));
+    setPossession(segmentPoss);
 
     let hDelta = 0, aDelta = 0;
     newEvs.forEach(e => {
@@ -3073,6 +3118,30 @@ function MatchScreen({ game, tactics, setTactics, lineup, setLineup, subs, setSu
         <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 10 }}>
           {segments.map((_, i) => <div key={i} style={{ height: 3, width: 38, borderRadius: 2, background: i < segment ? "#c9a84c" : "#1e2330" }} />)}
         </div>
+
+        {/* Posesión del balón */}
+        {segment > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+              <span style={{ fontSize: 10, color: leftIsUser ? "#c9a84c" : "#6b7280", fontWeight: 700 }}>
+                {isHome ? possession : 100 - possession}%
+              </span>
+              <span style={{ fontSize: 9, color: "#4b5563", fontWeight: 600 }}>⚽ POSESIÓN</span>
+              <span style={{ fontSize: 10, color: rightIsUser ? "#c9a84c" : "#6b7280", fontWeight: 700 }}>
+                {isHome ? 100 - possession : possession}%
+              </span>
+            </div>
+            <div style={{ height: 6, background: "#1e2330", borderRadius: 3, overflow: "hidden", display: "flex" }}>
+              <div style={{ width: `${isHome ? possession : 100 - possession}%`, height: "100%",
+                background: leftIsUser ? "linear-gradient(90deg,#8a7330,#c9a84c)" : "linear-gradient(90deg,#4b5563,#6b7280)",
+                transition: "width .5s ease" }}/>
+              <div style={{ width: `${isHome ? 100 - possession : possession}%`, height: "100%",
+                background: rightIsUser ? "linear-gradient(90deg,#c9a84c,#8a7330)" : "linear-gradient(90deg,#6b7280,#4b5563)",
+                transition: "width .5s ease" }}/>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 8 }}>
           <div style={{ fontSize: 11, color: "#6b7280" }}>
             🏃 Cansancio: <span style={{ color: fatColor, fontWeight: 700 }}>{avgFatigue}</span>
@@ -3162,6 +3231,10 @@ function MatchScreen({ game, tactics, setTactics, lineup, setLineup, subs, setSu
                   const p = livePlayer.find(pl => pl.id === pid);
                   if (!p) return null;
                   const hurt = p.injured;
+                  // Tarjetas/lesión recibidas durante ESTE partido (eventos en vivo)
+                  const yellowsInMatch = events.filter(e => e.type === "YELLOW" && e.playerId === pid).length;
+                  const redInMatch     = events.some(e => e.type === "RED" && e.playerId === pid);
+                  const injuredInMatch = events.some(e => e.type === "INJURY" && e.playerId === pid);
                   return (
                     <div key={idx} onClick={() => setSubbingSlot(idx)}
                       style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", marginBottom:6,
@@ -3170,7 +3243,12 @@ function MatchScreen({ game, tactics, setTactics, lineup, setLineup, subs, setSu
                         borderRadius:8, cursor:"pointer" }}>
                       <Initials name={p.name} size={30} rarity={p.rarity} borderRadius={6}/>
                       <div style={{ flex:1 }}>
-                        <div style={{ fontSize:12, fontWeight:600, color: hurt?"#ef4444":"#e8eaf0" }}>{p.name} {hurt?"🚑":""}</div>
+                        <div style={{ fontSize:12, fontWeight:600, color: hurt?"#ef4444":"#e8eaf0", display:"flex", alignItems:"center", gap:5 }}>
+                          {p.name}
+                          {injuredInMatch && <span title="Lesionado">🚑</span>}
+                          {redInMatch && <span title="Expulsado">🟥</span>}
+                          {yellowsInMatch > 0 && !redInMatch && Array(yellowsInMatch).fill(0).map((_,k) => <span key={k} title="Tarjeta amarilla">🟨</span>)}
+                        </div>
                         <div style={{ fontSize:10, color:"#6b7280" }}>{p.pos} · Cansancio {p.fatigue}</div>
                       </div>
                       <span style={{ fontSize:11, color:"#c9a84c" }}>Sacar →</span>
@@ -3798,6 +3876,13 @@ export default function App({ externalData }) {
           setSubs(parsed._subs);
           delete parsed._subs;
         }
+        // Reaplicar fichajes pasados: quitar de REAL_SQUADS los jugadores ya comprados
+        // de su equipo de origen (REAL_SQUADS es estático y se resetea al recargar la página)
+        (parsed.transfers ?? []).forEach(t => {
+          if (t.type === "buy" && t.fromTeamId && t.fromTeamId !== "agente_libre" && REAL_SQUADS[t.fromTeamId]) {
+            REAL_SQUADS[t.fromTeamId] = REAL_SQUADS[t.fromTeamId].filter(p => p.id !== t.player.id);
+          }
+        });
         setGame(parsed);
         setScreen("dashboard");
       }
@@ -4008,8 +4093,14 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
         const newPlayer = { ...player, salary, fatigue:15, morale:75,
           injured:false, injuryGames:0, suspended:false, suspGames:0, yellowCards:0 };
         newPlayers = [...newPlayers, newPlayer];
+        // IMPORTANTE: quitar al jugador de la plantilla real de su equipo de origen,
+        // para que deje de aparecer marcando goles o disponible para esa IA.
+        if (fromTeamId && fromTeamId !== "agente_libre" && REAL_SQUADS[fromTeamId]) {
+          REAL_SQUADS[fromTeamId] = REAL_SQUADS[fromTeamId].filter(p => p.id !== player.id);
+        }
       } else if (type === "sell") {
         newPlayers = newPlayers.filter(p => p.id !== player.id);
+        // El jugador vendido pasa a estar disponible como agente libre (gestionado en TransferMarketScreen)
       }
 
       // Ajuste acumulado: comprar resta, vender suma (en €K)
