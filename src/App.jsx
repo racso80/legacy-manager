@@ -2970,6 +2970,8 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [possession, setPossession] = useState(50);
   // IDs de jugadores expulsados durante ESTE partido — quedan fuera del campo el resto del encuentro
   const [sentOffIds, setSentOffIds] = useState([]);
+  // IDs de jugadores ya sustituidos (salieron del campo) — no pueden volver a jugar este partido
+  const [subbedOutIds, setSubbedOutIds] = useState([]);
 
   // Copias LOCALES de alineación, banco y táctica — los cambios durante el partido
   // son solo para este partido y nunca tocan el estado persistente de App.
@@ -2995,18 +2997,22 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   // Realizar una sustitución: sale outId, entra inId (debe estar en el banco)
   const doSubstitution = (outId, inId) => {
     if (subsUsed >= MAX_SUBS) return;
+    if (subbedOutIds.includes(outId)) return; // ya estaba fuera, no debería poder "salir" otra vez
+    if (subbedOutIds.includes(inId) || sentOffIds.includes(inId)) return; // no se puede hacer entrar a alguien que ya salió o fue expulsado
     const slotIdx = lineup.findIndex(id => id === outId);
     if (slotIdx === -1) return;
     const newLineup = [...lineup];
     newLineup[slotIdx] = inId;
     setLineup(newLineup);
-    // Quitar al jugador que entra del banco, poner al que sale en su lugar (puede seguir en el banco como "ya usado")
+    // El jugador que entra desaparece del banco. El que sale NO vuelve al banco —
+    // queda registrado en subbedOutIds para impedir que se le pueda alinear de nuevo este partido.
     const benchIdx = subs.findIndex(id => id === inId);
     if (benchIdx !== -1) {
       const newSubs = [...subs];
       newSubs[benchIdx] = null;
       setSubs(newSubs);
     }
+    setSubbedOutIds(prev => [...prev, outId]);
     setSubsUsed(n => n + 1);
     const outP = livePlayer.find(p => p.id === outId);
     const inP  = livePlayer.find(p => p.id === inId);
@@ -3308,6 +3314,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
                 )}
                 {subs.map((pid, idx) => {
                   if (!pid) return null;
+                  if (subbedOutIds.includes(pid) || sentOffIds.includes(pid)) return null; // seguridad extra
                   const p = livePlayer.find(pl => pl.id === pid);
                   if (!p || p.injured || p.suspended) return null;
                   return (
