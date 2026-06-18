@@ -1676,16 +1676,14 @@ function ScreenWrapper({ children, animKey }) {
   );
 }
 
-function MainMenu({ onNew, onContinue, hasSave }) {
+function MainMenu({ onNew, onSaves, savesCount }) {
   const [hovNew, setHovNew] = useState(false);
   const [hovCont, setHovCont] = useState(false);
 
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", position:"relative", overflow:"hidden" }}>
-      {/* Fondo animado tipo estadio */}
       <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 50% 30%, #1a2a3a 0%, #0d0f14 70%)", zIndex:0 }}/>
       <div style={{ position:"absolute", inset:0, zIndex:0, opacity:.07 }}>
-        {/* Líneas de campo decorativas */}
         <svg width="100%" height="100%" viewBox="0 0 400 600" preserveAspectRatio="xMidYMid slice">
           <rect x="40" y="80" width="320" height="440" fill="none" stroke="white" strokeWidth="2"/>
           <line x1="40" y1="300" x2="360" y2="300" stroke="white" strokeWidth="1.5"/>
@@ -1697,41 +1695,209 @@ function MainMenu({ onNew, onContinue, hasSave }) {
           <rect x="155" y="492" width="90" height="28" fill="none" stroke="white" strokeWidth="1"/>
         </svg>
       </div>
-
-      {/* Contenido */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"40px 28px", gap:0, position:"relative", zIndex:1 }}>
-        {/* Logo */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"40px 28px", position:"relative", zIndex:1 }}>
         <div style={{ textAlign:"center", marginBottom:44 }}>
-          <div style={{ width:90, height:90, background:"linear-gradient(135deg,#c9a84c,#f5d080)", borderRadius:20, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 20px", fontSize:44, boxShadow:"0 8px 32px rgba(201,168,76,.35), 0 0 0 1px rgba(201,168,76,.3)" }}>
-            ⚽
-          </div>
+          <div style={{ width:90, height:90, background:"linear-gradient(135deg,#c9a84c,#f5d080)", borderRadius:20, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 20px", fontSize:44, boxShadow:"0 8px 32px rgba(201,168,76,.35), 0 0 0 1px rgba(201,168,76,.3)" }}>⚽</div>
           <div style={{ fontSize:36, fontWeight:800, letterSpacing:6, color:"#c9a84c", lineHeight:1, textShadow:"0 2px 20px rgba(201,168,76,.4)" }}>LEGACY</div>
           <div style={{ fontSize:36, fontWeight:200, letterSpacing:8, color:"#e8eaf0", lineHeight:1.1 }}>MANAGER</div>
           <div style={{ width:60, height:2, background:"linear-gradient(90deg,transparent,#c9a84c,transparent)", margin:"14px auto 12px" }}/>
           <div style={{ fontSize:12, color:"#4b5563", letterSpacing:2, textTransform:"uppercase" }}>Construye tu club · Forja tu legado</div>
         </div>
-
-        {/* Botones */}
         <div style={{ width:"100%", maxWidth:300, display:"flex", flexDirection:"column", gap:10 }}>
-          <button
-            onClick={onNew}
+          <button onClick={onNew}
             onMouseEnter={()=>setHovNew(true)} onMouseLeave={()=>setHovNew(false)}
-            style={{ width:"100%", background: hovNew ? "#d4b05c" : "linear-gradient(135deg,#c9a84c,#e8c96a)", color:"#1a1200", border:"none", padding:"16px 24px", borderRadius:10, fontWeight:800, fontSize:16, cursor:"pointer", letterSpacing:.5, boxShadow: hovNew?"0 6px 24px rgba(201,168,76,.5)":"0 4px 16px rgba(201,168,76,.3)", transition:"all .2s", transform: hovNew?"translateY(-1px)":"none" }}>
+            style={{ width:"100%", background: hovNew?"#d4b05c":"linear-gradient(135deg,#c9a84c,#e8c96a)", color:"#1a1200", border:"none", padding:"16px 24px", borderRadius:10, fontWeight:800, fontSize:16, cursor:"pointer", letterSpacing:.5, boxShadow: hovNew?"0 6px 24px rgba(201,168,76,.5)":"0 4px 16px rgba(201,168,76,.3)", transition:"all .2s", transform:hovNew?"translateY(-1px)":"none" }}>
             ▶ Nueva partida
           </button>
-          {hasSave && (
-            <button
-              onClick={onContinue}
+          {savesCount > 0 && (
+            <button onClick={onSaves}
               onMouseEnter={()=>setHovCont(true)} onMouseLeave={()=>setHovCont(false)}
               style={{ width:"100%", background: hovCont?"rgba(255,255,255,.08)":"rgba(255,255,255,.04)", color:"#e8eaf0", border:"1px solid rgba(255,255,255,.15)", padding:"14px 24px", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", transition:"all .2s" }}>
-              Continuar partida
+              Continuar partida{savesCount > 1 ? ` (${savesCount})` : ""}
             </button>
           )}
         </div>
+        <div style={{ marginTop:40, fontSize:11, color:"#374151", letterSpacing:1.5, textTransform:"uppercase" }}>LaLiga EA Sports · 2025/26</div>
+      </div>
+    </div>
+  );
+}
 
-        <div style={{ marginTop:40, fontSize:11, color:"#374151", letterSpacing:1.5, textTransform:"uppercase" }}>
-          LaLiga EA Sports · 2025/26
+// ─── PANTALLA: LISTA DE PARTIDAS GUARDADAS ────────────────────────────────────
+function SavesScreen({ saves, onLoad, onDelete, onNew, onBack }) {
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const fmtDate = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
+  };
+
+  return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"14px 16px", flexShrink:0 }}>
+        <div style={{ fontSize:18, fontWeight:800, color:"#c9a84c" }}>Mis partidas</div>
+        <div style={{ fontSize:11, color:"#4b5563", marginTop:2 }}>{saves.length} partida{saves.length!==1?"s":""} guardada{saves.length!==1?"s":""}</div>
+      </div>
+      <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
+        {saves.length === 0 && (
+          <div style={{ textAlign:"center", color:"#4b5563", padding:"40px 0", fontSize:13 }}>No hay partidas guardadas.</div>
+        )}
+        {[...saves].sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).map(s => {
+          const team = TEAMS.find(t => t.id === s.teamId);
+          return (
+            <div key={s.id} style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:10, padding:"14px", marginBottom:10 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
+                <div style={{ width:44, height:44, borderRadius:"50%", background:`${team?.color??'#c9a84c'}22`, border:`2px solid ${team?.color??'#c9a84c'}55`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, fontWeight:800, color:team?.color??'#c9a84c', flexShrink:0 }}>
+                  {team?.short ?? "??"}
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name ?? team?.name ?? "Partida"}</div>
+                  <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>J{s.matchday} · Temp. {s.season}/{ parseInt(s.season)+1 }</div>
+                  <div style={{ fontSize:10, color:"#374151", marginTop:1 }}>Guardada: {fmtDate(s.updatedAt)}</div>
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                {confirmDelete === s.id ? (
+                  <>
+                    <div style={{ flex:1, fontSize:11, color:"#ef4444", display:"flex", alignItems:"center" }}>¿Eliminar esta partida?</div>
+                    <button onClick={() => { onDelete(s.id); setConfirmDelete(null); }}
+                      style={{ background:"rgba(239,68,68,.15)", border:"1px solid rgba(239,68,68,.3)", color:"#ef4444", padding:"6px 12px", borderRadius:7, fontSize:12, cursor:"pointer" }}>Sí, borrar</button>
+                    <button onClick={() => setConfirmDelete(null)}
+                      style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", padding:"6px 12px", borderRadius:7, fontSize:12, cursor:"pointer" }}>Cancelar</button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => onLoad(s.id)} className="btn-gold"
+                      style={{ flex:1, padding:"9px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                      ▶ Continuar
+                    </button>
+                    <button onClick={() => setConfirmDelete(s.id)}
+                      style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)", color:"#ef4444", padding:"9px 14px", borderRadius:8, fontSize:13, cursor:"pointer" }}>
+                      🗑
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        <button onClick={onNew} className="btn-ghost"
+          style={{ width:"100%", padding:"12px", borderRadius:9, fontSize:13, fontWeight:600, cursor:"pointer", marginTop:4 }}>
+          + Crear nueva partida
+        </button>
+      </div>
+      <div style={{ padding:"10px 14px", borderTop:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
+        <button onClick={onBack} className="btn-ghost"
+          style={{ width:"100%", padding:"10px", borderRadius:8, fontSize:12, cursor:"pointer" }}>
+          ← Volver al menú
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── DATOS DE PAÍSES Y LIGAS ─────────────────────────────────────────────────
+const COUNTRIES = [
+  { id: "es", name: "España", flag: "🇪🇸", available: true },
+  { id: "en", name: "Inglaterra", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", available: false },
+  { id: "de", name: "Alemania",   flag: "🇩🇪", available: false },
+  { id: "it", name: "Italia",     flag: "🇮🇹", available: false },
+  { id: "fr", name: "Francia",    flag: "🇫🇷", available: false },
+  { id: "pt", name: "Portugal",   flag: "🇵🇹", available: false },
+];
+
+const LEAGUES_BY_COUNTRY = {
+  es: [
+    { id: "laliga",   name: "LaLiga EA Sports",  division: "1ª División", teams: 20, available: true },
+    { id: "laliga2",  name: "LaLiga Hypermotion", division: "2ª División", teams: 22, available: false },
+  ],
+  en: [
+    { id: "premier",  name: "Premier League",     division: "1ª División", teams: 20, available: false },
+    { id: "championship", name: "Championship",   division: "2ª División", teams: 24, available: false },
+  ],
+  de: [
+    { id: "bundesliga", name: "Bundesliga",       division: "1ª División", teams: 18, available: false },
+  ],
+  it: [
+    { id: "seriea",   name: "Serie A",            division: "1ª División", teams: 20, available: false },
+  ],
+  fr: [
+    { id: "ligue1",   name: "Ligue 1",            division: "1ª División", teams: 18, available: false },
+  ],
+  pt: [
+    { id: "primeiramain", name: "Primeira Liga",  division: "1ª División", teams: 18, available: false },
+  ],
+};
+
+// ─── PANTALLA: SELECCIÓN DE PAÍS ─────────────────────────────────────────────
+function CountryScreen({ onSelect, onBack }) {
+  return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"14px 16px", flexShrink:0 }}>
+        <div style={{ fontSize:18, fontWeight:800, color:"#e8eaf0" }}>Selecciona un país</div>
+        <div style={{ fontSize:11, color:"#4b5563", marginTop:2 }}>Elige el país de la liga que quieres gestionar</div>
+      </div>
+      <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+          {COUNTRIES.map(c => (
+            <div key={c.id} onClick={() => c.available && onSelect(c)}
+              style={{ background: c.available ? "#161a24" : "#0f1118",
+                border: `1px solid ${c.available ? "rgba(255,255,255,.08)" : "rgba(255,255,255,.03)"}`,
+                borderRadius:10, padding:"16px 12px", cursor: c.available ? "pointer" : "default",
+                opacity: c.available ? 1 : .45, textAlign:"center", transition:"background .15s" }}
+              onMouseEnter={e => c.available && (e.currentTarget.style.background="#1e2330")}
+              onMouseLeave={e => c.available && (e.currentTarget.style.background="#161a24")}>
+              <div style={{ fontSize:36, marginBottom:8 }}>{c.flag}</div>
+              <div style={{ fontSize:13, fontWeight:700, color: c.available ? "#e8eaf0" : "#4b5563" }}>{c.name}</div>
+              {!c.available && <div style={{ fontSize:10, color:"#374151", marginTop:4 }}>Próximamente</div>}
+            </div>
+          ))}
         </div>
+      </div>
+      <div style={{ padding:"10px 14px", borderTop:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
+        <button onClick={onBack} className="btn-ghost"
+          style={{ width:"100%", padding:"10px", borderRadius:8, fontSize:12, cursor:"pointer" }}>
+          ← Volver
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── PANTALLA: SELECCIÓN DE LIGA ─────────────────────────────────────────────
+function LeagueScreen({ country, onSelect, onBack }) {
+  const leagues = LEAGUES_BY_COUNTRY[country?.id] ?? [];
+  return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"14px 16px", flexShrink:0 }}>
+        <div style={{ fontSize:18, fontWeight:800, color:"#e8eaf0" }}>{country?.flag} {country?.name}</div>
+        <div style={{ fontSize:11, color:"#4b5563", marginTop:2 }}>Elige la liga que quieres gestionar</div>
+      </div>
+      <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
+        {leagues.map(l => (
+          <div key={l.id} onClick={() => l.available && onSelect(l)}
+            style={{ background: l.available ? "#161a24" : "#0f1118",
+              border:`1px solid ${l.available ? "rgba(255,255,255,.08)" : "rgba(255,255,255,.03)"}`,
+              borderRadius:10, padding:"16px", marginBottom:8, cursor: l.available ? "pointer" : "default",
+              opacity: l.available ? 1 : .5, display:"flex", alignItems:"center", gap:14, transition:"background .15s" }}
+            onMouseEnter={e => l.available && (e.currentTarget.style.background="#1e2330")}
+            onMouseLeave={e => l.available && (e.currentTarget.style.background="#161a24")}>
+            <div style={{ width:48, height:48, borderRadius:10, background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>🏆</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:700, color: l.available ? "#e8eaf0" : "#4b5563" }}>{l.name}</div>
+              <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>{l.division} · {l.teams} equipos</div>
+              {!l.available && <div style={{ fontSize:10, color:"#374151", marginTop:3 }}>Próximamente</div>}
+            </div>
+            {l.available && <div style={{ fontSize:16, color:"#c9a84c" }}>→</div>}
+          </div>
+        ))}
+      </div>
+      <div style={{ padding:"10px 14px", borderTop:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
+        <button onClick={onBack} className="btn-ghost"
+          style={{ width:"100%", padding:"10px", borderRadius:8, fontSize:12, cursor:"pointer" }}>
+          ← Volver a países
+        </button>
       </div>
     </div>
   );
@@ -3865,48 +4031,87 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
   );
 }
 
-const SAVE_KEY = "legacy_manager_save";
+const SAVE_INDEX_KEY = "legacy_manager_saves_index"; // lista de partidas: [{id, name, teamId, matchday, season, updatedAt}]
+const saveSlotKey = (id) => `legacy_manager_save_${id}`;
+
+function getSavesIndex() {
+  try {
+    const raw = localStorage.getItem(SAVE_INDEX_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function setSavesIndex(list) {
+  try { localStorage.setItem(SAVE_INDEX_KEY, JSON.stringify(list)); } catch (e) {}
+}
 
 export default function App({ externalData }) {
   useGlobalStyles();
+  // Merge external data.json with built-in data if available
   if (externalData?.players) Object.assign(REAL_SQUADS, externalData.players);
-  if (externalData?.teams) { externalData.teams.forEach(et => { const idx=TEAMS.findIndex(t=>t.id===et.id); if(idx!==-1) Object.assign(TEAMS[idx],et); }); }
+  if (externalData?.teams) {
+    externalData.teams.forEach(et => {
+      const idx = TEAMS.findIndex(t => t.id === et.id);
+      if (idx !== -1) Object.assign(TEAMS[idx], et);
+    });
+  }
   const [screen, setScreen]       = useState("menu");
   const [game, setGame]           = useState(null);
+  const [activeSaveId, setActiveSaveId] = useState(null); // id de la partida actualmente cargada
   const [lineup, setLineup]       = useState(Array(11).fill(null));
   const [subs, setSubs]           = useState(Array(7).fill(null));
   const [formation, setFormation] = useState("4-3-3");
   const [tactics, setTactics]     = useState(DEFAULT_TACTICS);
-  const [hasSave, setHasSave]     = useState(false);
+  const [savesIndex, setSavesIndexState] = useState([]);
+  const [pendingCountry, setPendingCountry] = useState(null); // país elegido en "Nueva partida"
+  const [pendingLeague, setPendingLeague]   = useState(null); // liga elegida en "Nueva partida"
   const [matchSummary, setMatchSummary]     = useState(null);
   const [seasonSummary, setSeasonSummary]   = useState(null);
 
   useEffect(() => {
-    try { if (localStorage.getItem(SAVE_KEY)) setHasSave(true); } catch (e) {}
+    setSavesIndexState(getSavesIndex());
   }, []);
 
   // Auto-guardar alineación, suplentes y formación cuando cambian
   useEffect(() => {
-    if (!game) return;
+    if (!game || !activeSaveId) return;
     saveGame(game, lineup, formation, subs);
   }, [lineup, formation, subs]);
 
-  const saveGame = useCallback((g, lineupToSave, formationToSave, subsToSave) => {
+  const saveGame = useCallback((g, lineupToSave, formationToSave, subsToSave, saveIdOverride) => {
+    const targetId = saveIdOverride ?? activeSaveId;
+    if (!targetId) return;
     try {
       const toSave = {
         ...g,
+        id: targetId,
+        updatedAt: new Date().toISOString(),
         _lineup: lineupToSave !== undefined ? lineupToSave : lineup,
         _formation: formationToSave !== undefined ? formationToSave : formation,
         _subs: subsToSave !== undefined ? subsToSave : subs,
       };
-      localStorage.setItem(SAVE_KEY, JSON.stringify(toSave));
-      setHasSave(true);
+      localStorage.setItem(saveSlotKey(targetId), JSON.stringify(toSave));
+      // Actualizar el índice con metadatos rápidos para la lista de partidas
+      const idx = getSavesIndex();
+      const teamData = TEAMS.find(t => t.id === g.teamId);
+      const i = idx.findIndex(s => s.id === targetId);
+      const entry = {
+        id: targetId,
+        name: g.name ?? teamData?.name ?? "Partida",
+        teamId: g.teamId,
+        matchday: g.matchday,
+        season: g.season ?? "2025",
+        updatedAt: new Date().toISOString(),
+        createdAt: i !== -1 ? idx[i].createdAt : new Date().toISOString(),
+      };
+      if (i !== -1) idx[i] = entry; else idx.push(entry);
+      setSavesIndex(idx);
+      setSavesIndexState(idx);
     } catch (e) {}
-  }, [lineup, formation, subs]);
+  }, [lineup, formation, subs, activeSaveId]);
 
-  const loadGame = () => {
+  const loadGame = (saveId) => {
     try {
-      const saved = localStorage.getItem(SAVE_KEY);
+      const saved = localStorage.getItem(saveSlotKey(saveId));
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed._lineup) {
@@ -3928,8 +4133,22 @@ export default function App({ externalData }) {
             REAL_SQUADS[t.fromTeamId] = REAL_SQUADS[t.fromTeamId].filter(p => p.id !== t.player.id);
           }
         });
+        setActiveSaveId(saveId);
         setGame(parsed);
         setScreen("dashboard");
+      }
+    } catch (e) {}
+  };
+
+  const deleteSave = (saveId) => {
+    try {
+      localStorage.removeItem(saveSlotKey(saveId));
+      const idx = getSavesIndex().filter(s => s.id !== saveId);
+      setSavesIndex(idx);
+      setSavesIndexState(idx);
+      if (activeSaveId === saveId) {
+        setActiveSaveId(null);
+        setGame(null);
       }
     } catch (e) {}
   };
@@ -3938,9 +4157,16 @@ export default function App({ externalData }) {
     const players  = generatePlayers(team.id);
     const fixtures = generateFixtures();
     const standings = initStandings();
-    const g = { teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [] };
+    const newId = `save_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+    const g = { id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [],
+      country: pendingCountry?.id, league: pendingLeague?.id };
+    setActiveSaveId(newId);
+    setLineup(Array(11).fill(null));
+    setSubs(Array(7).fill(null));
+    setFormation("4-3-3");
+    setTactics(DEFAULT_TACTICS);
     setGame(g);
-    saveGame(g);
+    saveGame(g, Array(11).fill(null), "4-3-3", Array(7).fill(null), newId);
     setScreen("dashboard");
   };
 
@@ -4174,13 +4400,14 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
   };
 
   const headerTitle = {
-    menu: null, teams: "Elige tu equipo", dashboard: "Mi Club",
+    menu: null, saves: null, country: "Nueva partida", league: "Selecciona liga",
+    teams: "Elige tu equipo", dashboard: "Mi Club",
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
     seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes",
   };
-  const showNav = !["menu","teams","match","summary","seasonEnd"].includes(screen);
+  const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd"].includes(screen);
   const inGame  = !["menu","teams"].includes(screen);
 
   return (
@@ -4196,7 +4423,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
             </button>
           )}
           {screen === "teams" && (
-            <button onClick={() => setScreen("menu")}
+            <button onClick={() => setScreen("league")}
               style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", cursor:"pointer", fontSize:12, padding:"5px 10px", borderRadius:7, fontWeight:600 }}>
               ← Volver
             </button>
@@ -4213,7 +4440,10 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
         <ScreenWrapper animKey={screen}>
-          {screen === "menu"      && <MainMenu onNew={() => setScreen("teams")} onContinue={loadGame} hasSave={hasSave} />}
+          {screen === "menu"      && <MainMenu onNew={() => setScreen("country")} onSaves={() => setScreen("saves")} savesCount={savesIndex.length} />}
+          {screen === "saves"     && <SavesScreen saves={savesIndex} onLoad={loadGame} onDelete={deleteSave} onNew={() => setScreen("country")} onBack={() => setScreen("menu")} />}
+          {screen === "country"   && <CountryScreen onSelect={c => { setPendingCountry(c); setScreen("league"); }} onBack={() => setScreen("menu")} />}
+          {screen === "league"    && <LeagueScreen country={pendingCountry} onSelect={l => { setPendingLeague(l); setScreen("teams"); }} onBack={() => setScreen("country")} />}
           {screen === "teams"     && <TeamSelection onSelect={startNewGame} />}
           {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} />}
           {screen === "squad"     && game && <SquadScreen players={game.players} />}
