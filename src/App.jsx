@@ -652,6 +652,10 @@ function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS) {
 
   const mod = tacticModifiers(tactics);
 
+  // Penalización por inferioridad numérica (expulsiones) — cada jugador menos de 11 resta fuerza notablemente
+  const numPlayers = starters.length;
+  const manDownPenalty = numPlayers < 11 ? (11 - numPlayers) * 6 : 0;
+
   const lineStrength =
     avg        * 0.40 +
     delStr     * 0.15 +
@@ -660,7 +664,7 @@ function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS) {
     gkStr      * 0.10 +
     moraleBonus * 0.05;
 
-  return Math.max(40, lineStrength - fatiguePenalty + homeBon + mod.atkBonus * 0.5);
+  return Math.max(35, lineStrength - fatiguePenalty + homeBon + mod.atkBonus * 0.5 - manDownPenalty);
 }
 
 function calcDefStrength(players, tactics = DEFAULT_TACTICS) {
@@ -2578,16 +2582,28 @@ function StandingsScreen({ standings, teamId, fixtures, players }) {
   const getTeam  = (id) => TEAMS.find(t => t.id === id);
 
   // ── Goleadores: extraer de todos los eventos de fixtures jugados ──
+  // Función para resolver el EQUIPO ACTUAL de un jugador (puede haber cambiado por fichaje)
+  const resolveCurrentTeamId = (playerId, fallbackTeamId) => {
+    if (players?.some(p => p.id === playerId)) return teamId; // está en la plantilla del usuario ahora
+    // Buscar en qué REAL_SQUADS está actualmente (si fue fichado por otro club de la IA, no lo gestionamos, así que se queda en el fallback)
+    for (const tId of Object.keys(REAL_SQUADS)) {
+      if (REAL_SQUADS[tId]?.some(p => p.id === playerId)) return tId;
+    }
+    return fallbackTeamId; // ya no está en ninguna plantilla conocida (caso raro), usar el de cuando marcó
+  };
+
   const scorerMap = {};  // playerId → { goals, name, teamId, overall, rarity, pos }
   fixtures.filter(f => f.played && f.events?.length).forEach(f => {
     f.events.filter(e => (e.type==="GOAL"||e.type==="PENALTY") && e.playerId).forEach(e => {
-      // team:"home" → fixture.homeTeamId, team:"away" → fixture.awayTeamId
-      const scoringTeamId = e.team === "home" ? f.homeTeamId : f.awayTeamId;
+      // team:"home" → fixture.homeTeamId, team:"away" → fixture.awayTeamId (equipo en el momento del gol)
+      const scoringTeamIdAtTime = e.team === "home" ? f.homeTeamId : f.awayTeamId;
       if (!scorerMap[e.playerId]) {
-        // Buscar primero en la plantilla del usuario (datos en vivo), luego en la plantilla real del equipo rival
+        // Nombre: buscar primero en la plantilla del usuario (datos en vivo), luego en la plantilla de cuando marcó
         const pl = players?.find(p => p.id===e.playerId)
-          ?? (REAL_SQUADS[scoringTeamId] ?? []).find(p => p.id === e.playerId);
-        scorerMap[e.playerId] = { goals:0, name: pl?.name ?? "Jugador desconocido", teamId: scoringTeamId, overall: pl?.overall??75, rarity: pl?.rarity??"GOLD", pos: pl?.pos??"DC", isUser: scoringTeamId===teamId };
+          ?? (REAL_SQUADS[scoringTeamIdAtTime] ?? []).find(p => p.id === e.playerId);
+        // Equipo a mostrar: el ACTUAL del jugador (puede haber cambiado de equipo desde que marcó este gol)
+        const currentTeamId = resolveCurrentTeamId(e.playerId, scoringTeamIdAtTime);
+        scorerMap[e.playerId] = { goals:0, name: pl?.name ?? "Jugador desconocido", teamId: currentTeamId, overall: pl?.overall??75, rarity: pl?.rarity??"GOLD", pos: pl?.pos??"DC", isUser: currentTeamId===teamId };
       }
       scorerMap[e.playerId].goals++;
     });
@@ -2952,6 +2968,8 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [keyEventBanner, setKeyEventBanner] = useState(null);
   // Posesión del balón (% del equipo del usuario) — se actualiza tras cada tramo
   const [possession, setPossession] = useState(50);
+  // IDs de jugadores expulsados durante ESTE partido — quedan fuera del campo el resto del encuentro
+  const [sentOffIds, setSentOffIds] = useState([]);
 
   // Copias LOCALES de alineación, banco y táctica — los cambios durante el partido
   // son solo para este partido y nunca tocan el estado persistente de App.
@@ -3006,9 +3024,10 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     const oppAvg  = TEAM_REAL_AVG[oppTeamId] ?? oppTeam.avg;
     const oppStr  = oppAvg + (Math.random() * 8 - 4);
     const starterIds = lineup.filter(Boolean);
-    const starterPlayers = starterIds.length > 0
+    const starterPlayers = (starterIds.length > 0
       ? livePlayer.filter(p => starterIds.includes(p.id))
-      : livePlayer.filter(p => !p.injured && !p.suspended);
+      : livePlayer.filter(p => !p.injured && !p.suspended)
+    ).filter(p => !sentOffIds.includes(p.id)); // los expulsados ya no pisan el campo
     const oppSquad = REAL_SQUADS[oppTeamId] ?? [];
     const newEvs  = generateSegmentEvents(segment, starterPlayers, userStr, oppStr, score, tactics, isHome, oppSquad);
 
@@ -3032,17 +3051,22 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       }
     });
 
+    // Nuevas expulsiones de nuestro equipo en este tramo (roja directa)
+    const newReds = newEvs.filter(e => e.type === "RED" && e.team === "user" && e.playerId).map(e => e.playerId);
+    if (newReds.length) setSentOffIds(prev => [...new Set([...prev, ...newReds])]);
+
     // Aplicar cansancio progresivo según tácticas — SOLO a los titulares en el campo
     const fatDelta = fatigueDeltaPerSegment(tactics);
     const onFieldIds = new Set(starterPlayers.map(p => p.id));
     setLivePlayers(prev => prev.map(p => {
       const onField = onFieldIds.has(p.id);
+      const isGK = p.group === "POR";
       return {
         ...p,
-        // Solo los jugadores en el campo se cansan; los que no juegan descansan ligeramente
+        // Solo los jugadores en el campo se cansan; los porteros apenas se cansan; los que no juegan descansan
         fatigue: p.injured ? p.fatigue
           : onField
-            ? Math.min(100, Math.round(p.fatigue + fatDelta + Math.random() * 2))
+            ? Math.min(100, Math.round(p.fatigue + (isGK ? fatDelta * 0.25 : fatDelta) + Math.random() * (isGK ? 0.5 : 2)))
             : Math.max(0, Math.round(p.fatigue - 1)),
         // Lesiones generadas en eventos
         injured: newEvs.some(e => e.type === "INJURY" && e.playerId === p.id) ? true : p.injured,
@@ -3233,8 +3257,23 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
                   const hurt = p.injured;
                   // Tarjetas/lesión recibidas durante ESTE partido (eventos en vivo)
                   const yellowsInMatch = events.filter(e => e.type === "YELLOW" && e.playerId === pid).length;
-                  const redInMatch     = events.some(e => e.type === "RED" && e.playerId === pid);
+                  const redInMatch     = sentOffIds.includes(pid);
                   const injuredInMatch = events.some(e => e.type === "INJURY" && e.playerId === pid);
+                  if (redInMatch) {
+                    // Un jugador expulsado no puede ser "sustituido": ya está fuera del campo definitivamente
+                    return (
+                      <div key={idx} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", marginBottom:6,
+                        background:"rgba(239,68,68,.06)", border:"1px solid rgba(239,68,68,.2)", borderRadius:8, opacity:.6 }}>
+                        <Initials name={p.name} size={30} rarity={p.rarity} borderRadius={6}/>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:12, fontWeight:600, color:"#ef4444", display:"flex", alignItems:"center", gap:5 }}>
+                            {p.name} <span title="Expulsado">🟥</span>
+                          </div>
+                          <div style={{ fontSize:10, color:"#6b7280" }}>Expulsado · el equipo juega con uno menos</div>
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <div key={idx} onClick={() => setSubbingSlot(idx)}
                       style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", marginBottom:6,
@@ -3246,8 +3285,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
                         <div style={{ fontSize:12, fontWeight:600, color: hurt?"#ef4444":"#e8eaf0", display:"flex", alignItems:"center", gap:5 }}>
                           {p.name}
                           {injuredInMatch && <span title="Lesionado">🚑</span>}
-                          {redInMatch && <span title="Expulsado">🟥</span>}
-                          {yellowsInMatch > 0 && !redInMatch && Array(yellowsInMatch).fill(0).map((_,k) => <span key={k} title="Tarjeta amarilla">🟨</span>)}
+                          {yellowsInMatch > 0 && Array(yellowsInMatch).fill(0).map((_,k) => <span key={k} title="Tarjeta amarilla">🟨</span>)}
                         </div>
                         <div style={{ fontSize:10, color:"#6b7280" }}>{p.pos} · Cansancio {p.fatigue}</div>
                       </div>
@@ -3991,24 +4029,34 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
       const incomeResult = calculateMatchdayIncome(userTeamData, isHome, won, drew, leaguePos, fanLove);
       const newFanLove = Math.max(0, Math.min(100, fanLove + (won?3:drew?0:-4)));
 
-      const yellowsInMatch = events.filter(e => e.type === "YELLOW" && e.team === "home").map(e => e.playerId);
-      const redsInMatch    = events.filter(e => e.type === "RED"    && e.team === "home").map(e => e.playerId);
+      // Las tarjetas usan team:"user"/"opp" (no se normalizan a home/away como los goles)
+      const yellowsInMatch = events.filter(e => e.type === "YELLOW" && e.team === "user").map(e => e.playerId);
+      const redsInMatch    = events.filter(e => e.type === "RED"    && e.team === "user").map(e => e.playerId);
       const playersSource  = livePlayer ?? prev.players;
       const newPlayers = playersSource.map(p => {
+        const wasSuspended = p.suspended && p.suspGames > 0; // venía sancionado de antes (ya cumplió este partido)
         const extraYellows = yellowsInMatch.filter(id => id === p.id).length;
         const gotRed       = redsInMatch.includes(p.id);
-        const newYellows   = p.yellowCards + extraYellows;
-        const suspFromRed  = gotRed ? 1 : 0;
-        const suspFromAcc  = newYellows >= 5 && p.yellowCards < 5 ? 1 : 0;
-        const suspGames    = Math.max(p.suspGames, suspFromRed + suspFromAcc);
+        const newYellowCount = p.yellowCards + extraYellows;
+
+        // Sanción NUEVA originada en este partido (roja o 5ª amarilla)
+        const redSeverityRoll = Math.random();
+        const newRedSusp  = gotRed ? (redSeverityRoll < 0.70 ? 1 : redSeverityRoll < 0.92 ? 2 : 3) : 0;
+        const newAccSusp  = (newYellowCount >= 5 && p.yellowCards < 5) ? 1 : 0;
+        const newSuspensionGames = newRedSusp + newAccSusp; // partidos de sanción que arrancan a partir del SIGUIENTE partido
+
+        // Si venía sancionado, esos partidos pendientes ya se cumplieron jugando este partido (estaba fuera del once)
+        const remainingFromBefore = wasSuspended ? Math.max(0, p.suspGames - 1) : (p.suspended ? p.suspGames : 0);
+        const finalSuspGames = remainingFromBefore + newSuspensionGames;
+
         const fatigueRecovery = (!p.injured && !p.suspended) ? 15 : 25;
         return {
           ...p,
           fatigue:     Math.max(0, Math.round(p.fatigue - fatigueRecovery + Math.floor(Math.random() * 4))),
           morale:      Math.max(10, Math.min(100, p.morale + moraleDelta + Math.floor(Math.random()*4)-2)),
-          yellowCards: gotRed ? 0 : newYellows % 5,
-          suspended:   gotRed || suspFromAcc > 0 || p.suspGames > 0,
-          suspGames:   Math.max(0, suspGames - (p.suspended ? 1 : 0)),
+          yellowCards: gotRed ? 0 : newYellowCount % 5,
+          suspended:   finalSuspGames > 0,
+          suspGames:   finalSuspGames,
           injuryGames: p.injured ? Math.max(0, p.injuryGames - 1) : p.injuryGames,
           injured:     p.injured ? p.injuryGames > 1 : false,
         };
