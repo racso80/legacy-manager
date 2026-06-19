@@ -305,4 +305,13 @@ export function generateMedicalNews({ injuryEvents = [], beforePlayers = [], aft
   });
   return mergeNews([], stories);
 }
+
+export function generateBoardNews({ items = [], season, matchday, userTeamId }) {
+  return items.map(item=>createNews({
+    type:"board",title:item.title,summary:item.summary,importance:item.importance??"medium",
+    season,matchday,teamIds:[userTeamId],userTeamId,
+    fingerprint:item.fingerprint??`board:${matchday}:${item.title}`,
+    metadata:{userClub:true},
+  }));
+}
 import { formatMedicalDuration } from "../medical/medicalEngine.js";

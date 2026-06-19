@@ -4,10 +4,12 @@ import NewsScreen from "./components/NewsScreen.jsx";
 import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
 import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
 import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
-import { buildPlayerLookup, generateMatchdayNews, generateMedicalNews, generateTransferNews, mergeNews } from "./news/newsEngine.js";
+import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
+import { buildPlayerLookup, generateBoardNews, generateMatchdayNews, generateMedicalNews, generateTransferNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue } from "./players/playerProfile.js";
 import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
 import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, normalizeTrainingPlan } from "./training/trainingEngine.js";
+import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason } from "./legacy/legacyEngine.js";
 
 // ─── DATOS ───────────────────────────────────────────────────────────────────
 
@@ -1128,7 +1130,7 @@ function FinancesScreen({ game }) {
           ["🎟️", "Taquilla", totalGate, "#22c55e", `${homeMatchesPlayed} partidos en casa`],
           ["🎫", "Socios y abonados", totalMembers, "#3b82f6", "Cuota prorrateada por jornada"],
           ["🛍️", "Tienda y merchandising", totalShop, "#c9a84c", "Todas las jornadas"],
-          ["📺", "Publicidad y patrocinios", totalAds, "#a855f7", "Ingreso fijo + posición en liga"],
+          ["📺", "Publicidad y patrocinios", totalAds, "#a855f7", `Posición + prestigio del club (${Math.round(game.legacy?.clubPrestige??30)}/100)`],
         ].map(([icon,label,val,color,sub]) => {
           const pct = totalIncome > 0 ? Math.round((val/totalIncome)*100) : 0;
           return (
@@ -1317,12 +1319,15 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer }) {
   // Historial de fichajes
   const history = game.transfers ?? [];
 
-  const canAfford = p => budgetLeft >= marketValue(p);
+  const clubPrestige = game.legacy?.clubPrestige ?? 30;
+  const requiredPrestige = p => p.overall >= 88 ? 65 : p.overall >= 85 ? 45 : 0;
+  const canAttract = p => clubPrestige >= requiredPrestige(p);
+  const canAfford = p => budgetLeft >= marketValue(p) && canAttract(p);
 
   const doBuy = (player) => {
     const cost   = marketValue(player);
     const salary = suggestedSalary(player);
-    if (budgetLeft < cost) return;
+    if (budgetLeft < cost || !canAttract(player)) return;
     onTransfer({
       type: "buy",
       player: { ...player, fatigue:15, morale:75, injured:false, injuryGames:0,
@@ -1406,7 +1411,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer }) {
             <div style={{ fontSize:10, color:"#6b7280", marginBottom:8, fontWeight:600 }}>{marketPlayers.length} JUGADORES DISPONIBLES</div>
             {marketPlayers.map(p => {
               const val   = marketValue(p);
-              const can   = budgetLeft >= val;
+              const can   = budgetLeft >= val && canAttract(p);
               const alreadyOwned = players.some(pl => pl.id === p.id);
               return (
                 <div key={p.id} onClick={()=>!alreadyOwned&&setSelected(p)}
@@ -1465,7 +1470,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer }) {
                 className={canAfford(selected)?"btn-gold":""}
                 style={{ width:"100%", padding:12, borderRadius:8, fontSize:14, fontWeight:700, cursor:"pointer",
                   ...(canAfford(selected)?{}:{background:"#374151",color:"#6b7280",border:"1px solid rgba(255,255,255,.08)"}) }}>
-                {canAfford(selected) ? `✓ Fichar a ${selected.name}` : "❌ Presupuesto insuficiente"}
+                {canAfford(selected) ? `✓ Fichar a ${selected.name}` : !canAttract(selected) ? `🔒 Requiere prestigio ${requiredPrestige(selected)}` : "❌ Presupuesto insuficiente"}
               </button>
             </div>
           )}
@@ -1573,9 +1578,12 @@ function BottomNav({ screen, setScreen, disabled }) {
     { id: "standings",  icon: "🏆", label: "Tabla" },
     { id: "news",       icon: "📰", label: "Noticias" },
     { id: "transfers",  icon: "🔄", label: "Fichajes" },
+    { id: "finances",   icon: "💶", label: "Finanzas" },
+  ];
+  const row3 = [
     { id: "training",   icon: "🏋", label: "Entrenar" },
     { id: "medical",    icon: "🏥", label: "Médico" },
-    { id: "finances",   icon: "💶", label: "Finanzas" },
+    { id: "board",      icon: "🏛", label: "Directiva" },
   ];
   if (disabled) return null;
 
@@ -1602,6 +1610,10 @@ function BottomNav({ screen, setScreen, disabled }) {
       <div style={{ height:1, background:"rgba(255,255,255,.05)", margin:"0 8px" }}/>
       <div style={{ display:"flex" }}>
         {row2.map(t => <NavBtn key={t.id} t={t} />)}
+      </div>
+      <div style={{ height:1, background:"rgba(255,255,255,.05)", margin:"0 8px" }}/>
+      <div style={{ display:"flex" }}>
+        {row3.map(t => <NavBtn key={t.id} t={t} />)}
       </div>
     </div>
   );
@@ -2202,6 +2214,8 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
   const allPlayed = game.fixtures.every(f=>f.played);
   const latestNews = (game.news ?? []).slice(0, 3);
   const medicalAlerts = players.map(player=>({player,risk:calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId}),status:getPhysicalStatus(player)})).filter(item=>item.player.injured||item.risk>50).sort((a,b)=>b.risk-a.risk).slice(0,3);
+  const clubPrestigeLevel = getPrestigeLevel(game.legacy?.clubPrestige??30);
+  const managerPrestigeLevel = getPrestigeLevel(game.legacy?.manager?.prestige??10,true);
 
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
@@ -2232,6 +2246,8 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
           </div>
         )}
       </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}><button onClick={()=>setScreen("board")} style={{textAlign:"left",background:"linear-gradient(135deg,rgba(201,168,76,.13),#161a24)",border:"1px solid rgba(201,168,76,.2)",borderRadius:9,padding:11,cursor:"pointer"}}><div style={{fontSize:9,color:"#6b7280",fontWeight:700}}>🏆 PRESTIGIO CLUB</div><div style={{fontSize:21,color:clubPrestigeLevel.color,fontWeight:900,marginTop:3}}>{Math.round(game.legacy?.clubPrestige??30)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:clubPrestigeLevel.color}}>{clubPrestigeLevel.label}</div></button><button onClick={()=>setScreen("board")} style={{textAlign:"left",background:"linear-gradient(135deg,rgba(167,139,250,.10),#161a24)",border:"1px solid rgba(167,139,250,.18)",borderRadius:9,padding:11,cursor:"pointer"}}><div style={{fontSize:9,color:"#6b7280",fontWeight:700}}>⭐ PRESTIGIO ENTRENADOR</div><div style={{fontSize:21,color:managerPrestigeLevel.color,fontWeight:900,marginTop:3}}>{Math.round(game.legacy?.manager?.prestige??10)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:managerPrestigeLevel.color}}>{managerPrestigeLevel.label}</div></button></div>
 
       {/* Temporada terminada */}
       {allPlayed && (
@@ -4378,7 +4394,7 @@ function MatchSummaryScreen({ summary, onContinue }) {
 // ─── FIN DE TEMPORADA ────────────────────────────────────────────────────────
 
 function SeasonEndScreen({ seasonSummary, onNewSeason }) {
-  const { standings, teamId, season, history, players } = seasonSummary;
+  const { standings, teamId, season, history, players, legacy } = seasonSummary;
 
   const sorted = [...standings].sort((a,b) => b.points-a.points || b.goalDifference-a.goalDifference || b.goalsFor-a.goalsFor);
   const userPos  = sorted.findIndex(s => s.teamId === teamId) + 1;
@@ -4441,6 +4457,8 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
           </div>
         </div>
       </div>
+
+      {legacy&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}><div style={{background:"#161a24",border:"1px solid rgba(201,168,76,.2)",borderRadius:9,padding:12}}><div style={{fontSize:9,color:"#6b7280"}}>🏆 PRESTIGIO DEL CLUB</div><div style={{fontSize:24,color:getPrestigeLevel(legacy.clubPrestige).color,fontWeight:900,marginTop:4}}>{Math.round(legacy.clubPrestige)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:getPrestigeLevel(legacy.clubPrestige).color}}>{getPrestigeLevel(legacy.clubPrestige).label}</div></div><div style={{background:"#161a24",border:"1px solid rgba(167,139,250,.2)",borderRadius:9,padding:12}}><div style={{fontSize:9,color:"#6b7280"}}>⭐ PRESTIGIO ENTRENADOR</div><div style={{fontSize:24,color:getPrestigeLevel(legacy.manager.prestige,true).color,fontWeight:900,marginTop:4}}>{Math.round(legacy.manager.prestige)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:getPrestigeLevel(legacy.manager.prestige,true).color}}>{getPrestigeLevel(legacy.manager.prestige,true).label}</div></div></div>}
 
       {/* Clasificación final top 5 + posición usuario */}
       <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:12 }}>
@@ -4649,7 +4667,7 @@ export default function App({ externalData }) {
           }
         });
         setActiveSaveId(saveId);
-        setGame(parsed);
+        setGame(ensureLegacyState(parsed,TEAMS.find(team=>team.id===parsed.teamId)));
         setScreen("dashboard");
       }
     } catch (e) {}
@@ -4673,8 +4691,8 @@ export default function App({ externalData }) {
     const fixtures = generateFixtures();
     const standings = initStandings();
     const newId = `save_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-    const g = { id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
-      country: pendingCountry?.id, league: pendingLeague?.id };
+    const g = ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
+      country: pendingCountry?.id, league: pendingLeague?.id },team);
     setActiveSaveId(newId);
     setLineup(Array(11).fill(null));
     setSubs(Array(7).fill(null));
@@ -4691,7 +4709,7 @@ export default function App({ externalData }) {
 // - Socios: cuota de abonado prorrateada por jornada (solo si es partido en casa)
 // - Tienda/merchandising: ligado a fanbase y racha de resultados
 // - Publicidad/patrocinio: ingreso fijo prorrateado, sube con la posición en liga
-function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
+function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, clubPrestige = 50) {
   const cap = team.capacity ?? 30000;
   const fan = team.fanbase ?? 3; // 1-5
 
@@ -4717,7 +4735,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
   const shopIncome = Math.round(shopBase * shopBonus);
 
   // ── Publicidad y patrocinios — ingreso fijo por jornada, sube si vas arriba en la tabla ──
-  const adBase = 10 + fan * 5;
+  const prestigeSponsorMultiplier = Math.max(.75,Math.min(1.3,1+(clubPrestige-50)*.006));
+  const adBase = (10 + fan * 5) * prestigeSponsorMultiplier;
   const posBonus = leaguePos ? Math.max(0, (21 - leaguePos) * 0.4) : 0; // más arriba, más visibilidad
   const adIncome = Math.round(adBase + posBonus);
 
@@ -4774,7 +4793,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
       const sortedForPos = [...newStandings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference);
       const leaguePos = sortedForPos.findIndex(s => s.teamId === prev.teamId) + 1;
       const fanLove = prev.fanLove ?? 70; // cariño de la afición, 0-100
-      const incomeResult = calculateMatchdayIncome(userTeamData, isHome, won, drew, leaguePos, fanLove);
+      const incomeResult = calculateMatchdayIncome(userTeamData, isHome, won, drew, leaguePos, fanLove, prev.legacy?.clubPrestige ?? 50);
       const newFanLove = Math.max(0, Math.min(100, fanLove + (won?3:drew?0:-4)));
 
       // Las tarjetas usan team:"user"/"opp" (no se normalizan a home/away como los goles)
@@ -4843,16 +4862,22 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
         season:prev.season ?? "2025", matchday,
         userTeamId:prev.teamId, userTeamName:userTeamData?.name ?? prev.name,
       });
-      const updatedNews = mergeNews(prev.news ?? [], [...matchdayNews, ...medicalNews]);
+      const nextBudgetAdjustment = (prev.budgetAdjustment ?? 0) + incomeResult.total;
+      const legacyEvaluation = evaluateLegacyMatchday({ ...prev, fixtures:finalFixtures, standings:newStandings, players:newPlayers, budgetAdjustment:nextBudgetAdjustment }, {
+        team:userTeamData,result:won?"win":drew?"draw":"loss",income:incomeResult,trainingReport:trainingResult.report,matchday,
+      });
+      const boardNews = generateBoardNews({items:legacyEvaluation.news,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
+      const updatedNews = mergeNews(prev.news ?? [], [...matchdayNews, ...medicalNews, ...boardNews]);
       const newGame = { ...prev, fixtures: finalFixtures, standings: newStandings, players: newPlayers,
         matchday: matchday + 1, season: prev.season ?? "2025", history: prev.history ?? [],
-        budgetAdjustment: (prev.budgetAdjustment ?? 0) + incomeResult.total,
+        budgetAdjustment: nextBudgetAdjustment,
         incomeLog: newIncomeLog,
         fanLove: newFanLove,
         news: updatedNews,
         trainingPlan:normalizeTrainingPlan(prev.trainingPlan),
         lastTrainingReport:trainingResult.report,
-        trainingTacticalBonus:trainingResult.tacticalBonus };
+        trainingTacticalBonus:trainingResult.tacticalBonus,
+        legacy:legacyEvaluation.legacy };
       saveGame(newGame);
 
       // Detectar fin de temporada (última jornada jugada)
@@ -4864,9 +4889,13 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
         summaryData = { ...summaryData, _seasonEnd: true };
         const seasonEntry = { season: prev.season ?? "2025", pos: userPos, pts: userSt?.points??0, gf: userSt?.goalsFor??0, ga: userSt?.goalsAgainst??0 };
         const newHistory = [...(prev.history??[]), seasonEntry];
-        const endData = { standings: newStandings, teamId: prev.teamId, season: prev.season??"2025", history: newHistory, players: newPlayers };
+        const legacyFinal = finalizeLegacySeason(newGame,{team:userTeamData,position:userPos});
+        const seasonBoardNews = generateBoardNews({items:[{title:userPos===1?`${userTeamData.name} conquista la Liga`:`${userTeamData.name} cierra la temporada en la ${userPos}.ª posición`,summary:`El prestigio del club cambia ${legacyFinal.prestigeDelta>=0?"+":""}${Math.round(legacyFinal.prestigeDelta)} puntos.`,importance:userPos===1?"critical":"high",fingerprint:`season-end:${prev.season}:${userPos}`}],season:prev.season??"2025",matchday,userTeamId:prev.teamId});
+        const finalSeasonGame={...newGame,history:newHistory,legacy:legacyFinal.legacy,budgetAdjustment:newGame.budgetAdjustment+legacyFinal.budgetReward,news:mergeNews(newGame.news,seasonBoardNews)};
+        const endData = { standings: newStandings, teamId: prev.teamId, season: prev.season??"2025", history: newHistory, players: newPlayers, legacy:legacyFinal.legacy };
         setTimeout(() => { setSeasonSummary(endData); setScreen("seasonEnd"); }, 0);
-        return { ...newGame, history: newHistory };
+        saveGame(finalSeasonGame);
+        return finalSeasonGame;
       }
 
       return newGame;
@@ -4895,15 +4924,13 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
           morale: Math.max(50, Math.min(90, p.morale + Math.floor(Math.random()*10)-3)),
           yellowCards: 0, suspended: false, suspGames: 0, injured: false, injuryGames: 0,
           medical:{ ...(p.medical ?? {}), phase:"available", remainingDays:0, recovery:100 },
-          overall: p.age <= 24 ? Math.min(99, p.overall + (Math.random()<0.35?1:0))
-                  : p.age >= 33 ? Math.max(60, p.overall - (Math.random()<0.3?1:0))
-                  : p.overall,
+          overall:p.overall,
           careerHistory: [...(p.careerHistory ?? []).filter(entry => entry.season !== String(prev.season)), historyEntry],
           developmentHistory:[...(p.developmentHistory ?? []).filter(entry=>entry.season!==String(prev.season)),{season:String(prev.season),startOverall:p.seasonStartOverall??p.overall,endOverall:p.overall,startValue:p.seasonStartValue??getMarketValue(p),endValue:getMarketValue(p)}],
         };
         return { ...evolved, seasonStartOverall: evolved.overall, seasonStartValue: getMarketValue(evolved) };
       });
-      const g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, players: newPlayers };
+      const g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, players: newPlayers, legacy:startNextLegacySeason(prev.legacy,teamData,newSeason) };
       saveGame(g);
       return g;
     });
@@ -4989,7 +5016,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento",
+    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", board:"Directiva y Legacy",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","playerProfile"].includes(screen);
@@ -5039,6 +5066,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} onOpenPlayer={openPlayerProfileById} />}
           {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
           {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
+          {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} />}
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} />}
