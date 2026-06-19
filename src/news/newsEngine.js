@@ -273,3 +273,36 @@ export function generateTransferNews({ transfer, season, matchday, userTeamId, u
     metadata: { userClub: true, amount: cost ?? value, direction: type },
   })];
 }
+
+export function generateMedicalNews({ injuryEvents = [], beforePlayers = [], afterPlayers = [], season, matchday, userTeamId, userTeamName }) {
+  const stories = [];
+  const beforeById = Object.fromEntries(beforePlayers.map(player => [player.id, player]));
+  const afterById = Object.fromEntries(afterPlayers.map(player => [player.id, player]));
+
+  injuryEvents.forEach(event => {
+    const player = afterById[event.playerId] ?? beforeById[event.playerId];
+    if (!player) return;
+    const duration = formatMedicalDuration(event.injuryDays ?? (event.injuryGames ?? 1) * 7);
+    stories.push(createNews({
+      type:"injury", title:`${player.name} estará ${duration} de baja`,
+      summary:`${userTeamName} confirma que el jugador sufre ${event.injuryType?.toLowerCase() ?? "una lesión muscular"}.`,
+      importance:(event.injuryDays ?? 7) >= 42 || player.overall >= 85 ? "critical" : (event.injuryDays ?? 7) >= 14 ? "high" : "medium",
+      season, matchday, teamIds:[userTeamId], playerIds:[player.id], userTeamId,
+      fingerprint:`injury:${player.id}:${event.injuryTypeId ?? "legacy"}:${matchday}`,
+      metadata:{ userClub:true, injuryType:event.injuryType, durationDays:event.injuryDays },
+    }));
+  });
+
+  afterPlayers.forEach(player => {
+    const before = beforeById[player.id];
+    if (!before?.medical || !player.medical) return;
+    if (["injured","recovery"].includes(before.medical.phase) && player.medical.phase === "limited") {
+      stories.push(createNews({ type:"injury", title:`${player.name} entra en la recta final de su recuperación`, summary:"El cuerpo médico le declara apto con limitaciones.", importance:"medium", season, matchday, teamIds:[userTeamId], playerIds:[player.id], userTeamId, fingerprint:`limited:${player.id}:${before.medical.startedMatchday ?? "x"}`, metadata:{userClub:true} }));
+    }
+    if (before.medical.phase !== "available" && player.medical.phase === "available") {
+      stories.push(createNews({ type:"injury", title:`${player.name} vuelve a entrenar con normalidad`, summary:"El jugador recibe el alta médica y vuelve a estar disponible.", importance:"medium", season, matchday, teamIds:[userTeamId], playerIds:[player.id], userTeamId, fingerprint:`recovered:${player.id}:${before.medical.startedMatchday ?? "x"}`, metadata:{userClub:true} }));
+    }
+  });
+  return mergeNews([], stories);
+}
+import { formatMedicalDuration } from "../medical/medicalEngine.js";

@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { resolvePlayerPhoto } from "./data/dataLoader.js";
 import NewsScreen from "./components/NewsScreen.jsx";
 import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
-import { buildPlayerLookup, generateMatchdayNews, generateTransferNews, mergeNews } from "./news/newsEngine.js";
+import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
+import { buildPlayerLookup, generateMatchdayNews, generateMedicalNews, generateTransferNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue } from "./players/playerProfile.js";
+import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
 
 // ─── DATOS ───────────────────────────────────────────────────────────────────
 
@@ -729,7 +731,7 @@ function goalDesc(scorer, tactics, team) {
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics = DEFAULT_TACTICS, userIsHome = true, oppSquad = []) {
+function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics = DEFAULT_TACTICS, userIsHome = true, oppSquad = [], medicalContext = {}) {
   const events = [];
   const mod    = tacticModifiers(tactics);
   const diff   = userStr - oppStr;
@@ -869,20 +871,11 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
     }
   }
 
-  // ── LESIÓN ──
-  const injuryRisk = 0.04
-    + (tactics.presion === "alta" ? 0.02 : 0)
-    + (tactics.ritmo   === "rapido" ? 0.015 : 0);
-  if (Math.random() < injuryRisk && allField.length) {
-    // Más probable en jugadores con alta fatiga
-    const fatSorted = [...allField].sort((a, b) => b.fatigue - a.fatigue);
-    const injured   = Math.random() < 0.6 ? fatSorted[0] : pick(allField);
-    const games     = pick([1, 1, 2, 3]);
-    events.push({
-      minute: min(), type: "INJURY", team: "user", playerId: injured?.id, injuryGames: games,
-      description: `🚑 Lesión de ${injured?.name ?? "el jugador"}. Tendrá que retirarse del campo.`,
-    });
-  }
+  // ── LESIÓN CONTEXTUAL ──
+  // El riesgo combina cansancio, edad, minutos, partidos consecutivos y exigencia táctica.
+  const injuryResult = rollContextualInjury(allField, { ...medicalContext, tactics, currentMatchMinutes:(segment+1)*15 });
+  const injuryEvent = createInjuryEvent(injuryResult, min());
+  if (injuryEvent) events.push(injuryEvent);
 
   return events.sort((a, b) => a.minute - b.minute);
 }
@@ -1577,6 +1570,7 @@ function BottomNav({ screen, setScreen, disabled }) {
     { id: "standings",  icon: "🏆", label: "Clasificación" },
     { id: "news",       icon: "📰", label: "Noticias" },
     { id: "transfers",  icon: "🔄", label: "Fichajes" },
+    { id: "medical",    icon: "🏥", label: "Médico" },
     { id: "finances",   icon: "💶", label: "Finanzas" },
   ];
   if (disabled) return null;
@@ -2203,6 +2197,7 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
 
   const allPlayed = game.fixtures.every(f=>f.played);
   const latestNews = (game.news ?? []).slice(0, 3);
+  const medicalAlerts = players.map(player=>({player,risk:calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId}),status:getPhysicalStatus(player)})).filter(item=>item.player.injured||item.risk>50).sort((a,b)=>b.risk-a.risk).slice(0,3);
 
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
@@ -2291,6 +2286,12 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
         ))}
       </div>
 
+      {/* Informe médico */}
+      <div style={{ background:"#161a24", border:"1px solid rgba(34,197,94,.17)", borderRadius:10, padding:14, marginBottom:12 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:medicalAlerts.length?8:0 }}><div style={{ fontSize:11, color:"#22c55e", fontWeight:700, letterSpacing:".5px" }}>👨‍⚕️ INFORME MÉDICO</div><button onClick={()=>setScreen("medical")} style={{ background:"transparent", border:"none", color:"#22c55e", fontSize:10, fontWeight:700, cursor:"pointer" }}>Abrir centro →</button></div>
+        {medicalAlerts.length?medicalAlerts.map(({player,risk,status},index)=><div key={player.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 0", borderTop:index?"1px solid rgba(255,255,255,.05)":"none" }}><span>{status.icon}</span><div style={{ flex:1, color:"#c9ced8", fontSize:11 }}>{player.name}<div style={{ color:status.color, fontSize:9, marginTop:2 }}>{player.injured?status.label:`Riesgo de lesión ${risk}% · se recomienda descanso`}</div></div></div>):<div style={{ color:"#6b7280", fontSize:11, marginTop:7 }}>La plantilla se encuentra en buenas condiciones.</div>}
+      </div>
+
       {/* Centro de prensa */}
       <div style={{ background:"#161a24", border:"1px solid rgba(201,168,76,.18)", borderRadius:10, padding:14, marginBottom:12 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:latestNews.length?8:0 }}>
@@ -2364,7 +2365,7 @@ function energyLevel(fatigue) {
   return { energy, color: "#ef4444", emoji: "🔴", label: "Agotado" };
 }
 
-function LineupScreen({ players, lineup, setLineup, formation, setFormation, subs, setSubs, savedLineups, onSaveLineups, onOpenPlayer }) {
+function LineupScreen({ game, players, lineup, setLineup, formation, setFormation, subs, setSubs, savedLineups, onSaveLineups, onOpenPlayer }) {
   const [activeSlot, setActiveSlot] = useState(null); // null | {type:'starter',idx} | {type:'sub',idx}
   // subTarget: cuando pulsas un titular para sustituir rápido → {idx, player}
   const [subTarget, setSubTarget] = useState(null);
@@ -2521,10 +2522,11 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
 
   // ── 6. Recomendaciones de descanso ──
   const restRisk = (p) => {
-    const e = energyLevel(p.fatigue).energy;
-    if (e < 40) return { level: "high", label: "⚠ Riesgo de lesión" };
-    if (e < 55) return { level: "mid", label: "⚠ Fatiga acumulada" };
-    if (e < 70) return { level: "low", label: "⚠ Recomendado descansar" };
+    const risk = calculateInjuryRisk(p,{fixtures:game.fixtures,teamId:game.teamId});
+    const level = getRiskLevel(risk);
+    if (risk > 75) return { level:"high", label:`🔴 Riesgo crítico ${risk}%`, risk, color:level.color };
+    if (risk > 50) return { level:"high", label:`🟠 Riesgo alto ${risk}%`, risk, color:level.color };
+    if (risk > 20) return { level:"mid", label:`🟡 Riesgo moderado ${risk}%`, risk, color:level.color };
     return null;
   };
 
@@ -3703,7 +3705,9 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       : livePlayer.filter(p => !p.injured && !p.suspended)
     ).filter(p => !sentOffIds.includes(p.id)); // los expulsados ya no pisan el campo
     const oppSquad = REAL_SQUADS[oppTeamId] ?? [];
-    const newEvs  = generateSegmentEvents(segment, starterPlayers, userStr, oppStr, score, tactics, isHome, oppSquad);
+    const newEvs  = generateSegmentEvents(segment, starterPlayers, userStr, oppStr, score, tactics, isHome, oppSquad, {
+      fixtures:game.fixtures, teamId:game.teamId, matchday:fixture.matchday,
+    });
 
     // Calcular posesión del tramo según fuerza relativa, estilo táctico y algo de variación
     const strDiff = userStr - oppStr;
@@ -3735,19 +3739,16 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     setLivePlayers(prev => prev.map(p => {
       const onField = onFieldIds.has(p.id);
       const isGK = p.group === "POR";
-      return {
+      const updated = {
         ...p,
         // Solo los jugadores en el campo se cansan; los porteros apenas se cansan; los que no juegan descansan
         fatigue: p.injured ? p.fatigue
           : onField
             ? Math.min(100, Math.round(p.fatigue + (isGK ? fatDelta * 0.25 : fatDelta) + Math.random() * (isGK ? 0.5 : 2)))
             : Math.max(0, Math.round(p.fatigue - 1)),
-        // Lesiones generadas en eventos
-        injured: newEvs.some(e => e.type === "INJURY" && e.playerId === p.id) ? true : p.injured,
-        injuryGames: newEvs.some(e => e.type === "INJURY" && e.playerId === p.id)
-          ? (newEvs.find(e => e.type === "INJURY" && e.playerId === p.id)?.injuryGames ?? 1)
-          : p.injuryGames,
       };
+      const injuryEvent = newEvs.find(e => e.type === "INJURY" && e.playerId === p.id);
+      return injuryEvent ? applyInjury(updated, injuryEvent, game.season ?? "2025", fixture.matchday) : updated;
     }));
 
     setScore(s => ({ home: s.home + hDelta, away: s.away + aDelta }));
@@ -3764,7 +3765,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     const newInjury = newEvs.find(e => e.type === "INJURY" && e.playerId && onFieldIds.has(e.playerId));
     if (newInjury) {
       const injuredP = livePlayer.find(p => p.id === newInjury.playerId);
-      setPendingInjury({ playerId: newInjury.playerId, name: injuredP?.name ?? "Jugador" });
+      setPendingInjury({ playerId: newInjury.playerId, name: injuredP?.name ?? "Jugador", type:newInjury.injuryType, days:newInjury.injuryDays });
       setTab("cambios");
     }
 
@@ -3874,7 +3875,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
           <span style={{ fontSize: 18 }}>🚑</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "#f97316" }}>{pendingInjury.name} se ha lesionado</div>
-            <div style={{ fontSize: 11, color: "#9aa0b4" }}>Haz un cambio ahora o sigue con 10 jugadores</div>
+            <div style={{ fontSize: 11, color: "#9aa0b4" }}>{pendingInjury.type ?? "Lesión muscular"}{pendingInjury.days?` · ${pendingInjury.days} días estimados`:""} · Haz un cambio</div>
           </div>
           <button onClick={() => { setSubbingSlot(lineup.findIndex(id=>id===pendingInjury.playerId)); setTab("cambios"); }}
             className="btn-gold" style={{ padding: "7px 14px", borderRadius: 7, fontSize: 12 }}>Cambiar</button>
@@ -4622,7 +4623,7 @@ export default function App({ externalData }) {
       const saved = localStorage.getItem(saveSlotKey(saveId));
       if (saved) {
         const parsed = JSON.parse(saved);
-        parsed.players = (parsed.players ?? []).map(player => enrichPlayerProfile(player, parsed.season ?? "2025"));
+        parsed.players = (parsed.players ?? []).map(player => normalizeMedicalPlayer(enrichPlayerProfile(player, parsed.season ?? "2025")));
         if (parsed._lineup) {
           setLineup(parsed._lineup);
           delete parsed._lineup;
@@ -4663,7 +4664,7 @@ export default function App({ externalData }) {
   };
 
   const startNewGame = (team) => {
-    const players  = generatePlayers(team.id).map(player => enrichPlayerProfile(player, "2025"));
+    const players  = generatePlayers(team.id).map(player => normalizeMedicalPlayer(enrichPlayerProfile(player, "2025")));
     const fixtures = generateFixtures();
     const standings = initStandings();
     const newId = `save_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
@@ -4774,6 +4775,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
       // Las tarjetas usan team:"user"/"opp" (no se normalizan a home/away como los goles)
       const yellowsInMatch = events.filter(e => e.type === "YELLOW" && e.team === "user").map(e => e.playerId);
       const redsInMatch    = events.filter(e => e.type === "RED"    && e.team === "user").map(e => e.playerId);
+      const injuryEventsInMatch = events.filter(e => e.type === "INJURY" && e.team === "user");
+      const newlyInjuredIds = new Set(injuryEventsInMatch.map(e => e.playerId));
       const playersSource  = livePlayer ?? prev.players;
       const newPlayers = playersSource.map(p => {
         const wasSuspended = p.suspended && p.suspGames > 0; // venía sancionado de antes (ya cumplió este partido)
@@ -4791,16 +4794,15 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
         const remainingFromBefore = wasSuspended ? Math.max(0, p.suspGames - 1) : (p.suspended ? p.suspGames : 0);
         const finalSuspGames = remainingFromBefore + newSuspensionGames;
 
-        const fatigueRecovery = (!p.injured && !p.suspended) ? 15 : 25;
+        const medicalPlayer = newlyInjuredIds.has(p.id) ? p : advanceMedicalRecovery(normalizeMedicalPlayer(p), 7);
+        const fatigueRecovery = (!medicalPlayer.injured && !p.suspended) ? 15 : 25;
         return {
-          ...p,
-          fatigue:     Math.max(0, Math.round(p.fatigue - fatigueRecovery + Math.floor(Math.random() * 4))),
+          ...medicalPlayer,
+          fatigue:     Math.max(0, Math.round(medicalPlayer.fatigue - fatigueRecovery + Math.floor(Math.random() * 4))),
           morale:      Math.max(10, Math.min(100, p.morale + moraleDelta + Math.floor(Math.random()*4)-2)),
           yellowCards: gotRed ? 0 : newYellowCount % 5,
           suspended:   finalSuspGames > 0,
           suspGames:   finalSuspGames,
-          injuryGames: p.injured ? Math.max(0, p.injuryGames - 1) : p.injuryGames,
-          injured:     p.injured ? p.injuryGames > 1 : false,
         };
       });
       const oppTeamId = isHome ? fixture.awayTeamId : fixture.homeTeamId;
@@ -4827,7 +4829,14 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
         userTeamId: prev.teamId,
         playerLookup,
       });
-      const updatedNews = mergeNews(prev.news ?? [], matchdayNews);
+      const medicalNews = generateMedicalNews({
+        injuryEvents:injuryEventsInMatch,
+        beforePlayers:(prev.players ?? []).map(normalizeMedicalPlayer),
+        afterPlayers:newPlayers,
+        season:prev.season ?? "2025", matchday,
+        userTeamId:prev.teamId, userTeamName:userTeamData?.name ?? prev.name,
+      });
+      const updatedNews = mergeNews(prev.news ?? [], [...matchdayNews, ...medicalNews]);
       const newGame = { ...prev, fixtures: finalFixtures, standings: newStandings, players: newPlayers,
         matchday: matchday + 1, season: prev.season ?? "2025", history: prev.history ?? [],
         budgetAdjustment: (prev.budgetAdjustment ?? 0) + incomeResult.total,
@@ -4875,6 +4884,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
           fatigue: Math.max(0, Math.round(Math.random() * 15)),
           morale: Math.max(50, Math.min(90, p.morale + Math.floor(Math.random()*10)-3)),
           yellowCards: 0, suspended: false, suspGames: 0, injured: false, injuryGames: 0,
+          medical:{ ...(p.medical ?? {}), phase:"available", remainingDays:0, recovery:100 },
           overall: p.age <= 24 ? Math.min(99, p.overall + (Math.random()<0.35?1:0))
                   : p.age >= 33 ? Math.max(60, p.overall - (Math.random()<0.3?1:0))
                   : p.overall,
@@ -4896,8 +4906,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
       const prevAdjustment = prev.budgetAdjustment ?? 0; // en €K, acumulado de fichajes/ventas
 
       if (type === "buy") {
-        const newPlayer = enrichPlayerProfile({ ...player, salary, fatigue:15, morale:75,
-          injured:false, injuryGames:0, suspended:false, suspGames:0, yellowCards:0 }, prev.season ?? "2025");
+        const newPlayer = normalizeMedicalPlayer(enrichPlayerProfile({ ...player, salary, fatigue:15, morale:75,
+          injured:false, injuryGames:0, suspended:false, suspGames:0, yellowCards:0 }, prev.season ?? "2025"));
         newPlayers = [...newPlayers, newPlayer];
         // IMPORTANTE: quitar al jugador de la plantilla real de su equipo de origen,
         // para que deje de aparecer marcando goles o disponible para esa IA.
@@ -4959,7 +4969,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias",
+    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias", medical:"Centro Médico",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","playerProfile"].includes(screen);
@@ -5002,11 +5012,12 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
           {screen === "teams"     && <TeamSelection onSelect={startNewGame} />}
           {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} />}
           {screen === "squad"     && game && <SquadScreen players={game.players} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />}
-          {screen === "lineup"    && game && <LineupScreen players={game.players} lineup={lineup} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={subs} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); }} />}
+          {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={lineup} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={subs} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); }} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} onOpenPlayer={openPlayerProfile} />}
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} onOpenPlayer={openPlayerProfileById} />}
+          {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} />}
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} />}
