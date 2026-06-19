@@ -2490,8 +2490,7 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
         const bEnergy = energyLevel(b.fatigue).energy;
         if (Math.abs(aEnergy - bEnergy) > 10) return bEnergy - aEnergy;
         return b.overall - a.overall;
-      })
-      .slice(0, 6);
+      });
   };
 
   // ── 6. Recomendaciones de descanso ──
@@ -2504,9 +2503,11 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
   };
 
   // ── 8. Rotación recomendada ──
-  const applyRecommendedRotation = () => {
+  // ── 8. Rotación recomendada — genera una PROPUESTA, no aplica directo ──
+  const computeRecommendedRotation = () => {
     const newLineup = [...lineup];
     const newSubs = [...subs];
+    const changes = []; // {idx, outPlayer, inPlayer}
     lineup.forEach((starterId, idx) => {
       if (!starterId) return;
       const starter = players.find(p => p.id === starterId);
@@ -2527,16 +2528,14 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
         newLineup[idx] = replacement.id;
         const benchIdx = newSubs.indexOf(replacement.id);
         if (benchIdx !== -1) newSubs[benchIdx] = starter.id;
+        changes.push({ idx, outPlayer: starter, inPlayer: replacement });
       }
     });
-    setLineup(newLineup);
-    setSubs(newSubs);
+    return { newLineup, newSubs, changes };
   };
 
-  // ── 9. Mejor once disponible ──
-  const applyBestXI = () => {
-    const byPos = {};
-    available.forEach(p => { (byPos[p.pos] = byPos[p.pos] ?? []).push(p); });
+  // ── 9. Mejor once disponible — también como PROPUESTA ──
+  const computeBestXI = () => {
     const score = (p) => p.overall * 0.7 + energyLevel(p.fatigue).energy * 0.3;
     const newLineup = Array(11).fill(null);
     const claimed = new Set();
@@ -2551,13 +2550,40 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
       const best = candidates[0];
       if (best) { newLineup[idx] = best.id; claimed.add(best.id); }
     });
-    setLineup(newLineup);
-    // Rellenar banquillo con los siguientes mejores disponibles
     const restPool = available.filter(p => !claimed.has(p.id)).sort((a,b) => score(b) - score(a));
     const newSubs = Array(7).fill(null);
     restPool.slice(0, 7).forEach((p, i) => { newSubs[i] = p.id; claimed.add(p.id); });
-    setSubs(newSubs);
+
+    // Calcular qué cambia respecto al once actual, para mostrarlo igual que la rotación
+    const changes = [];
+    newLineup.forEach((newId, idx) => {
+      if (newId !== lineup[idx]) {
+        const outPlayer = players.find(p => p.id === lineup[idx]);
+        const inPlayer = players.find(p => p.id === newId);
+        if (inPlayer) changes.push({ idx, outPlayer: outPlayer ?? null, inPlayer });
+      }
+    });
+    return { newLineup, newSubs, changes };
   };
+
+  // proposal: null | { type:'rotation'|'bestxi', newLineup, newSubs, changes }
+  const [proposal, setProposal] = useState(null);
+
+  const openRotationProposal = () => {
+    const result = computeRecommendedRotation();
+    setProposal({ type: "rotation", ...result });
+  };
+  const openBestXIProposal = () => {
+    const result = computeBestXI();
+    setProposal({ type: "bestxi", ...result });
+  };
+  const acceptProposal = () => {
+    if (!proposal) return;
+    setLineup(proposal.newLineup);
+    setSubs(proposal.newSubs);
+    setProposal(null);
+  };
+  const discardProposal = () => setProposal(null);
 
   // ── 12. Alineaciones guardadas ──
   const PRESET_ICONS = ["🏠","✈️","🔄","🏆","⚽","🛡️","⚡"];
@@ -2636,11 +2662,11 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
             style={{ background:"#1e2330", border:"none", color:"#e8eaf0", padding:"7px 12px", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
             {formation} ▾
           </button>
-          <button onClick={applyRecommendedRotation}
+          <button onClick={openRotationProposal}
             style={{ flex:1, background:"rgba(251,191,36,.12)", border:"1px solid rgba(251,191,36,.3)", color:"#fbbf24", padding:"7px 8px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
             🔄 Rotación recomendada
           </button>
-          <button onClick={applyBestXI}
+          <button onClick={openBestXIProposal}
             style={{ flex:1, background:"rgba(201,168,76,.12)", border:"1px solid rgba(201,168,76,.3)", color:"#c9a84c", padding:"7px 8px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
             ⭐ Mejor once
           </button>
@@ -2656,6 +2682,65 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
                 {f}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* ── Panel de propuesta: Rotación recomendada / Mejor once — el usuario decide ── */}
+        {proposal && (
+          <div style={{ padding:"0 12px 10px" }}>
+            <div style={{ background:"#161a24", border:`1px solid ${proposal.type==="rotation"?"rgba(251,191,36,.35)":"rgba(201,168,76,.35)"}`, borderRadius:9, padding:12 }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                <div style={{ fontSize:12, fontWeight:700, color: proposal.type==="rotation"?"#fbbf24":"#c9a84c" }}>
+                  {proposal.type==="rotation" ? "🔄 Propuesta de rotación" : "⭐ Propuesta de mejor once"}
+                </div>
+                <button onClick={discardProposal} style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#9aa0b4", padding:"4px 9px", borderRadius:6, fontSize:11, cursor:"pointer" }}>✕</button>
+              </div>
+
+              {proposal.changes.length === 0 ? (
+                <div style={{ fontSize:12, color:"#6b7280", textAlign:"center", padding:"10px 0" }}>
+                  {proposal.type==="rotation"
+                    ? "No hay jugadores con fatiga suficiente como para recomendar un cambio. Tu plantilla está bien de energía. 👍"
+                    : "Tu once actual ya es el mejor disponible según media y energía. 👍"}
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize:10, color:"#6b7280", marginBottom:8 }}>{proposal.changes.length} cambio{proposal.changes.length!==1?"s":""} propuesto{proposal.changes.length!==1?"s":""}:</div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:"30vh", overflowY:"auto" }}>
+                    {proposal.changes.map((c, i) => {
+                      const outEng = c.outPlayer ? energyLevel(c.outPlayer.fatigue) : null;
+                      const inEng = energyLevel(c.inPlayer.fatigue);
+                      return (
+                        <div key={i} style={{ display:"flex", alignItems:"center", gap:6, background:"#0d0f14", borderRadius:7, padding:"7px 9px", flexShrink:0 }}>
+                          <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:5 }}>
+                            <span style={{ fontSize:10, color:"#ef4444" }}>↓</span>
+                            <span style={{ fontSize:11, color:"#9aa0b4", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.outPlayer?.name ?? "Vacío"}</span>
+                            {outEng && <span style={{ fontSize:10, fontWeight:700, color:outEng.color, flexShrink:0 }}>{outEng.emoji}{outEng.energy}</span>}
+                          </div>
+                          <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:5 }}>
+                            <span style={{ fontSize:10, color:"#22c55e" }}>↑</span>
+                            <span style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.inPlayer.name}</span>
+                            <span style={{ fontSize:10, fontWeight:700, color:inEng.color, flexShrink:0 }}>{inEng.emoji}{inEng.energy}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {proposal.changes.length > 0 && (
+                <div style={{ display:"flex", gap:8, marginTop:10 }}>
+                  <button onClick={discardProposal} className="btn-ghost"
+                    style={{ flex:1, padding:9, borderRadius:7, fontSize:12, cursor:"pointer" }}>
+                    Descartar
+                  </button>
+                  <button onClick={acceptProposal} className="btn-gold"
+                    style={{ flex:1, padding:9, borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                    ✓ Aplicar cambios
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -2787,8 +2872,8 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
 
           {/* ── 5. Menú de sustitución rápida (al pulsar titular) ── */}
           {subTarget && (
-            <div style={{ background:"#1a1f2e", borderBottom:"1px solid rgba(201,168,76,.25)", padding:"10px 12px", flexShrink:0 }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+            <div style={{ background:"#1a1f2e", borderBottom:"1px solid rgba(201,168,76,.25)", padding:"10px 12px", flexShrink:0, display:"flex", flexDirection:"column", maxHeight:"40vh" }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, flexShrink:0 }}>
                 <div style={{ fontSize:11, color:"#9aa0b4" }}>
                   Sustituir a <strong style={{ color:"#e8eaf0" }}>{subTarget.player.name}</strong>
                   <span style={{ marginLeft:6, fontWeight:700, color: energyLevel(subTarget.player.fatigue).color }}>
@@ -2797,7 +2882,7 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
                 </div>
                 <button onClick={() => setSubTarget(null)} style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#9aa0b4", padding:"4px 9px", borderRadius:6, fontSize:11, cursor:"pointer" }}>✕</button>
               </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:5, overflowY:"auto", paddingRight:2 }}>
                 {getSubCandidates().length === 0 && (
                   <div style={{ fontSize:11, color:"#4b5563", textAlign:"center", padding:"8px 0" }}>No hay sustitutos disponibles</div>
                 )}
@@ -2806,7 +2891,7 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
                   const samePos = p.pos === slotPositions[subTarget.idx];
                   return (
                     <div key={p.id} onClick={() => swapWithSub(p)}
-                      style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 9px", background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:7, cursor:"pointer" }}>
+                      style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 9px", background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:7, cursor:"pointer", flexShrink:0 }}>
                       <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={5}/>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
