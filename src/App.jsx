@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { resolvePlayerPhoto } from "./data/dataLoader.js";
+import NewsScreen from "./components/NewsScreen.jsx";
+import { buildPlayerLookup, generateMatchdayNews, generateTransferNews, mergeNews } from "./news/newsEngine.js";
 
 // ─── DATOS ───────────────────────────────────────────────────────────────────
 
@@ -1565,6 +1567,7 @@ function BottomNav({ screen, setScreen, disabled }) {
   ];
   const row2 = [
     { id: "standings",  icon: "🏆", label: "Clasificación" },
+    { id: "news",       icon: "📰", label: "Noticias" },
     { id: "transfers",  icon: "🔄", label: "Fichajes" },
     { id: "finances",   icon: "💶", label: "Finanzas" },
   ];
@@ -2191,6 +2194,7 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
   });
 
   const allPlayed = game.fixtures.every(f=>f.played);
+  const latestNews = (game.news ?? []).slice(0, 3);
 
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
@@ -2277,6 +2281,20 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
             <div style={{ fontSize:22, fontWeight:700, color }}>{val}</div>
           </div>
         ))}
+      </div>
+
+      {/* Centro de prensa */}
+      <div style={{ background:"#161a24", border:"1px solid rgba(201,168,76,.18)", borderRadius:10, padding:14, marginBottom:12 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:latestNews.length?8:0 }}>
+          <div style={{ fontSize:11, color:"#c9a84c", fontWeight:700, letterSpacing:".5px" }}>📰 ÚLTIMAS NOTICIAS</div>
+          <button onClick={()=>setScreen("news")} style={{ background:"transparent", border:"none", color:"#c9a84c", fontSize:10, fontWeight:700, cursor:"pointer" }}>Ver todas →</button>
+        </div>
+        {latestNews.length ? latestNews.map((item,index)=>(
+          <button key={item.id} onClick={()=>setScreen("news")} style={{ width:"100%", display:"flex", alignItems:"flex-start", gap:8, textAlign:"left", background:"transparent", border:"none", borderTop:index?"1px solid rgba(255,255,255,.05)":"none", padding:"8px 0", cursor:"pointer" }}>
+            <span style={{ color:item.importance==="critical"?"#ef4444":item.importance==="high"?"#f97316":"#c9a84c", fontSize:12 }}>●</span>
+            <span style={{ color:"#c9ced8", fontSize:11, lineHeight:1.4 }}>{item.title}</span>
+          </button>
+        )) : <div style={{ color:"#6b7280", fontSize:11, lineHeight:1.5, marginTop:7 }}>La actualidad de la liga aparecerá después de la primera jornada.</div>}
       </div>
 
       {/* Últimos resultados */}
@@ -4630,7 +4648,7 @@ export default function App({ externalData }) {
     const fixtures = generateFixtures();
     const standings = initStandings();
     const newId = `save_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-    const g = { id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [],
+    const g = { id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [], news: [],
       country: pendingCountry?.id, league: pendingLeague?.id };
     setActiveSaveId(newId);
     setLineup(Array(11).fill(null));
@@ -4778,11 +4796,25 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
         income:         incomeResult,
       };
       const newIncomeLog = [...(prev.incomeLog ?? []), { matchday, ...incomeResult }];
+      const playerLookup = buildPlayerLookup(TEAMS, REAL_SQUADS, newPlayers, prev.teamId);
+      const matchdayNews = generateMatchdayNews({
+        beforeFixtures: prev.fixtures,
+        afterFixtures: finalFixtures,
+        beforeStandings: prev.standings,
+        afterStandings: newStandings,
+        matchday,
+        season: prev.season ?? "2025",
+        teams: TEAMS,
+        userTeamId: prev.teamId,
+        playerLookup,
+      });
+      const updatedNews = mergeNews(prev.news ?? [], matchdayNews);
       const newGame = { ...prev, fixtures: finalFixtures, standings: newStandings, players: newPlayers,
         matchday: matchday + 1, season: prev.season ?? "2025", history: prev.history ?? [],
         budgetAdjustment: (prev.budgetAdjustment ?? 0) + incomeResult.total,
         incomeLog: newIncomeLog,
-        fanLove: newFanLove };
+        fanLove: newFanLove,
+        news: updatedNews };
       saveGame(newGame);
 
       // Detectar fin de temporada (última jornada jugada)
@@ -4863,9 +4895,18 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
 
       const newTransfer = { type, player, cost, salary, value, fromTeamId,
         matchday: prev.matchday };
+      const userTeam = TEAMS.find(team => team.id === prev.teamId);
+      const transferNews = generateTransferNews({
+        transfer: newTransfer,
+        season: prev.season ?? "2025",
+        matchday: prev.matchday,
+        userTeamId: prev.teamId,
+        userTeamName: userTeam?.name ?? prev.name ?? "El club",
+      });
       const newGame = { ...prev, players: newPlayers,
         budgetAdjustment: newAdjustment,
-        transfers: [...(prev.transfers ?? []), newTransfer] };
+        transfers: [...(prev.transfers ?? []), newTransfer],
+        news: mergeNews(prev.news ?? [], transferNews) };
       saveGame(newGame, lineup);
       return newGame;
     });
@@ -4877,7 +4918,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes",
+    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd"].includes(screen);
   const inGame  = !["menu","teams"].includes(screen);
@@ -4923,6 +4964,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} />}
+          {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} />}
           {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={lineup} setLineup={setLineup} subs={subs} setSubs={setSubs} onMatchEnd={handleMatchEnd} />}
