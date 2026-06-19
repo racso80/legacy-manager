@@ -52,8 +52,9 @@ export function calculateInjuryRisk(player, { fixtures = [], teamId, tactics, cu
   const inMatchRisk = Math.min(10, currentMatchMinutes / 12);
   const historyRisk = Math.min(10, (player.medicalHistory ?? []).filter(item => item.totalDays >= 28).length * 3);
   const limitationRisk = player.medical?.phase === "limited" ? 24 : 0;
+  const trainingRisk = Math.max(0, Math.min(25, player.trainingRiskModifier ?? 0));
   const tacticalRisk = (tactics?.presion === "alta" ? 5 : 0) + (tactics?.ritmo === "rapido" ? 4 : 0);
-  return Math.round(Math.max(2, Math.min(98, 3 + fatigueRisk + ageRisk + streakRisk + minutesRisk + inMatchRisk + historyRisk + limitationRisk + tacticalRisk)));
+  return Math.round(Math.max(2, Math.min(98, 3 + fatigueRisk + ageRisk + streakRisk + minutesRisk + inMatchRisk + historyRisk + limitationRisk + trainingRisk + tacticalRisk)));
 }
 
 function chooseInjuryType(risk, playerId, matchday) {

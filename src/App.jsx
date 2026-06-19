@@ -3,9 +3,11 @@ import { resolvePlayerPhoto } from "./data/dataLoader.js";
 import NewsScreen from "./components/NewsScreen.jsx";
 import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
 import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
+import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
 import { buildPlayerLookup, generateMatchdayNews, generateMedicalNews, generateTransferNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue } from "./players/playerProfile.js";
 import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
+import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, normalizeTrainingPlan } from "./training/trainingEngine.js";
 
 // ─── DATOS ───────────────────────────────────────────────────────────────────
 
@@ -651,6 +653,7 @@ function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS) {
 
   const moraleAvg  = starters.reduce((s,p)=>s+p.morale,0)  / starters.length;
   const fatigueAvg = starters.reduce((s,p)=>s+p.fatigue,0) / starters.length;
+  const tacticalSharpness = starters.reduce((s,p)=>s+(p.tacticalSharpness??0),0) / starters.length;
 
   const moraleBonus   = (moraleAvg - 70) * 0.12;
   const fatiguePenalty = fatigueAvg * 0.09;
@@ -670,7 +673,7 @@ function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS) {
     gkStr      * 0.10 +
     moraleBonus * 0.05;
 
-  return Math.max(35, lineStrength - fatiguePenalty + homeBon + mod.atkBonus * 0.5 - manDownPenalty);
+  return Math.max(35, lineStrength - fatiguePenalty + homeBon + mod.atkBonus * 0.5 + tacticalSharpness * .6 - manDownPenalty);
 }
 
 function calcDefStrength(players, tactics = DEFAULT_TACTICS) {
@@ -1567,9 +1570,10 @@ function BottomNav({ screen, setScreen, disabled }) {
     { id: "calendar",   icon: "📅", label: "Calendario" },
   ];
   const row2 = [
-    { id: "standings",  icon: "🏆", label: "Clasificación" },
+    { id: "standings",  icon: "🏆", label: "Tabla" },
     { id: "news",       icon: "📰", label: "Noticias" },
     { id: "transfers",  icon: "🔄", label: "Fichajes" },
+    { id: "training",   icon: "🏋", label: "Entrenar" },
     { id: "medical",    icon: "🏥", label: "Médico" },
     { id: "finances",   icon: "💶", label: "Finanzas" },
   ];
@@ -4624,6 +4628,7 @@ export default function App({ externalData }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         parsed.players = (parsed.players ?? []).map(player => normalizeMedicalPlayer(enrichPlayerProfile(player, parsed.season ?? "2025")));
+        parsed.trainingPlan = normalizeTrainingPlan(parsed.trainingPlan);
         if (parsed._lineup) {
           setLineup(parsed._lineup);
           delete parsed._lineup;
@@ -4668,7 +4673,7 @@ export default function App({ externalData }) {
     const fixtures = generateFixtures();
     const standings = initStandings();
     const newId = `save_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-    const g = { id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [], news: [],
+    const g = { id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
       country: pendingCountry?.id, league: pendingLeague?.id };
     setActiveSaveId(newId);
     setLineup(Array(11).fill(null));
@@ -4778,7 +4783,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
       const injuryEventsInMatch = events.filter(e => e.type === "INJURY" && e.team === "user");
       const newlyInjuredIds = new Set(injuryEventsInMatch.map(e => e.playerId));
       const playersSource  = livePlayer ?? prev.players;
-      const newPlayers = playersSource.map(p => {
+      const recoveredPlayers = playersSource.map(p => {
         const wasSuspended = p.suspended && p.suspGames > 0; // venía sancionado de antes (ya cumplió este partido)
         const extraYellows = yellowsInMatch.filter(id => id === p.id).length;
         const gotRed       = redsInMatch.includes(p.id);
@@ -4805,6 +4810,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
           suspGames:   finalSuspGames,
         };
       });
+      const trainingResult = applyWeeklyTraining(recoveredPlayers, { ...prev, fixtures:finalFixtures, players:recoveredPlayers, matchday }, prev.trainingPlan ?? DEFAULT_TRAINING_PLAN);
+      const newPlayers = trainingResult.players;
       const oppTeamId = isHome ? fixture.awayTeamId : fixture.homeTeamId;
       summaryData = {
         userTeam:       TEAMS.find(t => t.id === prev.teamId),
@@ -4842,7 +4849,10 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
         budgetAdjustment: (prev.budgetAdjustment ?? 0) + incomeResult.total,
         incomeLog: newIncomeLog,
         fanLove: newFanLove,
-        news: updatedNews };
+        news: updatedNews,
+        trainingPlan:normalizeTrainingPlan(prev.trainingPlan),
+        lastTrainingReport:trainingResult.report,
+        trainingTacticalBonus:trainingResult.tacticalBonus };
       saveGame(newGame);
 
       // Detectar fin de temporada (última jornada jugada)
@@ -4889,6 +4899,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
                   : p.age >= 33 ? Math.max(60, p.overall - (Math.random()<0.3?1:0))
                   : p.overall,
           careerHistory: [...(p.careerHistory ?? []).filter(entry => entry.season !== String(prev.season)), historyEntry],
+          developmentHistory:[...(p.developmentHistory ?? []).filter(entry=>entry.season!==String(prev.season)),{season:String(prev.season),startOverall:p.seasonStartOverall??p.overall,endOverall:p.overall,startValue:p.seasonStartValue??getMarketValue(p),endValue:getMarketValue(p)}],
         };
         return { ...evolved, seasonStartOverall: evolved.overall, seasonStartValue: getMarketValue(evolved) };
       });
@@ -4943,6 +4954,15 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
     });
   };
 
+  const handleTrainingPlanChange = (trainingPlan) => {
+    setGame(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, trainingPlan:normalizeTrainingPlan(trainingPlan) };
+      saveGame(updated, lineup, formation, subs);
+      return updated;
+    });
+  };
+
   const openPlayerProfile = (player, teamId = game?.teamId) => {
     if (!player || !game) return;
     setSelectedPlayer(enrichPlayerProfile(player, game.season ?? "2025"));
@@ -4969,7 +4989,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias", medical:"Centro Médico",
+    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","playerProfile"].includes(screen);
@@ -5018,9 +5038,10 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} onOpenPlayer={openPlayerProfile} />}
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} onOpenPlayer={openPlayerProfileById} />}
           {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
+          {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} />}
-          {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} />}
+          {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} />}
           {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={lineup} setLineup={setLineup} subs={subs} setSubs={setSubs} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonEndScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} />}
