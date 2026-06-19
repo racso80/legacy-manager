@@ -2328,9 +2328,22 @@ function SquadScreen({ players }) {
   );
 }
 
+// ─── Helpers de energía/cansancio (documento UX) ─────────────────────────────
+function energyLevel(fatigue) {
+  const energy = 100 - (fatigue ?? 0); // energía = inverso del cansancio
+  if (energy >= 80) return { energy, color: "#22c55e", emoji: "🟢", label: "Fresco" };
+  if (energy >= 70) return { energy, color: "#22c55e", emoji: "🟢", label: "Bien" };
+  if (energy >= 60) return { energy, color: "#fbbf24", emoji: "🟡", label: "Cansado" };
+  if (energy >= 40) return { energy, color: "#f97316", emoji: "🟠", label: "Muy cansado" };
+  return { energy, color: "#ef4444", emoji: "🔴", label: "Agotado" };
+}
+
 function LineupScreen({ players, lineup, setLineup, formation, setFormation, subs, setSubs }) {
   const [activeSlot, setActiveSlot] = useState(null); // null | {type:'starter',idx} | {type:'sub',idx}
-  const [filter, setFilter] = useState("ALL");
+  // subTarget: cuando pulsas un titular para sustituir rápido → {idx, player}
+  const [subTarget, setSubTarget] = useState(null);
+  const [sortBy, setSortBy] = useState("role"); // role | energy | overall | pos | age
+  const [showFormations, setShowFormations] = useState(false);
 
   const formations = {
     "4-3-3":   ["POR","LD","DFC","DFC","LI","MC","MCD","MC","ED","DC","EI"],
@@ -2374,27 +2387,47 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
   const usedStarterIds = lineup.filter(Boolean);
   const usedSubIds = subs.filter(Boolean);
   const allUsedIds = [...usedStarterIds, ...usedSubIds];
-  const shown = (filter === "ALL" ? available : available.filter(p => p.group === filter))
-    .filter(p => !allUsedIds.includes(p.id) || usedStarterIds.includes(p.id) || usedSubIds.includes(p.id));
+  const notCalled = available.filter(p => !allUsedIds.includes(p.id)); // ⚪ no convocados
 
   const startersCount = lineup.filter(id => id && available.find(p => p.id === id)).length;
   const lineupValid = startersCount === 11;
 
+  // ── 7. Resumen de estado de plantilla ──
+  const fresh = available.filter(p => energyLevel(p.fatigue).energy >= 70).length;
+  const tired = available.filter(p => { const e = energyLevel(p.fatigue).energy; return e >= 40 && e < 70; }).length;
+  const veryTired = available.filter(p => energyLevel(p.fatigue).energy < 40).length;
+  const avgEnergy = available.length ? Math.round(available.reduce((s,p) => s + energyLevel(p.fatigue).energy, 0) / available.length) : 0;
+
+  // ── 10. Jerarquía: titular habitual / rotación / suplente / canterano ──
+  const getRole = (p) => {
+    if (p.age <= 19) return { icon: "🌱", label: "Canterano" };
+    if (p.overall >= 80) return { icon: "⭐", label: "Titular habitual" };
+    if (p.overall >= 73) return { icon: "🔄", label: "Rotación" };
+    return { icon: "⚪", label: "Suplente" };
+  };
+
   const handlePitchSlot = (idx) => {
-    setActiveSlot(activeSlot?.type === "starter" && activeSlot?.idx === idx ? null : {type:"starter", idx});
+    const player = players.find(p => p.id === lineup[idx]);
+    if (player) {
+      // 4. Sistema de intercambio directo: pulsar titular → menú de sustitución rápida
+      setSubTarget({ idx, player });
+      setActiveSlot(null);
+    } else {
+      setActiveSlot(activeSlot?.type === "starter" && activeSlot?.idx === idx ? null : {type:"starter", idx});
+      setSubTarget(null);
+    }
   };
   const handleSubSlot = (idx) => {
     setActiveSlot(activeSlot?.type === "sub" && activeSlot?.idx === idx ? null : {type:"sub", idx});
+    setSubTarget(null);
   };
 
   const assignPlayer = (player) => {
     if (!activeSlot) return;
     if (activeSlot.type === "starter") {
       const newLineup = [...lineup];
-      // Si ya estaba de titular, quitar
       const prevSlot = newLineup.indexOf(player.id);
       if (prevSlot !== -1) newLineup[prevSlot] = null;
-      // Si estaba de suplente, quitar
       const newSubs = [...subs];
       const prevSub = newSubs.indexOf(player.id);
       if (prevSub !== -1) newSubs[prevSub] = null;
@@ -2415,35 +2448,185 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
     setActiveSlot(null);
   };
 
+  // ── 4 + 5. Intercambio automático + menú de sustitución rápida ──
+  // Sustituto entra al once, titular sale directo al banquillo (sin huecos)
+  const swapWithSub = (incomingPlayer) => {
+    if (!subTarget) return;
+    const { idx, player: outgoing } = subTarget;
+    const newLineup = [...lineup];
+    newLineup[idx] = incomingPlayer.id;
+    setLineup(newLineup);
+
+    const newSubs = [...subs];
+    // Si el que entra estaba en el banquillo, su hueco lo ocupa quien sale
+    const benchIdx = newSubs.indexOf(incomingPlayer.id);
+    if (benchIdx !== -1) {
+      newSubs[benchIdx] = outgoing.id;
+    } else {
+      // Si no estaba en banquillo (era no convocado), buscar primer hueco libre
+      const emptyIdx = newSubs.indexOf(null);
+      if (emptyIdx !== -1) newSubs[emptyIdx] = outgoing.id;
+    }
+    setSubs(newSubs);
+    setSubTarget(null);
+  };
+
+  // Candidatos de sustitución ordenados: misma posición → mejor energía → mejor media
+  const getSubCandidates = () => {
+    if (!subTarget) return [];
+    const posLabel = slotPositions[subTarget.idx];
+    const pool = [...subs.filter(Boolean).map(id => players.find(p => p.id === id)), ...notCalled].filter(Boolean);
+    return pool
+      .filter(p => !p.injured && !p.suspended)
+      .sort((a, b) => {
+        const aSamePos = a.pos === posLabel ? 1 : 0;
+        const bSamePos = b.pos === posLabel ? 1 : 0;
+        if (aSamePos !== bSamePos) return bSamePos - aSamePos;
+        const aEnergy = energyLevel(a.fatigue).energy;
+        const bEnergy = energyLevel(b.fatigue).energy;
+        if (Math.abs(aEnergy - bEnergy) > 10) return bEnergy - aEnergy;
+        return b.overall - a.overall;
+      })
+      .slice(0, 6);
+  };
+
+  // ── 6. Recomendaciones de descanso ──
+  const restRisk = (p) => {
+    const e = energyLevel(p.fatigue).energy;
+    if (e < 40) return { level: "high", label: "⚠ Riesgo de lesión" };
+    if (e < 55) return { level: "mid", label: "⚠ Fatiga acumulada" };
+    if (e < 70) return { level: "low", label: "⚠ Recomendado descansar" };
+    return null;
+  };
+
+  // ── 8. Rotación recomendada ──
+  const applyRecommendedRotation = () => {
+    const newLineup = [...lineup];
+    const newSubs = [...subs];
+    lineup.forEach((starterId, idx) => {
+      if (!starterId) return;
+      const starter = players.find(p => p.id === starterId);
+      if (!starter) return;
+      const risk = restRisk(starter);
+      if (!risk || risk.level === "low") return; // solo rota a los muy cansados/en riesgo
+      const posLabel = slotPositions[idx];
+      const candidates = [...newSubs.filter(Boolean).map(id => players.find(p => p.id === id)), ...notCalled]
+        .filter(Boolean)
+        .filter(p => !p.injured && !p.suspended && energyLevel(p.fatigue).energy > energyLevel(starter.fatigue).energy + 15)
+        .sort((a,b) => {
+          const aSame = a.pos === posLabel ? 1 : 0, bSame = b.pos === posLabel ? 1 : 0;
+          if (aSame !== bSame) return bSame - aSame;
+          return energyLevel(b.fatigue).energy - energyLevel(a.fatigue).energy;
+        });
+      const replacement = candidates[0];
+      if (replacement) {
+        newLineup[idx] = replacement.id;
+        const benchIdx = newSubs.indexOf(replacement.id);
+        if (benchIdx !== -1) newSubs[benchIdx] = starter.id;
+      }
+    });
+    setLineup(newLineup);
+    setSubs(newSubs);
+  };
+
+  // ── 9. Mejor once disponible ──
+  const applyBestXI = () => {
+    const byPos = {};
+    available.forEach(p => { (byPos[p.pos] = byPos[p.pos] ?? []).push(p); });
+    const score = (p) => p.overall * 0.7 + energyLevel(p.fatigue).energy * 0.3;
+    const newLineup = Array(11).fill(null);
+    const claimed = new Set();
+    slotPositions.forEach((posLabel, idx) => {
+      const candidates = available
+        .filter(p => !claimed.has(p.id))
+        .sort((a,b) => {
+          const aSame = a.pos === posLabel ? 1 : 0, bSame = b.pos === posLabel ? 1 : 0;
+          if (aSame !== bSame) return bSame - aSame;
+          return score(b) - score(a);
+        });
+      const best = candidates[0];
+      if (best) { newLineup[idx] = best.id; claimed.add(best.id); }
+    });
+    setLineup(newLineup);
+    // Rellenar banquillo con los siguientes mejores disponibles
+    const restPool = available.filter(p => !claimed.has(p.id)).sort((a,b) => score(b) - score(a));
+    const newSubs = Array(7).fill(null);
+    restPool.slice(0, 7).forEach((p, i) => { newSubs[i] = p.id; claimed.add(p.id); });
+    setSubs(newSubs);
+  };
+
   const getStarter = (idx) => players.find(p => p.id === lineup[idx]);
   const getSub = (idx) => players.find(p => p.id === subs[idx]);
-
   const isActiveStarter = (idx) => activeSlot?.type === "starter" && activeSlot?.idx === idx;
   const isActiveSub = (idx) => activeSlot?.type === "sub" && activeSlot?.idx === idx;
 
+  // ── 11. Ordenación de "no convocados" ──
+  const sortedNotCalled = [...notCalled].sort((a, b) => {
+    if (sortBy === "energy") return energyLevel(b.fatigue).energy - energyLevel(a.fatigue).energy;
+    if (sortBy === "overall") return b.overall - a.overall;
+    if (sortBy === "pos") return a.pos.localeCompare(b.pos);
+    if (sortBy === "age") return a.age - b.age;
+    return b.overall - a.overall; // role (default): por calidad
+  });
+
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-      {/* Formaciones */}
-      <div style={{ display:"flex", gap:8, padding:"10px 14px", overflowX:"auto", borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
-        {Object.keys(formations).map(f => (
-          <button key={f} onClick={() => { setFormation(f); setLineup(Array(11).fill(null)); }}
-            style={{ background:formation===f?"#c9a84c":"#1e2330", color:formation===f?"#1a1200":"#9aa0b4", border:"none", padding:"7px 16px", borderRadius:6, fontSize:12, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}>
-            {f}
-          </button>
-        ))}
-        {/* Validación */}
-        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-          <div style={{ fontSize:12, fontWeight:700, color: lineupValid ? "#22c55e" : "#f59e0b", background: lineupValid ? "#22c55e18" : "#f59e0b18", padding:"4px 10px", borderRadius:6, whiteSpace:"nowrap" }}>
-            {lineupValid ? "✓ Once completo" : `${startersCount}/11`}
+
+      {/* ── 7. Tarjeta resumen de plantilla ── */}
+      <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"10px 14px", flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:7 }}>
+          <span style={{ fontSize:10, color:"#6b7280", fontWeight:700, letterSpacing:".5px" }}>ESTADO DE PLANTILLA</span>
+          <span style={{ fontSize:13, fontWeight:800, color: avgEnergy>=70?"#22c55e":avgEnergy>=50?"#fbbf24":"#ef4444" }}>⚡ {avgEnergy}%</span>
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          <div style={{ flex:1, display:"flex", alignItems:"center", gap:5, background:"#161a24", borderRadius:7, padding:"5px 8px" }}>
+            <span>🟢</span><span style={{ fontSize:12, fontWeight:700, color:"#22c55e" }}>{fresh}</span><span style={{ fontSize:10, color:"#6b7280" }}>frescos</span>
+          </div>
+          <div style={{ flex:1, display:"flex", alignItems:"center", gap:5, background:"#161a24", borderRadius:7, padding:"5px 8px" }}>
+            <span>🟡</span><span style={{ fontSize:12, fontWeight:700, color:"#fbbf24" }}>{tired}</span><span style={{ fontSize:10, color:"#6b7280" }}>cansados</span>
+          </div>
+          <div style={{ flex:1, display:"flex", alignItems:"center", gap:5, background:"#161a24", borderRadius:7, padding:"5px 8px" }}>
+            <span>🔴</span><span style={{ fontSize:12, fontWeight:700, color:"#ef4444" }}>{veryTired}</span><span style={{ fontSize:10, color:"#6b7280" }}>muy cansados</span>
           </div>
         </div>
       </div>
 
+      {/* ── Formaciones (colapsable) + acciones rápidas (8 y 9) ── */}
+      <div style={{ borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
+        <div style={{ display:"flex", gap:6, padding:"8px 12px", alignItems:"center" }}>
+          <button onClick={() => setShowFormations(s => !s)}
+            style={{ background:"#1e2330", border:"none", color:"#e8eaf0", padding:"7px 12px", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+            {formation} ▾
+          </button>
+          <button onClick={applyRecommendedRotation}
+            style={{ flex:1, background:"rgba(251,191,36,.12)", border:"1px solid rgba(251,191,36,.3)", color:"#fbbf24", padding:"7px 8px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+            🔄 Rotación recomendada
+          </button>
+          <button onClick={applyBestXI}
+            style={{ flex:1, background:"rgba(201,168,76,.12)", border:"1px solid rgba(201,168,76,.3)", color:"#c9a84c", padding:"7px 8px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+            ⭐ Mejor once
+          </button>
+          <div style={{ fontSize:11, fontWeight:700, color: lineupValid ? "#22c55e" : "#f59e0b", background: lineupValid ? "#22c55e18" : "#f59e0b18", padding:"6px 9px", borderRadius:6, whiteSpace:"nowrap", flexShrink:0 }}>
+            {lineupValid ? "✓" : `${startersCount}/11`}
+          </div>
+        </div>
+        {showFormations && (
+          <div style={{ display:"flex", gap:8, padding:"0 12px 10px", overflowX:"auto" }}>
+            {Object.keys(formations).map(f => (
+              <button key={f} onClick={() => { setFormation(f); setLineup(Array(11).fill(null)); setShowFormations(false); }}
+                style={{ background:formation===f?"#c9a84c":"#1e2330", color:formation===f?"#1a1200":"#9aa0b4", border:"none", padding:"7px 16px", borderRadius:6, fontSize:12, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}>
+                {f}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-        {/* Campo + lista jugadores - en móvil se apilan verticalmente */}
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-          {/* Campo - altura fija en móvil */}
-          <div style={{ height:220, flexShrink:0, position:"relative", background:"#061206", borderBottom:"1px solid rgba(255,255,255,.06)", overflow:"hidden" }}>
+
+          {/* ── 3. Campo con media + energía visible por jugador ── */}
+          <div style={{ height:240, flexShrink:0, position:"relative", background:"#061206", borderBottom:"1px solid rgba(255,255,255,.06)", overflow:"hidden" }}>
             <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%" }} viewBox="0 0 100 100" preserveAspectRatio="none">
               <rect x="5" y="2" width="90" height="96" fill="none" stroke="rgba(255,255,255,.09)" strokeWidth=".8"/>
               <line x1="5" y1="50" x2="95" y2="50" stroke="rgba(255,255,255,.09)" strokeWidth=".8"/>
@@ -2456,39 +2639,79 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
             {posLayout.map(({slot, x, y}) => {
               const player = getStarter(slot);
               const posLabel = slotPositions[slot];
-              const unavailable = player && (player.injured || player.suspended);
-              const nearSuspension = player && !unavailable && (player.yellowCards ?? 0) >= 4;
-              const acc = unavailable ? "#ef4444" : player ? RARITY_ACCENT[player.rarity] : "rgba(255,255,255,.3)";
-              const active = isActiveStarter(slot);
+              const unavail = player && (player.injured || player.suspended);
+              const nearSuspension = player && !unavail && (player.yellowCards ?? 0) >= 4;
+              const eng = player ? energyLevel(player.fatigue) : null;
+              const acc = unavail ? "#ef4444" : player ? RARITY_ACCENT[player.rarity] : "rgba(255,255,255,.3)";
+              const active = isActiveStarter(slot) || (subTarget?.idx === slot);
               return (
                 <div key={slot} onClick={() => handlePitchSlot(slot)}
                   style={{ position:"absolute", left:`${x}%`, top:`${y}%`, transform:"translate(-50%,-50%)", cursor:"pointer", textAlign:"center", zIndex:2 }}>
                   <div style={{ width:34, height:34, borderRadius:"50%", position:"relative",
-                    background: unavailable?"rgba(239,68,68,.18)":player?`${acc}30`:active?"rgba(201,168,76,.25)":"rgba(255,255,255,.06)",
-                    border:`2px solid ${active?"#c9a84c":unavailable?acc:nearSuspension?"#fbbf24":player?acc:"rgba(255,255,255,.2)"}`,
+                    background: unavail?"rgba(239,68,68,.18)":player?`${acc}30`:active?"rgba(201,168,76,.25)":"rgba(255,255,255,.06)",
+                    border:`2px solid ${active?"#c9a84c":unavail?acc:nearSuspension?"#fbbf24":player?acc:"rgba(255,255,255,.2)"}`,
                     display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto", transition:"all .15s",
-                    boxShadow: active?"0 0 8px #c9a84c66":unavailable?"0 0 8px #ef444466":nearSuspension?"0 0 6px #fbbf2466":"none" }}>
+                    boxShadow: active?"0 0 8px #c9a84c66":unavail?"0 0 8px #ef444466":nearSuspension?"0 0 6px #fbbf2466":"none" }}>
                     {player
                       ? <span style={{ fontSize:11, fontWeight:700, color:acc }}>{player.overall}</span>
                       : <span style={{ fontSize:8, color:"rgba(255,255,255,.35)" }}>{posLabel}</span>}
-                    {unavailable && (
+                    {unavail && (
                       <span style={{ position:"absolute", top:-4, right:-4, fontSize:11, background:"#ef4444", borderRadius:"50%", width:14, height:14, display:"flex", alignItems:"center", justifyContent:"center" }}>
                         {player.injured ? "🚑" : "🟥"}
                       </span>
                     )}
-                    {nearSuspension && (
-                      <span style={{ position:"absolute", top:-4, right:-4, fontSize:9, background:"#fbbf24", borderRadius:"50%", width:14, height:14, display:"flex", alignItems:"center", justifyContent:"center" }} title="4 amarillas, a una de sanción">
-                        🟨
-                      </span>
+                    {nearSuspension && !unavail && (
+                      <span style={{ position:"absolute", top:-4, right:-4, fontSize:9, background:"#fbbf24", borderRadius:"50%", width:14, height:14, display:"flex", alignItems:"center", justifyContent:"center" }} title="4 amarillas, a una de sanción">🟨</span>
                     )}
                   </div>
-                  {player && <div style={{ fontSize:8, color: unavailable?"#ef4444":nearSuspension?"#fbbf24":"#e8eaf0", marginTop:1, maxWidth:44, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textShadow:"0 1px 3px #000" }}>{player.name.split(" ")[0]}</div>}
+                  {player && (
+                    <>
+                      <div style={{ fontSize:7, fontWeight:800, color: eng.color, marginTop:1, textShadow:"0 1px 2px #000" }}>{eng.emoji}{eng.energy}</div>
+                      <div style={{ fontSize:8, color: unavail?"#ef4444":nearSuspension?"#fbbf24":"#e8eaf0", maxWidth:44, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textShadow:"0 1px 3px #000" }}>{player.name.split(" ")[0]}</div>
+                    </>
+                  )}
                 </div>
               );
             })}
           </div>
 
-          {/* Panel de jugadores debajo del campo */}
+          {/* ── 5. Menú de sustitución rápida (al pulsar titular) ── */}
+          {subTarget && (
+            <div style={{ background:"#1a1f2e", borderBottom:"1px solid rgba(201,168,76,.25)", padding:"10px 12px", flexShrink:0 }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                <div style={{ fontSize:11, color:"#9aa0b4" }}>
+                  Sustituir a <strong style={{ color:"#e8eaf0" }}>{subTarget.player.name}</strong>
+                  <span style={{ marginLeft:6, fontWeight:700, color: energyLevel(subTarget.player.fatigue).color }}>
+                    {energyLevel(subTarget.player.fatigue).emoji}{energyLevel(subTarget.player.fatigue).energy}
+                  </span>
+                </div>
+                <button onClick={() => setSubTarget(null)} style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#9aa0b4", padding:"4px 9px", borderRadius:6, fontSize:11, cursor:"pointer" }}>✕</button>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                {getSubCandidates().length === 0 && (
+                  <div style={{ fontSize:11, color:"#4b5563", textAlign:"center", padding:"8px 0" }}>No hay sustitutos disponibles</div>
+                )}
+                {getSubCandidates().map(p => {
+                  const eng = energyLevel(p.fatigue);
+                  const samePos = p.pos === slotPositions[subTarget.idx];
+                  return (
+                    <div key={p.id} onClick={() => swapWithSub(p)}
+                      style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 9px", background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:7, cursor:"pointer" }}>
+                      <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={5}/>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
+                        <div style={{ fontSize:9, color:"#6b7280" }}>{p.pos}{samePos?" · misma posición":""}</div>
+                      </div>
+                      <span style={{ fontSize:11, fontWeight:700, color:eng.color }}>{eng.emoji}{eng.energy}</span>
+                      <span style={{ fontSize:13, fontWeight:700, color:RARITY_ACCENT[p.rarity] }}>{p.overall}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── 1 + 2. Bloques: Titulares / Banquillo / No convocados, con energía visible ── */}
           <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", borderTop:"1px solid rgba(255,255,255,.05)" }}>
             {activeSlot && (
               <div style={{ background:"#c9a84c22", borderBottom:"1px solid #c9a84c44", padding:"7px 12px", flexShrink:0 }}>
@@ -2499,43 +2722,123 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
                 </div>
               </div>
             )}
-            <div style={{ display:"flex", gap:5, padding:"7px 8px", overflowX:"auto", borderBottom:"1px solid rgba(255,255,255,.05)", flexShrink:0 }}>
-              {[["ALL","Todos"],["POR","POR"],["DEF","DEF"],["MED","MED"],["DEL","DEL"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setFilter(v)}
-                  style={{ background:filter===v?"#c9a84c":"#1e2330", color:filter===v?"#1a1200":"#9aa0b4", border:"none", padding:"5px 9px", borderRadius:5, fontSize:11, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}>{l}</button>
-              ))}
-            </div>
-            <div style={{ flex:1, overflowY:"auto", padding:"6px 8px" }}>
-              {available.filter(p => filter==="ALL" || p.group===filter).map(p => {
-                const inStarter = usedStarterIds.includes(p.id);
-                const inSub = usedSubIds.includes(p.id);
-                const acc = RARITY_ACCENT[p.rarity];
-                const bg = inStarter ? `${acc}22` : inSub ? "rgba(59,130,246,.15)" : "#161a24";
-                const bdr = inStarter ? `${acc}55` : inSub ? "rgba(59,130,246,.4)" : "rgba(255,255,255,.06)";
-                const nearSuspension = (p.yellowCards ?? 0) >= 4;
+
+            <div style={{ flex:1, overflowY:"auto", padding:"8px 10px" }}>
+
+              {/* 🟢 TITULARES */}
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6, marginTop:2 }}>
+                <span style={{ fontSize:11 }}>🟢</span>
+                <span style={{ fontSize:10, fontWeight:700, color:"#22c55e", letterSpacing:".4px" }}>TITULARES ({startersCount}/11)</span>
+              </div>
+              {lineup.map((id, idx) => {
+                const p = players.find(pl => pl.id === id);
+                if (!p) return null;
+                const eng = energyLevel(p.fatigue);
+                const risk = restRisk(p);
+                const role = getRole(p);
                 return (
-                  <div key={p.id} onClick={() => activeSlot && assignPlayer(p)}
-                    style={{ display:"flex", alignItems:"center", gap:7, padding:"6px 8px", borderRadius:7, marginBottom:5, background:bg, border:`1px solid ${bdr}`, cursor:activeSlot?"pointer":"default" }}>
-                    <Initials name={p.name} size={28} rarity={p.rarity} borderRadius={5}/>
+                  <div key={id} onClick={() => handlePitchSlot(idx)}
+                    style={{ display:"flex", alignItems:"center", gap:7, padding:"7px 8px", borderRadius:7, marginBottom:4,
+                      background: subTarget?.idx===idx ? "rgba(201,168,76,.15)" : "#161a24",
+                      border:`1px solid ${subTarget?.idx===idx?"#c9a84c55":"rgba(34,197,94,.15)"}`, cursor:"pointer" }}>
+                    <Initials name={p.name} size={30} rarity={p.rarity} borderRadius={6}/>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}>
-                        {p.name}
-                        {(p.yellowCards ?? 0) > 0 && (
-                          <span style={{ fontSize:9, color: nearSuspension?"#ef4444":"#fbbf24", fontWeight:700, display:"inline-flex", alignItems:"center", gap:1 }}>
-                            🟨{p.yellowCards}
-                          </span>
-                        )}
+                        <span title={role.label}>{role.icon}</span>{p.name}
+                        {(p.yellowCards ?? 0) > 0 && <span style={{ fontSize:9, color:"#fbbf24" }}>🟨{p.yellowCards}</span>}
                       </div>
-                      <div style={{ fontSize:10, color:"#6b7280" }}>{p.pos} · {Math.round(p.fatigue)}% can{nearSuspension?" · ⚠️ a 1 de sanción":""}</div>
+                      <div style={{ fontSize:9, color: risk?.level==="high"?"#ef4444":risk?.level==="mid"?"#f97316":"#6b7280" }}>
+                        {p.pos} · {slotPositions[idx]}{risk ? ` · ${risk.label}` : ""}
+                      </div>
                     </div>
-                    <div style={{ fontSize:14, fontWeight:700, color:acc }}>{p.overall}</div>
-                    {inStarter && <span style={{ fontSize:9, color:acc, fontWeight:700 }}>T</span>}
-                    {inSub && <span style={{ fontSize:9, color:"#3b82f6", fontWeight:700 }}>S</span>}
+                    <div style={{ textAlign:"center" }}>
+                      <div style={{ fontSize:14, fontWeight:700, color:RARITY_ACCENT[p.rarity] }}>{p.overall}</div>
+                      <div style={{ fontSize:11, fontWeight:800, color:eng.color }}>{eng.emoji}{eng.energy}</div>
+                    </div>
                   </div>
                 );
               })}
+
+              {/* 🟡 BANQUILLO */}
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6, marginTop:14 }}>
+                <span style={{ fontSize:11 }}>🟡</span>
+                <span style={{ fontSize:10, fontWeight:700, color:"#fbbf24", letterSpacing:".4px" }}>BANQUILLO ({usedSubIds.length}/7)</span>
+              </div>
+              {subs.map((id, idx) => {
+                const p = players.find(pl => pl.id === id);
+                const active = isActiveSub(idx);
+                if (!p) {
+                  return (
+                    <div key={idx} onClick={() => handleSubSlot(idx)}
+                      style={{ display:"flex", alignItems:"center", gap:7, padding:"7px 8px", borderRadius:7, marginBottom:4,
+                        background: active?"rgba(201,168,76,.12)":"#13161d", border:`1px dashed ${active?"#c9a84c":"rgba(255,255,255,.1)"}`, cursor:"pointer" }}>
+                      <div style={{ width:30, height:30, borderRadius:6, background:"rgba(255,255,255,.04)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, color:"rgba(255,255,255,.25)" }}>+</div>
+                      <div style={{ fontSize:11, color:"#4b5563" }}>Hueco libre {idx+1}</div>
+                    </div>
+                  );
+                }
+                const eng = energyLevel(p.fatigue);
+                const role = getRole(p);
+                return (
+                  <div key={idx} onClick={() => handleSubSlot(idx)}
+                    style={{ display:"flex", alignItems:"center", gap:7, padding:"7px 8px", borderRadius:7, marginBottom:4,
+                      background: active ? "rgba(201,168,76,.15)" : "#161a24",
+                      border:`1px solid ${active?"#c9a84c55":"rgba(59,130,246,.15)"}`, cursor:"pointer" }}>
+                    <Initials name={p.name} size={30} rarity={p.rarity} borderRadius={6}/>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}>
+                        <span title={role.label}>{role.icon}</span>{p.name}
+                      </div>
+                      <div style={{ fontSize:9, color:"#6b7280" }}>{p.pos}</div>
+                    </div>
+                    <div style={{ textAlign:"center" }}>
+                      <div style={{ fontSize:14, fontWeight:700, color:RARITY_ACCENT[p.rarity] }}>{p.overall}</div>
+                      <div style={{ fontSize:11, fontWeight:800, color:eng.color }}>{eng.emoji}{eng.energy}</div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* ⚪ NO CONVOCADOS */}
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:14, marginBottom:6 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ fontSize:11 }}>⚪</span>
+                  <span style={{ fontSize:10, fontWeight:700, color:"#9aa0b4", letterSpacing:".4px" }}>NO CONVOCADOS ({sortedNotCalled.length})</span>
+                </div>
+                {/* 11. Ordenación */}
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                  style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", fontSize:9, borderRadius:5, padding:"3px 5px" }}>
+                  <option value="role">Calidad</option>
+                  <option value="energy">Energía</option>
+                  <option value="overall">Media</option>
+                  <option value="pos">Posición</option>
+                  <option value="age">Edad</option>
+                </select>
+              </div>
+              {sortedNotCalled.map(p => {
+                const eng = energyLevel(p.fatigue);
+                const role = getRole(p);
+                return (
+                  <div key={p.id} onClick={() => activeSlot && assignPlayer(p)}
+                    style={{ display:"flex", alignItems:"center", gap:7, padding:"6px 8px", borderRadius:7, marginBottom:4,
+                      background:"#13161d", border:"1px solid rgba(255,255,255,.05)", cursor:activeSlot?"pointer":"default", opacity:.85 }}>
+                    <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={5}/>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:11, fontWeight:600, color:"#c9ccd4", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}>
+                        <span title={role.label}>{role.icon}</span>{p.name}
+                      </div>
+                      <div style={{ fontSize:9, color:"#6b7280" }}>{p.pos} · {p.age}a</div>
+                    </div>
+                    <div style={{ textAlign:"center" }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:RARITY_ACCENT[p.rarity] }}>{p.overall}</div>
+                      <div style={{ fontSize:10, fontWeight:700, color:eng.color }}>{eng.emoji}{eng.energy}</div>
+                    </div>
+                  </div>
+                );
+              })}
+
               {unavailable.length > 0 && (
-                <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid rgba(255,255,255,.06)" }}>
+                <div style={{ marginTop:14, paddingTop:8, borderTop:"1px solid rgba(255,255,255,.06)" }}>
                   <div style={{ fontSize:10, color:"#4b5563", marginBottom:6, fontWeight:600 }}>NO DISPONIBLES</div>
                   {unavailable.map(p => (
                     <div key={p.id} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 8px", borderRadius:7, marginBottom:4, background:"#161a24", border:"1px solid rgba(255,255,255,.04)", opacity:.5 }}>
@@ -2550,31 +2853,6 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
                 </div>
               )}
             </div>
-          </div>
-        </div>
-
-        {/* Suplentes */}
-        <div style={{ background:"#0d1117", borderTop:"1px solid rgba(255,255,255,.07)", padding:"10px 12px", flexShrink:0 }}>
-          <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:8 }}>SUPLENTES</div>
-          <div style={{ display:"flex", gap:6, overflowX:"auto" }}>
-            {subs.map((id, idx) => {
-              const player = getSub(idx);
-              const active = isActiveSub(idx);
-              const acc = player ? RARITY_ACCENT[player.rarity] : "rgba(255,255,255,.2)";
-              return (
-                <div key={idx} onClick={() => handleSubSlot(idx)}
-                  style={{ flexShrink:0, width:52, cursor:"pointer", textAlign:"center" }}>
-                  <div style={{ width:44, height:44, borderRadius:8, background:player?`${acc}20`:active?"rgba(201,168,76,.15)":"rgba(255,255,255,.04)", border:`1.5px solid ${active?"#c9a84c":player?acc:"rgba(255,255,255,.12)"}`, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto", transition:"all .15s", boxShadow:active?"0 0 6px #c9a84c55":"none" }}>
-                    {player
-                      ? <span style={{ fontSize:13, fontWeight:700, color:acc }}>{player.overall}</span>
-                      : <span style={{ fontSize:16, color:"rgba(255,255,255,.2)" }}>+</span>}
-                  </div>
-                  {player
-                    ? <div style={{ fontSize:8, color:"#9aa0b4", marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{player.name.split(" ")[0]}</div>
-                    : <div style={{ fontSize:8, color:"rgba(255,255,255,.2)", marginTop:3 }}>SUP {idx+1}</div>}
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
@@ -4046,7 +4324,6 @@ function setSavesIndex(list) {
 
 export default function App({ externalData }) {
   useGlobalStyles();
-  // Merge external data.json with built-in data if available
   if (externalData?.players) Object.assign(REAL_SQUADS, externalData.players);
   if (externalData?.teams) {
     externalData.teams.forEach(et => {
