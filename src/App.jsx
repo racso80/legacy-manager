@@ -2338,12 +2338,16 @@ function energyLevel(fatigue) {
   return { energy, color: "#ef4444", emoji: "🔴", label: "Agotado" };
 }
 
-function LineupScreen({ players, lineup, setLineup, formation, setFormation, subs, setSubs }) {
+function LineupScreen({ players, lineup, setLineup, formation, setFormation, subs, setSubs, savedLineups, onSaveLineups }) {
   const [activeSlot, setActiveSlot] = useState(null); // null | {type:'starter',idx} | {type:'sub',idx}
   // subTarget: cuando pulsas un titular para sustituir rápido → {idx, player}
   const [subTarget, setSubTarget] = useState(null);
   const [sortBy, setSortBy] = useState("role"); // role | energy | overall | pos | age
   const [showFormations, setShowFormations] = useState(false);
+  const [showSavedLineups, setShowSavedLineups] = useState(false);
+  const [savingPreset, setSavingPreset] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const [presetIcon, setPresetIcon] = useState("🏠");
 
   const formations = {
     "4-3-3":   ["POR","LD","DFC","DFC","LI","MC","MCD","MC","ED","DC","EI"],
@@ -2555,6 +2559,40 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
     setSubs(newSubs);
   };
 
+  // ── 12. Alineaciones guardadas ──
+  const PRESET_ICONS = ["🏠","✈️","🔄","🏆","⚽","🛡️","⚡"];
+
+  const saveCurrentAsPreset = () => {
+    if (!presetName.trim()) return;
+    const newPreset = {
+      id: `lineup_${Date.now()}`,
+      name: presetName.trim(),
+      icon: presetIcon,
+      formation,
+      lineup: [...lineup],
+      subs: [...subs],
+    };
+    onSaveLineups([...(savedLineups ?? []), newPreset]);
+    setSavingPreset(false);
+    setPresetName("");
+    setPresetIcon("🏠");
+  };
+
+  const loadPreset = (preset) => {
+    // Solo asignar jugadores del preset que sigan disponibles (no vendidos/lesionados/sancionados)
+    const validIds = new Set(available.map(p => p.id));
+    const restoredLineup = preset.lineup.map(id => (id && validIds.has(id)) ? id : null);
+    const restoredSubs = preset.subs.map(id => (id && validIds.has(id)) ? id : null);
+    setFormation(preset.formation);
+    setLineup(restoredLineup);
+    setSubs(restoredSubs);
+    setShowSavedLineups(false);
+  };
+
+  const deletePreset = (presetId) => {
+    onSaveLineups((savedLineups ?? []).filter(p => p.id !== presetId));
+  };
+
   const getStarter = (idx) => players.find(p => p.id === lineup[idx]);
   const getSub = (idx) => players.find(p => p.id === subs[idx]);
   const isActiveStarter = (idx) => activeSlot?.type === "starter" && activeSlot?.idx === idx;
@@ -2618,6 +2656,78 @@ function LineupScreen({ players, lineup, setLineup, formation, setFormation, sub
                 {f}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* ── 12. Alineaciones guardadas ── */}
+        <div style={{ display:"flex", gap:6, padding:"0 12px 8px" }}>
+          <button onClick={() => setShowSavedLineups(s => !s)}
+            style={{ flex:1, background:"rgba(59,130,246,.1)", border:"1px solid rgba(59,130,246,.25)", color:"#60a5fa", padding:"7px 8px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer" }}>
+            📋 Alineaciones guardadas {savedLineups?.length ? `(${savedLineups.length})` : ""} {showSavedLineups ? "▴" : "▾"}
+          </button>
+          <button onClick={() => setSavingPreset(true)}
+            style={{ background:"rgba(34,197,94,.1)", border:"1px solid rgba(34,197,94,.25)", color:"#22c55e", padding:"7px 10px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+            💾 Guardar actual
+          </button>
+        </div>
+
+        {showSavedLineups && (
+          <div style={{ padding:"0 12px 10px", display:"flex", flexDirection:"column", gap:6 }}>
+            {(!savedLineups || savedLineups.length === 0) && (
+              <div style={{ fontSize:11, color:"#4b5563", textAlign:"center", padding:"10px 0" }}>
+                Aún no tienes alineaciones guardadas. Configura un once y pulsa "Guardar actual".
+              </div>
+            )}
+            {(savedLineups ?? []).map(preset => (
+              <div key={preset.id} style={{ display:"flex", alignItems:"center", gap:8, background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:7, padding:"8px 10px" }}>
+                <span style={{ fontSize:18 }}>{preset.icon}</span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{preset.name}</div>
+                  <div style={{ fontSize:10, color:"#6b7280" }}>{preset.formation} · {preset.lineup.filter(Boolean).length}/11 titulares</div>
+                </div>
+                <button onClick={() => loadPreset(preset)} className="btn-gold"
+                  style={{ padding:"6px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                  Cargar
+                </button>
+                <button onClick={() => deletePreset(preset.id)}
+                  style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)", color:"#ef4444", padding:"6px 9px", borderRadius:6, fontSize:11, cursor:"pointer" }}>
+                  🗑
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Modal: guardar alineación actual con nombre e icono */}
+        {savingPreset && (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.6)", zIndex:50, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+            onClick={() => setSavingPreset(false)}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ background:"#161a24", border:"1px solid rgba(201,168,76,.3)", borderRadius:12, padding:18, width:"100%", maxWidth:320 }}>
+              <div style={{ fontSize:14, fontWeight:700, color:"#c9a84c", marginBottom:12 }}>Guardar alineación actual</div>
+              <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="Nombre (ej. Liga, Visitante...)"
+                autoFocus
+                style={{ width:"100%", background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", padding:"9px 11px", borderRadius:7, fontSize:13, marginBottom:12, fontFamily:"inherit" }}/>
+              <div style={{ fontSize:10, color:"#6b7280", fontWeight:600, marginBottom:6 }}>ICONO</div>
+              <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
+                {PRESET_ICONS.map(icon => (
+                  <button key={icon} onClick={() => setPresetIcon(icon)}
+                    style={{ width:36, height:36, borderRadius:7, fontSize:17, cursor:"pointer",
+                      background: presetIcon===icon ? "rgba(201,168,76,.2)" : "#1e2330",
+                      border:`1.5px solid ${presetIcon===icon ? "#c9a84c" : "rgba(255,255,255,.08)"}` }}>
+                    {icon}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={() => { setSavingPreset(false); setPresetName(""); }} className="btn-ghost"
+                  style={{ flex:1, padding:10, borderRadius:8, fontSize:12, cursor:"pointer" }}>Cancelar</button>
+                <button onClick={saveCurrentAsPreset} disabled={!presetName.trim()} className="btn-gold"
+                  style={{ flex:1, padding:10, borderRadius:8, fontSize:12, fontWeight:700, cursor: presetName.trim()?"pointer":"not-allowed", opacity: presetName.trim()?1:.5 }}>
+                  Guardar
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -4724,7 +4834,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove) {
           {screen === "teams"     && <TeamSelection onSelect={startNewGame} />}
           {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} />}
           {screen === "squad"     && game && <SquadScreen players={game.players} />}
-          {screen === "lineup"    && game && <LineupScreen players={game.players} lineup={lineup} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={subs} setSubs={setSubs} />}
+          {screen === "lineup"    && game && <LineupScreen players={game.players} lineup={lineup} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={subs} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); }} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} />}
