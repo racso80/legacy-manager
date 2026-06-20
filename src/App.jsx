@@ -5064,7 +5064,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
   const edgeSwipe=useEdgeSwipeBack(()=>setScreen(screen==="playerProfile"?profileReturnScreen:"dashboard"),{enabled:screen!=="dashboard"&&(showNav||screen==="playerProfile")});
 
   return (
-    <div {...edgeSwipe.handlers} style={{ background:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:540, margin:"0 auto", display:"flex", flexDirection:"column" }}>
+    <div {...edgeSwipe.handlers} style={{ background:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:540, margin:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y" }}>
       {edgeSwipe.indicator}
       {screen !== "menu" && (
         <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"11px 14px", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
