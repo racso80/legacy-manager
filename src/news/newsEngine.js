@@ -323,4 +323,13 @@ export function generateYouthNews({ items = [], season, matchday, userTeamId, pl
     metadata:{userClub:true,academy:true},
   }));
 }
+
+export function generateScoutingNews({ items = [], season, matchday, userTeamId }) {
+  return items.map((item,index)=>createNews({
+    type:"scouting",title:item.title,summary:item.summary,importance:item.importance??"medium",
+    season,matchday,teamIds:[userTeamId],userTeamId,
+    fingerprint:item.fingerprint??`scouting:${matchday}:${index}:${item.title}`,
+    metadata:{userClub:true,scouting:true},
+  }));
+}
 import { formatMedicalDuration } from "../medical/medicalEngine.js";

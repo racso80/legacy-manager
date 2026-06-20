@@ -10,6 +10,7 @@ export const MORE_SECTIONS = [
   { id:"calendar", icon:"📅", label:"Calendario", description:"Partidos y jornadas", group:"Competición", accent:"#3b82f6" },
   { id:"standings", icon:"🏆", label:"Clasificación", description:"Tabla y goleadores", group:"Competición", accent:"#c9a84c" },
   { id:"transfers", icon:"💰", label:"Fichajes", description:"Mercado y operaciones", group:"Club", accent:"#22c55e" },
+  { id:"scouting", icon:"🔎", label:"Scouting", description:"Ojeadores e informes", group:"Club", accent:"#60a5fa" },
   { id:"finances", icon:"💵", label:"Finanzas", description:"Ingresos y presupuesto", group:"Club", accent:"#10b981" },
   { id:"tactics", icon:"⚙️", label:"Tácticas", description:"Identidad de juego", group:"Gestión", accent:"#64748b" },
   { id:"training", icon:"🏋", label:"Entrenamientos", description:"Plan y desarrollo", group:"Gestión", accent:"#f59e0b" },
