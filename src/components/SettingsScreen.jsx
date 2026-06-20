@@ -1,0 +1,14 @@
+import { useState } from "react";
+
+const KEY="legacy_manager_preferences";
+const readPreferences=()=>{try{return{animations:true,...JSON.parse(localStorage.getItem(KEY)??"{}")};}catch{return{animations:true};}};
+
+export default function SettingsScreen({ game }){
+  const [preferences,setPreferences]=useState(readPreferences);
+  const setAnimations=value=>{const next={...preferences,animations:value};setPreferences(next);try{localStorage.setItem(KEY,JSON.stringify(next));}catch{}document.documentElement.classList.toggle("reduce-motion",!value);};
+  return <div style={{flex:1,overflowY:"auto",padding:14}}>
+    <div style={{background:"linear-gradient(135deg,rgba(201,168,76,.12),#161a24)",border:"1px solid rgba(201,168,76,.2)",borderRadius:12,padding:15,marginBottom:16}}><div style={{fontSize:11,color:"#c9a84c",fontWeight:800}}>⚙ CONFIGURACIÓN</div><div style={{fontSize:11,color:"#6b7280",lineHeight:1.5,marginTop:5}}>Preferencias visuales de Legacy Manager.</div></div>
+    <div style={{fontSize:9,color:"#4b5563",fontWeight:800,letterSpacing:".7px",marginBottom:8}}>INTERFAZ</div><div style={{background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:10,overflow:"hidden",marginBottom:16}}><div style={{display:"flex",alignItems:"center",gap:11,padding:13}}><div style={{width:34,height:34,borderRadius:8,background:"rgba(201,168,76,.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>✨</div><div style={{flex:1}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:700}}>Animaciones suaves</div><div style={{fontSize:9,color:"#6b7280",marginTop:3}}>Transiciones y feedback visual</div></div><button onClick={()=>setAnimations(!preferences.animations)} aria-label="Alternar animaciones" style={{width:45,height:25,borderRadius:14,border:"none",background:preferences.animations?"#c9a84c":"#374151",padding:3,cursor:"pointer",transition:"background .2s"}}><span style={{display:"block",width:19,height:19,borderRadius:"50%",background:preferences.animations?"#1a1200":"#9ca3af",transform:`translateX(${preferences.animations?20:0}px)`,transition:"transform .2s"}}/></button></div></div>
+    <div style={{fontSize:9,color:"#4b5563",fontWeight:800,letterSpacing:".7px",marginBottom:8}}>PARTIDA ACTUAL</div><div style={{background:"#161a24",borderRadius:10,padding:13}}>{[["Club",game.name],["Temporada",`${game.season}/${String(Number(game.season)+1).slice(-2)}`],["Jornada",game.matchday],["Guardado","Automático en este dispositivo"]].map(([label,value],index)=><div key={label} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"8px 0",borderTop:index?"1px solid rgba(255,255,255,.04)":"none",fontSize:10}}><span style={{color:"#6b7280"}}>{label}</span><span style={{color:"#c9ced8",fontWeight:600,textAlign:"right"}}>{value}</span></div>)}</div>
+  </div>;
+}

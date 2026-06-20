@@ -6,12 +6,15 @@ import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
 import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
 import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
+import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
+import SettingsScreen from "./components/SettingsScreen.jsx";
 import { buildPlayerLookup, generateBoardNews, generateMatchdayNews, generateMedicalNews, generateTransferNews, generateYouthNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue } from "./players/playerProfile.js";
 import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
 import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, normalizeTrainingPlan } from "./training/trainingEngine.js";
 import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason } from "./legacy/legacyEngine.js";
 import { createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
+import { PRIMARY_NAV, SECONDARY_SCREEN_IDS } from "./navigation/navigationConfig.js";
 
 // ─── DATOS ───────────────────────────────────────────────────────────────────
 
@@ -1569,55 +1572,11 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer }) {
 }
 
 function BottomNav({ screen, setScreen, disabled }) {
-  const row1 = [
-    { id: "dashboard",  icon: "🏠", label: "Inicio" },
-    { id: "squad",      icon: "👥", label: "Plantilla" },
-    { id: "lineup",     icon: "📋", label: "Alineación" },
-    { id: "tactics",    icon: "⚙️", label: "Tácticas" },
-    { id: "calendar",   icon: "📅", label: "Calendario" },
-  ];
-  const row2 = [
-    { id: "standings",  icon: "🏆", label: "Tabla" },
-    { id: "news",       icon: "📰", label: "Noticias" },
-    { id: "transfers",  icon: "🔄", label: "Fichajes" },
-    { id: "finances",   icon: "💶", label: "Finanzas" },
-  ];
-  const row3 = [
-    { id: "training",   icon: "🏋", label: "Entrenar" },
-    { id: "youth",      icon: "🌱", label: "Cantera" },
-    { id: "medical",    icon: "🏥", label: "Médico" },
-    { id: "board",      icon: "🏛", label: "Directiva" },
-  ];
   if (disabled) return null;
-
-  const NavBtn = ({ t }) => {
-    const active = screen === t.id;
-    return (
-      <button onClick={() => setScreen(t.id)}
-        style={{ flex:1, background:"transparent", border:"none",
-          borderTop:`2px solid ${active?"#c9a84c":"transparent"}`,
-          padding:"7px 2px 5px", cursor:"pointer", display:"flex",
-          flexDirection:"column", alignItems:"center", gap:2, transition:"border-color .15s", minWidth:0 }}>
-        <span style={{ fontSize:16, lineHeight:1, filter:active?"none":"grayscale(.5) opacity(.5)" }}>{t.icon}</span>
-        <span style={{ fontSize:9, fontWeight:active?700:500, color:active?"#c9a84c":"#4b5563",
-          letterSpacing:".1px", transition:"color .15s", whiteSpace:"nowrap" }}>{t.label}</span>
-      </button>
-    );
-  };
-
+  const moreActive=screen==="more"||SECONDARY_SCREEN_IDS.has(screen);
   return (
-    <div style={{ background:"#10131c", borderTop:"1px solid rgba(255,255,255,.07)", paddingBottom:"env(safe-area-inset-bottom,0px)", flexShrink:0 }}>
-      <div style={{ display:"flex" }}>
-        {row1.map(t => <NavBtn key={t.id} t={t} />)}
-      </div>
-      <div style={{ height:1, background:"rgba(255,255,255,.05)", margin:"0 8px" }}/>
-      <div style={{ display:"flex" }}>
-        {row2.map(t => <NavBtn key={t.id} t={t} />)}
-      </div>
-      <div style={{ height:1, background:"rgba(255,255,255,.05)", margin:"0 8px" }}/>
-      <div style={{ display:"flex" }}>
-        {row3.map(t => <NavBtn key={t.id} t={t} />)}
-      </div>
+    <div style={{background:"rgba(16,19,28,.97)",backdropFilter:"blur(14px)",borderTop:"1px solid rgba(255,255,255,.08)",padding:"4px 5px env(safe-area-inset-bottom,0px)",flexShrink:0,boxShadow:"0 -8px 24px rgba(0,0,0,.28)"}}>
+      <div style={{display:"flex",height:58}}>{PRIMARY_NAV.map(item=>{const active=item.id==="more"?moreActive:screen===item.id;return <button key={item.id} onClick={()=>setScreen(item.id)} className="bottom-nav-btn" style={{position:"relative",flex:1,minWidth:0,background:"transparent",border:"none",color:active?"#c9a84c":"#5f6675",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer",transition:"color .18s,transform .15s"}}>{active&&<span style={{position:"absolute",top:0,width:24,height:2,borderRadius:2,background:"#c9a84c",boxShadow:"0 0 10px rgba(201,168,76,.65)"}}/>}<span style={{fontSize:item.id==="more"?20:19,lineHeight:1,filter:active?"none":"grayscale(.45) opacity(.72)"}}>{item.icon}</span><span style={{fontSize:10,fontWeight:active?800:600,letterSpacing:".1px",whiteSpace:"nowrap"}}>{item.label}</span></button>})}</div>
     </div>
   );
 }
@@ -1633,6 +1592,8 @@ const GLOBAL_CSS = `
   @keyframes cardFlip { from { transform:rotateY(0deg); } to { transform:rotateY(180deg); } }
   @keyframes goalPop { 0% { transform:scale(1); } 40% { transform:scale(1.15); } 100% { transform:scale(1); } }
   @keyframes bounceIn { 0% { transform:scale(.8); opacity:0; } 60% { transform:scale(1.05); opacity:1; } 100% { transform:scale(1); } }
+  @keyframes moreMenuIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes tileIn { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:translateY(0); } }
 
   *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -1670,6 +1631,14 @@ const GLOBAL_CSS = `
 
   .card-hover { transition: transform .15s, box-shadow .15s; }
   .card-hover:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+  .more-menu-enter { animation: moreMenuIn .22s ease both; }
+  .nav-tile { animation: tileIn .2s ease both; transition: transform .15s, border-color .15s, background .15s; }
+  .nav-tile:hover { transform:translateY(-2px); border-color:rgba(201,168,76,.35)!important; }
+  .nav-tile:active, .bottom-nav-btn:active { transform:scale(.96); }
+  .quick-action-card { animation:tileIn .2s ease both; transition:transform .15s,filter .15s; }
+  .quick-action-card:hover { transform:translateY(-1px); filter:brightness(1.08); }
+  .quick-action-card:active { transform:scale(.98); }
+  .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation-duration:.001ms!important; animation-iteration-count:1!important; transition-duration:.001ms!important; }
 
   .goal-event { animation: goalPop .4s ease; }
   .bounce-in  { animation: bounceIn .35s cubic-bezier(.34,1.56,.64,1) both; }
@@ -1687,6 +1656,7 @@ function useGlobalStyles() {
       el.textContent = GLOBAL_CSS;
       document.head.appendChild(el);
     }
+    try { const preferences=JSON.parse(localStorage.getItem("legacy_manager_preferences")??"{}"); document.documentElement.classList.toggle("reduce-motion",preferences.animations===false); } catch (e) {}
     return () => {};
   }, []);
 }
@@ -2293,6 +2263,12 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
           </div>
         );
       })()}
+
+      <div style={{fontSize:10,color:"#6b7280",fontWeight:800,letterSpacing:".7px",margin:"2px 0 8px"}}>ACCIONES RÁPIDAS</div>
+      <div className="quick-actions-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+        {!allPlayed&&<button onClick={()=>lineupValid?onPlay():setScreen("lineup")} className="quick-action-card" style={{gridColumn:"1 / -1",display:"flex",alignItems:"center",gap:12,textAlign:"left",background:"linear-gradient(135deg,rgba(201,168,76,.2),#1a1f2e)",border:"1px solid rgba(201,168,76,.35)",borderRadius:11,padding:13,cursor:"pointer"}}><span style={{width:42,height:42,borderRadius:10,background:"rgba(201,168,76,.16)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>⚽</span><span style={{flex:1}}><strong style={{display:"block",fontSize:13,color:"#e8eaf0"}}>Jugar partido</strong><small style={{display:"block",fontSize:9,color:lineupValid?"#c9a84c":"#f59e0b",marginTop:3}}>{lineupValid?`Jornada ${nextFixture?.matchday} · equipo preparado`:`Completar alineación · ${lineupCount}/11`}</small></span><span style={{color:"#c9a84c",fontSize:17}}>→</span></button>}
+        {[["📋","Gestionar alineación","lineup","Once y suplentes","#3b82f6"],["💰","Mercado de fichajes","transfers","Altas y bajas","#22c55e"],["🏋","Entrenar plantilla","training","Plan semanal","#f59e0b"],["📰","Ver noticias","news","Centro de prensa","#a78bfa"]].map(([icon,label,target,helper,accent],index)=><button key={target} onClick={()=>setScreen(target)} className="quick-action-card" style={{display:"flex",alignItems:"center",gap:9,textAlign:"left",background:`linear-gradient(145deg,${accent}10,#161a24)`,border:`1px solid ${accent}22`,borderRadius:10,padding:11,minHeight:72,cursor:"pointer",animationDelay:`${index*35}ms`}}><span style={{fontSize:20}}>{icon}</span><span><strong style={{display:"block",fontSize:10,color:"#e8eaf0",lineHeight:1.25}}>{label}</strong><small style={{display:"block",fontSize:8,color:"#6b7280",marginTop:3}}>{helper}</small></span></button>)}
+      </div>
 
       {/* Stats rápidas */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
@@ -5069,7 +5045,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy",
+    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","playerProfile"].includes(screen);
@@ -5111,6 +5087,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "league"    && <LeagueScreen country={pendingCountry} onSelect={l => { setPendingLeague(l); setScreen("teams"); }} onBack={() => setScreen("country")} />}
           {screen === "teams"     && <TeamSelection onSelect={startNewGame} />}
           {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} />}
+          {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} />}
           {screen === "squad"     && game && <SquadScreen players={game.players} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />}
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={lineup} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={subs} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); }} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
@@ -5121,6 +5098,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
           {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}
           {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}
+          {screen === "settings"  && game && <SettingsScreen game={game} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} />}
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} />}
