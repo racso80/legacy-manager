@@ -31,7 +31,8 @@ export default function PlayerProfileScreen({ player, game, team, onGoLineup, on
   const injuryRisk = calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:team?.id});
   const injuryRiskLevel = getRiskLevel(injuryRisk);
   const isOwnPlayer = game.players.some(item => item.id === player.id);
-  const trainingReport = game.lastTrainingReport?.changes?.find(item=>item.playerId===player.id);
+  const isAcademyPlayer = player.academyStatus==="academy";
+  const trainingReport = (isAcademyPlayer?game.lastYouthTrainingReport:game.lastTrainingReport)?.changes?.find(item=>item.playerId===player.id);
   const tabs = [["general","General"],["stats","Estadísticas"],["development","Desarrollo"],["contract","Contrato"],["history","Historial"],["news","Noticias"]];
 
   return <div style={{ flex:1, overflowY:"auto", background:"#0d0f14" }}>
@@ -53,6 +54,7 @@ export default function PlayerProfileScreen({ player, game, team, onGoLineup, on
     <div style={{ padding:14 }}>
       {tab==="general"&&<>
         {tags.length>0&&<div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>{tags.map(tag=><span key={tag.label} style={{ background:`${tag.color}18`, border:`1px solid ${tag.color}44`, color:tag.color, borderRadius:15, padding:"5px 9px", fontSize:10, fontWeight:700 }}>{tag.icon} {tag.label}</span>)}</div>}
+        {player.academyData&&<div style={{background:"rgba(34,197,94,.08)",border:"1px solid rgba(34,197,94,.2)",borderRadius:9,padding:11,marginBottom:12}}><div style={{color:"#22c55e",fontSize:10,fontWeight:800}}>🌱 FORMADO EN LA CANTERA</div><div style={{color:"#9aa0b4",fontSize:10,lineHeight:1.5,marginTop:4}}>Ingreso: T. {player.academyData.joinedSeason}/{String(Number(player.academyData.joinedSeason)+1).slice(-2)} · {player.academyData.region}<br/>Debut: {player.academyData.debutSeason?`T. ${player.academyData.debutSeason} · J${player.academyData.debutMatchday}`:"Pendiente"}</div></div>}
         <div style={{ fontSize:10, color:"#6b7280", fontWeight:800, letterSpacing:".6px", marginBottom:8 }}>ESTADO ACTUAL</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:7, marginBottom:16 }}><Metric label="MORAL" value={player.morale ?? 75} color={(player.morale??75)>=70?"#22c55e":"#f59e0b"}/><Metric label="ENERGÍA" value={energy} color={energy>=70?"#22c55e":energy>=45?"#f59e0b":"#ef4444"}/><Metric label="FORMA" value={form.label} color={form.color}/></div>
         <div style={{ fontSize:10, color:"#6b7280", fontWeight:800, letterSpacing:".6px", marginBottom:8 }}>ESTADO MÉDICO</div>
@@ -74,7 +76,7 @@ export default function PlayerProfileScreen({ player, game, team, onGoLineup, on
       {tab==="news"&&(relatedNews.length?<div style={{ display:"flex", flexDirection:"column", gap:8 }}>{relatedNews.map(item=><div key={item.id} style={{ background:"#161a24", borderLeft:"3px solid #c9a84c", borderRadius:8, padding:11 }}><div style={{ color:"#e8eaf0", fontSize:12, fontWeight:700, lineHeight:1.4 }}>📰 {item.title}</div><div style={{ color:"#4b5563", fontSize:9, marginTop:5 }}>T. {item.seasonLabel}{item.matchday?` · J${item.matchday}`:""}</div></div>)}</div>:<div style={{ textAlign:"center", color:"#6b7280", padding:"35px 10px", fontSize:12 }}>Todavía no hay noticias relacionadas con este jugador.</div>)}
 
       <div style={{ fontSize:10, color:"#6b7280", fontWeight:800, letterSpacing:".6px", margin:"20px 0 8px" }}>ACCIONES RÁPIDAS</div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}><button onClick={()=>setTab("contract")} className="btn-gold" style={{ padding:10, borderRadius:8, fontSize:11 }}>📋 Ver contrato</button>{isOwnPlayer&&<button onClick={onGoLineup} style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", borderRadius:8, fontSize:11, cursor:"pointer" }}>🔄 Hacer titular</button>}{isOwnPlayer&&<button onClick={onGoTraining} style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", borderRadius:8, padding:10, fontSize:11, cursor:"pointer" }}>🏋 Entrenar</button>}<button disabled style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.06)", color:"#4b5563", borderRadius:8, padding:10, fontSize:11 }}>⭐ Seguimiento · Próximamente</button></div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}><button onClick={()=>setTab("contract")} className="btn-gold" style={{ padding:10, borderRadius:8, fontSize:11 }}>📋 Ver contrato</button>{isOwnPlayer&&<button onClick={onGoLineup} style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", borderRadius:8, fontSize:11, cursor:"pointer" }}>🔄 Hacer titular</button>}{(isOwnPlayer||isAcademyPlayer)&&<button onClick={onGoTraining} style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", borderRadius:8, padding:10, fontSize:11, cursor:"pointer" }}>🏋 Entrenar</button>}<button disabled style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.06)", color:"#4b5563", borderRadius:8, padding:10, fontSize:11 }}>⭐ Seguimiento · Próximamente</button></div>
     </div>
   </div>;
 }

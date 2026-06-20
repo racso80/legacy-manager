@@ -5,11 +5,13 @@ import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
 import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
 import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
 import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
-import { buildPlayerLookup, generateBoardNews, generateMatchdayNews, generateMedicalNews, generateTransferNews, mergeNews } from "./news/newsEngine.js";
+import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
+import { buildPlayerLookup, generateBoardNews, generateMatchdayNews, generateMedicalNews, generateTransferNews, generateYouthNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue } from "./players/playerProfile.js";
 import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
 import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, normalizeTrainingPlan } from "./training/trainingEngine.js";
 import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason } from "./legacy/legacyEngine.js";
+import { createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
 
 // ─── DATOS ───────────────────────────────────────────────────────────────────
 
@@ -1582,6 +1584,7 @@ function BottomNav({ screen, setScreen, disabled }) {
   ];
   const row3 = [
     { id: "training",   icon: "🏋", label: "Entrenar" },
+    { id: "youth",      icon: "🌱", label: "Cantera" },
     { id: "medical",    icon: "🏥", label: "Médico" },
     { id: "board",      icon: "🏛", label: "Directiva" },
   ];
@@ -4667,7 +4670,10 @@ export default function App({ externalData }) {
           }
         });
         setActiveSaveId(saveId);
-        setGame(ensureLegacyState(parsed,TEAMS.find(team=>team.id===parsed.teamId)));
+        const loadedTeam=TEAMS.find(team=>team.id===parsed.teamId);
+        const migrated=ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam);
+        migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,parsed.season??"2025")))};
+        setGame(migrated);
         setScreen("dashboard");
       }
     } catch (e) {}
@@ -4691,8 +4697,11 @@ export default function App({ externalData }) {
     const fixtures = generateFixtures();
     const standings = initStandings();
     const newId = `save_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-    const g = ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
-      country: pendingCountry?.id, league: pendingLeague?.id },team);
+    const seeded = ensureYouthState(ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
+      country: pendingCountry?.id, league: pendingLeague?.id },team),team);
+    const g={...seeded,youth:{...seeded.youth,players:seeded.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,"2025")))}};
+    const firstProspect=[...g.youth.players].sort((a,b)=>b.potential-a.potential)[0];
+    if(firstProspect)g.news=generateYouthNews({items:[{title:"La cantera presenta una nueva generación",summary:`${firstProspect.name} encabeza la hornada con un potencial estimado de ${firstProspect.potential}.`,importance:firstProspect.potential>=86?"high":"medium",playerId:firstProspect.id,fingerprint:`academy-intake:2025`}],season:"2025",matchday:1,userTeamId:team.id});
     setActiveSaveId(newId);
     setLineup(Array(11).fill(null));
     setSubs(Array(7).fill(null));
@@ -4830,7 +4839,18 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         };
       });
       const trainingResult = applyWeeklyTraining(recoveredPlayers, { ...prev, fixtures:finalFixtures, players:recoveredPlayers, matchday }, prev.trainingPlan ?? DEFAULT_TRAINING_PLAN);
-      const newPlayers = trainingResult.players;
+      const academyParticipants=new Set([...(participation?.starters??[]),...(participation?.finishers??[])]);
+      const youthStoryItems=[];
+      let newPlayers = trainingResult.players.map(player=>{
+        if(!player.academyData||!academyParticipants.has(player.id))return player;
+        const goals=events.filter(event=>(event.type==="GOAL"||event.type==="PENALTY")&&event.playerId===player.id).length;
+        const firstAppearance=!player.academyData.debutSeason;
+        const firstGoal=goals>0&&!player.academyData.firstGoalMatchday;
+        if(firstAppearance)youthStoryItems.push({title:`Debut oficial de ${player.name}`,summary:`El canterano formado en ${player.academyData.region} disputa su primer partido con el primer equipo.`,importance:"high",playerId:player.id,fingerprint:`academy-debut:${player.id}`});
+        if(firstGoal)youthStoryItems.push({title:`${player.name} marca su primer gol como profesional`,summary:"El joven canterano abre su cuenta goleadora con el primer equipo.",importance:"high",playerId:player.id,fingerprint:`academy-first-goal:${player.id}`});
+        return{...player,academyData:{...player.academyData,debutSeason:player.academyData.debutSeason??String(prev.season),debutMatchday:player.academyData.debutMatchday??matchday,firstGoalMatchday:firstGoal?matchday:player.academyData.firstGoalMatchday},academyStats:{...(player.academyStats??{}),appearances:(player.academyStats?.appearances??0)+1,goals:(player.academyStats?.goals??0)+goals}};
+      });
+      const youthTrainingResult=applyWeeklyTraining(prev.youth?.players??[],{...prev,fixtures:finalFixtures,players:prev.youth?.players??[],matchday},prev.trainingPlan??DEFAULT_TRAINING_PLAN);
       const oppTeamId = isHome ? fixture.awayTeamId : fixture.homeTeamId;
       summaryData = {
         userTeam:       TEAMS.find(t => t.id === prev.teamId),
@@ -4862,12 +4882,14 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         season:prev.season ?? "2025", matchday,
         userTeamId:prev.teamId, userTeamName:userTeamData?.name ?? prev.name,
       });
+      const youthNews=generateYouthNews({items:youthStoryItems,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
       const nextBudgetAdjustment = (prev.budgetAdjustment ?? 0) + incomeResult.total;
+      const combinedTrainingReport={...trainingResult.report,improved:[...(trainingResult.report.improved??[]),...(youthTrainingResult.report.improved??[])]};
       const legacyEvaluation = evaluateLegacyMatchday({ ...prev, fixtures:finalFixtures, standings:newStandings, players:newPlayers, budgetAdjustment:nextBudgetAdjustment }, {
-        team:userTeamData,result:won?"win":drew?"draw":"loss",income:incomeResult,trainingReport:trainingResult.report,matchday,
+        team:userTeamData,result:won?"win":drew?"draw":"loss",income:incomeResult,trainingReport:combinedTrainingReport,matchday,
       });
       const boardNews = generateBoardNews({items:legacyEvaluation.news,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
-      const updatedNews = mergeNews(prev.news ?? [], [...matchdayNews, ...medicalNews, ...boardNews]);
+      const updatedNews = mergeNews(prev.news ?? [], [...matchdayNews, ...medicalNews, ...youthNews, ...boardNews]);
       const newGame = { ...prev, fixtures: finalFixtures, standings: newStandings, players: newPlayers,
         matchday: matchday + 1, season: prev.season ?? "2025", history: prev.history ?? [],
         budgetAdjustment: nextBudgetAdjustment,
@@ -4876,8 +4898,10 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         news: updatedNews,
         trainingPlan:normalizeTrainingPlan(prev.trainingPlan),
         lastTrainingReport:trainingResult.report,
+        lastYouthTrainingReport:youthTrainingResult.report,
         trainingTacticalBonus:trainingResult.tacticalBonus,
-        legacy:legacyEvaluation.legacy };
+        legacy:legacyEvaluation.legacy,
+        youth:{...(prev.youth??{}),players:youthTrainingResult.players} };
       saveGame(newGame);
 
       // Detectar fin de temporada (última jornada jugada)
@@ -4890,9 +4914,12 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         const seasonEntry = { season: prev.season ?? "2025", pos: userPos, pts: userSt?.points??0, gf: userSt?.goalsFor??0, ga: userSt?.goalsAgainst??0 };
         const newHistory = [...(prev.history??[]), seasonEntry];
         const legacyFinal = finalizeLegacySeason(newGame,{team:userTeamData,position:userPos});
+        const youthAnnualReport=createYouthAnnualReport(newGame);
+        const finalPlayers=newPlayers.map(player=>player.academyData?{...player,academyStats:{...(player.academyStats??{}),seasons:(player.academyStats?.seasons??0)+1,titles:(player.academyStats?.titles??0)+(userPos===1?1:0)}}:player);
         const seasonBoardNews = generateBoardNews({items:[{title:userPos===1?`${userTeamData.name} conquista la Liga`:`${userTeamData.name} cierra la temporada en la ${userPos}.ª posición`,summary:`El prestigio del club cambia ${legacyFinal.prestigeDelta>=0?"+":""}${Math.round(legacyFinal.prestigeDelta)} puntos.`,importance:userPos===1?"critical":"high",fingerprint:`season-end:${prev.season}:${userPos}`}],season:prev.season??"2025",matchday,userTeamId:prev.teamId});
-        const finalSeasonGame={...newGame,history:newHistory,legacy:legacyFinal.legacy,budgetAdjustment:newGame.budgetAdjustment+legacyFinal.budgetReward,news:mergeNews(newGame.news,seasonBoardNews)};
-        const endData = { standings: newStandings, teamId: prev.teamId, season: prev.season??"2025", history: newHistory, players: newPlayers, legacy:legacyFinal.legacy };
+        const academyReportNews=generateYouthNews({items:[{title:"La cantera presenta su informe anual",summary:`${youthAnnualReport.promoted} promocionados · valor generado ${youthAnnualReport.generatedValue>=1000?`€${(youthAnnualReport.generatedValue/1000).toFixed(1)}M`:`€${youthAnnualReport.generatedValue}K`}.`,importance:youthAnnualReport.promoted>0?"high":"medium",fingerprint:`academy-annual:${prev.season}`}],season:prev.season??"2025",matchday,userTeamId:prev.teamId});
+        const finalSeasonGame={...newGame,players:finalPlayers,history:newHistory,legacy:legacyFinal.legacy,budgetAdjustment:newGame.budgetAdjustment+legacyFinal.budgetReward,youth:{...newGame.youth,annualReports:[youthAnnualReport,...(newGame.youth?.annualReports??[])]},news:mergeNews(newGame.news,[...seasonBoardNews,...academyReportNews])};
+        const endData = { standings: newStandings, teamId: prev.teamId, season: prev.season??"2025", history: newHistory, players: finalPlayers, legacy:legacyFinal.legacy };
         setTimeout(() => { setSeasonSummary(endData); setScreen("seasonEnd"); }, 0);
         saveGame(finalSeasonGame);
         return finalSeasonGame;
@@ -4930,7 +4957,13 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         };
         return { ...evolved, seasonStartOverall: evolved.overall, seasonStartValue: getMarketValue(evolved) };
       });
-      const g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, players: newPlayers, legacy:startNextLegacySeason(prev.legacy,teamData,newSeason) };
+      const agedYouth=(prev.youth?.players??[]).map(player=>({...player,age:player.age+1,seasonStartOverall:player.overall,seasonStartValue:getMarketValue(player)}));
+      let g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, players: newPlayers, legacy:startNextLegacySeason(prev.legacy,teamData,newSeason),youth:{...prev.youth,players:agedYouth} };
+      g=ensureYouthState(g,teamData);
+      g={...g,youth:{...g.youth,players:g.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,newSeason)))}};
+      const intakePlayers=g.youth.players.filter(player=>(g.youth.lastIntake??[]).includes(player.id));
+      const topIntake=[...intakePlayers].sort((a,b)=>b.potential-a.potential)[0];
+      if(topIntake){const intakeNews=generateYouthNews({items:[{title:"Nueva generación en la cantera",summary:`${topIntake.name} destaca entre ${intakePlayers.length} incorporaciones con potencial ${topIntake.potential}.`,importance:topIntake.potential>=86?"high":"medium",playerId:topIntake.id,fingerprint:`academy-intake:${newSeason}`}],season:newSeason,matchday:1,userTeamId:prev.teamId});g={...g,news:mergeNews(g.news??[],intakeNews)};}
       saveGame(g);
       return g;
     });
@@ -4972,10 +5005,12 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         userTeamId: prev.teamId,
         userTeamName: userTeam?.name ?? prev.name ?? "El club",
       });
+      const academySale = type==="sell"&&player.academyData?{playerId:player.id,name:player.name,season:String(prev.season),matchday:prev.matchday,value,overall:player.overall,potential:player.potential}:null;
+      const nextYouth=academySale?{...prev.youth,sales:[academySale,...(prev.youth?.sales??[])],historical:[{...player,academyStatus:"sold",saleValue:value},...(prev.youth?.historical??[])]}:prev.youth;
       const newGame = { ...prev, players: newPlayers,
         budgetAdjustment: newAdjustment,
         transfers: [...(prev.transfers ?? []), newTransfer],
-        news: mergeNews(prev.news ?? [], transferNews) };
+        news: mergeNews(prev.news ?? [], transferNews),youth:nextYouth };
       saveGame(newGame, lineup);
       return newGame;
     });
@@ -4986,6 +5021,22 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
       if (!prev) return prev;
       const updated = { ...prev, trainingPlan:normalizeTrainingPlan(trainingPlan) };
       saveGame(updated, lineup, formation, subs);
+      return updated;
+    });
+  };
+
+  const handleYouthPromotion = (playerId) => {
+    setGame(prev=>{
+      const prospect=prev?.youth?.players?.find(player=>player.id===playerId);
+      if(!prospect||prev.players.length>=30)return prev;
+      const category=getTalentCategory(prospect.potential);
+      const promoted=normalizeMedicalPlayer(enrichPlayerProfile({...prospect,academyStatus:"firstTeam",isYouth:false,salary:Math.max(4,prospect.salary??2),academyData:{...prospect.academyData,promotedSeason:String(prev.season),promotedMatchday:prev.matchday}},prev.season));
+      const promotion={playerId:promoted.id,name:promoted.name,season:String(prev.season),matchday:prev.matchday,potential:promoted.potential};
+      const prestigeGain=category.id==="historic"?3:category.id==="elite"?2:1;
+      const legacy={...prev.legacy,clubPrestige:Math.min(100,prev.legacy.clubPrestige+prestigeGain),manager:{...prev.legacy.manager,prestige:Math.min(100,prev.legacy.manager.prestige+prestigeGain*.5)}};
+      const promotionNews=generateYouthNews({items:[{title:`${promoted.name} asciende al primer equipo`,summary:`El club apuesta por el ${promoted.pos} de ${promoted.age} años y potencial ${promoted.potential}.`,importance:category.id==="historic"||category.id==="elite"?"high":"medium",playerId:promoted.id,fingerprint:`academy-promotion:${promoted.id}`}],season:prev.season,matchday:prev.matchday,userTeamId:prev.teamId});
+      const updated={...prev,players:[...prev.players,promoted],youth:{...prev.youth,players:prev.youth.players.filter(player=>player.id!==playerId),promotions:[promotion,...(prev.youth.promotions??[])]},legacy,news:mergeNews(prev.news??[],promotionNews)};
+      saveGame(updated,lineup,formation,subs);
       return updated;
     });
   };
@@ -5002,6 +5053,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
     if (!game) return;
     const ownPlayer = game.players.find(player => player.id === playerId);
     if (ownPlayer) return openPlayerProfile(ownPlayer, game.teamId);
+    const academyPlayer=game.youth?.players?.find(player=>player.id===playerId);
+    if(academyPlayer)return openPlayerProfile(academyPlayer,game.teamId);
     for (const team of TEAMS) {
       const player = (REAL_SQUADS[team.id] ?? []).find(item => item.id === playerId);
       if (player) return openPlayerProfile(player, team.id);
@@ -5016,7 +5069,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", board:"Directiva y Legacy",
+    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","playerProfile"].includes(screen);
@@ -5066,10 +5119,11 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} onOpenPlayer={openPlayerProfileById} />}
           {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
           {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
+          {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}
           {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} />}
-          {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} />}
+          {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} />}
           {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={lineup} setLineup={setLineup} subs={subs} setSubs={setSubs} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonEndScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} />}

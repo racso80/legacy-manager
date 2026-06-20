@@ -314,4 +314,13 @@ export function generateBoardNews({ items = [], season, matchday, userTeamId }) 
     metadata:{userClub:true},
   }));
 }
+
+export function generateYouthNews({ items = [], season, matchday, userTeamId, playerIds = [] }) {
+  return items.map((item,index)=>createNews({
+    type:"youth",title:item.title,summary:item.summary,importance:item.importance??"medium",
+    season,matchday,teamIds:[userTeamId],playerIds:item.playerId?[item.playerId]:playerIds,userTeamId,
+    fingerprint:item.fingerprint??`youth:${matchday}:${index}:${item.title}`,
+    metadata:{userClub:true,academy:true},
+  }));
+}
 import { formatMedicalDuration } from "../medical/medicalEngine.js";
