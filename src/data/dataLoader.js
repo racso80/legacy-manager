@@ -93,3 +93,10 @@ export function resolvePlayerPhoto(player) {
   // Intentar foto automática por ID desde carpeta pública
   return `/players/${player.id}.png`
 }
+
+/** Resuelve el escudo configurado o la ruta automática por ID. */
+export function resolveTeamCrest(team) {
+  if (!team) return null
+  if (team.crestUrl && team.crestUrl.length > 0) return team.crestUrl
+  return `/teams/${team.id}.png`
+}

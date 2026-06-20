@@ -7,6 +7,7 @@ import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
 import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
 import LegacyMuseumScreen from "./components/LegacyMuseumScreen.jsx";
 import ScoutingScreen from "./components/ScoutingScreen.jsx";
+import TeamCrest from "./components/TeamCrest.jsx";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
@@ -538,7 +539,7 @@ function getScoutingPool(game) {
   const unique=[...external,...freeAgents].filter((player,index,array)=>array.findIndex(item=>item.id===player.id)===index);
   if(game?.teamId!=="athletic")return unique;
   const basqueDevelopmentClubs=new Set(["realsociedad","osasuna","alaves"]);
-  return unique.filter(player=>player._teamId==="agente_libre"||(basqueDevelopmentClubs.has(player._teamId)&&player.nat==="ES"));
+  return unique.filter(player=>typeof player.athleticEligible==="boolean"?player.athleticEligible:player._teamId==="agente_libre"||(basqueDevelopmentClubs.has(player._teamId)&&player.nat==="ES"));
 }
 
 function generateFixtures() {
@@ -710,8 +711,8 @@ function calcDefStrength(players, tactics = DEFAULT_TACTICS) {
 }
 
 function simAIGame(homeTeam, awayTeam) {
-  const hAvg = TEAM_REAL_AVG[homeTeam.id] ?? homeTeam.avg;
-  const aAvg = TEAM_REAL_AVG[awayTeam.id] ?? awayTeam.avg;
+  const hAvg = homeTeam.avg ?? TEAM_REAL_AVG[homeTeam.id];
+  const aAvg = awayTeam.avg ?? TEAM_REAL_AVG[awayTeam.id];
   const hStr = hAvg + 3 + (Math.random() * 10 - 5);
   const aStr = aAvg +     (Math.random() * 10 - 5);
   const diff = hStr - aStr;
@@ -1988,9 +1989,7 @@ function TeamSelection({ onSelect }) {
             ← Volver a la lista
           </button>
           <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-            <div style={{ width:60, height:60, background:`${selected.color}22`, border:`2px solid ${selected.color}`, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:18, color:selected.color, flexShrink:0 }}>
-              {selected.short}
-            </div>
+            <TeamCrest team={selected} size={60}/>
             <div>
               <div style={{ fontSize:20, fontWeight:800, color:"#e8eaf0" }}>{selected.name}</div>
               <div style={{ fontSize:12, color:"#6b7280", marginTop:2 }}>📍 {selected.city} · {selected.stadium}</div>
@@ -2145,9 +2144,7 @@ function TeamSelection({ onSelect }) {
                 onMouseEnter={e=>e.currentTarget.style.borderColor=t.color}
                 onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(255,255,255,.07)"}>
                 {/* Escudo */}
-                <div style={{ width:44, height:44, background:`${t.color}18`, border:`2px solid ${t.color}55`, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:13, color:t.color, flexShrink:0 }}>
-                  {t.short}
-                </div>
+                <TeamCrest team={t} size={44}/>
                 {/* Info */}
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf0" }}>{t.name}</div>
@@ -2220,7 +2217,7 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
       {/* Club header */}
       <div style={{ background:"linear-gradient(135deg,#1a1f2e,#161a24)", border:"1px solid rgba(201,168,76,.2)", borderRadius:12, padding:14, marginBottom:12 }}>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-          <div style={{ width:50,height:50,background:`${team.color}22`,border:`2px solid ${team.color}`,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:15,color:team.color,flexShrink:0 }}>{team.short}</div>
+          <TeamCrest team={team} size={50}/>
           <div style={{ flex:1 }}>
             <div style={{ fontWeight:700, fontSize:16, color:"#e8eaf0" }}>{team.name}</div>
             <div style={{ fontSize:11, color:"#6b7280", marginTop:1 }}>{team.stadium} · T. {seasonLabel}</div>
@@ -2266,6 +2263,7 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
             <div style={{ fontSize:11, color:"#c9a84c", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>PRÓXIMO PARTIDO · J{nextFixture.matchday}</div>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
               <div style={{ textAlign:"center", flex:1 }}>
+                <TeamCrest team={homeT} size={38} style={{margin:"0 auto 4px"}}/>
                 <div style={{ fontSize:14, fontWeight:700, color: isHome?"#c9a84c":"#e8eaf0" }}>{homeT?.short}</div>
                 <div style={{ fontSize:10, color:"#22c55e" }}>🏠 Local{isHome?" ★":""}</div>
               </div>
@@ -2273,12 +2271,13 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
                 <div style={{ fontSize:18, fontWeight:700, color:"#c9a84c" }}>VS</div>
               </div>
               <div style={{ textAlign:"center", flex:1 }}>
+                <TeamCrest team={awayT} size={38} style={{margin:"0 auto 4px"}}/>
                 <div style={{ fontSize:14, fontWeight:700, color:!isHome?"#c9a84c":"#e8eaf0" }}>{awayT?.short}</div>
                 <div style={{ fontSize:10, color:"#6b7280" }}>✈️ Visitante{!isHome?" ★":""}</div>
               </div>
             </div>
             <div style={{ fontSize:11, color:"#6b7280", textAlign:"center", marginTop:6 }}>
-              {opp?.name} · Media {TEAM_REAL_AVG[opp?.id??""]}
+              {opp?.name} · Media {opp?.avg??TEAM_REAL_AVG[opp?.id??""]}
             </div>
             <button onClick={()=>lineupValid?onPlay():setScreen("lineup")}
               className={lineupValid?"btn-gold":""}
@@ -3227,7 +3226,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                 <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
                   <div style={{ fontSize:isUserGame?13:11, fontWeight:f.homeTeamId===teamId?700:400, color:f.homeTeamId===teamId?"#c9a84c":"#e8eaf0", textAlign:"right", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{home?.name}</div>
-                  <div style={{ width:24,height:24,borderRadius:"50%",background:`${home?.color??"#333"}22`,border:`1.5px solid ${home?.color??"#555"}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:home?.color,flexShrink:0 }}>{home?.short?.slice(0,3)}</div>
+                  <TeamCrest team={home} size={24}/>
                 </div>
                 <div style={{ background:"#0d0f14", borderRadius:7, padding:"5px 10px", minWidth:52, textAlign:"center", flexShrink:0 }}>
                   {f.played
@@ -3236,7 +3235,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
                     : <div style={{ fontSize:11, color:"#4b5563" }}>VS</div>}
                 </div>
                 <div style={{ flex:1, display:"flex", alignItems:"center", gap:6 }}>
-                  <div style={{ width:24,height:24,borderRadius:"50%",background:`${away?.color??"#333"}22`,border:`1.5px solid ${away?.color??"#555"}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:away?.color,flexShrink:0 }}>{away?.short?.slice(0,3)}</div>
+                  <TeamCrest team={away} size={24}/>
                   <div style={{ fontSize:isUserGame?13:11, fontWeight:f.awayTeamId===teamId?700:400, color:f.awayTeamId===teamId?"#c9a84c":"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{away?.name}</div>
                 </div>
               </div>
@@ -3356,7 +3355,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, onOpenPlayer })
                         <td style={{ padding:"7px 4px", textAlign:"center", fontWeight:700, color:posColor, fontSize:11 }}>{i+1}</td>
                         <td style={{ padding:"7px 4px" }}>
                           <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                            <div style={{ width:20,height:20,borderRadius:"50%",background:`${t?.color}22`,border:`1px solid ${t?.color}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:t?.color,flexShrink:0 }}>{t?.short?.slice(0,3)}</div>
+                            <TeamCrest team={t} size={20}/>
                             <span style={{ color:isUser?"#c9a84c":"#e8eaf0", fontWeight:isUser?700:400, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:85, fontSize:12 }}>{t?.name}</span>
                             {isUser && <span style={{ fontSize:8, color:"#c9a84c" }}>★</span>}
                           </div>
@@ -3449,7 +3448,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, onOpenPlayer })
                 return (
                   <div key={s.teamId} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
                     <span style={{ fontSize:11, color:"#4b5563", width:14, textAlign:"center" }}>{i+1}</span>
-                    <div style={{ width:20,height:20,borderRadius:"50%",background:`${t?.color}22`,border:`1px solid ${t?.color}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:t?.color,flexShrink:0 }}>{t?.short?.slice(0,3)}</div>
+                    <TeamCrest team={t} size={20}/>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:11, fontWeight:isUser?700:400, color:isUser?"#c9a84c":"#e8eaf0", marginBottom:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t?.name}</div>
                       <div style={{ height:3, background:"#1e2330", borderRadius:2, overflow:"hidden" }}>
@@ -3480,7 +3479,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, onOpenPlayer })
                 return (
                   <div key={s.teamId} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
                     <span style={{ fontSize:11, color:"#4b5563", width:14, textAlign:"center" }}>{i+1}</span>
-                    <div style={{ width:20,height:20,borderRadius:"50%",background:`${t?.color}22`,border:`1px solid ${t?.color}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:t?.color,flexShrink:0 }}>{t?.short?.slice(0,3)}</div>
+                    <TeamCrest team={t} size={20}/>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:11, fontWeight:isUser?700:400, color:isUser?"#c9a84c":"#e8eaf0", marginBottom:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t?.name}</div>
                       <div style={{ height:3, background:"#1e2330", borderRadius:2, overflow:"hidden" }}>
@@ -3727,7 +3726,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const simNext = () => {
     if (finished || segment >= 6) return;
     const userStr = calcTeamStrength(livePlayer, isHome, tactics);
-    const oppAvg  = TEAM_REAL_AVG[oppTeamId] ?? oppTeam.avg;
+    const oppAvg  = oppTeam.avg ?? TEAM_REAL_AVG[oppTeamId];
     const oppStr  = oppAvg + (Math.random() * 8 - 4);
     const starterIds = lineup.filter(Boolean);
     const starterPlayers = (starterIds.length > 0
@@ -3836,6 +3835,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
           <div style={{ flex: 1, textAlign: "right" }}>
+            <TeamCrest team={leftTeam} size={34} style={{marginLeft:"auto",marginBottom:3}}/>
             <div style={{ fontSize: 13, fontWeight: 700, color: leftIsUser ? "#c9a84c" : "#e8eaf0" }}>{leftTeam?.short}</div>
             <div style={{ fontSize: 10, color: "#6b7280" }}>🏠 Local{leftIsUser ? " ★" : ""}</div>
           </div>
@@ -3843,6 +3843,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
             <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: 4, color: "#e8eaf0" }}>{leftGoals} - {rightGoals}</div>
           </div>
           <div style={{ flex: 1, textAlign: "left" }}>
+            <TeamCrest team={rightTeam} size={34} style={{marginRight:"auto",marginBottom:3}}/>
             <div style={{ fontSize: 13, fontWeight: 700, color: rightIsUser ? "#c9a84c" : "#e8eaf0" }}>{rightTeam?.short}</div>
             <div style={{ fontSize: 10, color: "#6b7280" }}>✈️ Visitante{rightIsUser ? " ★" : ""}</div>
           </div>
@@ -4206,6 +4207,7 @@ function MatchSummaryScreen({ summary, onContinue }) {
         </div>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:10 }}>
           <div style={{ flex:1, textAlign:"right" }}>
+            <TeamCrest team={isHome?userTeam:oppTeam} size={38} style={{marginLeft:"auto",marginBottom:3}}/>
             <div style={{ fontSize:15, fontWeight:700, color: isHome ? "#c9a84c" : "#e8eaf0" }}>{isHome ? userTeam?.short : oppTeam?.short}</div>
           </div>
           <div style={{ background:"#0d0f14", padding:"10px 20px", borderRadius:10, border:`1px solid ${resultColor}55` }}>
@@ -4214,6 +4216,7 @@ function MatchSummaryScreen({ summary, onContinue }) {
             </div>
           </div>
           <div style={{ flex:1, textAlign:"left" }}>
+            <TeamCrest team={!isHome?userTeam:oppTeam} size={38} style={{marginRight:"auto",marginBottom:3}}/>
             <div style={{ fontSize:15, fontWeight:700, color: !isHome ? "#c9a84c" : "#e8eaf0" }}>{!isHome ? userTeam?.short : oppTeam?.short}</div>
           </div>
         </div>
