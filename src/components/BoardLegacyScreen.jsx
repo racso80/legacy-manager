@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getJobRisk, getPrestigeLevel } from "../legacy/legacyEngine.js";
+import { SwipeTabs } from "./SwipeNavigation.jsx";
 
 function Progress({value,color="#c9a84c"}){return <div style={{height:5,background:"#252a36",borderRadius:4,overflow:"hidden"}}><div style={{width:`${Math.max(0,Math.min(100,value))}%`,height:"100%",background:color}}/></div>}
 
@@ -13,6 +14,7 @@ export default function BoardLegacyScreen({game,team}){
   const confidenceColor=legacy.confidence>=75?"#22c55e":legacy.confidence>=50?"#eab308":legacy.confidence>=30?"#f97316":"#ef4444";
   return <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
     <div style={{display:"flex",background:"#161a24",borderBottom:"1px solid rgba(255,255,255,.06)"}}>{[["board","🏛 Directiva"],["legacy","⭐ Legacy"],["trophies","🏆 Trofeos"]].map(([id,label])=><button key={id} onClick={()=>setTab(id)} style={{flex:1,background:"transparent",border:"none",borderBottom:tab===id?"2px solid #c9a84c":"2px solid transparent",color:tab===id?"#c9a84c":"#6b7280",padding:10,fontSize:11,fontWeight:700,cursor:"pointer"}}>{label}</button>)}</div>
+    <SwipeTabs tabs={["board","legacy","trophies"]} activeTab={tab} onChange={setTab} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
     <div style={{flex:1,overflowY:"auto",padding:14}}>
       {tab==="board"&&<>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:15}}><div style={{background:"linear-gradient(135deg,rgba(201,168,76,.16),#161a24)",border:"1px solid rgba(201,168,76,.25)",borderRadius:10,padding:13}}><div style={{fontSize:9,color:"#6b7280",fontWeight:700}}>PRESTIGIO DEL CLUB</div><div style={{fontSize:27,color:clubLevel.color,fontWeight:900,marginTop:4}}>{Math.round(legacy.clubPrestige)}<span style={{fontSize:11,color:"#6b7280"}}>/100</span></div><div style={{fontSize:10,color:clubLevel.color,marginTop:3}}>{clubLevel.label}</div></div><div style={{background:"#161a24",border:`1px solid ${confidenceColor}33`,borderRadius:10,padding:13}}><div style={{fontSize:9,color:"#6b7280",fontWeight:700}}>CONFIANZA DIRECTIVA</div><div style={{fontSize:27,color:confidenceColor,fontWeight:900,marginTop:4}}>{Math.round(legacy.confidence)}<span style={{fontSize:11,color:"#6b7280"}}>/100</span></div><div style={{fontSize:10,color:jobRisk.color,marginTop:3}}>{jobRisk.icon} Riesgo: {jobRisk.label}</div></div></div>
@@ -30,5 +32,6 @@ export default function BoardLegacyScreen({game,team}){
         <div style={{fontSize:10,color:"#6b7280",fontWeight:800,letterSpacing:".6px",margin:"18px 0 8px"}}>RÉCORDS DEL CLUB</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><div style={{background:"#161a24",borderRadius:8,padding:12}}><div style={{fontSize:9,color:"#6b7280"}}>MEJOR POSICIÓN</div><div style={{fontSize:20,color:"#c9a84c",fontWeight:800,marginTop:3}}>{legacy.records.bestPosition&&legacy.records.bestPosition<99?`${legacy.records.bestPosition}.º`:"—"}</div></div><div style={{background:"#161a24",borderRadius:8,padding:12}}><div style={{fontSize:9,color:"#6b7280"}}>RÉCORD DE PUNTOS</div><div style={{fontSize:20,color:"#c9a84c",fontWeight:800,marginTop:3}}>{legacy.records.mostPoints??"—"}</div></div></div>
       </>}
     </div>
+    </SwipeTabs>
   </div>;
 }

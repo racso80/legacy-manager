@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { getKeyAttributes, getMarketValue, getPlayerSeasonStats, getPlayerTags, getPotential, getRecentForm } from "../players/playerProfile.js";
 import { calculateInjuryRisk, formatMedicalDuration, getPhysicalStatus, getRiskLevel } from "../medical/medicalEngine.js";
 import { ATTRIBUTE_LABELS } from "../training/trainingEngine.js";
+import { SwipeTabs } from "./SwipeNavigation.jsx";
 
 const COUNTRY_NAMES = { ES:"España", FR:"Francia", GH:"Ghana", BR:"Brasil", AR:"Argentina", PT:"Portugal", DE:"Alemania", ENG:"Inglaterra", UY:"Uruguay", HR:"Croacia", MA:"Marruecos", SN:"Senegal", BE:"Bélgica", IT:"Italia", NL:"Países Bajos" };
 const FLAGS = { ES:"🇪🇸", FR:"🇫🇷", GH:"🇬🇭", BR:"🇧🇷", AR:"🇦🇷", PT:"🇵🇹", DE:"🇩🇪", ENG:"🏴", UY:"🇺🇾", HR:"🇭🇷", MA:"🇲🇦", SN:"🇸🇳", BE:"🇧🇪", IT:"🇮🇹", NL:"🇳🇱" };
@@ -51,6 +52,7 @@ export default function PlayerProfileScreen({ player, game, team, onGoLineup, on
       {tabs.map(([id,label])=><button key={id} onClick={()=>setTab(id)} style={{ flex:"1 0 auto", background:"transparent", border:"none", borderBottom:tab===id?"2px solid #c9a84c":"2px solid transparent", color:tab===id?"#c9a84c":"#6b7280", fontSize:10, fontWeight:700, padding:"11px 9px", cursor:"pointer" }}>{label}</button>)}
     </nav>
 
+    <SwipeTabs tabs={tabs.map(([id])=>id)} activeTab={tab} onChange={setTab}>
     <div style={{ padding:14 }}>
       {tab==="general"&&<>
         {tags.length>0&&<div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>{tags.map(tag=><span key={tag.label} style={{ background:`${tag.color}18`, border:`1px solid ${tag.color}44`, color:tag.color, borderRadius:15, padding:"5px 9px", fontSize:10, fontWeight:700 }}>{tag.icon} {tag.label}</span>)}</div>}
@@ -78,5 +80,6 @@ export default function PlayerProfileScreen({ player, game, team, onGoLineup, on
       <div style={{ fontSize:10, color:"#6b7280", fontWeight:800, letterSpacing:".6px", margin:"20px 0 8px" }}>ACCIONES RÁPIDAS</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}><button onClick={()=>setTab("contract")} className="btn-gold" style={{ padding:10, borderRadius:8, fontSize:11 }}>📋 Ver contrato</button>{isOwnPlayer&&<button onClick={onGoLineup} style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", borderRadius:8, fontSize:11, cursor:"pointer" }}>🔄 Hacer titular</button>}{(isOwnPlayer||isAcademyPlayer)&&<button onClick={onGoTraining} style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", borderRadius:8, padding:10, fontSize:11, cursor:"pointer" }}>🏋 Entrenar</button>}<button disabled style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.06)", color:"#4b5563", borderRadius:8, padding:10, fontSize:11 }}>⭐ Seguimiento · Próximamente</button></div>
     </div>
+    </SwipeTabs>
   </div>;
 }

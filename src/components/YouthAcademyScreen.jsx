@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getAcademyMetrics, getTalentCategory } from "../youth/youthEngine.js";
+import { SwipeTabs } from "./SwipeNavigation.jsx";
 
 const fmt=value=>value>=1000?`€${(value/1000).toFixed(1)}M`:`€${value}K`;
 
@@ -13,6 +14,7 @@ export default function YouthAcademyScreen({game,onPromote,onOpenPlayer}){
   const historical=[...game.players.filter(player=>player.academyData),...(youth.historical??[])].sort((a,b)=>(b.academyStats?.appearances??0)-(a.academyStats?.appearances??0)||b.overall-a.overall);
   return <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
     <div style={{display:"flex",background:"#161a24",borderBottom:"1px solid rgba(255,255,255,.06)"}}>{[["current","🌱 Juveniles"],["history","🏛 Históricos"]].map(([id,label])=><button key={id} onClick={()=>setTab(id)} style={{flex:1,background:"transparent",border:"none",borderBottom:tab===id?"2px solid #c9a84c":"2px solid transparent",color:tab===id?"#c9a84c":"#6b7280",padding:10,fontSize:11,fontWeight:700,cursor:"pointer"}}>{label}</button>)}</div>
+    <SwipeTabs tabs={["current","history"]} activeTab={tab} onChange={setTab} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
     <div style={{flex:1,overflowY:"auto",padding:14}}>
       {tab==="current"&&<>
         <div style={{background:"linear-gradient(135deg,rgba(34,197,94,.13),#161a24)",border:"1px solid rgba(34,197,94,.22)",borderRadius:11,padding:14,marginBottom:14}}><div style={{fontSize:11,color:"#22c55e",fontWeight:800,letterSpacing:".5px"}}>📋 INFORME DEL JEFE DE CANTERA</div><div style={{fontSize:12,color:"#c9ced8",lineHeight:1.55,marginTop:7}}>{standout?`La hornada cuenta con ${youth.players.length} juveniles. ${standout.name}, ${standout.pos} de ${standout.age} años, destaca con un potencial estimado de ${standout.potential}.`:"No hay juveniles disponibles actualmente."}</div></div>
@@ -22,5 +24,6 @@ export default function YouthAcademyScreen({game,onPromote,onOpenPlayer}){
       </>}
       {tab==="history"&&<>{historical.length?<div style={{display:"flex",flexDirection:"column",gap:8}}>{historical.map(player=>{const stats=player.academyStats??{};return <button key={player.id} onClick={()=>onOpenPlayer(player,game.teamId)} style={{display:"flex",alignItems:"center",gap:10,textAlign:"left",background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:9,padding:11,cursor:"pointer"}}><div style={{width:36,height:36,borderRadius:8,background:"rgba(201,168,76,.1)",color:"#c9a84c",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800}}>{player.overall}</div><div style={{flex:1}}><div style={{color:"#e8eaf0",fontSize:12,fontWeight:700}}>{player.name}</div><div style={{color:"#6b7280",fontSize:9,marginTop:3}}>Ingreso T. {player.academyData?.joinedSeason} · Debut {player.academyData?.debutSeason?`T. ${player.academyData.debutSeason}`:"pendiente"}</div></div><div style={{textAlign:"right",fontSize:9,color:"#9aa0b4"}}>PJ {stats.appearances??0}<br/>G {stats.goals??0}</div></button>})}</div>:<div style={{textAlign:"center",color:"#6b7280",padding:30,fontSize:11}}>Promociona juveniles para empezar a construir la historia de tu cantera.</div>}</>}
     </div>
+    </SwipeTabs>
   </div>;
 }

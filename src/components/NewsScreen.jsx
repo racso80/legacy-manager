@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { getFilteredNews, NEWS_FILTERS, NEWS_IMPORTANCE } from "../news/newsEngine.js";
+import { SwipeTabs } from "./SwipeNavigation.jsx";
 
 const TYPE_ICON = {
   result: "⚽", standings: "📊", streak: "🔥", scorer: "🥇",
@@ -54,6 +55,7 @@ export default function NewsScreen({ news = [], currentSeason, onOpenPlayer }) {
         {NEWS_FILTERS.map(item => <button key={item.id} onClick={()=>setFilter(item.id)} style={{ flexShrink:0, border:filter===item.id?"1px solid #c9a84c":"1px solid rgba(255,255,255,.08)", background:filter===item.id?"rgba(201,168,76,.12)":"#161a24", color:filter===item.id?"#c9a84c":"#6b7280", borderRadius:20, padding:"7px 11px", fontSize:10, fontWeight:700, cursor:"pointer" }}>{item.label}</button>)}
       </div>
 
+      <SwipeTabs tabs={NEWS_FILTERS.map(item=>item.id)} activeTab={filter} onChange={setFilter}>
       {featured ? (
         <>
           <div style={{ fontSize:10, color:"#6b7280", fontWeight:700, letterSpacing:".6px", marginBottom:8 }}>NOTICIA DESTACADA</div>
@@ -68,6 +70,7 @@ export default function NewsScreen({ news = [], currentSeason, onOpenPlayer }) {
           <div style={{ fontSize:11, marginTop:5 }}>Juega jornadas y toma decisiones para escribir la historia.</div>
         </div>
       )}
+      </SwipeTabs>
     </div>
   );
 }

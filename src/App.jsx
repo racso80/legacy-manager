@@ -8,6 +8,7 @@ import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
+import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
 import { buildPlayerLookup, generateBoardNews, generateMatchdayNews, generateMedicalNews, generateTransferNews, generateYouthNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue } from "./players/playerProfile.js";
 import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
@@ -1385,6 +1386,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer }) {
         ))}
       </div>
 
+      <SwipeTabs tabs={["comprar","vender","historial"]} activeTab={tab} onChange={setTab} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
       {/* COMPRAR */}
       {tab === "comprar" && (
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
@@ -1567,6 +1569,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer }) {
           )}
         </div>
       )}
+      </SwipeTabs>
     </div>
   );
 }
@@ -2345,11 +2348,13 @@ function SquadScreen({ players, onOpenPlayer }) {
           </button>
         ))}
       </div>
-      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "12px 10px", boxSizing: "border-box" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, width: "100%" }}>
-          {shown.map(p => <PlayerCard key={p.id} player={p} onSelect={onOpenPlayer} />)}
+      <SwipeTabs tabs={filters.map(([id])=>id)} activeTab={filter} onChange={setFilter} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+        <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "12px 10px", boxSizing: "border-box" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, width: "100%" }}>
+            {shown.map(p => <PlayerCard key={p.id} player={p} onSelect={onOpenPlayer} />)}
+          </div>
         </div>
-      </div>
+      </SwipeTabs>
     </div>
   );
 }
@@ -3171,6 +3176,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
       </div>
 
       {/* Partidos */}
+      <SwipeTabs tabs={["todos","mi_equipo"]} activeTab={tab} onChange={setTab} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
       <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
         {tab==="todos" && myFixture && !myFixture.played && isNextMatchday && (
           <button onClick={lineupValid?onPlay:undefined} className={lineupValid?"btn-gold":""}
@@ -3241,6 +3247,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
           </div>
         )}
       </div>
+      </SwipeTabs>
     </div>
   );
 }
@@ -3301,6 +3308,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, onOpenPlayer })
         ))}
       </div>
 
+      <SwipeTabs tabs={tabs.map(([id])=>id)} activeTab={tab} onChange={setTab} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
       <div style={{ flex:1, overflowY:"auto" }}>
 
         {/* ── TABLA CLASIFICACIÓN ── */}
@@ -3514,6 +3522,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, onOpenPlayer })
           </div>
         )}
       </div>
+      </SwipeTabs>
     </div>
   );
 }
@@ -3894,6 +3903,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       </div>
 
       {/* Contenido tab */}
+      <SwipeTabs tabs={["eventos","cambios","tacticas"]} activeTab={tab} onChange={setTab} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
       <div style={{ flex: 1, overflowY: "auto" }}>
         {tab === "eventos" && (
           <div style={{ padding: 12 }}>
@@ -4015,6 +4025,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
           </div>
         )}
       </div>
+      </SwipeTabs>
 
       {/* Controles */}
       <div style={{ padding: 12, background: "#161a24", borderTop: "1px solid rgba(255,255,255,.08)", flexShrink: 0 }}>
@@ -5050,9 +5061,11 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","playerProfile"].includes(screen);
   const inGame  = !["menu","teams"].includes(screen);
+  const edgeSwipe=useEdgeSwipeBack(()=>setScreen(screen==="playerProfile"?profileReturnScreen:"dashboard"),{enabled:screen!=="dashboard"&&(showNav||screen==="playerProfile")});
 
   return (
-    <div style={{ background:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:540, margin:"0 auto", display:"flex", flexDirection:"column" }}>
+    <div {...edgeSwipe.handlers} style={{ background:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:540, margin:"0 auto", display:"flex", flexDirection:"column" }}>
+      {edgeSwipe.indicator}
       {screen !== "menu" && (
         <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"11px 14px", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
           {(inGame && screen !== "dashboard") && (
