@@ -16,7 +16,9 @@ function createScouts(prestige){
 
 export function ensureScoutingState(game){
   const current=game.scouting??{};
-  return{...game,scouting:{scouts:current.scouts?.length?current.scouts:createScouts(game.legacy?.clubPrestige??30),missions:current.missions??[],reports:current.reports??[],watchlist:current.watchlist??[],history:current.history??[],recommendations:current.recommendations??[],lastProcessedMatchday:current.lastProcessedMatchday??game.matchday??1}};
+  const reports=(current.reports??[]).filter(item=>item.source!=="recommendation");
+  const reportIds=new Set(reports.map(item=>item.id));
+  return{...game,scouting:{scouts:current.scouts?.length?current.scouts:createScouts(game.legacy?.clubPrestige??30),missions:current.missions??[],reports,watchlist:(current.watchlist??[]).filter(id=>reportIds.has(id)),history:current.history??[],recommendations:[],lastProcessedMatchday:current.lastProcessedMatchday??game.matchday??1}};
 }
 
 export function getSquadNeeds(game){
@@ -31,6 +33,8 @@ export function getSquadNeeds(game){
 }
 
 function matchesMission(player,mission){
+  if(mission.playerId&&player.id!==mission.playerId)return false;
+  if(mission.teamId&&player._teamId!==mission.teamId)return false;
   if(mission.group&&player.group!==mission.group)return false;
   if(mission.position&&player.pos!==mission.position)return false;
   if(mission.maxAge&&player.age>mission.maxAge)return false;
@@ -59,24 +63,18 @@ function pickCandidates(candidates,mission,count=4){
 }
 
 export function bootstrapScouting(game,candidates){
-  const seeded=ensureScoutingState(game);if(seeded.scouting.reports.length||!candidates.length)return seeded;
-  return refreshScoutingRecommendations(seeded,candidates);
+  return ensureScoutingState(game);
 }
 
 export function refreshScoutingRecommendations(game,candidates){
-  const seeded=ensureScoutingState(game);if(!candidates.length)return seeded;
-  const needs=getSquadNeeds(seeded);const mission={id:`recommend_${seeded.season}`,group:null,priorityGroup:needs[0]?.group,durationDays:3};
-  const fresh=pickCandidates(candidates,mission,5).map(player=>reportFor(player,mission,seeded.scouting.scouts[0],seeded.season,seeded.matchday,"recommendation"));
-  const reports=[...seeded.scouting.reports];const recommendationIds=[];
-  fresh.forEach(report=>{const index=reports.findIndex(item=>item.playerId===report.playerId);if(index>=0){if(report.confidence>reports[index].confidence)reports[index]=report;recommendationIds.push(reports[index].id);}else{reports.unshift(report);recommendationIds.push(report.id);}});
-  return{...seeded,scouting:{...seeded.scouting,reports,recommendations:recommendationIds}};
+  return ensureScoutingState(game);
 }
 
 export function createScoutingMission(game,data){
   const seeded=ensureScoutingState(game);const scout=seeded.scouting.scouts.find(item=>item.id===data.scoutId)??seeded.scouting.scouts[0];
   if(!scout||seeded.scouting.missions.some(item=>item.status==="active"&&item.scoutId===scout.id))return seeded;
   const durationDays=Number(data.durationDays)||7;
-  const mission={id:`mission_${seeded.season}_${seeded.matchday}_${hash(JSON.stringify(data))}`,label:data.label||`Buscar talento para ${data.group||data.position||"la plantilla"}`,group:data.group||null,position:data.position||null,maxAge:data.maxAge?Number(data.maxAge):null,minOverall:data.minOverall?Number(data.minOverall):null,maxValue:data.maxValue?Number(data.maxValue):null,region:data.region||"España",scoutId:scout.id,scoutName:scout.name,durationDays,startedMatchday:seeded.matchday,completeMatchday:seeded.matchday+Math.max(1,Math.ceil(durationDays/7)),status:"active",progress:0};
+  const mission={id:`mission_${seeded.season}_${seeded.matchday}_${hash(JSON.stringify(data))}`,label:data.label||`Buscar talento para ${data.group||data.position||"la plantilla"}`,playerId:data.playerId||null,teamId:data.teamId||null,group:data.group||null,position:data.position||null,maxAge:data.maxAge?Number(data.maxAge):null,minOverall:data.minOverall?Number(data.minOverall):null,maxValue:data.maxValue?Number(data.maxValue):null,region:data.region||"España",scoutId:scout.id,scoutName:scout.name,durationDays,startedMatchday:seeded.matchday,completeMatchday:seeded.matchday+Math.max(1,Math.ceil(durationDays/7)),status:"active",progress:0};
   return{...seeded,scouting:{...seeded.scouting,missions:[mission,...seeded.scouting.missions]}};
 }
 

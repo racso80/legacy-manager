@@ -535,7 +535,10 @@ function getScoutingPool(game) {
   const bought=new Set((game?.transfers??[]).filter(item=>item.type==="buy").map(item=>item.player?.id));
   const external=TEAMS.filter(team=>team.id!==game?.teamId).flatMap(team=>(REAL_SQUADS[team.id]??[]).filter(player=>!owned.has(player.id)&&!bought.has(player.id)).map(player=>({...enrichPlayerProfile(player,game?.season??"2025"),_teamId:team.id,_teamName:team.name,_teamColor:team.color})));
   const freeAgents=(game?.transfers??[]).filter(item=>item.type==="sell"&&!owned.has(item.player?.id)).map(item=>({...enrichPlayerProfile(item.player,game?.season??"2025"),_teamId:"agente_libre",_teamName:"Agente libre",_teamColor:"#6b7280"}));
-  return[...external,...freeAgents].filter((player,index,array)=>array.findIndex(item=>item.id===player.id)===index);
+  const unique=[...external,...freeAgents].filter((player,index,array)=>array.findIndex(item=>item.id===player.id)===index);
+  if(game?.teamId!=="athletic")return unique;
+  const basqueDevelopmentClubs=new Set(["realsociedad","osasuna","alaves"]);
+  return unique.filter(player=>player._teamId==="agente_libre"||(basqueDevelopmentClubs.has(player._teamId)&&player.nat==="ES"));
 }
 
 function generateFixtures() {
@@ -1263,7 +1266,7 @@ function FinancesScreen({ game }) {
 
 // ─── MERCADO DE FICHAJES ─────────────────────────────────────────────────────
 
-function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting }) {
+function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, onViewReport }) {
   const [tab, setTab]         = useState("comprar"); // comprar | vender | historial
   const [filter, setFilter]   = useState({ pos:"", min:60, max:99, search:"" });
   const [selected, setSelected] = useState(null); // jugador seleccionado para fichar
@@ -1428,7 +1431,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting }) 
                 <option value="60-69">&lt;70</option>
               </select>
             </div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:7,fontSize:9,color:"#6b7280"}}><span>Solo aparecen jugadores con informe.</span><button onClick={onGoScouting} style={{background:"transparent",border:"none",color:"#60a5fa",fontSize:9,fontWeight:800,cursor:"pointer"}}>🔎 Abrir scouting</button></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:7,fontSize:9,color:"#6b7280"}}><span>Solo aparecen jugadores con informe.</span><button data-swipe-ignore="true" onClick={onGoScouting} style={{background:"transparent",border:"none",color:"#60a5fa",fontSize:9,fontWeight:800,cursor:"pointer"}}>🔎 Abrir scouting</button></div>
           </div>
 
           <div style={{ flex:1, overflowY:"auto", padding:"10px 12px" }}>
@@ -1463,7 +1466,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting }) 
                     <div style={{ fontSize:13, fontWeight:700, color: can?"#22c55e":"#ef4444" }}>{fmt(val)}</div>
                     <div style={{ fontSize:9, color:"#4b5563" }}>{fmt(suggestedSalary(p))}/sem</div>
                   </div>
-                  <button disabled={report&&report.confidence<88} onClick={event=>{event.stopPropagation();if(!report||report.confidence>=88)onOpenPlayer(p,p._teamId);}} title={report&&report.confidence<88?"Se necesita un informe más preciso":"Ver perfil"} style={{ background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.2)", color:"#c9a84c", borderRadius:6, width:28, height:28, cursor:report&&report.confidence<88?"not-allowed":"pointer",opacity:report&&report.confidence<88?.35:1 }}>👁</button>
+                  <button data-swipe-ignore="true" onClick={event=>{event.stopPropagation();report?onViewReport(report.id):onGoScouting();}} title="Ver informe de scouting" style={{ background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.2)", color:"#c9a84c", borderRadius:6, width:28, height:28, cursor:"pointer" }}>👁</button>
                 </div>
               );
             })}
@@ -4606,6 +4609,7 @@ export default function App({ externalData }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [selectedPlayerTeamId, setSelectedPlayerTeamId] = useState(null);
   const [profileReturnScreen, setProfileReturnScreen] = useState("dashboard");
+  const [scoutingFocusId, setScoutingFocusId] = useState(null);
 
   useEffect(() => {
     setSavesIndexState(getSavesIndex());
@@ -5147,10 +5151,10 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}
           {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}
           {screen === "legacyMuseum" && game && <LegacyMuseumScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
-          {screen === "scouting" && game && <ScoutingScreen game={game} onStartMission={handleScoutingMission} onToggleWatch={handleScoutingWatch} onOpenPlayer={openPlayerProfile} onGoMarket={()=>setScreen("transfers")} />}
+          {screen === "scouting" && game && <ScoutingScreen game={game} candidates={getScoutingPool(game)} focusReportId={scoutingFocusId} onStartMission={handleScoutingMission} onToggleWatch={handleScoutingWatch} onOpenPlayer={openPlayerProfile} onGoMarket={()=>setScreen("transfers")} />}
           {screen === "settings"  && game && <SettingsScreen game={game} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
-          {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>setScreen("scouting")} />}
+          {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} />}
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} />}
           {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={lineup} setLineup={setLineup} subs={subs} setSubs={setSubs} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
