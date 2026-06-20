@@ -78,6 +78,12 @@ export function createScoutingMission(game,data){
   return{...seeded,scouting:{...seeded.scouting,missions:[mission,...seeded.scouting.missions]}};
 }
 
+export function cancelScoutingMission(game,missionId){
+  const seeded=ensureScoutingState(game);
+  const missions=seeded.scouting.missions.map(item=>item.id===missionId&&item.status==="active"?{...item,status:"cancelled",cancelledMatchday:seeded.matchday}:item);
+  return{...seeded,scouting:{...seeded.scouting,missions}};
+}
+
 export function advanceScouting(game,candidates,nextMatchday){
   const seeded=ensureScoutingState(game);const scouting=seeded.scouting;if(nextMatchday<=scouting.lastProcessedMatchday)return{game:seeded,news:[]};
   const completed=[];const reports=[...scouting.reports];
