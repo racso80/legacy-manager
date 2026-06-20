@@ -16,6 +16,7 @@ export const MORE_SECTIONS = [
   { id:"youth", icon:"🌱", label:"Cantera", description:"Juveniles y promoción", group:"Gestión", accent:"#84cc16" },
   { id:"medical", icon:"🏥", label:"Centro médico", description:"Lesiones y riesgos", group:"Gestión", accent:"#ef4444" },
   { id:"board", icon:"🏛", label:"Directiva", description:"Objetivos y Legacy", group:"Club", accent:"#a78bfa" },
+  { id:"legacyMuseum", icon:"🏆", label:"Legacy", description:"Historia, trofeos y leyendas", group:"Club", accent:"#c9a84c" },
   { id:"settings", icon:"⚙", label:"Configuración", description:"Preferencias del juego", group:"Sistema", accent:"#9ca3af" },
 ];
 

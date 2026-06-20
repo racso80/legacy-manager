@@ -5,6 +5,7 @@ import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
 import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
 import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
 import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
+import LegacyMuseumScreen from "./components/LegacyMuseumScreen.jsx";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
@@ -4945,7 +4946,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         return { ...evolved, seasonStartOverall: evolved.overall, seasonStartValue: getMarketValue(evolved) };
       });
       const agedYouth=(prev.youth?.players??[]).map(player=>({...player,age:player.age+1,seasonStartOverall:player.overall,seasonStartValue:getMarketValue(player)}));
-      let g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, players: newPlayers, legacy:startNextLegacySeason(prev.legacy,teamData,newSeason),youth:{...prev.youth,players:agedYouth} };
+      let g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, players: newPlayers, transfers:(prev.transfers??[]).map(item=>item.season?item:{...item,season:String(prev.season)}), legacy:startNextLegacySeason(prev.legacy,teamData,newSeason),youth:{...prev.youth,players:agedYouth} };
       g=ensureYouthState(g,teamData);
       g={...g,youth:{...g.youth,players:g.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,newSeason)))}};
       const intakePlayers=g.youth.players.filter(player=>(g.youth.lastIntake??[]).includes(player.id));
@@ -4982,7 +4983,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
                            : type === "sell" ? prevAdjustment + value
                            : prevAdjustment;
 
-      const newTransfer = { type, player, cost, salary, value, fromTeamId,
+      const newTransfer = { type, player, cost, salary, value, fromTeamId, season:String(prev.season),
         matchday: prev.matchday };
       const userTeam = TEAMS.find(team => team.id === prev.teamId);
       const transferNews = generateTransferNews({
@@ -5056,7 +5057,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", more:"Más", settings:"Configuración",
+    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","playerProfile"].includes(screen);
@@ -5111,6 +5112,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
           {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}
           {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}
+          {screen === "legacyMuseum" && game && <LegacyMuseumScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
           {screen === "settings"  && game && <SettingsScreen game={game} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} />}
