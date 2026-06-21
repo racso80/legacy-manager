@@ -3975,10 +3975,10 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       )}
 
       {/* Tabs eventos / cambios / tácticas */}
-      <div style={{ display: "flex", background: "#161a24", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
+      <div style={{ display: "flex", overflowX:"auto", background: "#161a24", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
         {[["eventos","📋 Eventos"],["alineaciones","👥 Alineaciones"],["cambios",`🔄 Cambios (${subsUsed}/${MAX_SUBS})`],["tacticas","⚙️ Tácticas"]].map(([id,label]) => (
-          <button key={id} onClick={() => setTab(id)}
-            style={{ flex: 1, background: "transparent", border: "none", borderBottom: tab === id ? "2px solid #c9a84c" : "2px solid transparent", color: tab === id ? "#c9a84c" : "#6b7280", padding: "10px 4px", fontSize: 11, fontWeight: tab === id ? 700 : 400, cursor: "pointer" }}>
+          <button data-swipe-ignore="true" key={id} onClick={() => setTab(id)}
+            style={{ flex:"1 0 105px", whiteSpace:"nowrap", background: "transparent", border: "none", borderBottom: tab === id ? "2px solid #c9a84c" : "2px solid transparent", color: tab === id ? "#c9a84c" : "#6b7280", padding: "10px 6px", fontSize: 11, fontWeight: tab === id ? 700 : 400, cursor: "pointer" }}>
             {label}
           </button>
         ))}
