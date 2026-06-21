@@ -12,7 +12,7 @@ import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
 import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
-import { buildPlayerLookup, generateBoardNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, mergeNews } from "./news/newsEngine.js";
+import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue } from "./players/playerProfile.js";
 import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
 import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, normalizeTrainingPlan } from "./training/trainingEngine.js";
@@ -2207,7 +2207,7 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
   });
 
   const allPlayed = game.fixtures.every(f=>f.played);
-  const latestNews = (game.news ?? []).slice(0, 3);
+  const latestNews = getDashboardNews(game.news??[],game,3);
   const medicalAlerts = players.map(player=>({player,risk:calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId}),status:getPhysicalStatus(player)})).filter(item=>item.player.injured||item.risk>50).sort((a,b)=>b.risk-a.risk).slice(0,3);
   const clubPrestigeLevel = getPrestigeLevel(game.legacy?.clubPrestige??30);
   const managerPrestigeLevel = getPrestigeLevel(game.legacy?.manager?.prestige??10,true);
@@ -2315,18 +2315,18 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
         {medicalAlerts.length?medicalAlerts.map(({player,risk,status},index)=><div key={player.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 0", borderTop:index?"1px solid rgba(255,255,255,.05)":"none" }}><span>{status.icon}</span><div style={{ flex:1, color:"#c9ced8", fontSize:11 }}>{player.name}<div style={{ color:status.color, fontSize:9, marginTop:2 }}>{player.injured?status.label:`Riesgo de lesión ${risk}% · se recomienda descanso`}</div></div></div>):<div style={{ color:"#6b7280", fontSize:11, marginTop:7 }}>La plantilla se encuentra en buenas condiciones.</div>}
       </div>
 
-      {/* Centro de prensa */}
-      <div style={{ background:"#161a24", border:"1px solid rgba(201,168,76,.18)", borderRadius:10, padding:14, marginBottom:12 }}>
+      {/* Actualidad relevante del club */}
+      <div style={{ background:"linear-gradient(145deg,rgba(201,168,76,.08),#161a24 45%)", border:"1px solid rgba(201,168,76,.22)", borderRadius:11, padding:14, marginBottom:12 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:latestNews.length?8:0 }}>
-          <div style={{ fontSize:11, color:"#c9a84c", fontWeight:700, letterSpacing:".5px" }}>📰 ÚLTIMAS NOTICIAS</div>
+          <div style={{ fontSize:11, color:"#c9a84c", fontWeight:800, letterSpacing:".6px" }}>📌 DESTACADO EN TU CLUB</div>
           <button onClick={()=>setScreen("news")} style={{ background:"transparent", border:"none", color:"#c9a84c", fontSize:10, fontWeight:700, cursor:"pointer" }}>Ver todas →</button>
         </div>
         {latestNews.length ? latestNews.map((item,index)=>(
-          <button key={item.id} onClick={()=>setScreen("news")} style={{ width:"100%", display:"flex", alignItems:"flex-start", gap:8, textAlign:"left", background:"transparent", border:"none", borderTop:index?"1px solid rgba(255,255,255,.05)":"none", padding:"8px 0", cursor:"pointer" }}>
-            <span style={{ color:item.importance==="critical"?"#ef4444":item.importance==="high"?"#f97316":"#c9a84c", fontSize:12 }}>●</span>
-            <span style={{ color:"#c9ced8", fontSize:11, lineHeight:1.4 }}>{item.title}</span>
+          <button key={item.id} onClick={()=>setScreen("news")} style={{ width:"100%", display:"flex", alignItems:"flex-start", gap:9, textAlign:"left", background:item.featured?"rgba(239,68,68,.06)":"transparent", border:item.featured?"1px solid rgba(239,68,68,.14)":"none", borderTop:!item.featured&&index?"1px solid rgba(255,255,255,.05)":item.featured?"1px solid rgba(239,68,68,.14)":"none", borderRadius:item.featured?8:0, padding:item.featured?10:"8px 0", marginBottom:item.featured?5:0, cursor:"pointer" }}>
+            <span style={{ color:item.importance==="critical"?"#ef4444":item.importance==="high"?"#f97316":"#c9a84c", fontSize:item.featured?15:12 }}>{item.featured?"🔥":"●"}</span>
+            <span style={{flex:1}}><strong style={{display:"block",color:"#dfe3ec",fontSize:item.featured?12:11,lineHeight:1.4}}>{item.title}</strong>{item.featured&&item.summary&&<small style={{display:"block",color:"#72798a",fontSize:9,lineHeight:1.45,marginTop:3}}>{item.summary}</small>}</span>
           </button>
-        )) : <div style={{ color:"#6b7280", fontSize:11, lineHeight:1.5, marginTop:7 }}>La actualidad de la liga aparecerá después de la primera jornada.</div>}
+        )) : <div style={{ color:"#6b7280", fontSize:11, lineHeight:1.5, marginTop:7 }}>Todavía no hay novedades relevantes en tu club.</div>}
       </div>
 
       {/* Últimos resultados */}
@@ -4898,13 +4898,14 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         userTeamId:prev.teamId, userTeamName:userTeamData?.name ?? prev.name,
       });
       const youthNews=generateYouthNews({items:youthStoryItems,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
+      const developmentNews=generateDevelopmentNews({report:trainingResult.report,players:newPlayers,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
       const nextBudgetAdjustment = (prev.budgetAdjustment ?? 0) + incomeResult.total;
       const combinedTrainingReport={...trainingResult.report,improved:[...(trainingResult.report.improved??[]),...(youthTrainingResult.report.improved??[])]};
       const legacyEvaluation = evaluateLegacyMatchday({ ...prev, fixtures:finalFixtures, standings:newStandings, players:newPlayers, budgetAdjustment:nextBudgetAdjustment }, {
         team:userTeamData,result:won?"win":drew?"draw":"loss",income:incomeResult,trainingReport:combinedTrainingReport,matchday,
       });
       const boardNews = generateBoardNews({items:legacyEvaluation.news,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
-      const updatedNews = mergeNews(prev.news ?? [], [...matchdayNews, ...medicalNews, ...youthNews, ...boardNews]);
+      const updatedNews = mergeNews(prev.news ?? [], [...matchdayNews, ...medicalNews, ...youthNews, ...developmentNews, ...boardNews]);
       let newGame = { ...prev, fixtures: finalFixtures, standings: newStandings, players: newPlayers,
         matchday: matchday + 1, season: prev.season ?? "2025", history: prev.history ?? [],
         budgetAdjustment: nextBudgetAdjustment,
@@ -5152,7 +5153,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} onOpenPlayer={openPlayerProfile} />}
-          {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} onOpenPlayer={openPlayerProfileById} />}
+          {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
           {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
           {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
           {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}

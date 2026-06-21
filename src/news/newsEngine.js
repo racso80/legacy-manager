@@ -6,25 +6,25 @@ export const NEWS_IMPORTANCE = {
 };
 
 export const NEWS_FILTERS = [
-  { id: "all", label: "Todas" },
-  { id: "club", label: "Mi club" },
-  { id: "league", label: "Liga" },
-  { id: "transfers", label: "Fichajes" },
-  { id: "finances", label: "Finanzas" },
-  { id: "players", label: "Jugadores" },
+  { id: "club", label: "📌 Club" },
+  { id: "league", label: "🏆 Liga" },
+  { id: "market", label: "💰 Mercado" },
+  { id: "youth", label: "🌱 Cantera" },
+  { id: "board", label: "🏛 Directiva" },
 ];
 
 const TYPE_CATEGORY = {
   result: "league",
   standings: "league",
   streak: "league",
-  scorer: "players",
-  performance: "players",
-  transfer: "transfers",
-  injury: "players",
-  finance: "finances",
-  board: "club",
-  youth: "players",
+  scorer: "league",
+  performance: "league",
+  transfer: "market",
+  injury: "league",
+  finance: "board",
+  board: "board",
+  youth: "youth",
+  scouting: "market",
 };
 
 const importanceRank = importance => NEWS_IMPORTANCE[importance]?.rank ?? 1;
@@ -59,6 +59,7 @@ function createNews({ type, title, summary = "", importance = "low", season, mat
     teamIds: [...new Set(teamIds.filter(Boolean))],
     playerIds: [...new Set(playerIds.filter(Boolean))],
     clubRelated,
+    featured: metadata.featured === true || importance === "critical",
     archived: importanceRank(importance) >= importanceRank("high") || type === "transfer",
     metadata,
   };
@@ -80,18 +81,58 @@ export function sortNews(a, b) {
   return String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
 }
 
-export function getFilteredNews(news = [], filter = "all", season = "all") {
+export function getFilteredNews(news = [], filter = "club", season = "all", context = {}) {
   return news.filter(item => {
     if (season !== "all" && String(item.season) !== String(season)) return false;
     if (filter === "all") return true;
     if (filter === "club") return item.clubRelated;
+    if (filter === "league") return !item.clubRelated && ["result","standings","streak","scorer","performance","injury"].includes(item.type);
+    if (filter === "market") return ["transfer","scouting"].includes(item.type);
+    if (filter === "youth") return item.type === "youth" || item.metadata?.academy === true;
+    if (filter === "board") return ["board","finance"].includes(item.type);
     return item.category === filter;
-  }).sort(sortNews);
+  }).sort(filter === "club" && context.game ? (a,b)=>getNewsRelevance(b,context)-getNewsRelevance(a,context)||sortNews(a,b) : sortNews);
 }
 
 function positions(standings = []) {
   const sorted = [...standings].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor);
   return Object.fromEntries(sorted.map((row, index) => [row.teamId, index + 1]));
+}
+
+export function getDirectRivalIds(game,radius=2){
+  if(!game?.standings?.length)return[];
+  const table=[...game.standings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference||b.goalsFor-a.goalsFor);
+  const index=table.findIndex(item=>item.teamId===game.teamId);
+  if(index<0)return[];
+  return table.filter((item,itemIndex)=>item.teamId!==game.teamId&&Math.abs(itemIndex-index)<=radius).map(item=>item.teamId);
+}
+
+export function getNewsRelevance(item,{game,userPlayerIds}={}){
+  if(!item)return 0;
+  const ownPlayers=userPlayerIds instanceof Set?userPlayerIds:new Set(userPlayerIds??(game?.players??[]).map(player=>player.id));
+  const directRivals=new Set(getDirectRivalIds(game));
+  const ownPlayer=(item.playerIds??[]).some(id=>ownPlayers.has(id));
+  const directRival=!item.clubRelated&&(item.teamIds??[]).some(id=>directRivals.has(id));
+  let score=item.clubRelated?100:ownPlayer?80:item.metadata?.academy?70:directRival?60:20;
+  if(["injury","transfer","youth","board"].includes(item.type))score+=12;
+  score+=(importanceRank(item.importance)-1)*6;
+  if(item.featured||item.importance==="critical")score+=14;
+  if(game&&String(item.season)===String(game.season))score+=Math.max(0,18-Math.max(0,(game.matchday??1)-(item.matchday??0))*3);
+  return score;
+}
+
+export function getDashboardNews(news=[],game,limit=3){
+  if(!game)return[];
+  const currentSeason=String(game.season);
+  const ownPlayers=new Set((game.players??[]).map(player=>player.id));
+  const directRivals=new Set(getDirectRivalIds(game));
+  return news.filter(item=>{
+    if(String(item.season)!==currentSeason)return false;
+    const age=Math.max(0,(game.matchday??1)-(item.matchday??0));
+    const contextRelevant=item.clubRelated||(item.playerIds??[]).some(id=>ownPlayers.has(id))||(item.teamIds??[]).some(id=>directRivals.has(id));
+    return contextRelevant&&(age<=8||item.featured||item.importance==="critical");
+  }).map(item=>({...item,relevanceScore:getNewsRelevance(item,{game}),featured:item.featured||item.importance==="critical"}))
+    .sort((a,b)=>b.relevanceScore-a.relevanceScore||sortNews(a,b)).slice(0,limit);
 }
 
 function resultFor(fixture, teamId) {
@@ -331,5 +372,13 @@ export function generateScoutingNews({ items = [], season, matchday, userTeamId 
     fingerprint:item.fingerprint??`scouting:${matchday}:${index}:${item.title}`,
     metadata:{userClub:true,scouting:true},
   }));
+}
+
+export function generateDevelopmentNews({ report, players = [], season, matchday, userTeamId }) {
+  const byId=Object.fromEntries(players.map(player=>[player.id,player]));
+  return (report?.changes??[]).filter(item=>item.changes?.some(change=>change.key==="overall"&&change.delta>0)).slice(0,2).map(item=>{
+    const player=byId[item.playerId];const overallChange=item.changes.find(change=>change.key==="overall"&&change.delta>0);
+    return createNews({type:"performance",title:`${item.name} progresa hasta ${item.overall} de media`,summary:`El trabajo semanal se traduce en una mejora de ${overallChange?.delta??1} punto en su valoración general.`,importance:player?.age<=21&&item.overall>=78?"high":"medium",season,matchday,teamIds:[userTeamId],playerIds:[item.playerId],userTeamId,fingerprint:`development:${item.playerId}:${item.overall}`,metadata:{userClub:true,development:true}});
+  });
 }
 import { formatMedicalDuration } from "../medical/medicalEngine.js";

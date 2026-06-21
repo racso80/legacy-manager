@@ -5,7 +5,7 @@ import { SwipeTabs } from "./SwipeNavigation.jsx";
 const TYPE_ICON = {
   result: "⚽", standings: "📊", streak: "🔥", scorer: "🥇",
   performance: "⭐", transfer: "🔄", finance: "💶", injury: "🚑",
-  board: "🤝", youth: "🌱",
+  board: "🤝", youth: "🌱", scouting:"🔎",
 };
 
 function NewsItem({ item, featured = false, onOpenPlayer }) {
@@ -20,6 +20,7 @@ function NewsItem({ item, featured = false, onOpenPlayer }) {
       <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:7 }}>
         <span style={{ fontSize:featured?20:15 }}>{TYPE_ICON[item.type] ?? "📰"}</span>
         <span style={{ fontSize:9, color:importance.color, fontWeight:800, textTransform:"uppercase", letterSpacing:".7px" }}>{importance.label}</span>
+        {(item.featured||item.importance==="critical")&&<span style={{fontSize:9,color:"#f97316",fontWeight:900}}>🔥 IMPORTANTE</span>}
         <span style={{ marginLeft:"auto", fontSize:9, color:"#4b5563" }}>T. {item.seasonLabel}{item.matchday ? ` · J${item.matchday}` : ""}</span>
       </div>
       <div style={{ fontSize:featured?18:13, lineHeight:1.35, fontWeight:featured?800:700, color:"#e8eaf0" }}>{item.title}</div>
@@ -30,12 +31,12 @@ function NewsItem({ item, featured = false, onOpenPlayer }) {
   );
 }
 
-export default function NewsScreen({ news = [], currentSeason, onOpenPlayer }) {
-  const [filter, setFilter] = useState("all");
+export default function NewsScreen({ news = [], currentSeason, game, onOpenPlayer }) {
+  const [filter, setFilter] = useState("club");
   const [season, setSeason] = useState("all");
   const seasons = useMemo(() => [...new Set(news.map(item => String(item.season)))].sort((a,b)=>Number(b)-Number(a)), [news]);
-  const filtered = useMemo(() => getFilteredNews(news, filter, season), [news, filter, season]);
-  const featured = filtered.find(item => item.importance === "critical" || item.importance === "high") ?? filtered[0];
+  const filtered = useMemo(() => getFilteredNews(news, filter, season,{game}), [news, filter, season,game]);
+  const featured = filtered.find(item => item.featured || item.importance === "critical" || item.importance === "high") ?? filtered[0];
   const rest = featured ? filtered.filter(item => item.id !== featured.id) : filtered;
 
   return (
@@ -43,7 +44,7 @@ export default function NewsScreen({ news = [], currentSeason, onOpenPlayer }) {
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:12 }}>
         <div>
           <div style={{ fontSize:11, color:"#c9a84c", fontWeight:800, letterSpacing:".7px" }}>CENTRO DE PRENSA</div>
-          <div style={{ fontSize:12, color:"#6b7280", marginTop:2 }}>{news.length} noticias en el archivo</div>
+          <div style={{ fontSize:12, color:"#6b7280", marginTop:2 }}>{filter==="club"?"La actualidad que afecta a tu equipo":`${news.length} noticias en el archivo`}</div>
         </div>
         <select value={season} onChange={event=>setSeason(event.target.value)} style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.1)", color:"#c9a84c", borderRadius:7, padding:"7px 9px", fontSize:11 }}>
           <option value="all">Todas las temporadas</option>
