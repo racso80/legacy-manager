@@ -121,6 +121,21 @@ export function getNewsRelevance(item,{game,userPlayerIds}={}){
   return score;
 }
 
+export function isNewsStillCurrent(item,game){
+  if(!item||!game)return false;
+  if(item.type==="standings"&&Number.isFinite(Number(item.metadata?.newPosition))){
+    const teamId=item.teamIds?.[0];
+    const table=[...(game.standings??[])].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference||b.goalsFor-a.goalsFor);
+    const currentPosition=table.findIndex(row=>row.teamId===teamId)+1;
+    if(!currentPosition||currentPosition!==Number(item.metadata.newPosition))return false;
+  }
+  if(item.type==="injury"&&item.metadata?.injuryType&&item.playerIds?.[0]){
+    const player=game.players?.find(candidate=>candidate.id===item.playerIds[0]);
+    if(player&&!player.injured&&!["injured","recovery"].includes(player.medical?.phase))return false;
+  }
+  return true;
+}
+
 export function getDashboardNews(news=[],game,limit=3){
   if(!game)return[];
   const currentSeason=String(game.season);
@@ -128,6 +143,7 @@ export function getDashboardNews(news=[],game,limit=3){
   const directRivals=new Set(getDirectRivalIds(game));
   return news.filter(item=>{
     if(String(item.season)!==currentSeason)return false;
+    if(!isNewsStillCurrent(item,game))return false;
     const age=Math.max(0,(game.matchday??1)-(item.matchday??0));
     const contextRelevant=item.clubRelated||(item.playerIds??[]).some(id=>ownPlayers.has(id))||(item.teamIds??[]).some(id=>directRivals.has(id));
     return contextRelevant&&(age<=8||item.featured||item.importance==="critical");
