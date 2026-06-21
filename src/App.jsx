@@ -8,6 +8,7 @@ import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
 import LegacyMuseumScreen from "./components/LegacyMuseumScreen.jsx";
 import ScoutingScreen from "./components/ScoutingScreen.jsx";
 import TeamCrest from "./components/TeamCrest.jsx";
+import { eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
@@ -684,10 +685,6 @@ function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS) {
 
   const mod = tacticModifiers(tactics);
 
-  // Penalización por inferioridad numérica (expulsiones) — cada jugador menos de 11 resta fuerza notablemente
-  const numPlayers = starters.length;
-  const manDownPenalty = numPlayers < 11 ? (11 - numPlayers) * 6 : 0;
-
   const lineStrength =
     avg        * 0.40 +
     delStr     * 0.15 +
@@ -696,7 +693,7 @@ function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS) {
     gkStr      * 0.10 +
     moraleBonus * 0.05;
 
-  return Math.max(35, lineStrength - fatiguePenalty + homeBon + mod.atkBonus * 0.5 + tacticalSharpness * .6 - manDownPenalty);
+  return Math.max(35, lineStrength - fatiguePenalty + homeBon + mod.atkBonus * 0.5 + tacticalSharpness * .6);
 }
 
 function calcDefStrength(players, tactics = DEFAULT_TACTICS) {
@@ -761,23 +758,26 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   const events = [];
   const mod    = tacticModifiers(tactics);
   const diff   = userStr - oppStr;
+  const minuteStart=Math.max(segment*15+1,medicalContext.minuteStart??segment*15+1);
+  const minuteEnd=Math.min((segment+1)*15,medicalContext.minuteEnd??(segment+1)*15);
+  const intervalMinutes=Math.max(1,minuteEnd-minuteStart+1);
 
   // Probabilidades base ajustadas por tácticas y diferencia de fuerza
   const hChanceProb = Math.min(0.75, Math.max(0.08, 0.24 + diff * 0.008 + mod.chancesRate));
   const aChanceProb = Math.min(0.65, Math.max(0.06, 0.18 - diff * 0.008));
 
   // Defensa rival reduce conversión de gol del usuario
-  const oppDefStr   = calcDefStrength(players); // aproximación
+  const oppDefStr   = calcDefStrength(oppSquad);
+  const userDefStr  = calcDefStrength(players,tactics);
   const hGoalConv   = Math.min(0.78, Math.max(0.30, 0.52 + mod.goalConvRate - (oppDefStr - 65) * 0.003));
-  const aGoalConv   = Math.min(0.65, Math.max(0.25, 0.42 - (userStr - 65) * 0.004));
+  const aGoalConv   = Math.min(0.65, Math.max(0.25, 0.42 - (userDefStr - 65) * 0.004));
 
   const attackers = players.filter(p => p.group === "DEL" && !p.injured && !p.suspended);
   const mids      = players.filter(p => p.group === "MED" && !p.injured && !p.suspended);
   const defs      = players.filter(p => p.group === "DEF" && !p.injured && !p.suspended);
   const gk        = players.find(p => p.group === "POR" && !p.injured && !p.suspended);
   const allField  = players.filter(p => p.group !== "POR" && !p.injured && !p.suspended);
-  const baseMin   = segment * 15 + 1;
-  const min = () => baseMin + Math.floor(Math.random() * 14);
+  const min = () => minuteStart + Math.floor(Math.random() * Math.max(1,minuteEnd-minuteStart+1));
 
   // Jugadores del rival disponibles para marcar (atacantes y mediocentros del equipo contrario)
   const oppAttackers = oppSquad.filter(p => p.group === "DEL");
@@ -786,7 +786,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   const pickOppScorer = () => oppScorerPool.length ? pick(oppScorerPool) : null;
 
   // ── ATAQUE LOCAL ──
-  if (Math.random() < hChanceProb) {
+  if (Math.random() < intervalProbability(hChanceProb,intervalMinutes)) {
     const scorer = pick(attackers.length ? attackers : allField);
     if (Math.random() < hGoalConv) {
       const isPenalty = Math.random() < 0.09;
@@ -811,7 +811,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   }
 
   // ── ATAQUE VISITANTE ──
-  if (Math.random() < aChanceProb) {
+  if (Math.random() < intervalProbability(aChanceProb,intervalMinutes)) {
     if (Math.random() < aGoalConv) {
       const oppScorer = pickOppScorer();
       const isPenalty = Math.random() < 0.09;
@@ -840,7 +840,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   }
 
   // ── PARADA DESTACADA ──
-  if (Math.random() < 0.12 + (tactics.mentalidad === "defensiva" ? 0.06 : 0) && gk) {
+  if (Math.random() < intervalProbability(0.12 + (tactics.mentalidad === "defensiva" ? 0.06 : 0),intervalMinutes) && gk) {
     events.push({
       minute: min(), type: "SAVE", team: "user",
       description: pick([
@@ -853,34 +853,38 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
 
   // ── TARJETA AMARILLA LOCAL ──
   const yellowBaseHome = 0.16 + mod.yellowRisk + (tactics.presion === "alta" ? 0.05 : 0);
-  if (Math.random() < yellowBaseHome && allField.length) {
+  if (Math.random() < intervalProbability(yellowBaseHome,intervalMinutes) && allField.length) {
     const carded = pick(tactics.presion === "alta" ? (defs.length ? defs : allField) : allField);
-    events.push({
+    const yellow={
       minute: min(), type: "YELLOW", team: "user", playerId: carded?.id,
+      playerName:carded?.name,
       description: pick([
         `🟡 Tarjeta amarilla para ${carded?.name ?? "el jugador local"} por una entrada imprudente.`,
         `🟡 ${carded?.name ?? "El jugador"} llega tarde y ve la amarilla.`,
         `🟡 Amonestación para ${carded?.name ?? "el local"} por protestar al árbitro.`,
       ]),
-    });
+    };
+    events.push(promoteSecondYellow(yellow,medicalContext.yellowCounts?.user?.[carded?.id]??0));
   }
 
   // ── TARJETA AMARILLA VISITANTE ──
   const oppFieldPlayers = oppSquad.filter(p => p.group !== "POR");
-  if (Math.random() < 0.14) {
+  if (Math.random() < intervalProbability(0.14,intervalMinutes)) {
     const oppCarded = oppFieldPlayers.length ? pick(oppFieldPlayers) : null;
-    events.push({
+    const yellow={
       minute: min(), type: "YELLOW", team: "opp", playerId: oppCarded?.id,
+      playerName:oppCarded?.name,
       description: pick([
         `🟡 Tarjeta amarilla para ${oppCarded?.name ?? "el centrocampista visitante"} por una falta táctica.`,
         `🟡 ${oppCarded?.name ?? "El defensa visitante"} corta un contragolpe y ve la amarilla.`,
         `🟡 Amonestación para ${oppCarded?.name ?? "el capitán visitante"} por protestar.`,
       ]),
-    });
+    };
+    events.push(promoteSecondYellow(yellow,medicalContext.yellowCounts?.opp?.[oppCarded?.id]??0));
   }
 
   // ── TARJETA ROJA ──
-  if (Math.random() < 0.03) {
+  if (Math.random() < intervalProbability(0.03,intervalMinutes)) {
     const side = Math.random() < 0.4 ? "home" : "away";
     if (side === "home" && allField.length) {
       const sent = pick(allField);
@@ -899,7 +903,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
 
   // ── LESIÓN CONTEXTUAL ──
   // El riesgo combina cansancio, edad, minutos, partidos consecutivos y exigencia táctica.
-  const injuryResult = rollContextualInjury(allField, { ...medicalContext, tactics, currentMatchMinutes:(segment+1)*15 });
+  const injuryResult = Math.random()<intervalMinutes/15?rollContextualInjury(allField, { ...medicalContext, tactics, currentMatchMinutes:minuteEnd }):null;
   const injuryEvent = createInjuryEvent(injuryResult, min());
   if (injuryEvent) events.push(injuryEvent);
 
@@ -3669,6 +3673,9 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [possession, setPossession] = useState(50);
   // IDs de jugadores expulsados durante ESTE partido — quedan fuera del campo el resto del encuentro
   const [sentOffIds, setSentOffIds] = useState([]);
+  const [oppSentOffIds, setOppSentOffIds] = useState([]);
+  const [currentMinute, setCurrentMinute] = useState(0);
+  const [pauseEvent, setPauseEvent] = useState(null);
   // IDs de jugadores ya sustituidos (salieron del campo) — no pueden volver a jugar este partido
   const [subbedOutIds, setSubbedOutIds] = useState([]);
 
@@ -3716,7 +3723,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     const outP = livePlayer.find(p => p.id === outId);
     const inP  = livePlayer.find(p => p.id === inId);
     setEvents(ev => [...ev, {
-      minute: segments[Math.max(0,segment-1)] ?? segment*15, type: "SUBSTITUTION", team: "user", playerId: inId, outPlayerId: outId,
+      minute: currentMinute, type: "SUBSTITUTION", team: "user", playerId: inId, outPlayerId: outId,
       description: `🔄 Cambio: entra ${inP?.name ?? "jugador"} por ${outP?.name ?? "jugador"}.`,
     }]);
     setSubbingSlot(null);
@@ -3725,18 +3732,31 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
 
   const simNext = () => {
     if (finished || segment >= 6) return;
-    const userStr = calcTeamStrength(livePlayer, isHome, tactics);
-    const oppAvg  = oppTeam.avg ?? TEAM_REAL_AVG[oppTeamId];
-    const oppStr  = oppAvg + (Math.random() * 8 - 4);
+    const intervalEnd=segments[segment];
+    if(pauseEvent){setPauseEvent(null);setKeyEventBanner(null);if(pauseEvent.type==="INJURY")setPendingInjury(null);}
+    if(currentMinute>=intervalEnd){
+      setPauseEvent(null);setKeyEventBanner(null);
+      const next=segment+1;setSegment(next);if(next>=6)setFinished(true);return;
+    }
     const starterIds = lineup.filter(Boolean);
     const starterPlayers = (starterIds.length > 0
       ? livePlayer.filter(p => starterIds.includes(p.id))
       : livePlayer.filter(p => !p.injured && !p.suspended)
-    ).filter(p => !sentOffIds.includes(p.id)); // los expulsados ya no pisan el campo
-    const oppSquad = REAL_SQUADS[oppTeamId] ?? [];
-    const newEvs  = generateSegmentEvents(segment, starterPlayers, userStr, oppStr, score, tactics, isHome, oppSquad, {
-      fixtures:game.fixtures, teamId:game.teamId, matchday:fixture.matchday,
+    ).filter(p => !sentOffIds.includes(p.id)&&!p.injured); // expulsados y lesionados no participan
+    const fullOppSquad = REAL_SQUADS[oppTeamId] ?? [];
+    const oppSquad=fullOppSquad.filter(player=>!oppSentOffIds.includes(player.id));
+    const userStr=strengthWithPlayerCount(calcTeamStrength(starterPlayers,isHome,tactics),starterPlayers.length);
+    const oppCount=Math.max(7,11-oppSentOffIds.length);
+    const oppBase=oppTeam.avg??TEAM_REAL_AVG[oppTeamId];
+    const oppStr=strengthWithPlayerCount(oppBase+(Math.random()*8-4),oppCount);
+    const yellowCounts={user:{},opp:{}};
+    events.filter(event=>event.type==="YELLOW").forEach(event=>{const side=event.team==="user"||event.team==="opp"?event.team:null;if(side&&event.playerId)yellowCounts[side][event.playerId]=(yellowCounts[side][event.playerId]??0)+1;});
+    const generated=generateSegmentEvents(segment,starterPlayers,userStr,oppStr,score,tactics,isHome,oppSquad,{
+      fixtures:game.fixtures,teamId:game.teamId,matchday:fixture.matchday,
+      minuteStart:Math.max(segment*15+1,currentMinute+1),minuteEnd:intervalEnd,yellowCounts,
     });
+    const flow=eventsUntilExtraordinary(generated);
+    const newEvs=flow.events;
 
     // Calcular posesión del tramo según fuerza relativa, estilo táctico y algo de variación
     const strDiff = userStr - oppStr;
@@ -3758,12 +3778,16 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       }
     });
 
-    // Nuevas expulsiones de nuestro equipo en este tramo (roja directa)
+    // Expulsiones: abandonan el campo y dejan un hueco real en la alineación activa.
     const newReds = newEvs.filter(e => e.type === "RED" && e.team === "user" && e.playerId).map(e => e.playerId);
-    if (newReds.length) setSentOffIds(prev => [...new Set([...prev, ...newReds])]);
+    const newOppReds = newEvs.filter(e => e.type === "RED" && e.team === "opp" && e.playerId).map(e => e.playerId);
+    if (newReds.length){setSentOffIds(prev=>[...new Set([...prev,...newReds])]);setLineup(prev=>prev.map(id=>newReds.includes(id)?null:id));}
+    if (newOppReds.length)setOppSentOffIds(prev=>[...new Set([...prev,...newOppReds])]);
 
-    // Aplicar cansancio progresivo según tácticas — SOLO a los titulares en el campo
-    const fatDelta = fatigueDeltaPerSegment(tactics);
+    // Cansancio proporcional a los minutos realmente simulados antes de la pausa.
+    const reachedMinute=flow.pauseEvent?.minute??intervalEnd;
+    const elapsedMinutes=Math.max(1,reachedMinute-currentMinute);
+    const fatDelta = fatigueDeltaPerSegment(tactics)*(elapsedMinutes/15);
     const onFieldIds = new Set(starterPlayers.map(p => p.id));
     setLivePlayers(prev => prev.map(p => {
       const onField = onFieldIds.has(p.id);
@@ -3783,11 +3807,11 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     setScore(s => ({ home: s.home + hDelta, away: s.away + aDelta }));
     setEvents(ev => [...ev, ...newEvs]);
 
-    // Mostrar un aviso destacado si hubo gol, tarjeta roja o amarilla en este tramo
-    const keyEv = newEvs.find(e => ["GOAL","PENALTY","RED","YELLOW"].includes(e.type));
+    // Un evento extraordinario permanece visible hasta que el usuario decide continuar.
+    const keyEv = flow.pauseEvent??newEvs.find(e => e.type==="YELLOW");
     if (keyEv) {
       setKeyEventBanner(keyEv);
-      setTimeout(() => setKeyEventBanner(b => b === keyEv ? null : b), 4000);
+      if(!flow.pauseEvent)setTimeout(() => setKeyEventBanner(b => b === keyEv ? null : b), 4000);
     }
 
     // Si alguno de los nuestros se ha lesionado, ofrecer sustitución forzada inmediata
@@ -3798,15 +3822,20 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       setTab("cambios");
     }
 
-    const next = segment + 1;
-    setSegment(next);
-    if (next >= 6) setFinished(true);
+    setCurrentMinute(reachedMinute);
+    if(flow.pauseEvent){
+      setPauseEvent(flow.pauseEvent);
+      if(flow.pauseEvent.type==="INJURY")setTab("cambios");else setTab("eventos");
+    }else{
+      setPauseEvent(null);
+      const next=segment+1;setSegment(next);if(next>=6)setFinished(true);
+    }
   };
 
   const endMatch = () => onMatchEnd(fixture.id, score.home, score.away, events, livePlayer, {
     teamId: game.teamId,
     starters: baseLineup.filter(Boolean),
-    finishers: lineup.filter(Boolean),
+    finishers: lineup.filter(id=>id&&!sentOffIds.includes(id)&&!livePlayer.find(player=>player.id===id)?.injured),
   });
 
   const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",INJURY:"#f97316",SUBSTITUTION:"#a855f7" };
@@ -3814,6 +3843,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
 
   const avgFatigue = Math.round(livePlayer.filter(p=>!p.injured).reduce((s,p)=>s+p.fatigue,0) / Math.max(1,livePlayer.filter(p=>!p.injured).length));
   const fatColor   = avgFatigue <= 40 ? "#22c55e" : avgFatigue <= 65 ? "#f59e0b" : "#ef4444";
+  const activeUserCount=lineup.filter(id=>id&&!sentOffIds.includes(id)&&!livePlayer.find(player=>player.id===id)?.injured).length;
 
   // El equipo LOCAL siempre a la IZQUIERDA, VISITANTE a la DERECHA
   // score.home = goles del equipo que juega en casa (fixture.homeTeamId)
@@ -3831,7 +3861,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       {/* Marcador */}
       <div style={{ background: "#1a1f2e", padding: "14px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
         <div style={{ fontSize: 11, color: "#c9a84c", fontWeight: 600, letterSpacing: ".5px", marginBottom: 6 }}>
-          J{fixture.matchday} · {finished ? "FINALIZADO" : segment === 0 ? "INICIO" : `MIN ${segments[segment-1]}'`}
+          J{fixture.matchday} · {finished ? "FINALIZADO" : currentMinute===0 ? "INICIO" : currentMinute===45&&!pauseEvent ? "DESCANSO" : `MIN ${currentMinute}'${pauseEvent?" · PARTIDO DETENIDO":""}`}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
           <div style={{ flex: 1, textAlign: "right" }}>
@@ -3884,6 +3914,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
             🎯 <span style={{ color: tactics.mentalidad==="ofensiva"?"#ef4444":tactics.mentalidad==="defensiva"?"#3b82f6":"#c9a84c", fontWeight: 700 }}>{tactics.mentalidad.toUpperCase()}</span>
             {" · "}{tactics.presion} presión{" · "}{tactics.estilo}
           </div>
+          <div style={{fontSize:11,color:activeUserCount<11?"#ef4444":oppSentOffIds.length?"#22c55e":"#6b7280",fontWeight:700}}>👥 {activeUserCount} vs {11-oppSentOffIds.length}</div>
         </div>
       </div>
 
@@ -3943,7 +3974,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
                   <div key={i} className={isGoal ? "goal-event" : ""}
                     style={{ background:"#161a24", borderRadius:8, padding:"9px 12px", display:"flex", alignItems:"center", gap:10, borderLeft:`3px solid ${color}` }}>
                     <div style={{ fontSize: 12, color: "#6b7280", minWidth: 26, fontWeight: 700 }}>{e.minute}'</div>
-                    <div style={{ background: `${color}22`, color, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4, minWidth: 60, textAlign: "center" }}>{eventLabels[e.type] ?? e.type}</div>
+                    <div style={{ background: `${color}22`, color, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4, minWidth: 60, textAlign: "center" }}>{e.secondYellow?"DOBLE 🟨":eventLabels[e.type] ?? e.type}</div>
                     <div style={{ fontSize: 12, color: "#e8eaf0", flex: 1, lineHeight: 1.4 }}>{e.description}</div>
                   </div>
                 );
@@ -4055,7 +4086,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
         {!finished ? (
           <button onClick={simNext} className="btn-gold"
             style={{ width:"100%", padding:14, borderRadius:9, fontSize:14 }}>
-            ▶ Simular tramo {segment + 1}/6 → hasta min {segments[segment]}'
+            {pauseEvent?(currentMinute>=segments[segment]?`▶ Cerrar pausa del min ${currentMinute}'`:`▶ Continuar simulación → hasta min ${segments[segment]}'`):`▶ Simular tramo ${segment + 1}/6 → hasta min ${segments[segment]}'`}
           </button>
         ) : (
           <>
