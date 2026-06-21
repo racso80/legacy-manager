@@ -1,4 +1,4 @@
-export const EXTRAORDINARY_EVENT_TYPES=new Set(["GOAL","PENALTY","RED","INJURY"]);
+export const EXTRAORDINARY_EVENT_TYPES=new Set(["GOAL","PENALTY","YELLOW","RED","INJURY"]);
 
 export function intervalProbability(baseProbability,minutes){
   const fraction=Math.max(0,Math.min(1,minutes/15));
