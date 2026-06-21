@@ -8,7 +8,7 @@ import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
 import LegacyMuseumScreen from "./components/LegacyMuseumScreen.jsx";
 import ScoutingScreen from "./components/ScoutingScreen.jsx";
 import TeamCrest from "./components/TeamCrest.jsx";
-import { eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
+import { buildStartingEleven, calculateMatchRatings, chooseOpponentFormation, eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
@@ -782,6 +782,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   // Jugadores del rival disponibles para marcar (atacantes y mediocentros del equipo contrario)
   const oppAttackers = oppSquad.filter(p => p.group === "DEL");
   const oppMids      = oppSquad.filter(p => p.group === "MED");
+  const oppGk        = oppSquad.find(p => p.group === "POR");
   const oppScorerPool = oppAttackers.length ? oppAttackers : (oppMids.length ? oppMids : oppSquad);
   const pickOppScorer = () => oppScorerPool.length ? pick(oppScorerPool) : null;
 
@@ -799,9 +800,10 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
       });
     } else {
       const creator = pick([...mids, ...attackers].filter(Boolean));
+      const saved=Boolean(oppGk)&&Math.random()<.68;
       events.push({
-        minute: min(), type: "BIG_CHANCE", team: "user",
-        description: pick([
+        minute: min(), type: saved?"SAVE":"BIG_CHANCE", team: saved?"opp":"user", playerId:saved?oppGk.id:undefined,
+        description: saved?`🧤 Gran parada de ${oppGk.name} ante ${scorer?.name??"el atacante"}.`:pick([
           `Ocasión clara de ${scorer?.name ?? "local"}. El disparo se va rozando el palo.`,
           `${creator?.name ?? "El centrocampista"} mete un pase de gol pero el portero adivina la esquina.`,
           `Remate al larguero de ${scorer?.name ?? "local"}. ¡Qué cerca estuvo!`,
@@ -843,12 +845,19 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   if (Math.random() < intervalProbability(0.12 + (tactics.mentalidad === "defensiva" ? 0.06 : 0),intervalMinutes) && gk) {
     events.push({
       minute: min(), type: "SAVE", team: "user",
+      playerId:gk.id,
       description: pick([
         `🧤 Gran parada de ${gk.name}. El equipo le debe los tres puntos.`,
         `🧤 ${gk.name} vuela a su derecha y despeja el peligro.`,
         `🧤 Mano providencial de ${gk.name} bajo los palos.`,
       ]),
     });
+  }
+
+  // ── ACCIÓN DEFENSIVA DESTACADA ──
+  if(Math.random()<intervalProbability(.18,intervalMinutes)){
+    const userAction=Math.random()<.5;const defender=userAction?pick(defs.length?defs:allField):pick(oppSquad.filter(player=>player.group==="DEF"));
+    if(defender)events.push({minute:min(),type:"DEFENSIVE_ACTION",team:userAction?"user":"opp",playerId:defender.id,description:userAction?`🛡️ ${defender.name} corta una ocasión peligrosa con una intervención decisiva.`:`🛡️ ${defender.name} frena el ataque con una gran acción defensiva.`});
   }
 
   // ── TARJETA AMARILLA LOCAL ──
@@ -3654,7 +3663,21 @@ function TacticsScreen({ tactics, setTactics }) {
   );
 }
 
-function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, lineup: baseLineup, setLineup: setBaseLineup, subs: baseSubs, setSubs: setBaseSubs, onMatchEnd }) {
+function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[]}){
+  const activePlayers=playerIds.map(id=>players.find(player=>player.id===id)).filter(Boolean);
+  const injuredIds=new Set(events.filter(event=>event.type==="INJURY").map(event=>event.playerId));
+  const active=activePlayers.filter(player=>!sentOffIds.includes(player.id)&&!injuredIds.has(player.id));
+  const average=active.length?Math.round(active.reduce((sum,player)=>sum+player.overall,0)/active.length):0;
+  const keyPlayer=[...active].sort((a,b)=>b.overall-a.overall)[0];
+  const changes=events.filter(event=>event.type==="SUBSTITUTION"&&playerIds.includes(event.playerId));
+  return <div style={{background:"#161a24",border:`1px solid ${team?.color??"#6b7280"}28`,borderRadius:11,padding:12,marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TeamCrest team={team} size={38}/><div style={{flex:1}}><div style={{fontSize:12,color:"#fff",fontWeight:850}}>{team?.name}</div><div style={{fontSize:9,color:team?.color??"#9aa0b4",marginTop:2}}>{formation} · {active.length} jugadores activos</div></div><div style={{textAlign:"center"}}><div style={{fontSize:20,color:"#c9a84c",fontWeight:900}}>{average}</div><div style={{fontSize:7,color:"#6b7280"}}>MEDIA ONCE</div></div></div><div style={{display:"flex",flexDirection:"column",gap:5}}>{activePlayers.map(player=>{const red=sentOffIds.includes(player.id);const injured=injuredIds.has(player.id);const subOut=events.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===player.id);return <div key={player.id} style={{display:"flex",alignItems:"center",gap:8,background:red?"rgba(239,68,68,.07)":injured?"rgba(249,115,22,.07)":"#11141c",borderRadius:7,padding:"7px 9px",opacity:red||subOut?.7:1}}><span style={{width:31,color:"#6b7280",fontSize:9,fontWeight:800}}>{player.pos}</span><span style={{flex:1,color:red?"#ef4444":injured?"#f97316":"#dfe3ec",fontSize:10,fontWeight:700}}>{player.name}</span><span style={{fontSize:9,color:"#8b92a3"}}>{player.overall}</span>{red&&<span title="Expulsado">🟥</span>}{injured&&<span title="Lesionado">🏥</span>}{subOut&&<span style={{fontSize:8,color:"#a855f7"}}>SALE {subOut.minute}'</span>}</div>})}</div>{keyPlayer&&<div style={{marginTop:9,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.05)",fontSize:9,color:"#6b7280"}}>⭐ Jugador clave: <strong style={{color:team?.color??"#c9a84c"}}>{keyPlayer.name}</strong> · {keyPlayer.overall}</div>}{changes.length>0&&<div style={{marginTop:6,fontSize:8,color:"#a855f7"}}>🔄 {changes.length} cambio{changes.length===1?"":"s"} realizado{changes.length===1?"":"s"}</div>}</div>;
+}
+
+function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, lineup: baseLineup, setLineup: setBaseLineup, subs: baseSubs, setSubs: setBaseSubs, formation:baseFormation="4-3-3", onMatchEnd }) {
+  const initialFixture=game.fixtures.find(f=>!f.played&&(f.homeTeamId===game.teamId||f.awayTeamId===game.teamId));
+  const initialOppId=initialFixture?(initialFixture.homeTeamId===game.teamId?initialFixture.awayTeamId:initialFixture.homeTeamId):null;
+  const initialOppFormation=chooseOpponentFormation(initialOppId??"");
+  const initialOppPlayers=REAL_SQUADS[initialOppId]??[];
   const [segment, setSegment]   = useState(0);
   const [events, setEvents]     = useState([]);
   const [score, setScore]       = useState({ home: 0, away: 0 });
@@ -3678,6 +3701,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [pauseEvent, setPauseEvent] = useState(null);
   // IDs de jugadores ya sustituidos (salieron del campo) — no pueden volver a jugar este partido
   const [subbedOutIds, setSubbedOutIds] = useState([]);
+  const [oppLineup] = useState(()=>buildStartingEleven(initialOppPlayers,initialOppFormation));
 
   // Copias LOCALES de alineación, banco y táctica — los cambios durante el partido
   // son solo para este partido y nunca tocan el estado persistente de App.
@@ -3744,7 +3768,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       : livePlayer.filter(p => !p.injured && !p.suspended)
     ).filter(p => !sentOffIds.includes(p.id)&&!p.injured); // expulsados y lesionados no participan
     const fullOppSquad = REAL_SQUADS[oppTeamId] ?? [];
-    const oppSquad=fullOppSquad.filter(player=>!oppSentOffIds.includes(player.id));
+    const oppSquad=oppLineup.map(id=>fullOppSquad.find(player=>player.id===id)).filter(player=>player&&!oppSentOffIds.includes(player.id));
     const userStr=strengthWithPlayerCount(calcTeamStrength(starterPlayers,isHome,tactics),starterPlayers.length);
     const oppCount=Math.max(7,11-oppSentOffIds.length);
     const oppBase=oppTeam.avg??TEAM_REAL_AVG[oppTeamId];
@@ -3781,7 +3805,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     // Expulsiones: abandonan el campo y dejan un hueco real en la alineación activa.
     const newReds = newEvs.filter(e => e.type === "RED" && e.team === "user" && e.playerId).map(e => e.playerId);
     const newOppReds = newEvs.filter(e => e.type === "RED" && e.team === "opp" && e.playerId).map(e => e.playerId);
-    if (newReds.length){setSentOffIds(prev=>[...new Set([...prev,...newReds])]);setLineup(prev=>prev.map(id=>newReds.includes(id)?null:id));}
+    if (newReds.length)setSentOffIds(prev=>[...new Set([...prev,...newReds])]);
     if (newOppReds.length)setOppSentOffIds(prev=>[...new Set([...prev,...newOppReds])]);
 
     // Cansancio proporcional a los minutos realmente simulados antes de la pausa.
@@ -3836,10 +3860,14 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     teamId: game.teamId,
     starters: baseLineup.filter(Boolean),
     finishers: lineup.filter(id=>id&&!sentOffIds.includes(id)&&!livePlayer.find(player=>player.id===id)?.injured),
+    userFormation:baseFormation,
+    opponentFormation:initialOppFormation,
+    opponentStarters:oppLineup.filter(Boolean),
+    opponentFinishers:oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)),
   });
 
-  const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",INJURY:"#f97316",SUBSTITUTION:"#a855f7" };
-  const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÓN",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",INJURY:"LESIÓN",SUBSTITUTION:"CAMBIO" };
+  const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",DEFENSIVE_ACTION:"#60a5fa",INJURY:"#f97316",SUBSTITUTION:"#a855f7" };
+  const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÓN",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",DEFENSIVE_ACTION:"DEFENSA",INJURY:"LESIÓN",SUBSTITUTION:"CAMBIO" };
 
   const avgFatigue = Math.round(livePlayer.filter(p=>!p.injured).reduce((s,p)=>s+p.fatigue,0) / Math.max(1,livePlayer.filter(p=>!p.injured).length));
   const fatColor   = avgFatigue <= 40 ? "#22c55e" : avgFatigue <= 65 ? "#f59e0b" : "#ef4444";
@@ -3948,7 +3976,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
 
       {/* Tabs eventos / cambios / tácticas */}
       <div style={{ display: "flex", background: "#161a24", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
-        {[["eventos","📋 Eventos"],["cambios",`🔄 Cambios (${subsUsed}/${MAX_SUBS})`],["tacticas","⚙️ Tácticas"]].map(([id,label]) => (
+        {[["eventos","📋 Eventos"],["alineaciones","👥 Alineaciones"],["cambios",`🔄 Cambios (${subsUsed}/${MAX_SUBS})`],["tacticas","⚙️ Tácticas"]].map(([id,label]) => (
           <button key={id} onClick={() => setTab(id)}
             style={{ flex: 1, background: "transparent", border: "none", borderBottom: tab === id ? "2px solid #c9a84c" : "2px solid transparent", color: tab === id ? "#c9a84c" : "#6b7280", padding: "10px 4px", fontSize: 11, fontWeight: tab === id ? 700 : 400, cursor: "pointer" }}>
             {label}
@@ -3957,7 +3985,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       </div>
 
       {/* Contenido tab */}
-      <SwipeTabs tabs={["eventos","cambios","tacticas"]} activeTab={tab} onChange={setTab} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+      <SwipeTabs tabs={["eventos","alineaciones","cambios","tacticas"]} activeTab={tab} onChange={setTab} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
       <div style={{ flex: 1, overflowY: "auto" }}>
         {tab === "eventos" && (
           <div style={{ padding: 12 }}>
@@ -4070,6 +4098,12 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
             )}
           </div>
         )}
+        {tab === "alineaciones" && (
+          <div style={{padding:12}}>
+            <LiveLineupPanel team={userTeam} formation={baseFormation} playerIds={lineup.filter(Boolean)} players={livePlayer} events={events} sentOffIds={sentOffIds}/>
+            <LiveLineupPanel team={oppTeam} formation={initialOppFormation} playerIds={oppLineup.filter(Boolean)} players={REAL_SQUADS[oppTeamId]??[]} events={events} sentOffIds={oppSentOffIds}/>
+          </div>
+        )}
         {tab === "tacticas" && (
           <div style={{ padding: 12 }}>
             <div style={{ fontSize: 11, color: "#f59e0b", background: "#f59e0b11", border: "1px solid #f59e0b33", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
@@ -4157,7 +4191,7 @@ function TacticsInMatch({ tactics, setTactics }) {
 
 function MatchSummaryScreen({ summary, onContinue }) {
   const { userTeam, oppTeam, isHome, userGoals, oppGoals, matchday,
-          events, players, jornadaResults, newStandings, teamId, income } = summary;
+          events, players, opponentPlayers=[], participation={}, jornadaResults, newStandings, teamId, income } = summary;
 
   const won  = userGoals > oppGoals;
   const drew = userGoals === oppGoals;
@@ -4168,7 +4202,9 @@ function MatchSummaryScreen({ summary, onContinue }) {
   const resultEmoji = won ? "🏆" : drew ? "🤝" : "❌";
 
   // Goleadores del equipo del usuario
-  const goalEvents = events.filter(e => (e.type === "GOAL" || e.type === "PENALTY") && e.team === "home");
+  const userEventTeam=isHome?"home":"away";
+  const opponentEventTeam=isHome?"away":"home";
+  const goalEvents = events.filter(e => (e.type === "GOAL" || e.type === "PENALTY") && e.team === userEventTeam);
   const scorerIds  = goalEvents.map(e => e.playerId).filter(Boolean);
   const scorerMap  = {};
   scorerIds.forEach(id => { scorerMap[id] = (scorerMap[id] || 0) + 1; });
@@ -4179,7 +4215,7 @@ function MatchSummaryScreen({ summary, onContinue }) {
   })).filter(s => s.player);
 
   // Goles del rival — extraer nombre del jugador desde playerId (si lo tenemos) o de la descripción
-  const oppGoalEvents = events.filter(e => (e.type === "GOAL" || e.type === "PENALTY") && e.team === "away");
+  const oppGoalEvents = events.filter(e => (e.type === "GOAL" || e.type === "PENALTY") && e.team === opponentEventTeam);
   const extractOppName = (e) => {
     // Buscar en el roster real del rival si tenemos playerId
     if (e.playerId) {
@@ -4201,21 +4237,21 @@ function MatchSummaryScreen({ summary, onContinue }) {
   const oppScorers = Object.values(oppScorerMap);
 
   // Tarjetas del equipo del usuario
-  const yellows  = events.filter(e => e.type === "YELLOW" && e.team === "home");
-  const reds     = events.filter(e => e.type === "RED"    && e.team === "home");
-  const injuries = events.filter(e => e.type === "INJURY" && e.team === "home");
+  const yellows  = events.filter(e => e.type === "YELLOW" && e.team === "user");
+  const reds     = events.filter(e => e.type === "RED"    && e.team === "user");
+  const injuries = events.filter(e => e.type === "INJURY" && e.team === "user");
 
-  // MVP: jugador del equipo con mejor participación (más goles o asistencias)
-  // Si no hay goleadores, el portero si no encajó o el mejor jugador disponible
-  const mvp = (() => {
-    if (scorers.length > 0) return scorers.sort((a,b) => b.goals - a.goals)[0].player;
-    if (won && players.length) {
-      const gk = players.find(p => p.group === "POR" && !p.injured);
-      if (gk && oppGoals === 0) return gk;
-    }
-    return players.filter(p => !p.injured && !p.suspended)
-      .sort((a,b) => b.overall - a.overall)[0] ?? null;
-  })();
+  // MVP global: evalúa a todos los participantes de ambos equipos con la misma escala.
+  const userStarterIds=participation.starters??[];
+  const opponentStarterIds=participation.opponentStarters?.length?participation.opponentStarters:buildStartingEleven(opponentPlayers,participation.opponentFormation??"4-3-3");
+  const userKnown=new Set(players.map(player=>player.id));const opponentKnown=new Set(opponentPlayers.map(player=>player.id));
+  const userParticipantIds=[...new Set([...userStarterIds,...(participation.finishers??[]),...events.flatMap(event=>[event.playerId,event.outPlayerId]).filter(id=>userKnown.has(id))])];
+  const opponentParticipantIds=[...new Set([...opponentStarterIds,...(participation.opponentFinishers??[]),...events.flatMap(event=>[event.playerId,event.outPlayerId]).filter(id=>opponentKnown.has(id))])];
+  const matchRatings=calculateMatchRatings({events,teams:[
+    {teamId:userTeam?.id,teamName:userTeam?.name,players,starterIds:userStarterIds,participantIds:userParticipantIds,goalsFor:userGoals,goalsAgainst:oppGoals},
+    {teamId:oppTeam?.id,teamName:oppTeam?.name,players:opponentPlayers,starterIds:opponentStarterIds,participantIds:opponentParticipantIds,goalsFor:oppGoals,goalsAgainst:userGoals},
+  ]});
+  const mvp=matchRatings[0]??null;
 
   // Clasificación nueva: posición del equipo
   const sorted   = [...newStandings].sort((a,b) => b.points - a.points || b.goalDifference - a.goalDifference);
@@ -4338,14 +4374,14 @@ function MatchSummaryScreen({ summary, onContinue }) {
           <div style={{ fontSize:11, color:"#c9a84c", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>⭐ MEJOR JUGADOR DEL PARTIDO</div>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             <Initials name={mvp.name} size={48} rarity={mvp.rarity} borderRadius={10}/>
-            <div>
+            <div style={{flex:1}}>
               <div style={{ fontSize:15, fontWeight:700, color:"#e8eaf0" }}>{mvp.name}</div>
-              <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>{mvp.pos} · Media {mvp.overall}</div>
+              <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>{mvp.pos} · {mvp.teamName} · {mvp.minutes} min</div>
               <div style={{ fontSize:11, color:"#c9a84c", marginTop:4, fontWeight:600 }}>
-                {scorerMap[mvp.id] ? `${scorerMap[mvp.id]} gol${scorerMap[mvp.id]>1?"es":""}` :
-                 mvp.group==="POR" && oppGoals===0 ? "Portería a cero 🧤" : "Destacado en el partido"}
+                {mvp.contributions.length?mvp.contributions.join(" · "):"Rendimiento más completo del encuentro"}
               </div>
             </div>
+            <div style={{textAlign:"center",background:"rgba(201,168,76,.12)",borderRadius:9,padding:"7px 10px"}}><div style={{fontSize:22,color:"#c9a84c",fontWeight:900}}>{mvp.rating}</div><div style={{fontSize:7,color:"#8a7a49"}}>NOTA</div></div>
           </div>
         </div>
       )}
@@ -4903,6 +4939,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         oppTeam:        TEAMS.find(t => t.id === oppTeamId),
         isHome, userGoals, oppGoals, matchday, events,
         players:        newPlayers,
+        opponentPlayers:REAL_SQUADS[oppTeamId]??[],
+        participation,
         jornadaResults: finalFixtures.filter(f => f.matchday === matchday),
         newStandings,
         teamId:         prev.teamId,
@@ -5195,7 +5233,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} />}
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} />}
-          {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={lineup} setLineup={setLineup} subs={subs} setSubs={setSubs} onMatchEnd={handleMatchEnd} />}
+          {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={lineup} setLineup={setLineup} subs={subs} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonEndScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} />}
         </ScreenWrapper>
