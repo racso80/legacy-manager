@@ -315,16 +315,16 @@ export function generateMatchdayNews({ beforeFixtures, afterFixtures, beforeStan
 
 export function generateTransferNews({ transfer, season, matchday, userTeamId, userTeamName }) {
   const { type, player, cost, value, fromTeamId } = transfer;
-  const buying = type === "buy";
+  const buying = type === "buy";const loanIn=type==="loanIn";const loanOut=type==="loanOut";
   return [createNews({
     type: "transfer",
-    title: buying
+    title: loanIn?`${userTeamName} incorpora cedido a ${player.name}`:loanOut?`${player.name} sale cedido de ${userTeamName}`:buying
       ? `${userTeamName} incorpora a ${player.name} por ${money(cost)}`
       : `${player.name} abandona ${userTeamName} por ${money(value)}`,
-    summary: buying ? `El nuevo fichaje llega para reforzar la posición de ${player.pos}.` : "El club confirma oficialmente la salida del jugador.",
+    summary: loanIn?`El club abona ${money(cost)} por una cesión de una temporada.`:loanOut?`La cesión deja ${money(value)} en las cuentas del club.`:buying ? `El nuevo fichaje llega para reforzar la posición de ${player.pos}.` : "El club confirma oficialmente la salida del jugador.",
     importance: (cost ?? value ?? 0) >= 50000 ? "critical" : "high",
     season, matchday,
-    teamIds: buying ? [userTeamId, fromTeamId] : [userTeamId],
+    teamIds: buying||loanIn ? [userTeamId, fromTeamId] : [userTeamId],
     playerIds: [player.id], userTeamId,
     fingerprint: `transfer:${type}:${player.id}:${matchday}:${cost ?? value}`,
     metadata: { userClub: true, amount: cost ?? value, direction: type },

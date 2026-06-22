@@ -7,11 +7,23 @@ import argparse
 import json
 import logging
 import math
+import os
 import shutil
 import sys
 from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Iterable
+
+# Numba (usado por pymatting/rembg) intenta escribir su caché junto al paquete
+# instalado. Microsoft Store protege esa carpeta, especialmente con Python 3.13.
+# Forzamos una caché local y escribible antes de importar rembg.
+RUNTIME_CACHE = Path(__file__).resolve().parent / ".cache"
+NUMBA_CACHE = RUNTIME_CACHE / "numba"
+REMBG_CACHE = RUNTIME_CACHE / "rembg"
+NUMBA_CACHE.mkdir(parents=True, exist_ok=True)
+REMBG_CACHE.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("NUMBA_CACHE_DIR", str(NUMBA_CACHE))
+os.environ.setdefault("U2NET_HOME", str(REMBG_CACHE))
 
 import cv2
 import numpy as np

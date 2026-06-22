@@ -1,0 +1,108 @@
+2026-06-22 22:34:27,233 | ERROR | No se pudo iniciar rembg: [Errno 2] No such file or directory: 'C:\\Users\\FucuFamily\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\site-packages\\pymatting\\foreground\\__pycache__\\estimate_foreground_ml._resize_nearest_multichannel-5.py313.nbi.tmp.d268a0bd8b9c4b9d'
+2026-06-22 22:38:34,345 | WARNING | Matplotlib is building the font cache; this may take a moment.
+2026-06-22 22:38:34,699 | INFO | generated new fontManager
+2026-06-22 22:38:35,955 | WARNING | MediaPipe no disponible; se usará el detector de OpenCV.
+2026-06-22 22:38:36,654 | ERROR | [1/55] ERROR ath-1.png: No se encontró ninguna cara
+Traceback (most recent call last):
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 320, in main
+    destination = process_one(source, args.output, detector, session, config)
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 271, in process_one
+    face = detector.detect(rgb)
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 110, in detect
+    raise RuntimeError("No se encontró ninguna cara")
+RuntimeError: No se encontró ninguna cara
+2026-06-22 22:38:36,979 | INFO | [2/55] OK ath-10.png -> ath-10.png
+2026-06-22 22:38:37,309 | INFO | [3/55] OK ath-11.png -> ath-11.png
+2026-06-22 22:38:37,598 | INFO | [4/55] OK ath-12.png -> ath-12.png
+2026-06-22 22:38:37,896 | INFO | [5/55] OK ath-13.png -> ath-13.png
+2026-06-22 22:38:38,187 | INFO | [6/55] OK ath-14.png -> ath-14.png
+2026-06-22 22:38:38,491 | INFO | [7/55] OK ath-15.png -> ath-15.png
+2026-06-22 22:38:38,786 | INFO | [8/55] OK ath-16.png -> ath-16.png
+2026-06-22 22:38:39,058 | INFO | [9/55] OK ath-17.png -> ath-17.png
+2026-06-22 22:38:39,355 | INFO | [10/55] OK ath-18.png -> ath-18.png
+2026-06-22 22:38:39,649 | INFO | [11/55] OK ath-19.png -> ath-19.png
+2026-06-22 22:38:39,929 | INFO | [12/55] OK ath-2.png -> ath-2.png
+2026-06-22 22:38:39,966 | ERROR | [13/55] ERROR ath-20.png: No se encontró ninguna cara
+Traceback (most recent call last):
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 320, in main
+    destination = process_one(source, args.output, detector, session, config)
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 271, in process_one
+    face = detector.detect(rgb)
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 110, in detect
+    raise RuntimeError("No se encontró ninguna cara")
+RuntimeError: No se encontró ninguna cara
+2026-06-22 22:38:40,252 | INFO | [14/55] OK ath-21.png -> ath-21.png
+2026-06-22 22:38:40,544 | INFO | [15/55] OK ath-22.png -> ath-22.png
+2026-06-22 22:38:40,834 | INFO | [16/55] OK ath-23.png -> ath-23.png
+2026-06-22 22:38:41,127 | INFO | [17/55] OK ath-3.png -> ath-3.png
+2026-06-22 22:38:41,420 | INFO | [18/55] OK ath-4.png -> ath-4.png
+2026-06-22 22:38:41,698 | INFO | [19/55] OK ath-5.png -> ath-5.png
+2026-06-22 22:38:41,999 | INFO | [20/55] OK ath-6.png -> ath-6.png
+2026-06-22 22:38:42,295 | INFO | [21/55] OK ath-7.png -> ath-7.png
+2026-06-22 22:38:42,582 | INFO | [22/55] OK ath-8.png -> ath-8.png
+2026-06-22 22:38:42,878 | INFO | [23/55] OK ath-9.png -> ath-9.png
+2026-06-22 22:38:43,165 | INFO | [24/55] OK athletic-p1781723371628.png -> athletic-p1781723371628.png
+2026-06-22 22:38:43,459 | INFO | [25/55] OK athletic-p1781723602491.png -> athletic-p1781723602491.png
+2026-06-22 22:38:43,770 | INFO | [26/55] OK athletic-p1781723660383.png -> athletic-p1781723660383.png
+2026-06-22 22:38:44,068 | INFO | [27/55] OK athletic-p1781723718457.png -> athletic-p1781723718457.png
+2026-06-22 22:38:44,379 | INFO | [28/55] OK athletic-p1781723769108.png -> athletic-p1781723769108.png
+2026-06-22 22:38:44,670 | INFO | [29/55] OK athletic-p1781723882605.png -> athletic-p1781723882605.png
+2026-06-22 22:38:44,962 | INFO | [30/55] OK athletic-p1781723951634.png -> athletic-p1781723951634.png
+2026-06-22 22:38:45,244 | INFO | [31/55] OK athletic-p1781724055258.png -> athletic-p1781724055258.png
+2026-06-22 22:38:45,287 | ERROR | [32/55] ERROR athletic-p1781724111750.png: No se encontró ninguna cara
+Traceback (most recent call last):
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 320, in main
+    destination = process_one(source, args.output, detector, session, config)
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 271, in process_one
+    face = detector.detect(rgb)
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 110, in detect
+    raise RuntimeError("No se encontró ninguna cara")
+RuntimeError: No se encontró ninguna cara
+2026-06-22 22:38:45,670 | ERROR | [33/55] ERROR bar-1.png: No se encontró ninguna cara
+Traceback (most recent call last):
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 320, in main
+    destination = process_one(source, args.output, detector, session, config)
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 271, in process_one
+    face = detector.detect(rgb)
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 110, in detect
+    raise RuntimeError("No se encontró ninguna cara")
+RuntimeError: No se encontró ninguna cara
+2026-06-22 22:38:45,949 | INFO | [34/55] OK bar-10.png -> bar-10.png
+2026-06-22 22:38:45,988 | ERROR | [35/55] ERROR bar-11.png: No se encontró ninguna cara
+Traceback (most recent call last):
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 320, in main
+    destination = process_one(source, args.output, detector, session, config)
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 271, in process_one
+    face = detector.detect(rgb)
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 110, in detect
+    raise RuntimeError("No se encontró ninguna cara")
+RuntimeError: No se encontró ninguna cara
+2026-06-22 22:38:46,290 | INFO | [36/55] OK bar-12.png -> bar-12.png
+2026-06-22 22:38:46,330 | ERROR | [37/55] ERROR bar-13.png: No se encontró ninguna cara
+Traceback (most recent call last):
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 320, in main
+    destination = process_one(source, args.output, detector, session, config)
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 271, in process_one
+    face = detector.detect(rgb)
+  File "C:\Users\FucuFamily\Documents\Proyectos FUNES\legacy-manager\tools\player_portraits\player_portraits.py", line 110, in detect
+    raise RuntimeError("No se encontró ninguna cara")
+RuntimeError: No se encontró ninguna cara
+2026-06-22 22:38:46,622 | INFO | [38/55] OK bar-14.png -> bar-14.png
+2026-06-22 22:38:46,914 | INFO | [39/55] OK bar-15.png -> bar-15.png
+2026-06-22 22:38:47,213 | INFO | [40/55] OK bar-16.png -> bar-16.png
+2026-06-22 22:38:47,503 | INFO | [41/55] OK bar-17.png -> bar-17.png
+2026-06-22 22:38:47,806 | INFO | [42/55] OK bar-18.png -> bar-18.png
+2026-06-22 22:38:48,089 | INFO | [43/55] OK bar-19.png -> bar-19.png
+2026-06-22 22:38:48,366 | INFO | [44/55] OK bar-2.png -> bar-2.png
+2026-06-22 22:38:48,655 | INFO | [45/55] OK bar-20.png -> bar-20.png
+2026-06-22 22:38:48,930 | INFO | [46/55] OK bar-3.png -> bar-3.png
+2026-06-22 22:38:49,221 | INFO | [47/55] OK bar-4.png -> bar-4.png
+2026-06-22 22:38:49,523 | INFO | [48/55] OK bar-5.png -> bar-5.png
+2026-06-22 22:38:49,808 | INFO | [49/55] OK bar-6.png -> bar-6.png
+2026-06-22 22:38:50,099 | INFO | [50/55] OK bar-7.png -> bar-7.png
+2026-06-22 22:38:50,388 | INFO | [51/55] OK bar-8.png -> bar-8.png
+2026-06-22 22:38:50,652 | INFO | [52/55] OK bar-9.png -> bar-9.png
+2026-06-22 22:38:50,948 | INFO | [53/55] OK barcelona-p1781724313726.png -> barcelona-p1781724313726.png
+2026-06-22 22:38:51,234 | INFO | [54/55] OK barcelona-p1781724414077.png -> barcelona-p1781724414077.png
+2026-06-22 22:38:51,522 | INFO | [55/55] OK barcelona-p1781724502231.png -> barcelona-p1781724502231.png
+2026-06-22 22:38:51,522 | INFO | Terminado: 49 correctas, 6 fallidas
