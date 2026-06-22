@@ -42,7 +42,8 @@ export function buildStartingEleven(players=[],formation="4-3-3"){
     const exact=available.filter(player=>!used.has(player.id)&&player.pos===position);
     const sameGroup=available.filter(player=>!used.has(player.id)&&player.group===positionGroup(position));
     const fallback=available.filter(player=>!used.has(player.id));
-    const selected=[...exact,...sameGroup,...fallback].sort((a,b)=>(b.overall??0)-(a.overall??0))[0];
+    const pool=exact.length?exact:sameGroup.length?sameGroup:fallback;
+    const selected=[...pool].sort((a,b)=>(b.overall??0)-(a.overall??0))[0];
     if(selected)used.add(selected.id);return selected?.id??null;
   });
 }

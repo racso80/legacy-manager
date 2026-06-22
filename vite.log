@@ -1,0 +1,50 @@
+
+  [32m[1mVITE[22m v6.4.3[39m  [2mready in [0m[1m228[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+X [ERROR] Cannot read directory "../../..": Access is denied.
+
+X [ERROR] Could not resolve "./cjs/react-jsx-runtime.development.js"
+
+    node_modules/react/jsx-runtime.js:6:27:
+      6 │   module.exports = require('./cjs/react-jsx-runtime.development.js');
+        ╵                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+X [ERROR] Could not resolve "./cjs/react.development.js"
+
+    node_modules/react/index.js:6:27:
+      6 │   module.exports = require('./cjs/react.development.js');
+        ╵                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+X [ERROR] Could not resolve "./cjs/react-dom.development.js"
+
+    node_modules/react-dom/index.js:37:27:
+      37 │   module.exports = require('./cjs/react-dom.development.js');
+         ╵                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+X [ERROR] Could not resolve "./cjs/react-jsx-dev-runtime.development.js"
+
+    node_modules/react/jsx-dev-runtime.js:6:27:
+      6 │ ...le.exports = require('./cjs/react-jsx-dev-runtime.development.js');
+        ╵                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+C:\Users\FucuFamily\Documents\Manager de futbol\legacy-manager\node_modules\esbuild\lib\main.js:1467
+  let error = new Error(text);
+              ^
+
+Error: Build failed with 5 errors:
+error: Cannot read directory "../../..": Access is denied.
+node_modules/react-dom/index.js:37:27: ERROR: Could not resolve "./cjs/react-dom.development.js"
+node_modules/react/index.js:6:27: ERROR: Could not resolve "./cjs/react.development.js"
+node_modules/react/jsx-dev-runtime.js:6:27: ERROR: Could not resolve "./cjs/react-jsx-dev-runtime.development.js"
+node_modules/react/jsx-runtime.js:6:27: ERROR: Could not resolve "./cjs/react-jsx-runtime.development.js"
+    at failureErrorWithLog (C:\Users\FucuFamily\Documents\Manager de futbol\legacy-manager\node_modules\esbuild\lib\main.js:1467:15)
+    at C:\Users\FucuFamily\Documents\Manager de futbol\legacy-manager\node_modules\esbuild\lib\main.js:926:25
+    at C:\Users\FucuFamily\Documents\Manager de futbol\legacy-manager\node_modules\esbuild\lib\main.js:1345:9
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  errors: [Getter/Setter],
+  warnings: [Getter/Setter]
+}
+
+Node.js v24.15.0

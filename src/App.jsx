@@ -14,13 +14,14 @@ import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
 import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
-import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue } from "./players/playerProfile.js";
+import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
 import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
 import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, normalizeTrainingPlan } from "./training/trainingEngine.js";
 import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason } from "./legacy/legacyEngine.js";
 import { createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
 import { advanceScouting, bootstrapScouting, cancelScoutingMission, createScoutingMission, ensureScoutingState, refreshScoutingRecommendations, registerScoutingSigning, toggleScoutingWatch } from "./scouting/scoutingEngine.js";
 import { PRIMARY_NAV, SECONDARY_SCREEN_IDS } from "./navigation/navigationConfig.js";
+import { acceptClubCounter, acceptPlayerCounter, advanceTransferNegotiations, completeOffer, createClubOffer, createContractOffer, ensureTransferState, maybeCreateAITransfer, withdrawOffer } from "./transfers/transferEngine.js";
 
 // ─── DATOS ───────────────────────────────────────────────────────────────────
 
@@ -720,17 +721,23 @@ function simAIGame(homeTeam, awayTeam) {
   const events = [];
   const homeSquad = REAL_SQUADS[homeTeam.id] ?? [];
   const awaySquad = REAL_SQUADS[awayTeam.id] ?? [];
-  const homeScorerPool = homeSquad.filter(p => p.group === "DEL").length ? homeSquad.filter(p => p.group === "DEL") : homeSquad.filter(p => p.group === "MED");
-  const awayScorerPool = awaySquad.filter(p => p.group === "DEL").length ? awaySquad.filter(p => p.group === "DEL") : awaySquad.filter(p => p.group === "MED");
+  const scorerWeight = p => p.group === "DEL" ? (p.attrs?.tiro??65)*1.2 : p.group === "MED" ? (p.attrs?.tiro??55)*.58 : p.group === "DEF" ? (p.attrs?.tiro??35)*.13 : 0;
+  const weightedPick = (squad,counts={}) => {
+    const candidates=squad.filter(p=>p.group!=="POR");
+    const weighted=candidates.map(player=>({player,weight:scorerWeight(player)/(1+(counts[player.id]??0)*.7)}));
+    let roll=Math.random()*weighted.reduce((sum,item)=>sum+item.weight,0);
+    return weighted.find(item=>(roll-=item.weight)<=0)?.player??candidates[0]??null;
+  };
+  const homeCounts={},awayCounts={};
 
   for (let i = 0; i < hGoals; i++) {
-    const scorer = homeScorerPool.length ? pick(homeScorerPool) : null;
+    const scorer = weightedPick(homeSquad,homeCounts);if(scorer)homeCounts[scorer.id]=(homeCounts[scorer.id]??0)+1;
     const assistant = pick(homeSquad.filter(p => p.id !== scorer?.id && p.group !== "POR"));
     events.push({ minute: 1 + Math.floor(Math.random()*89), type: "GOAL", team: "home", playerId: scorer?.id, assistId: assistant?.id,
       description: `Gol de ${scorer?.name ?? homeTeam.name}.` });
   }
   for (let i = 0; i < aGoals; i++) {
-    const scorer = awayScorerPool.length ? pick(awayScorerPool) : null;
+    const scorer = weightedPick(awaySquad,awayCounts);if(scorer)awayCounts[scorer.id]=(awayCounts[scorer.id]??0)+1;
     const assistant = pick(awaySquad.filter(p => p.id !== scorer?.id && p.group !== "POR"));
     events.push({ minute: 1 + Math.floor(Math.random()*89), type: "GOAL", team: "away", playerId: scorer?.id, assistId: assistant?.id,
       description: `Gol de ${scorer?.name ?? awayTeam.name}.` });
@@ -1106,6 +1113,7 @@ function FinancesScreen({ game }) {
 
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
+      {game.seasonOpeningStatement&&<div style={{background:"linear-gradient(135deg,rgba(201,168,76,.13),#161a24)",border:"1px solid rgba(201,168,76,.25)",borderRadius:12,padding:14,marginBottom:12}}><div style={{fontSize:11,color:"#c9a84c",fontWeight:800,marginBottom:10}}>CIERRE Y APERTURA DE TEMPORADA</div>{[["Saldo de cierre",game.seasonOpeningStatement.closingBalance],["Derechos TV",game.seasonOpeningStatement.tvRights],["Patrocinios",game.seasonOpeningStatement.sponsorship],["Socios",game.seasonOpeningStatement.members],["Premio clasificación",game.seasonOpeningStatement.positionPrize],["Gastos operativos",-game.seasonOpeningStatement.operatingCosts]].map(([label,value])=><div key={label} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:11,borderBottom:"1px solid rgba(255,255,255,.04)"}}><span style={{color:"#8b92a3"}}>{label}</span><strong style={{color:value>=0?"#22c55e":"#ef4444"}}>{value>=0?"+":"-"}{fmt(Math.abs(value))}</strong></div>)}<div style={{display:"flex",justifyContent:"space-between",paddingTop:9,fontSize:12}}><span style={{color:"#e8eaf0",fontWeight:800}}>Presupuesto inicial</span><strong style={{color:"#c9a84c"}}>{fmt(game.seasonOpeningStatement.openingBalance)}</strong></div></div>}
       <div style={{ background:"#1a1f2e", border:"1px solid rgba(201,168,76,.2)", borderRadius:12, padding:16, marginBottom:14 }}>
         <div style={{ fontSize:11, color:"#c9a84c", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>BALANCE TEMPORADA</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
@@ -1280,12 +1288,16 @@ function FinancesScreen({ game }) {
 
 // ─── MERCADO DE FICHAJES ─────────────────────────────────────────────────────
 
-function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, onViewReport }) {
+function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, onViewReport, onClubOffer, onAcceptClubCounter, onContractOffer, onAcceptPlayerCounter, onWithdrawOffer, onFinalizeOffer }) {
   const [tab, setTab]         = useState("comprar"); // comprar | vender | historial
   const [filter, setFilter]   = useState({ pos:"", min:60, max:99, search:"" });
   const [selected, setSelected] = useState(null); // jugador seleccionado para fichar
   const [selling, setSelling]   = useState(null); // jugador propio a vender
   const [confirm, setConfirm]   = useState(null); // {type:"buy"|"sell", player}
+  const [clubAmount,setClubAmount]=useState(0);
+  const [contractSalary,setContractSalary]=useState(0);
+  const [contractYears,setContractYears]=useState(3);
+  const [contractRole,setContractRole]=useState("Rotación");
 
   const team    = TEAMS.find(t => t.id === game.teamId);
   const players = game.players;
@@ -1344,6 +1356,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
   const reportsByPlayer = new Map((game.scouting?.reports??[]).map(report=>[report.playerId,report]));
   const knownIds = new Set([...reportsByPlayer.keys(),...freeAgents.map(player=>player.id)]);
   const selectedReport=selected?reportsByPlayer.get(selected.id):null;
+  const activeOffer=selected?(game.transferMarket?.offers??[]).find(item=>item.playerId===selected.id&&!['completed','withdrawn'].includes(item.status)):null;
   const selectedOverall=selectedReport&&selectedReport.confidence<88?`${selectedReport.overallRange[0]}-${selectedReport.overallRange[1]}`:selected?.overall;
 
   const marketPlayers = allOtherPlayers2.filter(p => {
@@ -1457,7 +1470,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
               const report=reportsByPlayer.get(p.id);
               const displayedOverall=report&&report.confidence<88?`${report.overallRange[0]}-${report.overallRange[1]}`:String(p.overall);
               return (
-                <div key={p.id} onClick={()=>!alreadyOwned&&setSelected(p)}
+                <div key={p.id} onClick={()=>{if(alreadyOwned)return;setSelected(p);setClubAmount(marketValue(p));setContractSalary(suggestedSalary(p));}}
                   style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", marginBottom:6,
                     background: selected?.id===p.id ? "rgba(201,168,76,.1)" : "#161a24",
                     border:`1px solid ${selected?.id===p.id?"#c9a84c44":alreadyOwned?"rgba(34,197,94,.2)":"rgba(255,255,255,.06)"}`,
@@ -1509,12 +1522,8 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
                   </div>
                 ))}
               </div>
-              <button onClick={()=>canAfford(selected)?doBuy(selected):null}
-                className={canAfford(selected)?"btn-gold":""}
-                style={{ width:"100%", padding:12, borderRadius:8, fontSize:14, fontWeight:700, cursor:"pointer",
-                  ...(canAfford(selected)?{}:{background:"#374151",color:"#6b7280",border:"1px solid rgba(255,255,255,.08)"}) }}>
-                {canAfford(selected) ? `✓ Fichar a ${selected.name}` : !canAttract(selected) ? `🔒 Requiere prestigio ${requiredPrestige(selected)}` : "❌ Presupuesto insuficiente"}
-              </button>
+              {!activeOffer&&<><div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:7,marginBottom:8}}><input type="number" value={clubAmount} onChange={event=>setClubAmount(Number(event.target.value))} style={{background:"#0d0f14",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:7,padding:"9px 10px",fontSize:12}}/><span style={{alignSelf:"center",fontSize:9,color:"#6b7280"}}>€K · oferta al club</span></div><button onClick={()=>canAttract(selected)&&clubAmount<=budgetLeft&&onClubOffer(selected,clubAmount,marketValue(selected),suggestedSalary(selected))} className="btn-gold" style={{width:"100%",padding:12,borderRadius:8,fontSize:13}}>Enviar oferta al club</button></>}
+              {activeOffer&&<div style={{background:"#0d0f14",borderRadius:9,padding:10}}><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>NEGOCIACIÓN EN CURSO</div><div style={{fontSize:12,color:"#e8eaf0",margin:"5px 0 9px"}}>{activeOffer.status==='pendingClub'?'El club responderá tras la próxima jornada.':activeOffer.status==='clubCounter'?`Contraoferta del club: ${fmt(activeOffer.counterAmount)}`:activeOffer.status==='rejected'?'El club ha rechazado la oferta.':activeOffer.status==='outbid'?'Otro club ha superado tu oferta y se ha adelantado.':activeOffer.status==='clubAccepted'?'El club acepta. Ahora negocia con el jugador.':activeOffer.status==='pendingPlayer'?'El jugador estudia el contrato.':activeOffer.status==='playerCounter'?`El jugador solicita ${fmt(activeOffer.counterSalary)}/sem.`:activeOffer.status==='playerRejected'?'El jugador rechaza las condiciones.':activeOffer.status==='ready'?'Acuerdo total alcanzado.':'Operación cerrada.'}</div>{activeOffer.status==='clubCounter'&&<button onClick={()=>onAcceptClubCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar contraoferta</button>}{['clubAccepted','playerRejected'].includes(activeOffer.status)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:6,padding:8}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} años</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6,padding:8}}>{["Estrella","Titular","Rotación","Promesa"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>onContractOffer(activeOffer.id,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",padding:9}}>Enviar contrato al jugador</button></div>}{activeOffer.status==='playerCounter'&&<button onClick={()=>onAcceptPlayerCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar petición salarial</button>}{activeOffer.status==='ready'&&<button onClick={()=>onFinalizeOffer(activeOffer,selected)} className="btn-gold" style={{width:"100%",padding:10}}>Cerrar fichaje</button>}{activeOffer.status!=="ready"&&<button onClick={()=>onWithdrawOffer(activeOffer.id)} className="btn-ghost" style={{width:"100%",padding:8,marginTop:7}}>Retirarse de la negociación</button>}</div>}
             </div>
           )}
         </div>
@@ -1575,28 +1584,29 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
         <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
           {history.length === 0 ? (
             <div style={{ textAlign:"center", color:"#4b5563", padding:"40px 0", fontSize:13 }}>
-              Aún no has realizado ningún fichaje.<br/>Busca jugadores en la pestaña Comprar.
+              El mercado todavía no ha registrado movimientos.
             </div>
           ) : (
             history.map((t,i)=>{
               const isBuy = t.type === "buy";
+              const isLeague=["ai","loan","renewal"].includes(t.type);const from=TEAMS.find(team=>team.id===t.fromTeamId);const to=TEAMS.find(team=>team.id===t.toTeamId);
               return (
                 <div key={i} style={{ background:"#161a24", border:`1px solid ${isBuy?"rgba(201,168,76,.2)":"rgba(34,197,94,.2)"}`,
                   borderRadius:9, padding:"12px 14px", marginBottom:8 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                     <div style={{ width:32, height:32, borderRadius:7, background:isBuy?"rgba(201,168,76,.15)":"rgba(34,197,94,.15)",
                       display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>
-                      {isBuy?"🛒":"💰"}
+                      {isBuy?"🛒":t.type==="loan"?"🔄":t.type==="renewal"?"📝":isLeague?"🤝":"💰"}
                     </div>
                     <div style={{ flex:1 }}>
                       <div style={{ fontSize:13, fontWeight:600, color:"#e8eaf0" }}>{t.player.name}</div>
-                      <div style={{ fontSize:10, color:"#6b7280" }}>{t.player.pos} · J{t.matchday}</div>
+                      <div style={{ fontSize:10, color:"#6b7280" }}>{isLeague?(t.type==="renewal"?`${from?.short} · renovación`:`${from?.short} → ${to?.short}`):t.player.pos} · J{t.matchday}</div>
                     </div>
                     <div style={{ textAlign:"right" }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:isBuy?"#ef4444":"#22c55e" }}>
-                        {isBuy?"-":"+"}{ fmt(isBuy?t.cost:t.value)}
+                      <div style={{ fontSize:13, fontWeight:700, color:isBuy?"#ef4444":isLeague?"#60a5fa":"#22c55e" }}>
+                        {isLeague?(t.type==="renewal"?"Renovado":fmt(t.value)):`${isBuy?"-":"+"}${fmt(isBuy?t.cost:t.value)}`}
                       </div>
-                      <div style={{ fontSize:9, color:"#4b5563" }}>{isBuy?"Coste":"Ingreso"}</div>
+                      <div style={{ fontSize:9, color:"#4b5563" }}>{isLeague?"Mercado IA":isBuy?"Coste":"Ingreso"}</div>
                     </div>
                   </div>
                 </div>
@@ -2369,12 +2379,16 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
   );
 }
 
-function SquadScreen({ players, onOpenPlayer }) {
+function SquadScreen({ game, players, onOpenPlayer }) {
   const [filter, setFilter] = useState("ALL");
+  const [statsSeason,setStatsSeason]=useState(String(game.season));
   const filters = [["ALL", "Todos"], ["POR", "Porteros"], ["DEF", "Defensas"], ["MED", "Medios"], ["DEL", "Delanteros"]];
   const shown = filter === "ALL" ? players : players.filter(p => p.group === filter);
+  const seasons=[...new Set([String(game.season),...players.flatMap(player=>(player.careerHistory??[]).map(entry=>String(entry.season)))])].sort((a,b)=>Number(b)-Number(a));
+  const seasonStats=player=>statsSeason===String(game.season)?getPlayerSeasonStats(player,game,game.teamId):(player.careerHistory??[]).find(entry=>String(entry.season)===statsSeason)??{};
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"9px 14px",background:"#13161f",borderBottom:"1px solid rgba(255,255,255,.06)"}}><div><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>ESTADÍSTICAS</div><div style={{fontSize:11,color:"#e8eaf0",marginTop:2}}>{statsSeason===String(game.season)?"Temporada actual":"Temporada histórica"}</div></div><select value={statsSeason} onChange={event=>setStatsSeason(event.target.value)} style={{background:"#1e2330",border:"1px solid rgba(201,168,76,.25)",color:"#c9a84c",borderRadius:7,padding:"7px 9px",fontSize:11,fontWeight:700}}>{seasons.map(season=><option key={season} value={season}>{season}/{String(Number(season)+1).slice(-2)}{season===String(game.season)?" · actual":""}</option>)}</select></div>
       <div style={{ display: "flex", gap: 8, padding: "10px 14px", overflowX: "auto", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
         {filters.map(([val, label]) => (
           <button key={val} onClick={() => setFilter(val)} style={{ background: filter === val ? "#c9a84c" : "#1e2330", color: filter === val ? "#1a1200" : "#9aa0b4", border: "none", padding: "7px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", transition: "background .15s, color .15s" }}>
@@ -2385,7 +2399,7 @@ function SquadScreen({ players, onOpenPlayer }) {
       <SwipeTabs tabs={filters.map(([id])=>id)} activeTab={filter} onChange={setFilter} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
         <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "12px 10px", boxSizing: "border-box" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, width: "100%" }}>
-            {shown.map(p => <PlayerCard key={p.id} player={p} onSelect={onOpenPlayer} />)}
+            {shown.map(p => {const stats=seasonStats(p);return <div key={p.id} style={{minWidth:0}}><PlayerCard player={p} onSelect={onOpenPlayer}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2,background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:8,padding:"6px 3px",marginTop:4}}>{[["PJ",stats.appearances??0],["G",stats.goals??0],["A",stats.assists??0],["NOTA",stats.averageRating??"—"]].map(([label,value])=><div key={label} style={{textAlign:"center"}}><div style={{fontSize:11,color:label==="NOTA"?"#c9a84c":"#e8eaf0",fontWeight:800}}>{value}</div><div style={{fontSize:7,color:"#6b7280",fontWeight:700}}>{label}</div></div>)}</div></div>})}
           </div>
         </div>
       </SwipeTabs>
@@ -3285,11 +3299,14 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
     </div>
   );
 }
-function StandingsScreen({ standings, teamId, fixtures, players, onOpenPlayer }) {
+function StandingsScreen({ standings, teamId, fixtures, players, movement={}, onOpenPlayer }) {
   const [tab, setTab] = useState("tabla"); // tabla | goleadores | stats
 
   const sorted   = [...standings].sort((a,b) => b.points-a.points || b.goalDifference-a.goalDifference || b.goalsFor-a.goalsFor);
   const getTeam  = (id) => TEAMS.find(t => t.id === id);
+  const nextFixture=fixtures.find(f=>!f.played&&(f.homeTeamId===teamId||f.awayTeamId===teamId));
+  const nextOpponentId=nextFixture?(nextFixture.homeTeamId===teamId?nextFixture.awayTeamId:nextFixture.homeTeamId):null;
+  const lastResultFor=clubId=>[...fixtures].filter(f=>f.played&&(f.homeTeamId===clubId||f.awayTeamId===clubId)).sort((a,b)=>(b.matchday??0)-(a.matchday??0))[0];
 
   // ── Goleadores: extraer de todos los eventos de fixtures jugados ──
   // Función para resolver el EQUIPO ACTUAL de un jugador (puede haber cambiado por fichaje)
@@ -3360,18 +3377,20 @@ function StandingsScreen({ standings, teamId, fixtures, players, onOpenPlayer })
                 <tbody>
                   {sorted.map((s,i)=>{
                     const t=getTeam(s.teamId);
-                    const isUser=s.teamId===teamId;
+                    const isUser=s.teamId===teamId;const isNext=s.teamId===nextOpponentId;const move=movement[s.teamId]??0;const last=lastResultFor(s.teamId);
                     const posColor=i<4?"#c9a84c":i<6?"#22c55e":i<7?"#3b82f6":i>16?"#ef4444":"#6b7280";
                     const zoneBorder=i===3?"border-bottom:2px solid #c9a84c44":i===6?"border-bottom:1px dashed #22c55e33":i===16?"border-bottom:2px solid #ef444433":"";
                     return (
-                      <tr key={s.teamId} style={{ borderBottom:i===3?"2px solid rgba(201,168,76,.2)":i===6?"1px dashed rgba(34,197,94,.15)":i===16?"2px solid rgba(239,68,68,.2)":"1px solid rgba(255,255,255,.03)", background:isUser?"rgba(201,168,76,.07)":"transparent", transition:"background .1s" }}>
-                        <td style={{ padding:"7px 4px", textAlign:"center", fontWeight:700, color:posColor, fontSize:11 }}>{i+1}</td>
+                      <tr key={s.teamId} style={{ borderBottom:i===3?"2px solid rgba(201,168,76,.2)":i===6?"1px dashed rgba(34,197,94,.15)":i===16?"2px solid rgba(239,68,68,.2)":"1px solid rgba(255,255,255,.03)", background:isUser?"rgba(201,168,76,.09)":isNext?"rgba(96,165,250,.08)":"transparent", transition:"background .1s" }}>
+                        <td style={{ padding:"7px 4px", textAlign:"center", fontWeight:700, color:posColor, fontSize:11 }}>{i+1}<span style={{display:"block",fontSize:8,color:move>0?"#22c55e":move<0?"#ef4444":"#4b5563"}}>{move>0?`▲${move}`:move<0?`▼${Math.abs(move)}`:"—"}</span></td>
                         <td style={{ padding:"7px 4px" }}>
                           <div style={{ display:"flex", alignItems:"center", gap:5 }}>
                             <TeamCrest team={t} size={20}/>
                             <span style={{ color:isUser?"#c9a84c":"#e8eaf0", fontWeight:isUser?700:400, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:85, fontSize:12 }}>{t?.name}</span>
                             {isUser && <span style={{ fontSize:8, color:"#c9a84c" }}>★</span>}
+                            {isNext&&<span style={{fontSize:7,color:"#60a5fa",fontWeight:900}}>PRÓX.</span>}
                           </div>
+                          {last&&<div style={{fontSize:8,color:"#5f6675",marginTop:2}}>{getTeam(last.homeTeamId)?.short} {last.homeGoals}-{last.awayGoals} {getTeam(last.awayTeamId)?.short}</div>}
                         </td>
                         {[s.played,s.won,s.drawn,s.lost,s.goalsFor,s.goalsAgainst,s.goalDifference].map((v,j)=>(
                           <td key={j} style={{ padding:"7px 4px", textAlign:"center", color: j===6&&v>0?"#22c55e":j===6&&v<0?"#ef4444":"#6b7280", fontWeight:j===6?600:400 }}>{j===6&&v>0?`+${v}`:v}</td>
@@ -3663,14 +3682,18 @@ function TacticsScreen({ tactics, setTactics }) {
   );
 }
 
-function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[]}){
-  const activePlayers=playerIds.map(id=>players.find(player=>player.id===id)).filter(Boolean);
-  const injuredIds=new Set(events.filter(event=>event.type==="INJURY").map(event=>event.playerId));
-  const active=activePlayers.filter(player=>!sentOffIds.includes(player.id)&&!injuredIds.has(player.id));
+function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[],side}){
+  const relatedEvents=events.filter(event=>event.team===side);
+  const participantIds=[...new Set([...playerIds,...relatedEvents.flatMap(event=>[event.playerId,event.outPlayerId]).filter(Boolean)])];
+  const rank={POR:0,LD:1,DFC:2,LI:3,MCD:4,MC:5,MCO:6,MD:7,MI:8,ED:9,EI:10,DC:11};
+  const lineupPlayers=participantIds.map(id=>players.find(player=>player.id===id)).filter(Boolean).sort((a,b)=>(rank[a.pos]??20)-(rank[b.pos]??20));
+  const injuredIds=new Set(relatedEvents.filter(event=>event.type==="INJURY").map(event=>event.playerId));
+  const active=lineupPlayers.filter(player=>playerIds.includes(player.id)&&!sentOffIds.includes(player.id)&&!injuredIds.has(player.id));
   const average=active.length?Math.round(active.reduce((sum,player)=>sum+player.overall,0)/active.length):0;
   const keyPlayer=[...active].sort((a,b)=>b.overall-a.overall)[0];
-  const changes=events.filter(event=>event.type==="SUBSTITUTION"&&playerIds.includes(event.playerId));
-  return <div style={{background:"#161a24",border:`1px solid ${team?.color??"#6b7280"}28`,borderRadius:11,padding:12,marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TeamCrest team={team} size={38}/><div style={{flex:1}}><div style={{fontSize:12,color:"#fff",fontWeight:850}}>{team?.name}</div><div style={{fontSize:9,color:team?.color??"#9aa0b4",marginTop:2}}>{formation} · {active.length} jugadores activos</div></div><div style={{textAlign:"center"}}><div style={{fontSize:20,color:"#c9a84c",fontWeight:900}}>{average}</div><div style={{fontSize:7,color:"#6b7280"}}>MEDIA ONCE</div></div></div><div style={{display:"flex",flexDirection:"column",gap:5}}>{activePlayers.map(player=>{const red=sentOffIds.includes(player.id);const injured=injuredIds.has(player.id);const subOut=events.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===player.id);return <div key={player.id} style={{display:"flex",alignItems:"center",gap:8,background:red?"rgba(239,68,68,.07)":injured?"rgba(249,115,22,.07)":"#11141c",borderRadius:7,padding:"7px 9px",opacity:red||subOut?.7:1}}><span style={{width:31,color:"#6b7280",fontSize:9,fontWeight:800}}>{player.pos}</span><span style={{flex:1,color:red?"#ef4444":injured?"#f97316":"#dfe3ec",fontSize:10,fontWeight:700}}>{player.name}</span><span style={{fontSize:9,color:"#8b92a3"}}>{player.overall}</span>{red&&<span title="Expulsado">🟥</span>}{injured&&<span title="Lesionado">🏥</span>}{subOut&&<span style={{fontSize:8,color:"#a855f7"}}>SALE {subOut.minute}'</span>}</div>})}</div>{keyPlayer&&<div style={{marginTop:9,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.05)",fontSize:9,color:"#6b7280"}}>⭐ Jugador clave: <strong style={{color:team?.color??"#c9a84c"}}>{keyPlayer.name}</strong> · {keyPlayer.overall}</div>}{changes.length>0&&<div style={{marginTop:6,fontSize:8,color:"#a855f7"}}>🔄 {changes.length} cambio{changes.length===1?"":"s"} realizado{changes.length===1?"":"s"}</div>}</div>;
+  const changes=relatedEvents.filter(event=>event.type==="SUBSTITUTION");
+  const playerData=player=>{const own=relatedEvents.filter(event=>event.playerId===player.id||event.assistId===player.id||event.outPlayerId===player.id);const goals=own.filter(event=>["GOAL","PENALTY"].includes(event.type)&&event.playerId===player.id).length;const assists=own.filter(event=>event.assistId===player.id).length;const yellows=own.filter(event=>event.type==="YELLOW"&&event.playerId===player.id).length;const red=sentOffIds.includes(player.id);const saves=own.filter(event=>event.type==="SAVE"&&event.playerId===player.id).length;const rating=Math.max(4,Math.min(10,6+(player.overall-75)*.025+goals*1.25+assists*.7+saves*.18-yellows*.2-(red?1.5:0)));return{goals,assists,yellows,red,rating:rating.toFixed(1)};};
+  return <div style={{background:"#161a24",border:`1px solid ${team?.color??"#6b7280"}28`,borderRadius:11,padding:12,marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TeamCrest team={team} size={38}/><div style={{flex:1}}><div style={{fontSize:12,color:"#fff",fontWeight:850}}>{team?.name}</div><div style={{fontSize:9,color:team?.color??"#9aa0b4",marginTop:2}}>{formation} · {active.length} jugadores activos</div></div><div style={{textAlign:"center"}}><div style={{fontSize:20,color:"#c9a84c",fontWeight:900}}>{average}</div><div style={{fontSize:7,color:"#6b7280"}}>MEDIA ONCE</div></div></div><div style={{display:"flex",flexDirection:"column",gap:5}}>{lineupPlayers.map(player=>{const data=playerData(player);const red=data.red;const injured=injuredIds.has(player.id);const subOut=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===player.id);const subIn=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.playerId===player.id);return <div key={player.id} style={{background:red?"rgba(239,68,68,.07)":injured?"rgba(249,115,22,.07)":"#11141c",borderRadius:7,padding:"7px 9px",opacity:red||subOut?.7:1}}><div style={{display:"flex",alignItems:"center",gap:7}}><span style={{width:29,color:"#6b7280",fontSize:9,fontWeight:800}}>{player.pos}</span><span style={{flex:1,color:red?"#ef4444":injured?"#f97316":"#dfe3ec",fontSize:10,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</span>{data.goals>0&&<span>⚽{data.goals}</span>}{data.assists>0&&<span style={{fontSize:8,color:"#60a5fa"}}>A{data.assists}</span>}{data.yellows>0&&<span>🟨</span>}{red&&<span>🟥</span>}{injured&&<span>🏥</span>}<strong style={{fontSize:11,color:Number(data.rating)>=7?"#22c55e":"#c9a84c"}}>{data.rating}</strong></div><div style={{display:"flex",gap:7,marginTop:3,paddingLeft:36,fontSize:8,color:"#697083"}}>{player.fatigue!=null&&<span>⚡ {Math.max(0,100-player.fatigue)}%</span>}{subIn&&<span style={{color:"#22c55e"}}>ENTRA {subIn.minute}'</span>}{subOut&&<span style={{color:"#a855f7"}}>SALE {subOut.minute}'</span>}</div></div>})}</div>{keyPlayer&&<div style={{marginTop:9,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.05)",fontSize:9,color:"#6b7280"}}>⭐ Jugador clave: <strong style={{color:team?.color??"#c9a84c"}}>{keyPlayer.name}</strong> · {keyPlayer.overall}</div>}{changes.length>0&&<div style={{marginTop:6,fontSize:8,color:"#a855f7"}}>🔄 {changes.length} cambio{changes.length===1?"":"s"}</div>}</div>;
 }
 
 function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, lineup: baseLineup, setLineup: setBaseLineup, subs: baseSubs, setSubs: setBaseSubs, formation:baseFormation="4-3-3", onMatchEnd }) {
@@ -4100,8 +4123,8 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
         )}
         {tab === "alineaciones" && (
           <div style={{padding:12}}>
-            <LiveLineupPanel team={userTeam} formation={baseFormation} playerIds={lineup.filter(Boolean)} players={livePlayer} events={events} sentOffIds={sentOffIds}/>
-            <LiveLineupPanel team={oppTeam} formation={initialOppFormation} playerIds={oppLineup.filter(Boolean)} players={REAL_SQUADS[oppTeamId]??[]} events={events} sentOffIds={oppSentOffIds}/>
+            <LiveLineupPanel team={userTeam} formation={baseFormation} playerIds={lineup.filter(Boolean)} players={livePlayer} events={events} sentOffIds={sentOffIds} side="user"/>
+            <LiveLineupPanel team={oppTeam} formation={initialOppFormation} playerIds={oppLineup.filter(Boolean)} players={REAL_SQUADS[oppTeamId]??[]} events={events} sentOffIds={oppSentOffIds} side="opp"/>
           </div>
         )}
         {tab === "tacticas" && (
@@ -4748,12 +4771,13 @@ export default function App({ externalData }) {
           if (t.type === "buy" && t.fromTeamId && t.fromTeamId !== "agente_libre" && REAL_SQUADS[t.fromTeamId]) {
             REAL_SQUADS[t.fromTeamId] = REAL_SQUADS[t.fromTeamId].filter(p => p.id !== t.player.id);
           }
+          if((t.type==="ai"||(t.type==="loan"&&String(t.season)===String(parsed.season)))&&t.fromTeamId&&t.toTeamId&&REAL_SQUADS[t.fromTeamId]&&REAL_SQUADS[t.toTeamId]){REAL_SQUADS[t.fromTeamId]=REAL_SQUADS[t.fromTeamId].filter(player=>player.id!==t.player.id);if(!REAL_SQUADS[t.toTeamId].some(player=>player.id===t.player.id))REAL_SQUADS[t.toTeamId]=[...REAL_SQUADS[t.toTeamId],t.player];}
         });
         setActiveSaveId(saveId);
         const loadedTeam=TEAMS.find(team=>team.id===parsed.teamId);
         let migrated=ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam));
         migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,parsed.season??"2025")))};
-        migrated=bootstrapScouting(migrated,getScoutingPool(migrated));
+        migrated=ensureTransferState(bootstrapScouting(migrated,getScoutingPool(migrated)));
         setGame(migrated);
         setScreen("dashboard");
       }
@@ -4781,7 +4805,7 @@ export default function App({ externalData }) {
     const seeded = ensureYouthState(ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
       country: pendingCountry?.id, league: pendingLeague?.id },team),team);
     let g={...seeded,youth:{...seeded.youth,players:seeded.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,"2025")))}};
-    g=bootstrapScouting(g,getScoutingPool(g));
+    g=ensureTransferState(bootstrapScouting(g,getScoutingPool(g)));
     const firstProspect=[...g.youth.players].sort((a,b)=>b.potential-a.potential)[0];
     if(firstProspect)g.news=generateYouthNews({items:[{title:"La cantera presenta una nueva generación",summary:`${firstProspect.name} encabeza la hornada con un potencial estimado de ${firstProspect.potential}.`,importance:firstProspect.potential>=86?"high":"medium",playerId:firstProspect.id,fingerprint:`academy-intake:2025`}],season:"2025",matchday:1,userTeamId:team.id});
     setActiveSaveId(newId);
@@ -4857,6 +4881,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         return f;
       });
       const newStandings = prev.standings.map(s => ({ ...s }));
+      const previousPositions=Object.fromEntries([...prev.standings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference||b.goalsFor-a.goalsFor).map((row,index)=>[row.teamId,index+1]));
       const alreadyCounted = new Set(prev.fixtures.filter(f => f.played && f.matchday === matchday).map(f => f.id));
       finalFixtures.filter(f => f.matchday === matchday && f.played && !alreadyCounted.has(f.id)).forEach(f => {
         const hi = newStandings.findIndex(s => s.teamId === f.homeTeamId);
@@ -4873,6 +4898,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         else              { newStandings[hi].drawn++; newStandings[ai].drawn++; newStandings[hi].points++; newStandings[ai].points++; }
       });
       const isHome    = fixture.homeTeamId === prev.teamId;
+      const currentPositions=Object.fromEntries([...newStandings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference||b.goalsFor-a.goalsFor).map((row,index)=>[row.teamId,index+1]));
+      const standingsMovement=Object.fromEntries(newStandings.map(row=>[row.teamId,(previousPositions[row.teamId]??currentPositions[row.teamId])-currentPositions[row.teamId]]));
       const userGoals = isHome ? homeGoals : awayGoals;
       const oppGoals  = isHome ? awayGoals : homeGoals;
       const won = userGoals > oppGoals; const drew = userGoals === oppGoals;
@@ -4986,10 +5013,14 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         lastYouthTrainingReport:youthTrainingResult.report,
         trainingTacticalBonus:trainingResult.tacticalBonus,
         legacy:legacyEvaluation.legacy,
-        youth:{...(prev.youth??{}),players:youthTrainingResult.players} };
+        youth:{...(prev.youth??{}),players:youthTrainingResult.players},standingsMovement };
       const scoutingProgress=advanceScouting(newGame,getScoutingPool(newGame),matchday+1);
       const scoutingNews=generateScoutingNews({items:scoutingProgress.news,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
       newGame={...scoutingProgress.game,news:mergeNews(scoutingProgress.game.news??[],scoutingNews)};
+      newGame=advanceTransferNegotiations(newGame);
+      const aiCountBefore=newGame.transferMarket?.aiTransfers?.length??0;
+      newGame=maybeCreateAITransfer(newGame,TEAMS,REAL_SQUADS);
+      if((newGame.transferMarket?.aiTransfers?.length??0)>aiCountBefore){const move=newGame.transferMarket.aiTransfers[0];const from=TEAMS.find(team=>team.id===move.fromTeamId);const to=TEAMS.find(team=>team.id===move.toTeamId);const renewal=move.type==="renewal",loan=move.type==="loan";newGame={...newGame,news:mergeNews(newGame.news??[],[{id:`news-${move.id}`,type:"transfer",importance:"medium",title:renewal?`${move.player.name} renueva con ${from?.name}`:loan?`${move.player.name}, cedido al ${to?.name}`:`${move.player.name} ficha por ${to?.name}`,summary:renewal?`${from?.name} asegura la continuidad del jugador.`:`${from?.name} y ${to?.name} cierran la operación por €${(move.value/1000).toFixed(1)}M.`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:move.id}])};}
       saveGame(newGame);
 
       // Detectar fin de temporada (última jornada jugada)
@@ -5026,10 +5057,23 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
     if (!seasonSummary) return;
     setGame(prev => {
       const newSeason = String(parseInt(prev.season ?? "2025") + 1);
+      (prev.transfers??[]).filter(item=>item.type==="loan"&&String(item.season)===String(prev.season)).forEach(item=>{if(REAL_SQUADS[item.toTeamId]&&REAL_SQUADS[item.fromTeamId]){REAL_SQUADS[item.toTeamId]=REAL_SQUADS[item.toTeamId].filter(player=>player.id!==item.player.id);if(!REAL_SQUADS[item.fromTeamId].some(player=>player.id===item.player.id))REAL_SQUADS[item.fromTeamId]=[...REAL_SQUADS[item.fromTeamId],item.player];}});
       const newFixtures  = generateFixtures();
       const newStandings = initStandings();
       // Recuperar jugadores: reset fatiga, reducir lesiones, mantener moral parcialmente
       const teamData = TEAMS.find(team => team.id === prev.teamId);
+      const baseBudget=(teamData?.budget??50)*1000;
+      const weeklyWages=prev.players.reduce((sum,player)=>sum+(player.salary??0),0);
+      const closingBalance=Math.round(baseBudget-Math.max(0,(prev.matchday??1)-1)*weeklyWages+(prev.budgetAdjustment??0));
+      const finalPosition=[...prev.standings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference).findIndex(row=>row.teamId===prev.teamId)+1;
+      const tvRights=Math.round(16000+(21-finalPosition)*350+(teamData?.fanbase??2)*700);
+      const sponsorship=Math.round(3500+(prev.legacy?.clubPrestige??30)*55);
+      const members=Math.round(2500+(teamData?.fanbase??2)*750);
+      const positionPrize=finalPosition===1?12000:finalPosition<=4?8000:finalPosition<=6?5000:finalPosition<=10?2500:1000;
+      const operatingCosts=Math.round(13500+(teamData?.fanbase??2)*900);
+      const annualNet=tvRights+sponsorship+members+positionPrize-operatingCosts;
+      const openingBalance=closingBalance+annualNet;
+      const seasonOpeningStatement={previousSeason:String(prev.season),closingBalance,tvRights,sponsorship,members,positionPrize,operatingCosts,annualNet,openingBalance};
       const newPlayers = prev.players.map(p => {
         const historyEntry = createSeasonHistoryEntry(p, prev, prev.teamId, teamData?.name ?? prev.name);
         const evolved = {
@@ -5047,7 +5091,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
       });
       const agedYouth=(prev.youth?.players??[]).map(player=>({...player,age:player.age+1,seasonStartOverall:player.overall,seasonStartValue:getMarketValue(player)}));
       const carriedMissions=(prev.scouting?.missions??[]).map(item=>item.status!=="active"?item:{...item,startedMatchday:1,completeMatchday:1+Math.max(1,Math.ceil((item.durationDays*(1-(item.progress??0)/100))/7))});
-      let g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, players: newPlayers, transfers:(prev.transfers??[]).map(item=>item.season?item:{...item,season:String(prev.season)}), legacy:startNextLegacySeason(prev.legacy,teamData,newSeason),scouting:{...(prev.scouting??{}),missions:carriedMissions,lastProcessedMatchday:1},youth:{...prev.youth,players:agedYouth} };
+      let g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, standingsMovement:{}, players: newPlayers, budgetAdjustment:openingBalance-baseBudget,incomeLog:[],seasonOpeningStatement,transfers:(prev.transfers??[]).map(item=>item.season?item:{...item,season:String(prev.season)}), legacy:startNextLegacySeason(prev.legacy,teamData,newSeason),scouting:{...(prev.scouting??{}),missions:carriedMissions,lastProcessedMatchday:1},youth:{...prev.youth,players:agedYouth} };
       g=ensureYouthState(g,teamData);
       g={...g,youth:{...g.youth,players:g.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,newSeason)))}};
       g=refreshScoutingRecommendations(g,getScoutingPool(g));
@@ -5061,7 +5105,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
     setScreen("dashboard");
   };
 
-  const handleTransfer = ({ type, player, cost, salary, value, fromTeamId }) => {
+  const handleTransfer = ({ type, player, cost, salary, value, fromTeamId, offerId }) => {
     setGame(prev => {
       let newPlayers = [...prev.players];
       const prevAdjustment = prev.budgetAdjustment ?? 0; // en €K, acumulado de fichajes/ventas
@@ -5102,10 +5146,19 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         transfers: [...(prev.transfers ?? []), newTransfer],
         news: mergeNews(prev.news ?? [], transferNews),youth:nextYouth };
       if(type==="buy")newGame=registerScoutingSigning(newGame,player.id);
+      if(offerId)newGame=completeOffer(newGame,offerId);
       saveGame(newGame, lineup);
       return newGame;
     });
   };
+
+  const updateTransferMarket=updater=>setGame(prev=>{const updated=updater(prev);saveGame(updated,lineup,formation,subs);return updated;});
+  const handleClubOffer=(player,amount,marketValue,expectedSalary)=>updateTransferMarket(prev=>createClubOffer(prev,{player:{...player,marketValue,expectedSalary},fromTeamId:player._teamId,amount}));
+  const handleAcceptClubCounter=offerId=>updateTransferMarket(prev=>acceptClubCounter(prev,offerId));
+  const handleContractOffer=(offerId,salary,years,role)=>updateTransferMarket(prev=>createContractOffer(prev,{offerId,salary,years,role}));
+  const handleAcceptPlayerCounter=offerId=>updateTransferMarket(prev=>acceptPlayerCounter(prev,offerId));
+  const handleWithdrawOffer=offerId=>updateTransferMarket(prev=>withdrawOffer(prev,offerId));
+  const handleFinalizeOffer=(offer,player)=>handleTransfer({type:"buy",player:{...player,contractYears:offer.years,squadRole:offer.role},cost:offer.amount,salary:offer.salary,fromTeamId:offer.fromTeamId,offerId:offer.id});
 
   const handleTrainingPlanChange = (trainingPlan) => {
     setGame(prev => {
@@ -5217,11 +5270,11 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "teams"     && <TeamSelection onSelect={startNewGame} />}
           {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} />}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} />}
-          {screen === "squad"     && game && <SquadScreen players={game.players} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />}
+          {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />}
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={lineup} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={subs} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); }} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
-          {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} onOpenPlayer={openPlayerProfile} />}
+          {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} />}
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
           {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
           {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
@@ -5231,7 +5284,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "scouting" && game && <ScoutingScreen game={game} candidates={getScoutingPool(game)} focusReportId={scoutingFocusId} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} onOpenPlayer={openPlayerProfile} onGoMarket={()=>setScreen("transfers")} />}
           {screen === "settings"  && game && <SettingsScreen game={game} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
-          {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} />}
+          {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} />}
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} />}
           {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={lineup} setLineup={setLineup} subs={subs} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
