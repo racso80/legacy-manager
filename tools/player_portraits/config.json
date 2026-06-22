@@ -1,0 +1,12 @@
+{
+  "output_size": 512,
+  "face_scale": 0.42,
+  "target_eye_height": 0.36,
+  "top_margin": 0.22,
+  "bottom_margin": 0.72,
+  "min_face_pixels": 45,
+  "max_roll_degrees": 25.0,
+  "rembg_model": "u2net_human_seg",
+  "alpha_threshold": 5,
+  "alpha_feather_radius": 0.7
+}
