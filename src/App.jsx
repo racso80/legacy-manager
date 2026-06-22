@@ -12,6 +12,8 @@ import { buildStartingEleven, calculateMatchRatings, chooseOpponentFormation, ev
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
+import SeasonTransitionScreen from "./components/SeasonTransitionScreen.jsx";
+import PreseasonScreen from "./components/PreseasonScreen.jsx";
 import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
@@ -4794,7 +4796,8 @@ export default function App({ externalData }) {
         migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,parsed.season??"2025")))};
         migrated=refreshTransferListings(ensureTransferState(bootstrapScouting(migrated,getScoutingPool(migrated))),TEAMS,REAL_SQUADS);
         setGame(migrated);
-        setScreen("dashboard");
+        if(migrated.seasonTransition==="seasonEnd"){setSeasonSummary({standings:migrated.standings,teamId:migrated.teamId,season:migrated.season,history:migrated.history??[],players:migrated.players,legacy:migrated.legacy,game:migrated});setScreen("seasonEnd");}
+        else setScreen(migrated.seasonTransition==="preseason"?"preseason":"dashboard");
       }
     } catch (e) {}
   };
@@ -5058,8 +5061,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         const finalPlayers=newPlayers.map(player=>player.academyData?{...player,academyStats:{...(player.academyStats??{}),seasons:(player.academyStats?.seasons??0)+1,titles:(player.academyStats?.titles??0)+(userPos===1?1:0)}}:player);
         const seasonBoardNews = generateBoardNews({items:[{title:userPos===1?`${userTeamData.name} conquista la Liga`:`${userTeamData.name} cierra la temporada en la ${userPos}.ª posición`,summary:`El prestigio del club cambia ${legacyFinal.prestigeDelta>=0?"+":""}${Math.round(legacyFinal.prestigeDelta)} puntos.`,importance:userPos===1?"critical":"high",fingerprint:`season-end:${prev.season}:${userPos}`}],season:prev.season??"2025",matchday,userTeamId:prev.teamId});
         const academyReportNews=generateYouthNews({items:[{title:"La cantera presenta su informe anual",summary:`${youthAnnualReport.promoted} promocionados · valor generado ${youthAnnualReport.generatedValue>=1000?`€${(youthAnnualReport.generatedValue/1000).toFixed(1)}M`:`€${youthAnnualReport.generatedValue}K`}.`,importance:youthAnnualReport.promoted>0?"high":"medium",fingerprint:`academy-annual:${prev.season}`}],season:prev.season??"2025",matchday,userTeamId:prev.teamId});
-        const finalSeasonGame={...newGame,players:finalPlayers,history:newHistory,legacy:legacyFinal.legacy,budgetAdjustment:newGame.budgetAdjustment+legacyFinal.budgetReward,youth:{...newGame.youth,annualReports:[youthAnnualReport,...(newGame.youth?.annualReports??[])]},news:mergeNews(newGame.news,[...seasonBoardNews,...academyReportNews])};
-        const endData = { standings: newStandings, teamId: prev.teamId, season: prev.season??"2025", history: newHistory, players: finalPlayers, legacy:legacyFinal.legacy };
+        const finalSeasonGame={...newGame,players:finalPlayers,history:newHistory,legacy:legacyFinal.legacy,budgetAdjustment:newGame.budgetAdjustment+legacyFinal.budgetReward,youth:{...newGame.youth,annualReports:[youthAnnualReport,...(newGame.youth?.annualReports??[])]},news:mergeNews(newGame.news,[...seasonBoardNews,...academyReportNews]),seasonTransition:"seasonEnd"};
+        const endData = { standings: newStandings, teamId: prev.teamId, season: prev.season??"2025", history: newHistory, players: finalPlayers, legacy:legacyFinal.legacy,game:finalSeasonGame };
         setTimeout(() => { setSeasonSummary(endData); setScreen("seasonEnd"); }, 0);
         saveGame(finalSeasonGame);
         return finalSeasonGame;
@@ -5117,7 +5120,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
       });
       const agedYouth=(prev.youth?.players??[]).map(player=>({...player,age:player.age+1,seasonStartOverall:player.overall,seasonStartValue:getMarketValue(player)}));
       const carriedMissions=(prev.scouting?.missions??[]).map(item=>item.status!=="active"?item:{...item,startedMatchday:1,completeMatchday:1+Math.max(1,Math.ceil((item.durationDays*(1-(item.progress??0)/100))/7))});
-      let g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, standingsMovement:{}, players: newPlayers, budgetAdjustment:openingBalance-baseBudget,incomeLog:[],seasonOpeningStatement,transfers:(prev.transfers??[]).map(item=>item.season?item:{...item,season:String(prev.season)}), legacy:startNextLegacySeason(prev.legacy,teamData,newSeason),scouting:{...(prev.scouting??{}),missions:carriedMissions,lastProcessedMatchday:1},youth:{...prev.youth,players:agedYouth} };
+      let g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, standingsMovement:{}, players: newPlayers, budgetAdjustment:openingBalance-baseBudget,incomeLog:[],seasonOpeningStatement,transfers:(prev.transfers??[]).map(item=>item.season?item:{...item,season:String(prev.season)}), legacy:startNextLegacySeason(prev.legacy,teamData,newSeason),scouting:{...(prev.scouting??{}),missions:carriedMissions,lastProcessedMatchday:1},youth:{...prev.youth,players:agedYouth},seasonTransition:"preseason" };
       g=ensureYouthState(g,teamData);
       g={...g,youth:{...g.youth,players:g.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,newSeason)))}};
       g=refreshScoutingRecommendations(g,getScoutingPool(g));
@@ -5129,7 +5132,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
       return g;
     });
     setLineup(Array(11).fill(null));
-    setScreen("dashboard");
+    setScreen("preseason");
   };
 
   const handleTransfer = ({ type, player, cost, salary, value, fromTeamId, toTeamId, offerId }) => {
@@ -5255,10 +5258,10 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Fin de Temporada", transfers: "Mercado de Fichajes", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", more:"Más", settings:"Configuración",
+    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
-  const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","playerProfile"].includes(screen);
+  const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile"].includes(screen);
   const inGame  = !["menu","teams"].includes(screen);
   const edgeSwipe=useEdgeSwipeBack(()=>setScreen(screen==="playerProfile"?profileReturnScreen:"dashboard"),{enabled:screen!=="dashboard"&&(showNav||screen==="playerProfile")});
 
@@ -5318,7 +5321,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} />}
           {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={lineup} setLineup={setLineup} subs={subs} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
-          {screen === "seasonEnd" && seasonSummary && <SeasonEndScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} />}
+          {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
+          {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}
         </ScreenWrapper>
       </div>
 
