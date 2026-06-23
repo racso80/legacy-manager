@@ -8,7 +8,7 @@ import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
 import LegacyMuseumScreen from "./components/LegacyMuseumScreen.jsx";
 import ScoutingScreen from "./components/ScoutingScreen.jsx";
 import TeamCrest from "./components/TeamCrest.jsx";
-import { buildStartingEleven, calculateMatchRatings, chooseOpponentFormation, eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
+import { buildMatchdaySquad, buildStartingEleven, calculateMatchRatings, chooseOpponentFormation, eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
@@ -26,6 +26,14 @@ import { advanceScouting, bootstrapScouting, cancelScoutingMission, createScouti
 import { PRIMARY_NAV, SECONDARY_SCREEN_IDS } from "./navigation/navigationConfig.js";
 import { acceptClubCounter, acceptPlayerCounter, acceptRoleCounter, advanceTransferNegotiations, completeOffer, createClubOffer, createContractOffer, ensureTransferState, maybeCreateAITransfer, maybeCreateIncomingOffer, refreshTransferListings, resolveIncomingOffer, setUserMarketStatus, withdrawOffer } from "./transfers/transferEngine.js";
 import { getAttentionCount, getAttentionItems, markAttentionItem } from "./attention/attentionEngine.js";
+
+const STARTERS_SLOTS = 11;
+const BENCH_SLOTS = 12;
+const CALLED_UP_SLOTS = STARTERS_SLOTS + BENCH_SLOTS;
+const MAX_MATCH_SUBS = 5;
+const emptyLineup = () => Array(STARTERS_SLOTS).fill(null);
+const emptyBench = () => Array(BENCH_SLOTS).fill(null);
+const normalizeSlots = (list = [], size) => [...list.slice(0, size), ...Array(Math.max(0, size - list.length)).fill(null)];
 
 // ─── DATOS ───────────────────────────────────────────────────────────────────
 
@@ -2654,7 +2662,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   // ── 9. Mejor once disponible — también como PROPUESTA ──
   const computeBestXI = () => {
     const score = (p) => p.overall * 0.7 + energyLevel(p.fatigue).energy * 0.3;
-    const newLineup = Array(11).fill(null);
+    const newLineup = emptyLineup();
     const claimed = new Set();
     slotPositions.forEach((posLabel, idx) => {
       const candidates = available
@@ -2668,8 +2676,8 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
       if (best) { newLineup[idx] = best.id; claimed.add(best.id); }
     });
     const restPool = available.filter(p => !claimed.has(p.id)).sort((a,b) => score(b) - score(a));
-    const newSubs = Array(7).fill(null);
-    restPool.slice(0, 7).forEach((p, i) => { newSubs[i] = p.id; claimed.add(p.id); });
+    const newSubs = emptyBench();
+    restPool.slice(0, BENCH_SLOTS).forEach((p, i) => { newSubs[i] = p.id; claimed.add(p.id); });
 
     // Calcular qué cambia respecto al once actual, para mostrarlo igual que la rotación
     const changes = [];
@@ -2725,7 +2733,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
     // Solo asignar jugadores del preset que sigan disponibles (no vendidos/lesionados/sancionados)
     const validIds = new Set(available.map(p => p.id));
     const restoredLineup = preset.lineup.map(id => (id && validIds.has(id)) ? id : null);
-    const restoredSubs = preset.subs.map(id => (id && validIds.has(id)) ? id : null);
+    const restoredSubs = normalizeSlots(preset.subs ?? [], BENCH_SLOTS).map(id => (id && validIds.has(id)) ? id : null);
     setFormation(preset.formation);
     setLineup(restoredLineup);
     setSubs(restoredSubs);
@@ -2794,7 +2802,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
         {showFormations && (
           <div style={{ display:"flex", gap:8, padding:"0 12px 10px", overflowX:"auto" }}>
             {Object.keys(formations).map(f => (
-              <button key={f} onClick={() => { setFormation(f); setLineup(Array(11).fill(null)); setShowFormations(false); }}
+              <button key={f} onClick={() => { setFormation(f); setLineup(emptyLineup()); setShowFormations(false); }}
                 style={{ background:formation===f?"#c9a84c":"#1e2330", color:formation===f?"#1a1200":"#9aa0b4", border:"none", padding:"7px 16px", borderRadius:6, fontSize:12, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}>
                 {f}
               </button>
@@ -3075,7 +3083,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
               {/* 🟡 BANQUILLO */}
               <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6, marginTop:14 }}>
                 <span style={{ fontSize:11 }}>🟡</span>
-                <span style={{ fontSize:10, fontWeight:700, color:"#fbbf24", letterSpacing:".4px" }}>BANQUILLO ({usedSubIds.length}/7)</span>
+                <span style={{ fontSize:10, fontWeight:700, color:"#fbbf24", letterSpacing:".4px" }}>BANQUILLO ({usedSubIds.length}/{BENCH_SLOTS}) · {STARTERS_SLOTS + usedSubIds.length}/{CALLED_UP_SLOTS} convocados</span>
               </div>
               {subs.map((id, idx) => {
                 const p = players.find(pl => pl.id === id);
@@ -3745,7 +3753,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [tab, setTab]           = useState("eventos"); // eventos | tacticas | cambios
   const [livePlayer, setLivePlayers] = useState(game.players);
   const [subsUsed, setSubsUsed] = useState(0);
-  const MAX_SUBS = 5;
+  const MAX_SUBS = MAX_MATCH_SUBS;
   // Lesión pendiente de sustitución forzada: { playerId, name }
   const [pendingInjury, setPendingInjury] = useState(null);
   // Slot del titular que se quiere sustituir manualmente: index en lineup, o null
@@ -3761,13 +3769,17 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [pauseEvent, setPauseEvent] = useState(null);
   // IDs de jugadores ya sustituidos (salieron del campo) — no pueden volver a jugar este partido
   const [subbedOutIds, setSubbedOutIds] = useState([]);
-  const [oppLineup] = useState(()=>buildStartingEleven(initialOppPlayers,initialOppFormation));
+  const [oppCallup] = useState(()=>buildMatchdaySquad(initialOppPlayers,initialOppFormation,BENCH_SLOTS));
+  const [oppLineup, setOppLineup] = useState(()=>oppCallup.lineup);
+  const [oppSubs, setOppSubs] = useState(()=>oppCallup.bench);
+  const [oppSubsUsed, setOppSubsUsed] = useState(0);
+  const [oppSubbedOutIds, setOppSubbedOutIds] = useState([]);
 
   // Copias LOCALES de alineación, banco y táctica — los cambios durante el partido
   // son solo para este partido y nunca tocan el estado persistente de App.
   // Al terminar el partido se descartan automáticamente (no se sincronizan de vuelta).
-  const [lineup, setLineup] = useState(baseLineup);
-  const [subs, setSubs]     = useState(baseSubs);
+  const [lineup, setLineup] = useState(normalizeSlots(baseLineup, STARTERS_SLOTS));
+  const [subs, setSubs]     = useState(normalizeSlots(baseSubs, BENCH_SLOTS));
   const [tactics, setTactics] = useState(baseTactics);
 
   const teamId  = game.teamId;
@@ -3814,6 +3826,50 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     setPendingInjury(null);
   };
 
+  const doOpponentSubstitution = (outId, inId, minute, reason = "") => {
+    if (oppSubsUsed >= MAX_MATCH_SUBS) return null;
+    if (!outId || !inId || oppSubbedOutIds.includes(outId) || oppSubbedOutIds.includes(inId) || oppSentOffIds.includes(inId)) return null;
+    const slotIdx = oppLineup.findIndex(id => id === outId);
+    if (slotIdx === -1) return null;
+    const benchIdx = oppSubs.findIndex(id => id === inId);
+    if (benchIdx === -1) return null;
+    const fullOppSquad = REAL_SQUADS[oppTeamId] ?? [];
+    const outP = fullOppSquad.find(player => player.id === outId);
+    const inP = fullOppSquad.find(player => player.id === inId);
+    setOppLineup(current => current.map((id,index)=>index===slotIdx?inId:id));
+    setOppSubs(current => current.map((id,index)=>index===benchIdx?null:id));
+    setOppSubbedOutIds(current => [...current, outId]);
+    setOppSubsUsed(current => current + 1);
+    return {
+      minute, type:"SUBSTITUTION", team:"opp", playerId:inId, outPlayerId:outId,
+      description:`🔄 Cambio rival: entra ${inP?.name ?? "jugador"} por ${outP?.name ?? "jugador"}${reason ? ` · ${reason}` : ""}.`,
+    };
+  };
+
+  const maybeOpponentAutoSub = (minute) => {
+    if (minute < 55 || oppSubsUsed >= MAX_MATCH_SUBS) return null;
+    if (![60,75,85].some(mark => currentMinute < mark && minute >= mark)) return null;
+    const fullOppSquad = REAL_SQUADS[oppTeamId] ?? [];
+    const activeIds = oppLineup.filter(id => id && !oppSentOffIds.includes(id) && !oppSubbedOutIds.includes(id));
+    const outCandidates = activeIds
+      .map(id => fullOppSquad.find(player => player.id === id))
+      .filter(player => player && player.group !== "POR")
+      .sort((a,b)=>(a.overall??0)-(b.overall??0));
+    const outP = outCandidates[0];
+    if (!outP) return null;
+    const inCandidates = oppSubs
+      .map(id => fullOppSquad.find(player => player.id === id))
+      .filter(player => player && !player.injured && !player.suspended && !oppSubbedOutIds.includes(player.id))
+      .sort((a,b)=>{
+        const aSame=a.group===outP.group?1:0,bSame=b.group===outP.group?1:0;
+        if(aSame!==bSame)return bSame-aSame;
+        return (b.overall??0)-(a.overall??0);
+      });
+    const inP = inCandidates[0];
+    if (!inP) return null;
+    return doOpponentSubstitution(outP.id, inP.id, minute, "ajuste táctico");
+  };
+
   const simNext = () => {
     if (finished || segment >= 6) return;
     const intervalEnd=segments[segment];
@@ -3830,7 +3886,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     const fullOppSquad = REAL_SQUADS[oppTeamId] ?? [];
     const oppSquad=oppLineup.map(id=>fullOppSquad.find(player=>player.id===id)).filter(player=>player&&!oppSentOffIds.includes(player.id));
     const userStr=strengthWithPlayerCount(calcTeamStrength(starterPlayers,isHome,tactics),starterPlayers.length);
-    const oppCount=Math.max(7,11-oppSentOffIds.length);
+    const oppCount=Math.max(7,oppSquad.length);
     const oppBase=oppTeam.avg??TEAM_REAL_AVG[oppTeamId];
     const oppStr=strengthWithPlayerCount(oppBase+(Math.random()*8-4),oppCount);
     const yellowCounts={user:{},opp:{}};
@@ -3870,6 +3926,8 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
 
     // Cansancio proporcional a los minutos realmente simulados antes de la pausa.
     const reachedMinute=flow.pauseEvent?.minute??intervalEnd;
+    const autoOppSub=maybeOpponentAutoSub(reachedMinute);
+    if(autoOppSub)newEvs.push(autoOppSub);
     const elapsedMinutes=Math.max(1,reachedMinute-currentMinute);
     const fatDelta = fatigueDeltaPerSegment(tactics)*(elapsedMinutes/15);
     const onFieldIds = new Set(starterPlayers.map(p => p.id));
@@ -3922,7 +3980,8 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     finishers: lineup.filter(id=>id&&!sentOffIds.includes(id)&&!livePlayer.find(player=>player.id===id)?.injured),
     userFormation:baseFormation,
     opponentFormation:initialOppFormation,
-    opponentStarters:oppLineup.filter(Boolean),
+    opponentStarters:oppCallup.lineup.filter(Boolean),
+    opponentBench:oppCallup.bench.filter(Boolean),
     opponentFinishers:oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)),
   });
 
@@ -4002,7 +4061,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
             🎯 <span style={{ color: tactics.mentalidad==="ofensiva"?"#ef4444":tactics.mentalidad==="defensiva"?"#3b82f6":"#c9a84c", fontWeight: 700 }}>{tactics.mentalidad.toUpperCase()}</span>
             {" · "}{tactics.presion} presión{" · "}{tactics.estilo}
           </div>
-          <div style={{fontSize:11,color:activeUserCount<11?"#ef4444":oppSentOffIds.length?"#22c55e":"#6b7280",fontWeight:700}}>👥 {activeUserCount} vs {11-oppSentOffIds.length}</div>
+          <div style={{fontSize:11,color:activeUserCount<11?"#ef4444":oppSentOffIds.length?"#22c55e":"#6b7280",fontWeight:700}}>👥 {activeUserCount} vs {oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)).length}</div>
         </div>
       </div>
 
@@ -4727,8 +4786,8 @@ export default function App({ externalData }) {
   const [screen, setScreen]       = useState("menu");
   const [game, setGame]           = useState(null);
   const [activeSaveId, setActiveSaveId] = useState(null); // id de la partida actualmente cargada
-  const [lineup, setLineup]       = useState(Array(11).fill(null));
-  const [subs, setSubs]           = useState(Array(7).fill(null));
+  const [lineup, setLineup]       = useState(emptyLineup());
+  const [subs, setSubs]           = useState(emptyBench());
   const [formation, setFormation] = useState("4-3-3");
   const [tactics, setTactics]     = useState(DEFAULT_TACTICS);
   const [savesIndex, setSavesIndexState] = useState([]);
@@ -4759,9 +4818,9 @@ export default function App({ externalData }) {
         ...g,
         id: targetId,
         updatedAt: new Date().toISOString(),
-        _lineup: lineupToSave !== undefined ? lineupToSave : lineup,
+        _lineup: normalizeSlots(lineupToSave !== undefined ? lineupToSave : lineup, STARTERS_SLOTS),
         _formation: formationToSave !== undefined ? formationToSave : formation,
-        _subs: subsToSave !== undefined ? subsToSave : subs,
+        _subs: normalizeSlots(subsToSave !== undefined ? subsToSave : subs, BENCH_SLOTS),
       };
       localStorage.setItem(saveSlotKey(targetId), JSON.stringify(toSave));
       // Actualizar el índice con metadatos rápidos para la lista de partidas
@@ -4791,7 +4850,7 @@ export default function App({ externalData }) {
         parsed.players = (parsed.players ?? []).map(player => normalizeMedicalPlayer(enrichPlayerProfile(player, parsed.season ?? "2025")));
         parsed.trainingPlan = normalizeTrainingPlan(parsed.trainingPlan);
         if (parsed._lineup) {
-          setLineup(parsed._lineup);
+          setLineup(normalizeSlots(parsed._lineup, STARTERS_SLOTS));
           delete parsed._lineup;
         }
         if (parsed._formation) {
@@ -4799,7 +4858,7 @@ export default function App({ externalData }) {
           delete parsed._formation;
         }
         if (parsed._subs) {
-          setSubs(parsed._subs);
+          setSubs(normalizeSlots(parsed._subs, BENCH_SLOTS));
           delete parsed._subs;
         }
         // Reaplicar fichajes pasados: quitar de REAL_SQUADS los jugadores ya comprados
@@ -4848,12 +4907,12 @@ export default function App({ externalData }) {
     const firstProspect=[...g.youth.players].sort((a,b)=>b.potential-a.potential)[0];
     if(firstProspect)g.news=generateYouthNews({items:[{title:"La cantera presenta una nueva generación",summary:`${firstProspect.name} encabeza la hornada con un potencial estimado de ${firstProspect.potential}.`,importance:firstProspect.potential>=86?"high":"medium",playerId:firstProspect.id,fingerprint:`academy-intake:2025`}],season:"2025",matchday:1,userTeamId:team.id});
     setActiveSaveId(newId);
-    setLineup(Array(11).fill(null));
-    setSubs(Array(7).fill(null));
+    setLineup(emptyLineup());
+    setSubs(emptyBench());
     setFormation("4-3-3");
     setTactics(DEFAULT_TACTICS);
     setGame(g);
-    saveGame(g, Array(11).fill(null), "4-3-3", Array(7).fill(null), newId);
+    saveGame(g, emptyLineup(), "4-3-3", emptyBench(), newId);
     setScreen("dashboard");
   };
 
@@ -5152,7 +5211,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
       saveGame(g);
       return g;
     });
-    setLineup(Array(11).fill(null));
+    setLineup(emptyLineup());
+    setSubs(emptyBench());
     setScreen("preseason");
   };
 
@@ -5352,7 +5412,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
           {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
           {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />}
-          {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={lineup} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={subs} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); }} />}
+          {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); }} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} />}
@@ -5367,7 +5427,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} />}
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} />}
-          {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={lineup} setLineup={setLineup} subs={subs} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} />}
+          {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
           {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}

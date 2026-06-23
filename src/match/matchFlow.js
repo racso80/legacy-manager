@@ -48,6 +48,21 @@ export function buildStartingEleven(players=[],formation="4-3-3"){
   });
 }
 
+export function buildMatchdaySquad(players=[],formation="4-3-3",benchSlots=12){
+  const starterIds=buildStartingEleven(players,formation);
+  const used=new Set(starterIds.filter(Boolean));
+  const bench=[...players]
+    .filter(player=>player&&!player.injured&&!player.suspended&&!used.has(player.id))
+    .sort((a,b)=>{
+      const aG=a.group==="POR"?1:0,bG=b.group==="POR"?1:0;
+      if(aG!==bG)return bG-aG;
+      return (b.overall??0)-(a.overall??0);
+    })
+    .slice(0,benchSlots)
+    .map(player=>player.id);
+  return{lineup:starterIds,bench,calledUp:[...starterIds.filter(Boolean),...bench]};
+}
+
 function minutesPlayed(playerId,starterIds,events){
   const subIn=events.find(event=>event.type==="SUBSTITUTION"&&event.playerId===playerId)?.minute;
   const subOut=events.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===playerId)?.minute;
