@@ -122,10 +122,32 @@ export function getAttentionItems(game, context = {}) {
         title: `${player.name} ${expiringContractLabel(player, game)}`,
         summary: "Revisa su situación contractual antes de perder margen de negociación.",
         playerId: player.id,
-        action: { screen: "playerProfile", playerId: player.id },
-        actionLabel: "Ver contrato",
+        action: { screen: "contracts", playerId: player.id },
+        actionLabel: "Abrir contratos",
       }));
     }
+  }
+
+  const renewalStatuses = new Set(["accepted","rejected","salaryCounter","yearsCounter","roleCounter"]);
+  for (const offer of game.contracts?.renewals ?? []) {
+    if (!renewalStatuses.has(offer.status)) continue;
+    const labels = {
+      accepted: "acepta renovar",
+      rejected: "rechaza la renovación",
+      salaryCounter: "pide más salario",
+      yearsCounter: "pide más años",
+      roleCounter: "pide un rol superior",
+    };
+    items.push(createItem(game, {
+      id: `renewal-response:${offer.id}:${offer.status}`,
+      category: "contracts",
+      priority: offer.status === "rejected" ? "critical" : "important",
+      title: `${offer.playerName} ${labels[offer.status]}`,
+      summary: "La negociación contractual necesita revisión.",
+      playerId: offer.playerId,
+      action: { screen: "contracts", playerId: offer.playerId },
+      actionLabel: "Ver renovación",
+    }));
   }
 
   for (const offer of game.transferMarket?.incomingOffers ?? []) {

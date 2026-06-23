@@ -15,6 +15,7 @@ import SettingsScreen from "./components/SettingsScreen.jsx";
 import SeasonTransitionScreen from "./components/SeasonTransitionScreen.jsx";
 import PreseasonScreen from "./components/PreseasonScreen.jsx";
 import AttentionCenterScreen from "./components/AttentionCenterScreen.jsx";
+import ContractsScreen from "./components/ContractsScreen.jsx";
 import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
@@ -26,6 +27,7 @@ import { advanceScouting, bootstrapScouting, cancelScoutingMission, createScouti
 import { PRIMARY_NAV, SECONDARY_SCREEN_IDS } from "./navigation/navigationConfig.js";
 import { acceptClubCounter, acceptPlayerCounter, acceptRoleCounter, advanceTransferNegotiations, completeOffer, createClubOffer, createContractOffer, ensureTransferState, maybeCreateAITransfer, maybeCreateIncomingOffer, refreshTransferListings, resolveIncomingOffer, setUserMarketStatus, withdrawOffer } from "./transfers/transferEngine.js";
 import { getAttentionCount, getAttentionItems, markAttentionItem } from "./attention/attentionEngine.js";
+import { acceptRenewalCounter, advanceRenewals, completeRenewal, createRenewalOffer, ensureContractState, withdrawRenewalOffer } from "./contracts/contractEngine.js";
 
 const STARTERS_SLOTS = 11;
 const BENCH_SLOTS = 12;
@@ -4918,7 +4920,7 @@ export default function App({ externalData }) {
         });
         setActiveSaveId(saveId);
         const loadedTeam=TEAMS.find(team=>team.id===parsed.teamId);
-        let migrated=ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam));
+        let migrated=ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam)));
         migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,parsed.season??"2025")))};
         migrated=refreshTransferListings(ensureTransferState(bootstrapScouting(migrated,getScoutingPool(migrated))),TEAMS,REAL_SQUADS);
         setGame(migrated);
@@ -4949,7 +4951,7 @@ export default function App({ externalData }) {
     const seeded = ensureYouthState(ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
       country: pendingCountry?.id, league: pendingLeague?.id },team),team);
     let g={...seeded,youth:{...seeded.youth,players:seeded.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,"2025")))}};
-    g=refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS);
+    g=ensureContractState(refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS));
     const firstProspect=[...g.youth.players].sort((a,b)=>b.potential-a.potential)[0];
     if(firstProspect)g.news=generateYouthNews({items:[{title:"La cantera presenta una nueva generación",summary:`${firstProspect.name} encabeza la hornada con un potencial estimado de ${firstProspect.potential}.`,importance:firstProspect.potential>=86?"high":"medium",playerId:firstProspect.id,fingerprint:`academy-intake:2025`}],season:"2025",matchday:1,userTeamId:team.id});
     setActiveSaveId(newId);
@@ -5165,6 +5167,11 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
       newGame=advanceTransferNegotiations(newGame);
       const responseNews=(newGame.transferMarket?.offers??[]).filter(offer=>offerStatusBefore[offer.id]&&offerStatusBefore[offer.id]!==offer.status).map(offer=>{const club=TEAMS.find(team=>team.id===offer.fromTeamId);const message=offer.status==="clubAccepted"?[`${club?.name} acepta tu oferta por ${offer.playerName}`,"Ya puedes iniciar la negociación contractual con el jugador."]:offer.status==="clubCounter"?[`${club?.name} envía una contraoferta por ${offer.playerName}`,`El club solicita €${(offer.counterAmount/1000).toFixed(1)}M.`]:offer.status==="rejected"?[`${club?.name} rechaza la oferta por ${offer.playerName}`,"La propuesta no alcanza sus expectativas."]:offer.status==="playerCounter"?[`${offer.playerName} pide un salario más alto`,"El jugador ha respondido con nuevas condiciones."]:offer.status==="roleCounter"?[`${offer.playerName} pide más protagonismo`,`Quiere asumir el rol de ${offer.counterRole}.`]:offer.status==="ready"?[`${offer.playerName} acepta el contrato`,"La operación está lista para cerrarse."]:[`Otro club entra en la puja por ${offer.playerName}`,"La operación ya no está bajo tu control."];return{id:`news-response-${offer.id}-${offer.status}`,type:"transfer",importance:["ready","clubAccepted"].includes(offer.status)?"high":"medium",title:`📬 ${message[0]}`,summary:message[1],season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:`response:${offer.id}:${offer.status}`,metadata:{userClub:true}};});
       if(responseNews.length)newGame={...newGame,news:mergeNews(newGame.news??[],responseNews),transferMarket:{...newGame.transferMarket,notifications:[...responseNews.map(item=>({id:item.id,title:item.title,status:"unread",matchday})),...(newGame.transferMarket?.notifications??[])]}};
+      newGame=ensureContractState(newGame);
+      const renewalStatusBefore=Object.fromEntries((newGame.contracts?.renewals??[]).map(offer=>[offer.id,offer.status]));
+      newGame=advanceRenewals(newGame);
+      const renewalNews=(newGame.contracts?.renewals??[]).filter(offer=>renewalStatusBefore[offer.id]&&renewalStatusBefore[offer.id]!==offer.status).map(offer=>{const messages={accepted:[`${offer.playerName} acepta renovar`,"La propuesta contractual ha sido aceptada y queda lista para la firma."],rejected:[`${offer.playerName} rechaza la renovación`,"El jugador no considera suficiente la propuesta."],salaryCounter:[`${offer.playerName} pide más salario`,`Solicita €${offer.counterSalary}K/semana para renovar.`],yearsCounter:[`${offer.playerName} pide más años`,`Quiere ampliar la duración hasta ${offer.counterYears} años.`],roleCounter:[`${offer.playerName} pide más protagonismo`,`Quiere renovar como ${offer.counterRole}.`]};const message=messages[offer.status]??[`${offer.playerName} responde a la renovación`,"La negociación contractual ha cambiado de estado."];return{id:`news-renewal-${offer.id}-${offer.status}`,type:"contract",importance:["accepted","rejected"].includes(offer.status)?"high":"medium",title:`📄 ${message[0]}`,summary:message[1],season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:`renewal:${offer.id}:${offer.status}`,playerIds:[offer.playerId],teamIds:[newGame.teamId],metadata:{userClub:true,contract:true}};});
+      if(renewalNews.length)newGame={...newGame,news:mergeNews(newGame.news??[],renewalNews),contracts:{...newGame.contracts,notifications:[...renewalNews.map(item=>({id:item.id,title:item.title,status:"unread",matchday})),...(newGame.contracts?.notifications??[])]}};
       const incomingBefore=newGame.transferMarket?.incomingOffers?.length??0;
       newGame=maybeCreateIncomingOffer(newGame,TEAMS);
       if((newGame.transferMarket?.incomingOffers?.length??0)>incomingBefore){const offer=newGame.transferMarket.incomingOffers[0];const buyer=TEAMS.find(team=>team.id===offer.toTeamId);const item={id:`news-${offer.id}`,type:"transfer",importance:"high",title:`📬 Oferta del ${buyer?.name} por ${offer.playerName}`,summary:`El club ofrece €${(offer.amount/1000).toFixed(1)}M por ${offer.type==="loan"?"su cesión":"el traspaso"}.`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:offer.id,metadata:{userClub:true}};newGame={...newGame,news:mergeNews(newGame.news??[],[item]),transferMarket:{...newGame.transferMarket,notifications:[{id:item.id,title:item.title,status:"unread",matchday},...(newGame.transferMarket.notifications??[])]}};}
@@ -5310,6 +5317,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
   };
 
   const updateTransferMarket=updater=>setGame(prev=>{const updated=updater(prev);saveGame(updated,lineup,formation,subs);return updated;});
+  const updateContracts=updater=>setGame(prev=>{const updated=updater(ensureContractState(prev));saveGame(updated,lineup,formation,subs);return updated;});
   const handleClubOffer=(player,amount,marketValue,expectedSalary,listing)=>updateTransferMarket(prev=>createClubOffer(prev,{player:{...player,marketValue,expectedSalary},fromTeamId:player._teamId,amount,dealType:listing?.type??"transfer",listingId:listing?.id}));
   const handleAcceptClubCounter=offerId=>updateTransferMarket(prev=>acceptClubCounter(prev,offerId));
   const handleContractOffer=(offerId,salary,years,role)=>updateTransferMarket(prev=>createContractOffer(prev,{offerId,salary,years,role}));
@@ -5319,6 +5327,10 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
   const handleFinalizeOffer=(offer,player)=>handleTransfer({type:offer.dealType==="loan"?"loanIn":"buy",player:{...player,contractYears:offer.years,squadRole:offer.role,loanData:offer.dealType==="loan"?{fromTeamId:offer.fromTeamId,untilSeason:String(game.season)}:null},cost:offer.amount,salary:offer.salary,fromTeamId:offer.fromTeamId,offerId:offer.id});
   const handleUserMarketStatus=(playerId,status)=>{updateTransferMarket(prev=>setUserMarketStatus(prev,playerId,status));setSelectedPlayer(current=>current?.id===playerId?{...current,marketStatus:current.marketStatus===status?null:status,morale:Math.max(20,(current.morale??70)-(current.marketStatus===status?0:status==="transfer"?4:2))}:current);};
   const handleIncomingOffer=(offer,decision,player)=>{if(decision==="accepted"&&player)handleTransfer({type:offer.type==="loan"?"loanOut":"sell",player,value:offer.amount,fromTeamId:game.teamId,toTeamId:offer.toTeamId});updateTransferMarket(prev=>resolveIncomingOffer(prev,offer.id,decision));};
+  const handleCreateRenewal=(playerId,salary,years,role)=>updateContracts(prev=>createRenewalOffer(prev,{playerId,salary,years,role}));
+  const handleAcceptRenewalCounter=offerId=>updateContracts(prev=>acceptRenewalCounter(prev,offerId));
+  const handleCompleteRenewal=offerId=>updateContracts(prev=>completeRenewal(prev,offerId));
+  const handleWithdrawRenewal=offerId=>updateContracts(prev=>withdrawRenewalOffer(prev,offerId));
 
   const handleTrainingPlanChange = (trainingPlan) => {
     setGame(prev => {
@@ -5411,7 +5423,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
+    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile"].includes(screen);
@@ -5471,8 +5483,9 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "scouting" && game && <ScoutingScreen game={game} candidates={getScoutingPool(game)} focusReportId={scoutingFocusId} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} onOpenPlayer={openPlayerProfile} onGoMarket={()=>setScreen("transfers")} />}
           {screen === "settings"  && game && <SettingsScreen game={game} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
+          {screen === "contracts" && game && <ContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} />}
-          {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} />}
+          {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} />}
           {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
