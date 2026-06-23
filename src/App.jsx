@@ -3727,8 +3727,8 @@ function TacticsScreen({ tactics, setTactics }) {
   );
 }
 
-function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[],side}){
-  const relatedEvents=events.filter(event=>event.team===side);
+function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[],side,eventTeam,currentMinute=0}){
+  const relatedEvents=events.filter(event=>event.team===side||event.team===eventTeam);
   const participantIds=[...new Set([...playerIds,...relatedEvents.flatMap(event=>[event.playerId,event.outPlayerId]).filter(Boolean)])];
   const rank={POR:0,LD:1,DFC:2,LI:3,MCD:4,MC:5,MCO:6,MD:7,MI:8,ED:9,EI:10,DC:11};
   const lineupPlayers=participantIds.map(id=>players.find(player=>player.id===id)).filter(Boolean).sort((a,b)=>(rank[a.pos]??20)-(rank[b.pos]??20));
@@ -3737,7 +3737,22 @@ function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[],
   const average=active.length?Math.round(active.reduce((sum,player)=>sum+player.overall,0)/active.length):0;
   const keyPlayer=[...active].sort((a,b)=>b.overall-a.overall)[0];
   const changes=relatedEvents.filter(event=>event.type==="SUBSTITUTION");
-  const playerData=player=>{const own=relatedEvents.filter(event=>event.playerId===player.id||event.assistId===player.id||event.outPlayerId===player.id);const goals=own.filter(event=>["GOAL","PENALTY"].includes(event.type)&&event.playerId===player.id).length;const assists=own.filter(event=>event.assistId===player.id).length;const yellows=own.filter(event=>event.type==="YELLOW"&&event.playerId===player.id).length;const red=sentOffIds.includes(player.id);const saves=own.filter(event=>event.type==="SAVE"&&event.playerId===player.id).length;const rating=Math.max(4,Math.min(10,6+(player.overall-75)*.025+goals*1.25+assists*.7+saves*.18-yellows*.2-(red?1.5:0)));return{goals,assists,yellows,red,rating:rating.toFixed(1)};};
+  const playerData = player => {
+    const own = relatedEvents.filter(event => event.playerId === player.id || event.assistId === player.id || event.outPlayerId === player.id);
+    const goals = own.filter(event => ["GOAL","PENALTY"].includes(event.type) && event.playerId === player.id).length;
+    const assists = own.filter(event => event.assistId === player.id).length;
+    const yellows = own.filter(event => event.type === "YELLOW" && event.playerId === player.id).length;
+    const red = sentOffIds.includes(player.id);
+    const saves = own.filter(event => event.type === "SAVE" && event.playerId === player.id).length;
+    const defensiveActions = own.filter(event => event.type === "DEFENSIVE_ACTION" && event.playerId === player.id).length;
+    const subIn = relatedEvents.find(event => event.type === "SUBSTITUTION" && event.playerId === player.id);
+    const subOut = relatedEvents.find(event => event.type === "SUBSTITUTION" && event.outPlayerId === player.id);
+    const hasPlayed = playerIds.includes(player.id) || subIn || own.length;
+    const minutes = hasPlayed ? Math.max(0, Math.min(currentMinute || 0, subOut?.minute ?? (currentMinute || 0)) - (subIn?.minute ?? 0)) : 0;
+    const hasRating = minutes > 0 || goals || assists || saves || defensiveActions || yellows || red;
+    const rating = hasRating ? Math.max(4, Math.min(10, 6 + Math.min(90, minutes) / 360 + goals * 1.25 + assists * .7 + saves * .18 + defensiveActions * .14 - yellows * .2 - (red ? 1.5 : 0))) : null;
+    return { goals, assists, yellows, red, saves, defensiveActions, minutes, rating: rating ? rating.toFixed(1) : "—" };
+  };
   return <div style={{background:"#161a24",border:`1px solid ${team?.color??"#6b7280"}28`,borderRadius:11,padding:12,marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TeamCrest team={team} size={38}/><div style={{flex:1}}><div style={{fontSize:12,color:"#fff",fontWeight:850}}>{team?.name}</div><div style={{fontSize:9,color:team?.color??"#9aa0b4",marginTop:2}}>{formation} · {active.length} jugadores activos</div></div><div style={{textAlign:"center"}}><div style={{fontSize:20,color:"#c9a84c",fontWeight:900}}>{average}</div><div style={{fontSize:7,color:"#6b7280"}}>MEDIA ONCE</div></div></div><div style={{display:"flex",flexDirection:"column",gap:5}}>{lineupPlayers.map(player=>{const data=playerData(player);const red=data.red;const injured=injuredIds.has(player.id);const subOut=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===player.id);const subIn=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.playerId===player.id);return <div key={player.id} style={{background:red?"rgba(239,68,68,.07)":injured?"rgba(249,115,22,.07)":"#11141c",borderRadius:7,padding:"7px 9px",opacity:red||subOut?.7:1}}><div style={{display:"flex",alignItems:"center",gap:7}}><span style={{width:29,color:"#6b7280",fontSize:9,fontWeight:800}}>{player.pos}</span><span style={{flex:1,color:red?"#ef4444":injured?"#f97316":"#dfe3ec",fontSize:10,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</span>{data.goals>0&&<span>⚽{data.goals}</span>}{data.assists>0&&<span style={{fontSize:8,color:"#60a5fa"}}>A{data.assists}</span>}{data.yellows>0&&<span>🟨</span>}{red&&<span>🟥</span>}{injured&&<span>🏥</span>}<strong style={{fontSize:11,color:Number(data.rating)>=7?"#22c55e":"#c9a84c"}}>{data.rating}</strong></div><div style={{display:"flex",gap:7,marginTop:3,paddingLeft:36,fontSize:8,color:"#697083"}}>{player.fatigue!=null&&<span>⚡ {Math.max(0,100-player.fatigue)}%</span>}{subIn&&<span style={{color:"#22c55e"}}>ENTRA {subIn.minute}'</span>}{subOut&&<span style={{color:"#a855f7"}}>SALE {subOut.minute}'</span>}</div></div>})}</div>{keyPlayer&&<div style={{marginTop:9,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.05)",fontSize:9,color:"#6b7280"}}>⭐ Jugador clave: <strong style={{color:team?.color??"#c9a84c"}}>{keyPlayer.name}</strong> · {keyPlayer.overall}</div>}{changes.length>0&&<div style={{marginTop:6,fontSize:8,color:"#a855f7"}}>🔄 {changes.length} cambio{changes.length===1?"":"s"}</div>}</div>;
 }
 
@@ -3752,6 +3767,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [finished, setFinished] = useState(false);
   const [tab, setTab]           = useState("eventos"); // eventos | tacticas | cambios
   const [livePlayer, setLivePlayers] = useState(game.players);
+  const [liveOppPlayers, setLiveOppPlayers] = useState(()=>initialOppPlayers.map(player=>({...player,fatigue:player.fatigue??18})));
   const [subsUsed, setSubsUsed] = useState(0);
   const MAX_SUBS = MAX_MATCH_SUBS;
   // Lesión pendiente de sustitución forzada: { playerId, name }
@@ -3833,7 +3849,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     if (slotIdx === -1) return null;
     const benchIdx = oppSubs.findIndex(id => id === inId);
     if (benchIdx === -1) return null;
-    const fullOppSquad = REAL_SQUADS[oppTeamId] ?? [];
+    const fullOppSquad = liveOppPlayers;
     const outP = fullOppSquad.find(player => player.id === outId);
     const inP = fullOppSquad.find(player => player.id === inId);
     setOppLineup(current => current.map((id,index)=>index===slotIdx?inId:id));
@@ -3849,25 +3865,38 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const maybeOpponentAutoSub = (minute) => {
     if (minute < 55 || oppSubsUsed >= MAX_MATCH_SUBS) return null;
     if (![60,75,85].some(mark => currentMinute < mark && minute >= mark)) return null;
-    const fullOppSquad = REAL_SQUADS[oppTeamId] ?? [];
+    const fullOppSquad = liveOppPlayers;
+    const oppGoalsNow = isHome ? score.away : score.home;
+    const userGoalsNow = isHome ? score.home : score.away;
+    const oppLosing = oppGoalsNow < userGoalsNow;
+    const oppWinning = oppGoalsNow > userGoalsNow;
+    const yellowMap = {};
+    events.filter(event=>event.team==="opp"&&event.type==="YELLOW"&&event.playerId).forEach(event=>yellowMap[event.playerId]=(yellowMap[event.playerId]??0)+1);
     const activeIds = oppLineup.filter(id => id && !oppSentOffIds.includes(id) && !oppSubbedOutIds.includes(id));
     const outCandidates = activeIds
       .map(id => fullOppSquad.find(player => player.id === id))
       .filter(player => player && player.group !== "POR")
-      .sort((a,b)=>(a.overall??0)-(b.overall??0));
+      .sort((a,b)=>{
+        const scoreOut = player => ((player.fatigue??18)*1.4)+(yellowMap[player.id]?22:0)+(player.injured?100:0)-(player.overall??70)*.15;
+        return scoreOut(b)-scoreOut(a);
+      });
     const outP = outCandidates[0];
     if (!outP) return null;
     const inCandidates = oppSubs
       .map(id => fullOppSquad.find(player => player.id === id))
       .filter(player => player && !player.injured && !player.suspended && !oppSubbedOutIds.includes(player.id))
       .sort((a,b)=>{
+        const desiredGroup = oppLosing ? "DEL" : oppWinning ? (outP.group==="DEL"?"MED":"DEF") : outP.group;
+        const aDesired=a.group===desiredGroup?1:0,bDesired=b.group===desiredGroup?1:0;
+        if(aDesired!==bDesired)return bDesired-aDesired;
         const aSame=a.group===outP.group?1:0,bSame=b.group===outP.group?1:0;
         if(aSame!==bSame)return bSame-aSame;
-        return (b.overall??0)-(a.overall??0);
+        return ((b.overall??0)-(b.fatigue??18)*.12)-((a.overall??0)-(a.fatigue??18)*.12);
       });
     const inP = inCandidates[0];
     if (!inP) return null;
-    return doOpponentSubstitution(outP.id, inP.id, minute, "ajuste táctico");
+    const reason = oppLosing ? "busca más ataque" : oppWinning ? "protege el resultado" : (yellowMap[outP.id] ? "evita una segunda amarilla" : "refresca piernas");
+    return doOpponentSubstitution(outP.id, inP.id, minute, reason);
   };
 
   const simNext = () => {
@@ -3883,12 +3912,11 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       ? livePlayer.filter(p => starterIds.includes(p.id))
       : livePlayer.filter(p => !p.injured && !p.suspended)
     ).filter(p => !sentOffIds.includes(p.id)&&!p.injured); // expulsados y lesionados no participan
-    const fullOppSquad = REAL_SQUADS[oppTeamId] ?? [];
+    const fullOppSquad = liveOppPlayers;
     const oppSquad=oppLineup.map(id=>fullOppSquad.find(player=>player.id===id)).filter(player=>player&&!oppSentOffIds.includes(player.id));
     const userStr=strengthWithPlayerCount(calcTeamStrength(starterPlayers,isHome,tactics),starterPlayers.length);
     const oppCount=Math.max(7,oppSquad.length);
-    const oppBase=oppTeam.avg??TEAM_REAL_AVG[oppTeamId];
-    const oppStr=strengthWithPlayerCount(oppBase+(Math.random()*8-4),oppCount);
+    const oppStr=strengthWithPlayerCount(calcTeamStrength(oppSquad,!isHome,DEFAULT_TACTICS)+(Math.random()*4-2),oppCount);
     const yellowCounts={user:{},opp:{}};
     events.filter(event=>event.type==="YELLOW").forEach(event=>{const side=event.team==="user"||event.team==="opp"?event.team:null;if(side&&event.playerId)yellowCounts[side][event.playerId]=(yellowCounts[side][event.playerId]??0)+1;});
     const generated=generateSegmentEvents(segment,starterPlayers,userStr,oppStr,score,tactics,isHome,oppSquad,{
@@ -3934,15 +3962,32 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     setLivePlayers(prev => prev.map(p => {
       const onField = onFieldIds.has(p.id);
       const isGK = p.group === "POR";
+      const ageFactor = p.age >= 32 ? 1.18 : p.age <= 22 ? .92 : 1;
       const updated = {
         ...p,
         // Solo los jugadores en el campo se cansan; los porteros apenas se cansan; los que no juegan descansan
         fatigue: p.injured ? p.fatigue
           : onField
-            ? Math.min(100, Math.round(p.fatigue + (isGK ? fatDelta * 0.25 : fatDelta) + Math.random() * (isGK ? 0.5 : 2)))
+            ? Math.min(100, Math.round(p.fatigue + ((isGK ? fatDelta * 0.25 : fatDelta) * ageFactor) + Math.random() * (isGK ? 0.5 : 2)))
             : Math.max(0, Math.round(p.fatigue - 1)),
       };
       const injuryEvent = newEvs.find(e => e.type === "INJURY" && e.playerId === p.id);
+      return injuryEvent ? applyInjury(updated, injuryEvent, game.season ?? "2025", fixture.matchday) : updated;
+    }));
+    const oppOnFieldIds = new Set(oppSquad.map(player=>player.id));
+    const oppFatDelta = fatigueDeltaPerSegment(DEFAULT_TACTICS)*(elapsedMinutes/15);
+    setLiveOppPlayers(prev => prev.map(player => {
+      const onField = oppOnFieldIds.has(player.id);
+      const isGK = player.group === "POR";
+      const ageFactor = player.age >= 32 ? 1.18 : player.age <= 22 ? .92 : 1;
+      const injuryEvent = newEvs.find(event => event.type === "INJURY" && event.team === "opp" && event.playerId === player.id);
+      const updated = {
+        ...player,
+        fatigue: player.injured ? player.fatigue
+          : onField
+            ? Math.min(100, Math.round((player.fatigue ?? 18) + ((isGK ? oppFatDelta * .25 : oppFatDelta) * ageFactor) + Math.random() * (isGK ? .5 : 2)))
+            : Math.max(0, Math.round((player.fatigue ?? 18) - 1)),
+      };
       return injuryEvent ? applyInjury(updated, injuryEvent, game.season ?? "2025", fixture.matchday) : updated;
     }));
 
@@ -3983,6 +4028,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     opponentStarters:oppCallup.lineup.filter(Boolean),
     opponentBench:oppCallup.bench.filter(Boolean),
     opponentFinishers:oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)),
+    opponentPlayers:liveOppPlayers,
   });
 
   const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",DEFENSIVE_ACTION:"#60a5fa",INJURY:"#f97316",SUBSTITUTION:"#a855f7" };
@@ -4219,8 +4265,8 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
         )}
         {tab === "alineaciones" && (
           <div style={{padding:12}}>
-            <LiveLineupPanel team={userTeam} formation={baseFormation} playerIds={lineup.filter(Boolean)} players={livePlayer} events={events} sentOffIds={sentOffIds} side="user"/>
-            <LiveLineupPanel team={oppTeam} formation={initialOppFormation} playerIds={oppLineup.filter(Boolean)} players={REAL_SQUADS[oppTeamId]??[]} events={events} sentOffIds={oppSentOffIds} side="opp"/>
+            <LiveLineupPanel team={userTeam} formation={baseFormation} playerIds={lineup.filter(Boolean)} players={livePlayer} events={events} sentOffIds={sentOffIds} side="user" eventTeam={isHome?"home":"away"} currentMinute={currentMinute}/>
+            <LiveLineupPanel team={oppTeam} formation={initialOppFormation} playerIds={oppLineup.filter(Boolean)} players={liveOppPlayers} events={events} sentOffIds={oppSentOffIds} side="opp" eventTeam={isHome?"away":"home"} currentMinute={currentMinute}/>
           </div>
         )}
         {tab === "tacticas" && (
@@ -5064,7 +5110,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         oppTeam:        TEAMS.find(t => t.id === oppTeamId),
         isHome, userGoals, oppGoals, matchday, events,
         players:        newPlayers,
-        opponentPlayers:REAL_SQUADS[oppTeamId]??[],
+        opponentPlayers:participation?.opponentPlayers??REAL_SQUADS[oppTeamId]??[],
         participation,
         jornadaResults: finalFixtures.filter(f => f.matchday === matchday),
         newStandings,
