@@ -7,6 +7,7 @@ export const PRIMARY_NAV = [
 ];
 
 export const MORE_SECTIONS = [
+  { id:"attention", icon:"📥", label:"Centro de atención", description:"Asuntos pendientes", group:"Gestión", accent:"#c9a84c" },
   { id:"calendar", icon:"📅", label:"Calendario", description:"Partidos y jornadas", group:"Competición", accent:"#3b82f6" },
   { id:"standings", icon:"🏆", label:"Clasificación", description:"Tabla y goleadores", group:"Competición", accent:"#c9a84c" },
   { id:"transfers", icon:"💰", label:"Fichajes", description:"Mercado y operaciones", group:"Club", accent:"#22c55e" },

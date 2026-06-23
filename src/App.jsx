@@ -14,6 +14,7 @@ import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
 import SeasonTransitionScreen from "./components/SeasonTransitionScreen.jsx";
 import PreseasonScreen from "./components/PreseasonScreen.jsx";
+import AttentionCenterScreen from "./components/AttentionCenterScreen.jsx";
 import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
@@ -24,6 +25,7 @@ import { createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./
 import { advanceScouting, bootstrapScouting, cancelScoutingMission, createScoutingMission, ensureScoutingState, refreshScoutingRecommendations, registerScoutingSigning, toggleScoutingWatch } from "./scouting/scoutingEngine.js";
 import { PRIMARY_NAV, SECONDARY_SCREEN_IDS } from "./navigation/navigationConfig.js";
 import { acceptClubCounter, acceptPlayerCounter, acceptRoleCounter, advanceTransferNegotiations, completeOffer, createClubOffer, createContractOffer, ensureTransferState, maybeCreateAITransfer, maybeCreateIncomingOffer, refreshTransferListings, resolveIncomingOffer, setUserMarketStatus, withdrawOffer } from "./transfers/transferEngine.js";
+import { getAttentionCount, getAttentionItems, markAttentionItem } from "./attention/attentionEngine.js";
 
 // ─── DATOS ───────────────────────────────────────────────────────────────────
 
@@ -1636,12 +1638,12 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
   );
 }
 
-function BottomNav({ screen, setScreen, disabled }) {
+function BottomNav({ screen, setScreen, disabled, attentionCount = 0 }) {
   if (disabled) return null;
   const moreActive=screen==="more"||SECONDARY_SCREEN_IDS.has(screen);
   return (
     <div style={{background:"rgba(16,19,28,.97)",backdropFilter:"blur(14px)",borderTop:"1px solid rgba(255,255,255,.08)",padding:"4px 5px env(safe-area-inset-bottom,0px)",flexShrink:0,boxShadow:"0 -8px 24px rgba(0,0,0,.28)"}}>
-      <div style={{display:"flex",height:58}}>{PRIMARY_NAV.map(item=>{const active=item.id==="more"?moreActive:screen===item.id;return <button key={item.id} onClick={()=>setScreen(item.id)} className="bottom-nav-btn" style={{position:"relative",flex:1,minWidth:0,background:"transparent",border:"none",color:active?"#c9a84c":"#5f6675",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer",transition:"color .18s,transform .15s"}}>{active&&<span style={{position:"absolute",top:0,width:24,height:2,borderRadius:2,background:"#c9a84c",boxShadow:"0 0 10px rgba(201,168,76,.65)"}}/>}<span style={{fontSize:item.id==="more"?20:19,lineHeight:1,filter:active?"none":"grayscale(.45) opacity(.72)"}}>{item.icon}</span><span style={{fontSize:10,fontWeight:active?800:600,letterSpacing:".1px",whiteSpace:"nowrap"}}>{item.label}</span></button>})}</div>
+      <div style={{display:"flex",height:58}}>{PRIMARY_NAV.map(item=>{const active=item.id==="more"?moreActive:screen===item.id;return <button key={item.id} onClick={()=>setScreen(item.id)} className="bottom-nav-btn" style={{position:"relative",flex:1,minWidth:0,background:"transparent",border:"none",color:active?"#c9a84c":"#5f6675",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer",transition:"color .18s,transform .15s"}}>{active&&<span style={{position:"absolute",top:0,width:24,height:2,borderRadius:2,background:"#c9a84c",boxShadow:"0 0 10px rgba(201,168,76,.65)"}}/>}<span style={{position:"relative",fontSize:item.id==="more"?20:19,lineHeight:1,filter:active?"none":"grayscale(.45) opacity(.72)"}}>{item.icon}{item.id==="more"&&attentionCount>0&&<span style={{position:"absolute",top:-7,right:-12,minWidth:17,height:17,padding:"0 4px",borderRadius:10,background:"#c9a84c",color:"#1a1200",fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 0 2px #10131c"}}>{attentionCount}</span>}</span><span style={{fontSize:10,fontWeight:active?800:600,letterSpacing:".1px",whiteSpace:"nowrap"}}>{item.label}</span></button>})}</div>
     </div>
   );
 }
@@ -2209,7 +2211,7 @@ function TeamSelection({ onSelect }) {
   );
 }
 
-function Dashboard({ game, onPlay, setScreen, lineup }) {
+function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
   const team      = TEAMS.find(t => t.id === game.teamId);
   const standing  = game.standings.find(s => s.teamId === game.teamId);
   const pos       = [...game.standings].sort((a,b) => b.points-a.points || b.goalDifference-a.goalDifference).findIndex(s => s.teamId===game.teamId) + 1;
@@ -2247,6 +2249,8 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
 
   const allPlayed = game.fixtures.every(f=>f.played);
   const latestNews = getDashboardNews(game.news??[],game,3);
+  const urgentAttention = attentionItems.filter(item=>item.priority!=="info");
+  const topAttention = urgentAttention.slice(0,3);
   const medicalAlerts = players.map(player=>({player,risk:calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId}),status:getPhysicalStatus(player)})).filter(item=>item.player.injured||item.risk>50).sort((a,b)=>b.risk-a.risk).slice(0,3);
   const clubPrestigeLevel = getPrestigeLevel(game.legacy?.clubPrestige??30);
   const managerPrestigeLevel = getPrestigeLevel(game.legacy?.manager?.prestige??10,true);
@@ -2326,6 +2330,23 @@ function Dashboard({ game, onPlay, setScreen, lineup }) {
           </div>
         );
       })()}
+
+      <div style={{ background:urgentAttention.length?"linear-gradient(145deg,rgba(201,168,76,.12),#161a24 52%)":"linear-gradient(145deg,rgba(34,197,94,.10),#161a24 52%)", border:`1px solid ${urgentAttention.length?"rgba(201,168,76,.25)":"rgba(34,197,94,.22)"}`, borderRadius:12, padding:14, marginBottom:12 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, marginBottom:urgentAttention.length?9:0 }}>
+          <div>
+            <div style={{ fontSize:11, color:urgentAttention.length?"#c9a84c":"#22c55e", fontWeight:900, letterSpacing:".6px" }}>{urgentAttention.length?"⚠ REQUIERE TU ATENCIÓN":"✅ TODO BAJO CONTROL"}</div>
+            <div style={{ fontSize:10, color:"#6b7280", marginTop:3 }}>{urgentAttention.length?`${urgentAttention.length} asunto${urgentAttention.length===1?"":"s"} pendiente${urgentAttention.length===1?"":"s"}`:"No hay asuntos urgentes."}</div>
+          </div>
+          <button onClick={()=>setScreen("attention")} className={urgentAttention.length?"btn-gold":"btn-ghost"} style={{ padding:"8px 10px", borderRadius:8, fontSize:10, whiteSpace:"nowrap" }}>{urgentAttention.length?"Ver asuntos":"Abrir"}</button>
+        </div>
+        {topAttention.map((item,index)=>(
+          <button key={item.id} onClick={()=>setScreen("attention")} style={{ width:"100%", display:"flex", alignItems:"center", gap:8, textAlign:"left", background:"transparent", border:"none", borderTop:index?"1px solid rgba(255,255,255,.05)":"none", padding:index?"8px 0 0":"0", marginTop:index?0:2, cursor:"pointer" }}>
+            <span style={{ fontSize:13 }}>{item.priority==="critical"?"🔴":"🟠"}</span>
+            <span style={{ flex:1, color:"#dfe3ec", fontSize:11, fontWeight:700, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.title}</span>
+            <span style={{ color:"#c9a84c", fontSize:13 }}>→</span>
+          </button>
+        ))}
+      </div>
 
       <div style={{fontSize:10,color:"#6b7280",fontWeight:800,letterSpacing:".7px",margin:"2px 0 8px"}}>ACCIONES RÁPIDAS</div>
       <div className="quick-actions-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
@@ -5252,13 +5273,39 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
     if (transfer?.player) openPlayerProfile(transfer.player, transfer.type === "buy" ? game.teamId : null);
   };
 
+  const attentionItems = game ? getAttentionItems(game, { lineup }) : [];
+  const attentionCount = getAttentionCount(attentionItems);
+
+  const updateAttentionStatus = (itemId, status) => {
+    setGame(prev => {
+      if (!prev) return prev;
+      const updated = markAttentionItem(prev, itemId, status);
+      saveGame(updated, lineup, formation, subs);
+      return updated;
+    });
+  };
+
+  const handleAttentionOpen = (item) => {
+    updateAttentionStatus(item.id, "seen");
+    const target = item.action?.screen ?? "dashboard";
+    if (target === "playerProfile" && item.playerId) {
+      openPlayerProfileById(item.playerId);
+      return;
+    }
+    setScreen(target);
+  };
+
+  const handleAttentionDismiss = (item) => {
+    updateAttentionStatus(item.id, "dismissed");
+  };
+
   const headerTitle = {
     menu: null, saves: null, country: "Nueva partida", league: "Selecciona liga",
     teams: "Elige tu equipo", dashboard: "Mi Club",
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", more:"Más", settings:"Configuración",
+    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile"].includes(screen);
@@ -5301,8 +5348,9 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "country"   && <CountryScreen onSelect={c => { setPendingCountry(c); setScreen("league"); }} onBack={() => setScreen("menu")} />}
           {screen === "league"    && <LeagueScreen country={pendingCountry} onSelect={l => { setPendingLeague(l); setScreen("teams"); }} onBack={() => setScreen("country")} />}
           {screen === "teams"     && <TeamSelection onSelect={startNewGame} />}
-          {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} />}
-          {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} />}
+          {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} />}
+          {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
+          {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
           {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />}
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={lineup} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={subs} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); }} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
@@ -5326,7 +5374,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         </ScreenWrapper>
       </div>
 
-      <BottomNav screen={screen} setScreen={setScreen} disabled={!showNav} />
+      <BottomNav screen={screen} setScreen={setScreen} disabled={!showNav} attentionCount={attentionCount} />
     </div>
   );
 }
