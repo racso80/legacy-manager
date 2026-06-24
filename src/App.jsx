@@ -4931,6 +4931,8 @@ function collectDataPlayers() {
   return TEAMS.flatMap(team => (REAL_SQUADS[team.id] ?? []).map(player => ({ player, team })));
 }
 
+const BUILT_IN_DATA_PLAYER_IDS = new Set(collectDataPlayers().map(({ player }) => player?.id).filter(Boolean));
+
 function collectSavePlayerIds(game) {
   const ids = new Set();
   (game.players ?? []).forEach(player => player?.id && ids.add(player.id));
@@ -4965,26 +4967,8 @@ function migrateNewDataPlayersToSave(game, dataVersion = DATA_VERSION) {
   const previousVersion = game.saveDataVersion ?? "1.0.0";
   const currentDataRows = collectDataPlayers();
   const currentDataIds = currentDataRows.map(({ player }) => player?.id).filter(Boolean);
-  if (!Array.isArray(game.dataPlayerIds)) {
-    return {
-      ...game,
-      dataVersion,
-      saveDataVersion: dataVersion,
-      dataPlayerIds: currentDataIds,
-      freeAgents: game.freeAgents ?? [],
-      dataMigrations: [{
-        id: `data-baseline-${dataVersion}-${Date.now()}`,
-        type: "baseline",
-        fromVersion: previousVersion,
-        toVersion: dataVersion,
-        date: new Date().toISOString(),
-        count: currentDataIds.length,
-        addedPlayers: [],
-      }, ...(game.dataMigrations ?? [])],
-    };
-  }
   const knownIds = collectSavePlayerIds(game);
-  const previousDataIds = new Set(game.dataPlayerIds ?? []);
+  const previousDataIds = Array.isArray(game.dataPlayerIds) ? new Set(game.dataPlayerIds ?? []) : BUILT_IN_DATA_PLAYER_IDS;
   const alreadyLogged = new Set((game.dataMigrations ?? []).flatMap(log => (log.addedPlayers ?? []).map(player => player.id)));
   const additions = [];
   currentDataRows.forEach(({ player, team }) => {
@@ -5002,6 +4986,15 @@ function migrateNewDataPlayersToSave(game, dataVersion = DATA_VERSION) {
     date: new Date().toISOString(),
     addedPlayers: additions.map(player => ({ id: player.id, name: player.name, originalTeamId: player.originalTeamId ?? null })),
     count: additions.length,
+  } : null;
+  const baselineLog = !Array.isArray(game.dataPlayerIds) ? {
+    id: `data-baseline-${dataVersion}-${Date.now()}`,
+    type: "baseline",
+    fromVersion: previousVersion,
+    toVersion: dataVersion,
+    date: new Date().toISOString(),
+    count: previousDataIds.size,
+    addedPlayers: [],
   } : null;
   const migrationNews = additions.length ? [{
     id: `news-data-migration-${dataVersion}-${Date.now()}`,
@@ -5021,7 +5014,7 @@ function migrateNewDataPlayersToSave(game, dataVersion = DATA_VERSION) {
     saveDataVersion: dataVersion,
     dataPlayerIds: currentDataIds,
     freeAgents: uniqueFreeAgents,
-    dataMigrations: migrationLog ? [migrationLog, ...(game.dataMigrations ?? [])] : (game.dataMigrations ?? []),
+    dataMigrations: [migrationLog, baselineLog, ...(game.dataMigrations ?? [])].filter(Boolean),
     news: migrationNews.length ? mergeNews(game.news ?? [], migrationNews) : (game.news ?? []),
   };
 }
