@@ -40,6 +40,7 @@ function saleCandidate(squad,season,team){
   const balance=squadBalance(squad);
   const candidates=squad.filter(player=>{
     if(player.group==="POR"&&balance.counts.POR<=2)return false;
+    if((balance.counts[player.group]??0)<=groupMin[player.group])return false;
     if(isCorePlayer(player,team)&&Number(player.contractEnd??9999)>Number(season)+1)return false;
     return player.overall<=84&&(player.age>=30||Number(player.contractEnd??9999)<=Number(season)+1||balance.surplus.includes(player.group)||player.marketStatus==="transfer");
   });
@@ -47,7 +48,8 @@ function saleCandidate(squad,season,team){
 }
 
 function loanCandidate(squad){
-  return chooseWeighted(squad.filter(player=>player.age<=24&&player.overall<=79&&player.group!=="POR"),player=>(player.potential??player.overall+4)-(player.overall??65)+6);
+  const balance=squadBalance(squad);
+  return chooseWeighted(squad.filter(player=>player.age<=24&&player.overall<=79&&player.group!=="POR"&&(balance.counts[player.group]??0)>groupMin[player.group]),player=>(player.potential??player.overall+4)-(player.overall??65)+6);
 }
 
 function targetForNeed(buyer,buyerSquad,teams,squads,game){
@@ -59,6 +61,7 @@ function targetForNeed(buyer,buyerSquad,teams,squads,game){
     if(player.overall>(buyer.avg??76)+8)return false;
     if(marketValue(player)>maxValue)return false;
     const sellerBalance=squadBalance(squads[team.id]??[]);
+    if((sellerBalance.counts[player.group]??0)<=groupMin[player.group])return false;
     const sellable=Number(player.contractEnd??9999)<=Number(game.season)+1||sellerBalance.surplus.includes(player.group)||player.age>=30||player.overall<=(team.avg??76)-2||player.marketStatus==="transfer";
     return sellable&&!isCorePlayer(player,team);
   }).map(player=>({player,fromTeam:team,score:(player.overall??70)+(player.age<=24?8:0)+(Number(player.contractEnd??9999)<=Number(game.season)+1?5:0)})));
@@ -70,7 +73,9 @@ export function refreshTransferListings(game,teams,squads,force=false){
   const listings=[];
   teams.filter(team=>team.id!==game.teamId).forEach((team,teamIndex)=>{
     const squad=squads[team.id]??[];
-    const sale=saleCandidate(squad,game.season,team)??stableSort(squad.filter(player=>player.overall<=84),team.id)[0];
+    const balance=squadBalance(squad);
+    const safeFallback=stableSort(squad.filter(player=>player.overall<=84&&player.group!=="POR"&&(balance.counts[player.group]??0)>groupMin[player.group]&&!isCorePlayer(player,team)),team.id)[0];
+    const sale=saleCandidate(squad,game.season,team)??safeFallback;
     const loan=loanCandidate(squad.filter(player=>player.id!==sale?.id));
     const expiring=stableSort(squad.filter(player=>Number(player.contractEnd??9999)<=Number(game.season)+1&&player.id!==sale?.id&&player.id!==loan?.id),`${team.id}:expiring`)[0];
     if(sale){const value=marketValue(sale);listings.push({id:`listing-sale-${game.season}-${sale.id}`,type:"transfer",playerId:sale.id,teamId:team.id,askingPrice:Math.round(value*(.88+(teamIndex%5)*.06)),reason:sale.marketStatus==="transfer"?"Transferible":Number(sale.contractEnd??9999)<=Number(game.season)+1?"Último año de contrato":listingReasons[teamIndex%listingReasons.length],season:String(game.season)});}

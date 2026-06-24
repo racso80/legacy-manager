@@ -954,6 +954,33 @@ function fatigueDeltaPerSegment(tactics) {
 
 // ─── UTILIDADES VISUALES ──────────────────────────────────────────────────────
 
+function calculateBudgetSnapshot(game, team) {
+  const players = game.players ?? [];
+  const weeklyWages = players.reduce((sum, player) => sum + (player.salary ?? 0), 0);
+  const matchday = game.matchday ?? 1;
+  const matchdaysPlayed = Math.max(0, matchday - 1);
+  const remainingMatchdays = Math.max(0, 38 - matchdaysPlayed);
+  const baseBudget = (team?.budget ?? 50) * 1000;
+  const totalWageSpent = matchdaysPlayed * weeklyWages;
+  const clubCash = Math.max(0, Math.round(baseBudget - totalWageSpent + (game.budgetAdjustment ?? 0)));
+  const salaryReserve = Math.round(weeklyWages * remainingMatchdays);
+  const operatingReserve = Math.round((4500 + (team?.fanbase ?? 2) * 650) * Math.max(.25, remainingMatchdays / 38));
+  const bonusReserve = Math.round(Math.max(1000, clubCash * .04));
+  const reserved = Math.min(clubCash, Math.max(0, salaryReserve + operatingReserve + bonusReserve));
+  return {
+    baseBudget,
+    weeklyWages,
+    totalWageSpent,
+    clubCash,
+    salaryReserve,
+    operatingReserve,
+    bonusReserve,
+    reserved,
+    transferBudget: Math.max(0, clubCash - reserved),
+    reservedPct: clubCash > 0 ? Math.round((reserved / clubCash) * 100) : 0,
+  };
+}
+
 const RARITY_ACCENT = { BRONZE: "#cd853f", SILVER: "#9aa0b4", GOLD: "#c9a84c", SPECIAL: "#c4b5fd" };
 const RARITY_BG = { BRONZE: "#2a1a0a", SILVER: "#14161a", GOLD: "#1a1700", SPECIAL: "#180e2a" };
 const RARITY_LABEL = { BRONZE: "Bronce", SILVER: "Plata", GOLD: "Oro", SPECIAL: "Especial" };
@@ -1115,8 +1142,9 @@ function FinancesScreen({ game }) {
   const balanceColor = balance >= 0 ? "#22c55e" : "#ef4444";
   const budgetK       = budgetTotal * 1000;
   const budgetAdjustment = game.budgetAdjustment ?? 0; // €K acumulado: ingresos de jornadas + fichajes/ventas
-  const budgetLeft    = budgetK - totalWageSpent + budgetAdjustment;
-  const budgetPct     = Math.max(0, Math.min(100, Math.round((budgetLeft / budgetK) * 100)));
+  const budgetSnapshot = calculateBudgetSnapshot(game, team);
+  const budgetLeft    = budgetSnapshot.clubCash;
+  const budgetPct     = Math.max(0, Math.min(100, Math.round((budgetSnapshot.transferBudget / Math.max(1,budgetLeft)) * 100)));
   const budgetColor   = budgetPct >= 60 ? "#22c55e" : budgetPct >= 30 ? "#f59e0b" : "#ef4444";
   const topEarners = [...players].sort((a,b)=>(b.salary??0)-(a.salary??0)).slice(0,7);
   const groupWages = { POR:0, DEF:0, MED:0, DEL:0 };
@@ -1150,15 +1178,27 @@ function FinancesScreen({ game }) {
             <div style={{ fontSize:26, fontWeight:800, color:balanceColor }}>{balance>=0?"+":""}{fmt(balance)}</div>
           </div>
           <div style={{ textAlign:"right" }}>
-            <div style={{ fontSize:10, color:"#6b7280", marginBottom:3 }}>PRESUPUESTO RESTANTE</div>
+            <div style={{ fontSize:10, color:"#6b7280", marginBottom:3 }}>CAJA DEL CLUB</div>
             <div style={{ fontSize:20, fontWeight:700, color:budgetColor }}>{fmt(budgetLeft)}</div>
             <div style={{ fontSize:10, color:"#4b5563", marginTop:2 }}>de {fmt(budgetK)} inicial</div>
           </div>
         </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10}}>
+          <div style={{background:"#0d0f14",borderRadius:8,padding:"10px 12px"}}>
+            <div style={{fontSize:10,color:"#6b7280",marginBottom:4}}>RESERVADO PARA GASTOS</div>
+            <div style={{fontSize:18,fontWeight:800,color:"#f59e0b"}}>{fmt(budgetSnapshot.reserved)}</div>
+            <div style={{fontSize:9,color:"#4b5563",marginTop:3}}>Salarios, operativa y primas</div>
+          </div>
+          <div style={{background:"#0d0f14",borderRadius:8,padding:"10px 12px"}}>
+            <div style={{fontSize:10,color:"#6b7280",marginBottom:4}}>PRESUPUESTO FICHAJES</div>
+            <div style={{fontSize:18,fontWeight:800,color:"#22c55e"}}>{fmt(budgetSnapshot.transferBudget)}</div>
+            <div style={{fontSize:9,color:"#4b5563",marginTop:3}}>Disponible real para mercado</div>
+          </div>
+        </div>
         <div style={{ marginTop:10 }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-            <span style={{ fontSize:10, color:"#6b7280" }}>Presupuesto consumido</span>
-            <span style={{ fontSize:10, color:budgetColor, fontWeight:700 }}>{budgetPct}% restante</span>
+            <span style={{ fontSize:10, color:"#6b7280" }}>Parte libre para fichajes</span>
+            <span style={{ fontSize:10, color:budgetColor, fontWeight:700 }}>{budgetPct}% de caja</span>
           </div>
           <div style={{ height:6, background:"#1e2330", borderRadius:3, overflow:"hidden" }}>
             <div style={{ width:`${budgetPct}%`, height:"100%", background:budgetColor, borderRadius:3 }}/>
@@ -1326,7 +1366,8 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
   const matchPlayed  = Math.max(0, matchday - 1);
   const wages        = matchPlayed * weeklyWages;
   const budgetAdjustment = game.budgetAdjustment ?? 0; // €K acumulado: ingresos de jornadas + fichajes/ventas
-  const budgetLeft   = Math.round(budgetK - wages + budgetAdjustment);
+  const budgetSnapshot = calculateBudgetSnapshot(game, team);
+  const budgetLeft   = budgetSnapshot.transferBudget;
   const fmt          = v => v >= 1000 ? `€${(v/1000).toFixed(1)}M` : `€${v}K`;
 
   // Valor de mercado = media * 500K aproximado (simplificado)
@@ -1433,8 +1474,9 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
       <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"10px 14px", flexShrink:0 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
           <div>
-            <div style={{ fontSize:10, color:"#6b7280", fontWeight:600, letterSpacing:".4px" }}>PRESUPUESTO DISPONIBLE</div>
+            <div style={{ fontSize:10, color:"#6b7280", fontWeight:600, letterSpacing:".4px" }}>PRESUPUESTO FICHAJES</div>
             <div style={{ fontSize:22, fontWeight:800, color: budgetLeft > 0 ? "#22c55e" : "#ef4444", marginTop:2 }}>{fmt(budgetLeft)}</div>
+            <div style={{ fontSize:9, color:"#6b7280", marginTop:2 }}>Caja {fmt(budgetSnapshot.clubCash)} · reservado {fmt(budgetSnapshot.reserved)}</div>
           </div>
           <div style={{ textAlign:"right" }}>
             <div style={{ fontSize:10, color:"#6b7280" }}>Masa salarial semanal</div>
@@ -1443,8 +1485,8 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
         </div>
         {/* Barra presupuesto */}
         <div style={{ height:3, background:"#1e2330", borderRadius:2, marginTop:8, overflow:"hidden" }}>
-          <div style={{ width:`${Math.max(0,Math.min(100,Math.round((budgetLeft/budgetK)*100)))}%`, height:"100%",
-            background: budgetLeft > budgetK*0.5 ? "#22c55e" : budgetLeft > budgetK*0.2 ? "#f59e0b" : "#ef4444", borderRadius:2 }}/>
+          <div style={{ width:`${Math.max(0,Math.min(100,Math.round((budgetLeft/Math.max(1,budgetSnapshot.clubCash))*100)))}%`, height:"100%",
+            background: budgetLeft > budgetSnapshot.clubCash*0.5 ? "#22c55e" : budgetLeft > budgetSnapshot.clubCash*0.2 ? "#f59e0b" : "#ef4444", borderRadius:2 }}/>
         </div>
       </div>
 
@@ -2243,12 +2285,8 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
   const lineupCount      = lineupPlayers.length;
 
   // Presupuesto disponible REAL — mismo cálculo que en FinancesScreen, para que ambas pantallas coincidan
-  const weeklyWages   = players.reduce((s, p) => s + (p.salary ?? 0), 0);
-  const matchdaysPlayed = Math.max(0, game.matchday - 1);
-  const totalWageSpent  = matchdaysPlayed * weeklyWages;
-  const budgetK        = team.budget * 1000;
-  const budgetAdjustment = game.budgetAdjustment ?? 0;
-  const budgetLeft     = budgetK - totalWageSpent + budgetAdjustment;
+  const budgetSnapshot = calculateBudgetSnapshot(game, team);
+  const budgetLeft     = budgetSnapshot.transferBudget;
   const fmtBudget = (v) => v >= 1000 ? `€${(v/1000).toFixed(1)}M` : `€${Math.round(v)}K`;
 
   const getOpponent = (f) => TEAMS.find(t => t.id===(f.homeTeamId===game.teamId?f.awayTeamId:f.homeTeamId));
@@ -2362,7 +2400,6 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
 
       <div style={{fontSize:10,color:"#6b7280",fontWeight:800,letterSpacing:".7px",margin:"2px 0 8px"}}>ACCIONES RÁPIDAS</div>
       <div className="quick-actions-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-        {!allPlayed&&<button onClick={()=>lineupValid?onPlay():setScreen("lineup")} className="quick-action-card" style={{gridColumn:"1 / -1",display:"flex",alignItems:"center",gap:12,textAlign:"left",background:"linear-gradient(135deg,rgba(201,168,76,.2),#1a1f2e)",border:"1px solid rgba(201,168,76,.35)",borderRadius:11,padding:13,cursor:"pointer"}}><span style={{width:42,height:42,borderRadius:10,background:"rgba(201,168,76,.16)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>⚽</span><span style={{flex:1}}><strong style={{display:"block",fontSize:13,color:"#e8eaf0"}}>Jugar partido</strong><small style={{display:"block",fontSize:9,color:lineupValid?"#c9a84c":"#f59e0b",marginTop:3}}>{lineupValid?`Jornada ${nextFixture?.matchday} · equipo preparado`:`Completar alineación · ${lineupCount}/11`}</small></span><span style={{color:"#c9a84c",fontSize:17}}>→</span></button>}
         {[["📋","Gestionar alineación","lineup","Once y suplentes","#3b82f6"],["💰","Mercado de fichajes","transfers","Altas y bajas","#22c55e"],["🏋","Entrenar plantilla","training","Plan semanal","#f59e0b"],["📰","Ver noticias","news","Centro de prensa","#a78bfa"]].map(([icon,label,target,helper,accent],index)=><button key={target} onClick={()=>setScreen(target)} className="quick-action-card" style={{display:"flex",alignItems:"center",gap:9,textAlign:"left",background:`linear-gradient(145deg,${accent}10,#161a24)`,border:`1px solid ${accent}22`,borderRadius:10,padding:11,minHeight:72,cursor:"pointer",animationDelay:`${index*35}ms`}}><span style={{fontSize:20}}>{icon}</span><span><strong style={{display:"block",fontSize:10,color:"#e8eaf0",lineHeight:1.25}}>{label}</strong><small style={{display:"block",fontSize:8,color:"#6b7280",marginTop:3}}>{helper}</small></span></button>)}
       </div>
 
@@ -2465,6 +2502,8 @@ function energyLevel(fatigue) {
   if (energy >= 40) return { energy, color: "#f97316", emoji: "🟠", label: "Muy cansado" };
   return { energy, color: "#ef4444", emoji: "🔴", label: "Agotado" };
 }
+
+const slotPositionGroup = position => position === "POR" ? "POR" : ["DFC","LD","LI"].includes(position) ? "DEF" : ["MCD","MC","MCO","MD","MI"].includes(position) ? "MED" : "DEL";
 
 function LineupScreen({ game, players, lineup, setLineup, formation, setFormation, subs, setSubs, savedLineups, onSaveLineups, onOpenPlayer }) {
   const [activeSlot, setActiveSlot] = useState(null); // null | {type:'starter',idx} | {type:'sub',idx}
@@ -2642,14 +2681,25 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
       const starter = players.find(p => p.id === starterId);
       if (!starter) return;
       const risk = restRisk(starter);
-      if (!risk || risk.level === "low") return; // solo rota a los muy cansados/en riesgo
+      const starterEnergy = energyLevel(starter.fatigue).energy;
+      if ((!risk || risk.risk < 51) && starterEnergy >= 45) return; // solo rota con motivo fÃ­sico claro
       const posLabel = slotPositions[idx];
       const candidates = [...newSubs.filter(Boolean).map(id => players.find(p => p.id === id)), ...notCalled]
         .filter(Boolean)
-        .filter(p => !p.injured && !p.suspended && energyLevel(p.fatigue).energy > energyLevel(starter.fatigue).energy + 15)
+        .filter(p => {
+          if (p.injured || p.suspended) return false;
+          const naturalFit = p.pos === posLabel || p.group === slotPositionGroup(posLabel);
+          const energyGain = energyLevel(p.fatigue).energy - starterEnergy;
+          const qualityGap = (starter.overall ?? 70) - (p.overall ?? 70);
+          const critical = (risk?.risk ?? 0) >= 76 || starterEnergy < 35;
+          return naturalFit && energyGain >= (critical ? 10 : 18) && qualityGap <= (critical ? 10 : 6);
+        })
         .sort((a,b) => {
           const aSame = a.pos === posLabel ? 1 : 0, bSame = b.pos === posLabel ? 1 : 0;
           if (aSame !== bSame) return bSame - aSame;
+          const aGap = Math.abs((starter.overall ?? 70) - (a.overall ?? 70));
+          const bGap = Math.abs((starter.overall ?? 70) - (b.overall ?? 70));
+          if (aGap !== bGap) return aGap - bGap;
           return energyLevel(b.fatigue).energy - energyLevel(a.fatigue).energy;
         });
       const replacement = candidates[0];
@@ -2665,21 +2715,24 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
 
   // ── 9. Mejor once disponible — también como PROPUESTA ──
   const computeBestXI = () => {
-    const score = (p) => p.overall * 0.7 + energyLevel(p.fatigue).energy * 0.3;
+    const isCriticalPhysical = (p) => p.injured || p.suspended || calculateInjuryRisk(p,{fixtures:game.fixtures,teamId:game.teamId}) >= 76 || energyLevel(p.fatigue).energy < 25;
+    const score = (p, posLabel) => (p.overall ?? 70) + (p.pos === posLabel ? 9 : p.group === slotPositionGroup(posLabel) ? 3 : -8);
     const newLineup = emptyLineup();
     const claimed = new Set();
     slotPositions.forEach((posLabel, idx) => {
       const candidates = available
         .filter(p => !claimed.has(p.id))
+        .filter(p => !isCriticalPhysical(p))
         .sort((a,b) => {
-          const aSame = a.pos === posLabel ? 1 : 0, bSame = b.pos === posLabel ? 1 : 0;
-          if (aSame !== bSame) return bSame - aSame;
-          return score(b) - score(a);
+          const aScore = score(a, posLabel);
+          const bScore = score(b, posLabel);
+          if (aScore !== bScore) return bScore - aScore;
+          return (b.overall ?? 0) - (a.overall ?? 0);
         });
       const best = candidates[0];
       if (best) { newLineup[idx] = best.id; claimed.add(best.id); }
     });
-    const restPool = available.filter(p => !claimed.has(p.id)).sort((a,b) => score(b) - score(a));
+    const restPool = available.filter(p => !claimed.has(p.id)).sort((a,b) => (b.overall ?? 0) - (a.overall ?? 0));
     const newSubs = emptyBench();
     restPool.slice(0, BENCH_SLOTS).forEach((p, i) => { newSubs[i] = p.id; claimed.add(p.id); });
 
@@ -3787,6 +3840,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [oppSentOffIds, setOppSentOffIds] = useState([]);
   const [currentMinute, setCurrentMinute] = useState(0);
   const [pauseEvent, setPauseEvent] = useState(null);
+  const [playing, setPlaying] = useState(false);
   // IDs de jugadores ya sustituidos (salieron del campo) — no pueden volver a jugar este partido
   const [subbedOutIds, setSubbedOutIds] = useState([]);
   const [oppCallup] = useState(()=>buildMatchdaySquad(initialOppPlayers,initialOppFormation,BENCH_SLOTS));
@@ -3909,7 +3963,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     if(pauseEvent){setPauseEvent(null);setKeyEventBanner(null);if(pauseEvent.type==="INJURY")setPendingInjury(null);}
     if(currentMinute>=intervalEnd){
       setPauseEvent(null);setKeyEventBanner(null);
-      const next=segment+1;setSegment(next);if(next>=6)setFinished(true);return;
+      const next=segment+1;setSegment(next);if(next>=6){setFinished(true);setPlaying(false);}return;
     }
     const starterIds = lineup.filter(Boolean);
     const starterPlayers = (starterIds.length > 0
@@ -4015,13 +4069,20 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
 
     setCurrentMinute(reachedMinute);
     if(flow.pauseEvent){
+      setPlaying(false);
       setPauseEvent(flow.pauseEvent);
       if(flow.pauseEvent.type==="INJURY")setTab("cambios");else setTab("eventos");
     }else{
       setPauseEvent(null);
-      const next=segment+1;setSegment(next);if(next>=6)setFinished(true);
+      const next=segment+1;setSegment(next);if(next>=6){setFinished(true);setPlaying(false);}
     }
   };
+
+  useEffect(() => {
+    if (!playing || finished || pauseEvent || pendingInjury) return;
+    const timer = setTimeout(() => simNext(), 1000);
+    return () => clearTimeout(timer);
+  }, [playing, finished, pauseEvent, pendingInjury, currentMinute, segment]);
 
   const endMatch = () => onMatchEnd(fixture.id, score.home, score.away, events, livePlayer, {
     teamId: game.teamId,
@@ -4287,10 +4348,17 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       {/* Controles */}
       <div style={{ padding: 12, background: "#161a24", borderTop: "1px solid rgba(255,255,255,.08)", flexShrink: 0 }}>
         {!finished ? (
-          <button onClick={simNext} className="btn-gold"
+          <>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+            <button onClick={()=>setPlaying(value=>!value)} className={playing?"btn-ghost":"btn-gold"} disabled={!!pendingInjury} style={{padding:12,borderRadius:9,fontSize:13,opacity:pendingInjury?.65:1}}>{playing?"Pausa":"Play"}</button>
+            <button onClick={()=>{setPlaying(false);simNext();}} className="btn-ghost" style={{padding:12,borderRadius:9,fontSize:13}}>Avance manual</button>
+          </div>
+          <button onClick={()=>{setPlaying(false);simNext();}} className="btn-gold"
             style={{ width:"100%", padding:14, borderRadius:9, fontSize:14 }}>
             {pauseEvent?(currentMinute>=segments[segment]?`▶ Cerrar pausa del min ${currentMinute}'`:`▶ Continuar simulación → hasta min ${segments[segment]}'`):`▶ Simular tramo ${segment + 1}/6 → hasta min ${segments[segment]}'`}
           </button>
+          <div style={{fontSize:9,color:"#6b7280",textAlign:"center",lineHeight:1.4,marginTop:7}}>1 segundo real = 1 minuto de partido. Se detiene en goles, penaltis, tarjetas, lesiones y decisiones.</div>
+          </>
         ) : (
           <>
             <div style={{ background: "#1a1f2e", borderRadius: 8, padding: 12, marginBottom: 10, textAlign: "center" }}>
@@ -5068,6 +5136,9 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
       const injuryEventsInMatch = events.filter(e => e.type === "INJURY" && e.team === "user");
       const newlyInjuredIds = new Set(injuryEventsInMatch.map(e => e.playerId));
       const playersSource  = livePlayer ?? prev.players;
+      const nextUserFixture = finalFixtures.find(item => !item.played && (item.homeTeamId === prev.teamId || item.awayTeamId === prev.teamId));
+      const restDays = nextUserFixture ? Math.max(3, Math.min(14, (nextUserFixture.matchday - matchday) * 7)) : 10;
+      const trainingLoadPenalty = ({low:0,medium:2,high:5,veryHigh:8}[prev.trainingPlan?.load] ?? 2);
       const recoveredPlayers = playersSource.map(p => {
         const wasSuspended = p.suspended && p.suspGames > 0; // venía sancionado de antes (ya cumplió este partido)
         const extraYellows = yellowsInMatch.filter(id => id === p.id).length;
@@ -5085,10 +5156,15 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         const finalSuspGames = remainingFromBefore + newSuspensionGames;
 
         const medicalPlayer = newlyInjuredIds.has(p.id) ? p : advanceMedicalRecovery(normalizeMedicalPlayer(p), 7);
-        const fatigueRecovery = (!medicalPlayer.injured && !p.suspended) ? 15 : 25;
+        const resistance = medicalPlayer.attrs?.fisico ?? 70;
+        const agePenalty = medicalPlayer.age >= 34 ? 5 : medicalPlayer.age >= 31 ? 3 : medicalPlayer.age <= 22 ? -2 : 0;
+        const resistanceBonus = Math.round((resistance - 70) / 8);
+        const fatigueRecovery = medicalPlayer.injured || p.suspended
+          ? 25
+          : Math.max(14, Math.min(44, Math.round(restDays * 5.2 + resistanceBonus - agePenalty - trainingLoadPenalty)));
         return {
           ...medicalPlayer,
-          fatigue:     Math.max(0, Math.round(medicalPlayer.fatigue - fatigueRecovery + Math.floor(Math.random() * 4))),
+          fatigue:     Math.max(0, Math.round(medicalPlayer.fatigue - fatigueRecovery + Math.floor(Math.random() * 3))),
           morale:      Math.max(10, Math.min(100, p.morale + moraleDelta + Math.floor(Math.random()*4)-2)),
           yellowCards: gotRed ? 0 : newYellowCount % 5,
           suspended:   finalSuspGames > 0,
@@ -5252,7 +5328,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         const historyEntry = createSeasonHistoryEntry(p, prev, prev.teamId, teamData?.name ?? prev.name);
         const evolved = {
           ...p,
-          fatigue: Math.max(0, Math.round(Math.random() * 15)),
+          fatigue: Math.max(0, Math.round(Math.random() * 3)),
           morale: Math.max(50, Math.min(90, p.morale + Math.floor(Math.random()*10)-3)),
           yellowCards: 0, suspended: false, suspGames: 0, injured: false, injuryGames: 0,
           medical:{ ...(p.medical ?? {}), phase:"available", remainingDays:0, recovery:100 },
