@@ -145,6 +145,20 @@ export function getAttentionItems(game, context = {}) {
       }));
     }
 
+    const accumulatedFatigue = player.accumulatedFatigue ?? player.medical?.accumulatedFatigue ?? 0;
+    if (!player.injured && accumulatedFatigue >= 55) {
+      items.push(createItem(game, {
+        id: `medical-accumulated-fatigue:${player.id}:${Math.floor(accumulatedFatigue / 10)}`,
+        category: "medical",
+        priority: accumulatedFatigue >= 75 ? "critical" : "important",
+        title: `${player.name} acumula demasiados minutos`,
+        summary: `Fatiga acumulada ${accumulatedFatigue}/100. Se recomienda descanso o rotación.`,
+        playerId: player.id,
+        action: { screen: "lineup", playerId: player.id },
+        actionLabel: "Revisar alineación",
+      }));
+    }
+
     if ((player.morale ?? 70) <= 35) {
       items.push(createItem(game, {
         id: `morale-low:${player.id}:${Math.floor((player.morale ?? 0) / 10)}`,

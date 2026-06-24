@@ -1618,7 +1618,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
               </div>
               {!activeOffer&&isFreeAgent(selected)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#0d0f14",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:7,padding:"9px 10px",fontSize:12}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#0d0f14",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:7}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} años</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#0d0f14",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:7,padding:"9px 10px"}}>{["Estrella","Titular","Rotación","Promesa","Suplente"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>canAttract(selected)&&onFreeAgentOffer(selected,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",width:"100%",padding:12,borderRadius:8,fontSize:13}}>Negociar contrato</button></div>}
               {!activeOffer&&!isFreeAgent(selected)&&<><div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:7,marginBottom:8}}><input type="number" value={clubAmount} onChange={event=>setClubAmount(Number(event.target.value))} style={{background:"#0d0f14",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:7,padding:"9px 10px",fontSize:12}}/><span style={{alignSelf:"center",fontSize:9,color:"#6b7280"}}>€K · {selected._listing?.type==="loan"?"coste cesión":"oferta fija"}</span></div><button onClick={()=>canAttract(selected)&&clubAmount<=budgetLeft&&onClubOffer(selected,clubAmount,marketValue(selected),suggestedSalary(selected),selected._listing)} className="btn-gold" style={{width:"100%",padding:12,borderRadius:8,fontSize:13}}>Enviar {selected._listing?.type==="loan"?"propuesta de cesión":"oferta al club"}</button></>}
-              {activeOffer&&<div style={{background:"#0d0f14",borderRadius:9,padding:10}}><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>NEGOCIACIÓN EN CURSO · {activeOffer.dealType==="loan"?"CESIÓN":"FICHAJE"}</div><div style={{fontSize:12,color:"#e8eaf0",margin:"5px 0 9px"}}>{activeOffer.status==='pendingClub'?`El club responderá en ${activeOffer.responseDays??1} días.`:activeOffer.status==='clubCounter'?`Contraoferta del club: ${fmt(activeOffer.counterAmount)}`:activeOffer.status==='rejected'?'El club ha rechazado la oferta.':activeOffer.status==='outbid'?'Otro club ha superado tu oferta y se ha adelantado.':activeOffer.status==='clubAccepted'?'El club acepta. Ahora negocia con el jugador.':activeOffer.status==='pendingPlayer'?'El jugador estudia el contrato.':activeOffer.status==='playerCounter'?`El jugador solicita ${fmt(activeOffer.counterSalary)}/sem.`:activeOffer.status==='roleCounter'?`El jugador exige un rol de ${activeOffer.counterRole}.`:activeOffer.status==='playerRejected'?'El jugador rechaza las condiciones.':activeOffer.status==='ready'?'Acuerdo total alcanzado.':'Operación cerrada.'}</div>{activeOffer.status==='clubCounter'&&<button onClick={()=>onAcceptClubCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar contraoferta</button>}{['clubAccepted','playerRejected'].includes(activeOffer.status)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:6,padding:8}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} años</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6,padding:8}}>{["Estrella","Titular","Rotación","Promesa","Suplente"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>onContractOffer(activeOffer.id,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",padding:9}}>Enviar contrato al jugador</button></div>}{activeOffer.status==='playerCounter'&&<button onClick={()=>onAcceptPlayerCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar petición salarial</button>}{activeOffer.status==='roleCounter'&&<button onClick={()=>onAcceptRoleCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar rol solicitado</button>}{activeOffer.status==='ready'&&<button onClick={()=>onFinalizeOffer(activeOffer,selected)} className="btn-gold" style={{width:"100%",padding:10}}>Cerrar {activeOffer.dealType==="loan"?"cesión":"fichaje"}</button>}{activeOffer.status!=="ready"&&<button onClick={()=>onWithdrawOffer(activeOffer.id)} className="btn-ghost" style={{width:"100%",padding:8,marginTop:7}}>Retirarse de la negociación</button>}</div>}
+              {activeOffer&&<div style={{background:"#0d0f14",borderRadius:9,padding:10}}><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>NEGOCIACIÓN EN CURSO · {activeOffer.dealType==="loan"?"CESIÓN":activeOffer.dealType==="free"?"AGENTE LIBRE":"FICHAJE"}</div><div style={{fontSize:12,color:"#e8eaf0",margin:"5px 0 9px"}}>{activeOffer.status==='pendingClub'?`El club responderá en ${activeOffer.responseDays??1} días.`:activeOffer.status==='clubCounter'?`Contraoferta del club: ${fmt(activeOffer.counterAmount)}`:activeOffer.status==='rejected'?'El club ha rechazado la oferta.':activeOffer.status==='outbid'?'Otro club ha superado tu oferta y se ha adelantado.':activeOffer.status==='clubAccepted'?'El club acepta. Ahora negocia con el jugador.':activeOffer.status==='pendingPlayer'?'El jugador estudia el contrato.':activeOffer.status==='playerCounter'?`El jugador solicita ${fmt(activeOffer.counterSalary)}/sem.`:activeOffer.status==='roleCounter'?`El jugador exige un rol de ${activeOffer.counterRole}.`:activeOffer.status==='playerRejected'?'El jugador rechaza las condiciones.':activeOffer.status==='ready'?'Acuerdo total alcanzado.':'Operación cerrada.'}</div>{activeOffer.status==='clubCounter'&&<button onClick={()=>onAcceptClubCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar contraoferta</button>}{['clubAccepted','playerRejected'].includes(activeOffer.status)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:6,padding:8}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} años</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6,padding:8}}>{["Estrella","Titular","Rotación","Promesa","Suplente"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>onContractOffer(activeOffer.id,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",padding:9}}>Enviar contrato al jugador</button></div>}{activeOffer.status==='playerCounter'&&<button onClick={()=>onAcceptPlayerCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar petición salarial</button>}{activeOffer.status==='roleCounter'&&<button onClick={()=>onAcceptRoleCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar rol solicitado</button>}{activeOffer.status==='ready'&&<button onClick={()=>{onFinalizeOffer(activeOffer,selected);setSelected(null);setTab("historial");}} className="btn-gold" style={{width:"100%",padding:10}}>Cerrar {activeOffer.dealType==="loan"?"cesión":"fichaje"}</button>}{activeOffer.status!=="ready"&&<button onClick={()=>onWithdrawOffer(activeOffer.id)} className="btn-ghost" style={{width:"100%",padding:8,marginTop:7}}>Retirarse de la negociación</button>}</div>}
               {activeOffer?.status==="clubCounter"&&<button onClick={()=>onClubOffer(selected,Math.round((activeOffer.amount+activeOffer.counterAmount)/2),marketValue(selected),suggestedSalary(selected),selected._listing)} style={{width:"100%",padding:8,marginTop:6,background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.25)",color:"#60a5fa",borderRadius:7,fontSize:10,fontWeight:800}}>Mejorar oferta a {fmt(Math.round((activeOffer.amount+activeOffer.counterAmount)/2))}</button>}
             </div>
           )}
@@ -2705,7 +2705,8 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
       if (!starter) return;
       const risk = restRisk(starter);
       const starterEnergy = energyLevel(starter.fatigue).energy;
-      if ((!risk || risk.risk < 51) && starterEnergy >= 45) return; // solo rota con motivo fÃ­sico claro
+      const accumulated=starter.accumulatedFatigue??starter.medical?.accumulatedFatigue??0;
+      if ((!risk || risk.risk < 51) && starterEnergy >= 45 && accumulated < 55) return; // solo rota con motivo físico claro
       const posLabel = slotPositions[idx];
       const candidates = [...newSubs.filter(Boolean).map(id => players.find(p => p.id === id)), ...notCalled]
         .filter(Boolean)
@@ -2714,7 +2715,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
           const naturalFit = p.pos === posLabel || p.group === slotPositionGroup(posLabel);
           const energyGain = energyLevel(p.fatigue).energy - starterEnergy;
           const qualityGap = (starter.overall ?? 70) - (p.overall ?? 70);
-          const critical = (risk?.risk ?? 0) >= 76 || starterEnergy < 35;
+          const critical = (risk?.risk ?? 0) >= 76 || starterEnergy < 35 || accumulated >= 75;
           return naturalFit && energyGain >= (critical ? 10 : 18) && qualityGap <= (critical ? 10 : 6);
         })
         .sort((a,b) => {
@@ -2738,14 +2739,14 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
 
   // ── 9. Mejor once disponible — también como PROPUESTA ──
   const computeBestXI = () => {
-    const isCriticalPhysical = (p) => p.injured || p.suspended || calculateInjuryRisk(p,{fixtures:game.fixtures,teamId:game.teamId}) >= 76 || energyLevel(p.fatigue).energy < 25;
+    const isUnavailable = (p) => p.injured || p.suspended;
     const score = (p, posLabel) => (p.overall ?? 70) + (p.pos === posLabel ? 9 : p.group === slotPositionGroup(posLabel) ? 3 : -8);
     const newLineup = emptyLineup();
     const claimed = new Set();
     slotPositions.forEach((posLabel, idx) => {
       const candidates = available
         .filter(p => !claimed.has(p.id))
-        .filter(p => !isCriticalPhysical(p))
+        .filter(p => !isUnavailable(p))
         .sort((a,b) => {
           const aScore = score(a, posLabel);
           const bScore = score(b, posLabel);
@@ -3864,6 +3865,8 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [currentMinute, setCurrentMinute] = useState(0);
   const [pauseEvent, setPauseEvent] = useState(null);
   const [playing, setPlaying] = useState(false);
+  const [matchPhase, setMatchPhase] = useState("firstRegular");
+  const [addedTime, setAddedTime] = useState({ first:null, second:null });
   // IDs de jugadores ya sustituidos (salieron del campo) — no pueden volver a jugar este partido
   const [subbedOutIds, setSubbedOutIds] = useState([]);
   const [oppCallup] = useState(()=>buildMatchdaySquad(initialOppPlayers,initialOppFormation,BENCH_SLOTS));
@@ -3892,6 +3895,62 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const homeScore  = isHome ? score.home : score.away;
   const awayScore  = isHome ? score.away : score.home;
   const segments   = [15, 30, 45, 60, 75, 90];
+  const halfLabel = matchPhase.startsWith("first") ? "first" : "second";
+  const matchTargetMinute = matchPhase==="firstAdded" ? 45 + (addedTime.first ?? 0) : matchPhase==="secondAdded" ? 90 + (addedTime.second ?? 0) : matchPhase.startsWith("second") ? 90 : 45;
+  const displayMinute = currentMinute>90 ? `90+${currentMinute-90}` : currentMinute>45&&matchPhase.startsWith("first") ? `45+${currentMinute-45}` : currentMinute;
+  const periodProgressStart = matchPhase.startsWith("second") ? 45 : 0;
+  const periodProgressEnd = matchTargetMinute;
+  const periodProgress = Math.max(0,Math.min(100,Math.round(((currentMinute-periodProgressStart)/Math.max(1,periodProgressEnd-periodProgressStart))*100)));
+  const calculateAddedMinutes = (half) => {
+    const halfEvents = events.filter(event => half==="first" ? event.minute<=45 : event.minute>45&&event.minute<=90);
+    const rawSeconds = halfEvents.reduce((sum,event)=>{
+      if(event.type==="GOAL"||event.type==="PENALTY")return sum+35;
+      if(event.type==="INJURY")return sum+95;
+      if(event.type==="SUBSTITUTION")return sum+30;
+      if(event.type==="RED")return sum+35;
+      if(event.type==="YELLOW")return sum+15;
+      return sum;
+    }, half==="second" ? 30 : 0);
+    return Math.max(0,Math.min(7,Math.round(rawSeconds/60)));
+  };
+  const triggerBoundaryPause = (minute) => {
+    if(matchPhase==="firstRegular"&&minute>=45){
+      const added=calculateAddedMinutes("first");
+      const event={minute:45,type:"ADDED_TIME",description:`⏱️ Tiempo añadido de la primera parte: +${added}.`};
+      setAddedTime(current=>({...current,first:added}));
+      setMatchPhase("firstAddedReady");
+      setEvents(current=>current.some(item=>item.type==="ADDED_TIME"&&item.minute===45)?current:[...current,event]);
+      setPauseEvent(event);
+      setKeyEventBanner(event);
+      setPlaying(false);setTab("eventos");
+      return true;
+    }
+    if(matchPhase==="firstAdded"&&minute>=45+(addedTime.first??0)){
+      const event={minute,type:"HALFTIME",description:"☕ Descanso. Revisa cambios, tácticas y estado físico antes de iniciar la segunda parte."};
+      setMatchPhase("halftime");
+      setEvents(current=>current.some(item=>item.type==="HALFTIME")?current:[...current,event]);
+      setPauseEvent(event);
+      setKeyEventBanner({minute,type:"HALFTIME",description:"☕ Descanso. La segunda parte no comienza hasta que pulses Play."});
+      setPlaying(false);setTab("tacticas");
+      return true;
+    }
+    if(matchPhase==="secondRegular"&&minute>=90){
+      const added=calculateAddedMinutes("second");
+      const event={minute:90,type:"ADDED_TIME",description:`⏱️ Tiempo añadido de la segunda parte: +${added}.`};
+      setAddedTime(current=>({...current,second:added}));
+      setMatchPhase("secondAddedReady");
+      setEvents(current=>current.some(item=>item.type==="ADDED_TIME"&&item.minute===90)?current:[...current,event]);
+      setPauseEvent(event);
+      setKeyEventBanner(event);
+      setPlaying(false);setTab("eventos");
+      return true;
+    }
+    if(matchPhase==="secondAdded"&&minute>=90+(addedTime.second??0)){
+      setFinished(true);setPlaying(false);setPauseEvent(null);setKeyEventBanner(null);
+      return true;
+    }
+    return false;
+  };
 
   // Realizar una sustitución: sale outId, entra inId (debe estar en el banco)
   const doSubstitution = (outId, inId) => {
@@ -3981,13 +4040,10 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   };
 
   const simNext = () => {
-    if (finished || segment >= 6) return;
-    const intervalEnd=segments[segment];
-    if(pauseEvent){setPauseEvent(null);setKeyEventBanner(null);if(pauseEvent.type==="INJURY")setPendingInjury(null);}
-    if(currentMinute>=intervalEnd){
-      setPauseEvent(null);setKeyEventBanner(null);
-      const next=segment+1;setSegment(next);if(next>=6){setFinished(true);setPlaying(false);}return;
-    }
+    if (finished || ["firstAddedReady","halftime","secondAddedReady"].includes(matchPhase)) return;
+    if(triggerBoundaryPause(currentMinute))return;
+    const intervalEnd=Math.min(currentMinute+1,matchTargetMinute);
+    const currentSegment=Math.min(5,Math.max(0,Math.floor((Math.max(1,intervalEnd)-1)/15)));
     const starterIds = lineup.filter(Boolean);
     const starterPlayers = (starterIds.length > 0
       ? livePlayer.filter(p => starterIds.includes(p.id))
@@ -4000,7 +4056,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     const oppStr=strengthWithPlayerCount(calcTeamStrength(oppSquad,!isHome,DEFAULT_TACTICS)+(Math.random()*4-2),oppCount);
     const yellowCounts={user:{},opp:{}};
     events.filter(event=>event.type==="YELLOW").forEach(event=>{const side=event.team==="user"||event.team==="opp"?event.team:null;if(side&&event.playerId)yellowCounts[side][event.playerId]=(yellowCounts[side][event.playerId]??0)+1;});
-    const generated=generateSegmentEvents(segment,starterPlayers,userStr,oppStr,score,tactics,isHome,oppSquad,{
+    const generated=generateSegmentEvents(currentSegment,starterPlayers,userStr,oppStr,score,tactics,isHome,oppSquad,{
       fixtures:game.fixtures,teamId:game.teamId,matchday:fixture.matchday,
       minuteStart:Math.max(segment*15+1,currentMinute+1),minuteEnd:intervalEnd,yellowCounts,
     });
@@ -4097,7 +4153,8 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       if(flow.pauseEvent.type==="INJURY")setTab("cambios");else setTab("eventos");
     }else{
       setPauseEvent(null);
-      const next=segment+1;setSegment(next);if(next>=6){setFinished(true);setPlaying(false);}
+      const next=Math.min(6,Math.ceil(reachedMinute/15));setSegment(next);
+      triggerBoundaryPause(reachedMinute);
     }
   };
 
@@ -4105,7 +4162,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     if (!playing || finished || pauseEvent || pendingInjury) return;
     const timer = setTimeout(() => simNext(), 1000);
     return () => clearTimeout(timer);
-  }, [playing, finished, pauseEvent, pendingInjury, currentMinute, segment]);
+  }, [playing, finished, pauseEvent, pendingInjury, currentMinute, segment, matchPhase, addedTime.first, addedTime.second]);
 
   const togglePlay = () => {
     if (playing) {
@@ -4113,6 +4170,23 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       return;
     }
     if (pendingInjury) return;
+    if (matchPhase==="firstAddedReady") {
+      const added=addedTime.first??0;
+      setPauseEvent(null);setKeyEventBanner(null);
+      if(added>0){setMatchPhase("firstAdded");setPlaying(true);}
+      else{const event={minute:45,type:"HALFTIME",description:"☕ Descanso. Revisa cambios, tácticas y estado físico antes de iniciar la segunda parte."};setMatchPhase("halftime");setEvents(current=>current.some(item=>item.type==="HALFTIME")?current:[...current,event]);setPauseEvent(event);setPlaying(false);}
+      return;
+    }
+    if (matchPhase==="halftime") {
+      setPauseEvent(null);setKeyEventBanner(null);setMatchPhase("secondRegular");setPlaying(true);return;
+    }
+    if (matchPhase==="secondAddedReady") {
+      const added=addedTime.second??0;
+      setPauseEvent(null);setKeyEventBanner(null);
+      if(added>0){setMatchPhase("secondAdded");setPlaying(true);}
+      else{setFinished(true);setPlaying(false);}
+      return;
+    }
     if (pauseEvent) {
       setPauseEvent(null);
       setKeyEventBanner(null);
@@ -4122,6 +4196,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
 
   const manualAdvance = () => {
     setPlaying(false);
+    if(["firstAddedReady","halftime","secondAddedReady"].includes(matchPhase)){togglePlay();return;}
     simNext();
   };
 
@@ -4137,8 +4212,8 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     opponentPlayers:liveOppPlayers,
   });
 
-  const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",DEFENSIVE_ACTION:"#60a5fa",INJURY:"#f97316",SUBSTITUTION:"#a855f7" };
-  const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÓN",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",DEFENSIVE_ACTION:"DEFENSA",INJURY:"LESIÓN",SUBSTITUTION:"CAMBIO" };
+  const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",DEFENSIVE_ACTION:"#60a5fa",INJURY:"#f97316",SUBSTITUTION:"#a855f7",ADDED_TIME:"#c9a84c",HALFTIME:"#c9a84c" };
+  const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÓN",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",DEFENSIVE_ACTION:"DEFENSA",INJURY:"LESIÓN",SUBSTITUTION:"CAMBIO",ADDED_TIME:"DESCUENTO",HALFTIME:"DESCANSO" };
 
   const avgFatigue = Math.round(livePlayer.filter(p=>!p.injured).reduce((s,p)=>s+p.fatigue,0) / Math.max(1,livePlayer.filter(p=>!p.injured).length));
   const fatColor   = avgFatigue <= 40 ? "#22c55e" : avgFatigue <= 65 ? "#f59e0b" : "#ef4444";
@@ -4160,7 +4235,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       {/* Marcador */}
       <div style={{ background: "#1a1f2e", padding: "14px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
         <div style={{ fontSize: 11, color: "#c9a84c", fontWeight: 600, letterSpacing: ".5px", marginBottom: 6 }}>
-          J{fixture.matchday} · {finished ? "FINALIZADO" : currentMinute===0 ? "INICIO" : currentMinute===45&&!pauseEvent ? "DESCANSO" : `MIN ${currentMinute}'${pauseEvent?" · PARTIDO DETENIDO":""}`}
+          J{fixture.matchday} · {finished ? "FINALIZADO" : currentMinute===0 ? "INICIO" : matchPhase==="halftime" ? "DESCANSO" : `MIN ${displayMinute}'${pauseEvent?" · PARTIDO DETENIDO":""}`}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
           <div style={{ flex: 1, textAlign: "right" }}>
@@ -4180,6 +4255,15 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
         {/* Barra de tramos + stats rápidas */}
         <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 10 }}>
           {segments.map((_, i) => <div key={i} style={{ height: 3, width: 38, borderRadius: 2, background: i < segment ? "#c9a84c" : "#1e2330" }} />)}
+        </div>
+        <div style={{marginTop:10,background:"#0d0f14",border:"1px solid rgba(255,255,255,.06)",borderRadius:9,padding:"8px 10px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,fontWeight:800,marginBottom:6}}>
+            <span style={{color:"#c9a84c"}}>{displayMinute}'</span>
+            <span style={{color:"#6b7280"}}>{matchPhase.startsWith("first")||matchPhase==="halftime"?"1ª parte":"2ª parte"}{matchPhase.includes("Added")?` · descuento +${halfLabel==="first"?addedTime.first??0:addedTime.second??0}`:""}</span>
+          </div>
+          <div style={{height:7,background:"#1e2330",borderRadius:999,overflow:"hidden"}}>
+            <div style={{width:`${periodProgress}%`,height:"100%",background:"linear-gradient(90deg,#8a7330,#c9a84c)",borderRadius:999,transition:"width .25s ease"}}/>
+          </div>
         </div>
 
         {/* Posesión del balón */}
@@ -5291,6 +5375,17 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
       const nextUserFixture = finalFixtures.find(item => !item.played && (item.homeTeamId === prev.teamId || item.awayTeamId === prev.teamId));
       const restDays = nextUserFixture ? Math.max(3, Math.min(14, (nextUserFixture.matchday - matchday) * 7)) : 10;
       const trainingLoadPenalty = ({low:0,medium:2,high:5,veryHigh:8}[prev.trainingPlan?.load] ?? 2);
+      const fullMatchMinute=Math.max(90,...events.map(event=>event.minute??0));
+      const starterIdsForLoad=new Set(participation?.starters??[]);
+      const matchMinutesFor=playerId=>{
+        const subIn=events.find(event=>event.type==="SUBSTITUTION"&&event.playerId===playerId)?.minute;
+        const subOut=events.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===playerId)?.minute;
+        const red=events.find(event=>event.type==="RED"&&event.playerId===playerId)?.minute;
+        const endMinute=Math.min(fullMatchMinute,subOut??red??fullMatchMinute);
+        if(starterIdsForLoad.has(playerId))return Math.max(0,endMinute);
+        if(subIn)return Math.max(0,endMinute-subIn);
+        return 0;
+      };
       const recoveredPlayers = playersSource.map(p => {
         const wasSuspended = p.suspended && p.suspGames > 0; // venía sancionado de antes (ya cumplió este partido)
         const extraYellows = yellowsInMatch.filter(id => id === p.id).length;
@@ -5311,12 +5406,19 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         const resistance = medicalPlayer.attrs?.fisico ?? 70;
         const agePenalty = medicalPlayer.age >= 34 ? 5 : medicalPlayer.age >= 31 ? 3 : medicalPlayer.age <= 22 ? -2 : 0;
         const resistanceBonus = Math.round((resistance - 70) / 8);
+        const minutesPlayed=matchMinutesFor(p.id);
+        const previousAccumulated=medicalPlayer.accumulatedFatigue??medicalPlayer.medical?.accumulatedFatigue??0;
+        const loadGain=(minutesPlayed>=85?7:minutesPlayed>=60?4:minutesPlayed>=25?2:0)+(medicalPlayer.age>=32&&minutesPlayed>=60?2:0)+(resistance<68&&minutesPlayed>=60?2:0);
+        const accumulatedRecovery=Math.max(1,Math.round(restDays/3 + Math.max(0,resistanceBonus) - Math.max(0,agePenalty)*.35));
+        const accumulatedFatigue=Math.max(0,Math.min(100,Math.round(previousAccumulated+loadGain-accumulatedRecovery)));
         const fatigueRecovery = medicalPlayer.injured || p.suspended
           ? 25
-          : Math.max(14, Math.min(44, Math.round(restDays * 5.2 + resistanceBonus - agePenalty - trainingLoadPenalty)));
+          : Math.max(14, Math.min(44, Math.round(restDays * 5.2 + resistanceBonus - agePenalty - trainingLoadPenalty - accumulatedFatigue*.12)));
         return {
           ...medicalPlayer,
           fatigue:     Math.max(0, Math.round(medicalPlayer.fatigue - fatigueRecovery + Math.floor(Math.random() * 3))),
+          accumulatedFatigue,
+          medical:{...(medicalPlayer.medical??{}),accumulatedFatigue},
           morale:      Math.max(10, Math.min(100, p.morale + moraleDelta + Math.floor(Math.random()*4)-2)),
           yellowCards: gotRed ? 0 : newYellowCount % 5,
           suspended:   finalSuspGames > 0,
