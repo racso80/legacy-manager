@@ -46,7 +46,7 @@ export function calculateInjuryRisk(player, { fixtures = [], teamId, tactics, cu
   const load = workload(player.id, fixtures, teamId);
   const fatigue = Math.max(0, Math.min(100, player.fatigue ?? 20));
   const fatigueRisk = Math.max(0, fatigue - 18) * .66;
-  const ageRisk = Math.max(0, (player.age ?? 25) - 29) * 1.6;
+  const ageRisk = Math.max(0, (player.age ?? 25) - 29) * 1.6 * (player.injuryRiskAgeModifier ?? 1);
   const streakRisk = Math.min(20, load.consecutiveStarts * 4);
   const minutesRisk = Math.min(10, load.seasonMinutes / 450);
   const inMatchRisk = Math.min(10, currentMatchMinutes / 12);
@@ -108,7 +108,8 @@ export function applyInjury(player, event, season, matchday) {
 
 export function advanceMedicalRecovery(player, days = 7) {
   if (!player.medical || player.medical.phase === "available") return { ...player, injured:false, injuryGames:0, medical:player.medical ?? { phase:"available" } };
-  const remainingDays = Math.max(0, (player.medical.remainingDays ?? 0) - days);
+  const effectiveDays = Math.max(1, Math.round(days / Math.max(.75, player.recoveryModifier ?? 1)));
+  const remainingDays = Math.max(0, (player.medical.remainingDays ?? 0) - effectiveDays);
   const totalDays = Math.max(1, player.medical.totalDays ?? remainingDays);
   const recovery = Math.min(100, Math.round((1 - remainingDays / totalDays) * 100));
   if (remainingDays === 0) return { ...player, injured:false, injuryGames:0, fatigue:Math.max(player.fatigue ?? 0, 22), medical:{ ...player.medical, phase:"available", remainingDays:0, recovery:100 } };

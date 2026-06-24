@@ -19,6 +19,7 @@ import ContractsScreen from "./components/ContractsScreen.jsx";
 import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
+import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle, lifecycleNews, processBirthdays } from "./players/lifecycle.js";
 import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
 import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, normalizeTrainingPlan } from "./training/trainingEngine.js";
 import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason } from "./legacy/legacyEngine.js";
@@ -550,8 +551,9 @@ function generatePlayers(teamId) {
 function getScoutingPool(game) {
   const owned=new Set((game?.players??[]).map(player=>player.id));
   const bought=new Set((game?.transfers??[]).filter(item=>item.type==="buy").map(item=>item.player?.id));
-  const external=TEAMS.filter(team=>team.id!==game?.teamId).flatMap(team=>(REAL_SQUADS[team.id]??[]).filter(player=>!owned.has(player.id)&&!bought.has(player.id)).map(player=>({...enrichPlayerProfile(player,game?.season??"2025"),_teamId:team.id,_teamName:team.name,_teamColor:team.color})));
-  const freeAgents=(game?.transfers??[]).filter(item=>item.type==="sell"&&!owned.has(item.player?.id)).map(item=>({...enrichPlayerProfile(item.player,game?.season??"2025"),_teamId:"agente_libre",_teamName:"Agente libre",_teamColor:"#6b7280"}));
+  const season=game?.season??"2025", matchday=game?.matchday??1;
+  const external=TEAMS.filter(team=>team.id!==game?.teamId).flatMap(team=>(REAL_SQUADS[team.id]??[]).filter(player=>!owned.has(player.id)&&!bought.has(player.id)).map(player=>({...enrichPlayerProfile(ensurePlayerLifecycle(player,season,matchday),season),_teamId:team.id,_teamName:team.name,_teamColor:team.color})));
+  const freeAgents=(game?.transfers??[]).filter(item=>item.type==="sell"&&!owned.has(item.player?.id)).map(item=>({...enrichPlayerProfile(ensurePlayerLifecycle(item.player,season,matchday),season),_teamId:"agente_libre",_teamName:"Agente libre",_teamColor:"#6b7280"}));
   const unique=[...external,...freeAgents].filter((player,index,array)=>array.findIndex(item=>item.id===player.id)===index);
   if(game?.teamId!=="athletic")return unique;
   const basqueDevelopmentClubs=new Set(["realsociedad","osasuna","alaves"]);
@@ -4895,7 +4897,7 @@ export default function App({ externalData }) {
       const saved = localStorage.getItem(saveSlotKey(saveId));
       if (saved) {
         const parsed = JSON.parse(saved);
-        parsed.players = (parsed.players ?? []).map(player => normalizeMedicalPlayer(enrichPlayerProfile(player, parsed.season ?? "2025")));
+        parsed.players = (parsed.players ?? []).map(player => normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player, parsed.season ?? "2025", parsed.matchday ?? 1), parsed.season ?? "2025")));
         parsed.trainingPlan = normalizeTrainingPlan(parsed.trainingPlan);
         if (parsed._lineup) {
           setLineup(normalizeSlots(parsed._lineup, STARTERS_SLOTS));
@@ -4921,7 +4923,7 @@ export default function App({ externalData }) {
         setActiveSaveId(saveId);
         const loadedTeam=TEAMS.find(team=>team.id===parsed.teamId);
         let migrated=ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam)));
-        migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,parsed.season??"2025")))};
+        migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,parsed.season??"2025",parsed.matchday??1),parsed.season??"2025")))};
         migrated=refreshTransferListings(ensureTransferState(bootstrapScouting(migrated,getScoutingPool(migrated))),TEAMS,REAL_SQUADS);
         setGame(migrated);
         if(migrated.seasonTransition==="seasonEnd"){setSeasonSummary({standings:migrated.standings,teamId:migrated.teamId,season:migrated.season,history:migrated.history??[],players:migrated.players,legacy:migrated.legacy,game:migrated});setScreen("seasonEnd");}
@@ -4944,13 +4946,13 @@ export default function App({ externalData }) {
   };
 
   const startNewGame = (team) => {
-    const players  = generatePlayers(team.id).map(player => normalizeMedicalPlayer(enrichPlayerProfile(player, "2025")));
+    const players  = generatePlayers(team.id).map(player => normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player, "2025", 1), "2025")));
     const fixtures = generateFixtures();
     const standings = initStandings();
     const newId = `save_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
     const seeded = ensureYouthState(ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
       country: pendingCountry?.id, league: pendingLeague?.id },team),team);
-    let g={...seeded,youth:{...seeded.youth,players:seeded.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,"2025")))}};
+    let g={...seeded,youth:{...seeded.youth,players:seeded.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,"2025",1),"2025")))}};
     g=ensureContractState(refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS));
     const firstProspect=[...g.youth.players].sort((a,b)=>b.potential-a.potential)[0];
     if(firstProspect)g.news=generateYouthNews({items:[{title:"La cantera presenta una nueva generación",summary:`${firstProspect.name} encabeza la hornada con un potencial estimado de ${firstProspect.potential}.`,importance:firstProspect.potential>=86?"high":"medium",playerId:firstProspect.id,fingerprint:`academy-intake:2025`}],season:"2025",matchday:1,userTeamId:team.id});
@@ -5172,6 +5174,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
       newGame=advanceRenewals(newGame);
       const renewalNews=(newGame.contracts?.renewals??[]).filter(offer=>renewalStatusBefore[offer.id]&&renewalStatusBefore[offer.id]!==offer.status).map(offer=>{const messages={accepted:[`${offer.playerName} acepta renovar`,"La propuesta contractual ha sido aceptada y queda lista para la firma."],rejected:[`${offer.playerName} rechaza la renovación`,"El jugador no considera suficiente la propuesta."],salaryCounter:[`${offer.playerName} pide más salario`,`Solicita €${offer.counterSalary}K/semana para renovar.`],yearsCounter:[`${offer.playerName} pide más años`,`Quiere ampliar la duración hasta ${offer.counterYears} años.`],roleCounter:[`${offer.playerName} pide más protagonismo`,`Quiere renovar como ${offer.counterRole}.`]};const message=messages[offer.status]??[`${offer.playerName} responde a la renovación`,"La negociación contractual ha cambiado de estado."];return{id:`news-renewal-${offer.id}-${offer.status}`,type:"contract",importance:["accepted","rejected"].includes(offer.status)?"high":"medium",title:`📄 ${message[0]}`,summary:message[1],season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:`renewal:${offer.id}:${offer.status}`,playerIds:[offer.playerId],teamIds:[newGame.teamId],metadata:{userClub:true,contract:true}};});
       if(renewalNews.length)newGame={...newGame,news:mergeNews(newGame.news??[],renewalNews),contracts:{...newGame.contracts,notifications:[...renewalNews.map(item=>({id:item.id,title:item.title,status:"unread",matchday})),...(newGame.contracts?.notifications??[])]}};
+      const birthdayProgress=processBirthdays(newGame);
+      newGame=birthdayProgress.news.length?{...birthdayProgress.game,news:mergeNews(birthdayProgress.game.news??[],birthdayProgress.news)}:birthdayProgress.game;
       const incomingBefore=newGame.transferMarket?.incomingOffers?.length??0;
       newGame=maybeCreateIncomingOffer(newGame,TEAMS);
       if((newGame.transferMarket?.incomingOffers?.length??0)>incomingBefore){const offer=newGame.transferMarket.incomingOffers[0];const buyer=TEAMS.find(team=>team.id===offer.toTeamId);const item={id:`news-${offer.id}`,type:"transfer",importance:"high",title:`📬 Oferta del ${buyer?.name} por ${offer.playerName}`,summary:`El club ofrece €${(offer.amount/1000).toFixed(1)}M por ${offer.type==="loan"?"su cesión":"el traspaso"}.`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:offer.id,metadata:{userClub:true}};newGame={...newGame,news:mergeNews(newGame.news??[],[item]),transferMarket:{...newGame.transferMarket,notifications:[{id:item.id,title:item.title,status:"unread",matchday},...(newGame.transferMarket.notifications??[])]}};}
@@ -5236,11 +5240,18 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
       const expiredLoanOutTransfers=(prev.transfers??[]).filter(item=>item.type==="loanOut"&&String(item.season)===String(prev.season));expiredLoanOutTransfers.forEach(item=>{if(item.toTeamId&&REAL_SQUADS[item.toTeamId])REAL_SQUADS[item.toTeamId]=REAL_SQUADS[item.toTeamId].filter(player=>player.id!==item.player.id);});
       const returningLoanOuts=expiredLoanOutTransfers.map(item=>({...item.player,marketStatus:null,morale:Math.max(55,item.player.morale??65)}));
       const seasonPlayers=[...prev.players.filter(player=>player.loanData?.untilSeason!==String(prev.season)),...returningLoanOuts.filter(player=>!prev.players.some(item=>item.id===player.id))];
-      const newPlayers = seasonPlayers.map(p => {
+      const lifecycleResult=advanceSquadLifecycle(seasonPlayers,{previousSeason:prev.season??"2025",newSeason,teamId:prev.teamId,userTeamId:prev.teamId,allowRetirements:true});
+      const worldLifecycleEvents=[];
+      TEAMS.filter(team=>team.id!==prev.teamId).forEach(team=>{
+        const result=advanceSquadLifecycle((REAL_SQUADS[team.id]??[]).map(player=>ensurePlayerLifecycle(player,prev.season??"2025",38)),{previousSeason:prev.season??"2025",newSeason,teamId:team.id,userTeamId:prev.teamId,allowRetirements:true});
+        REAL_SQUADS[team.id]=result.players;
+        worldLifecycleEvents.push(...result.events);
+      });
+      const lifecycleEvents=[...lifecycleResult.events,...worldLifecycleEvents];
+      const newPlayers = lifecycleResult.players.map(p => {
         const historyEntry = createSeasonHistoryEntry(p, prev, prev.teamId, teamData?.name ?? prev.name);
         const evolved = {
           ...p,
-          age: p.age + 1,
           fatigue: Math.max(0, Math.round(Math.random() * 15)),
           morale: Math.max(50, Math.min(90, p.morale + Math.floor(Math.random()*10)-3)),
           yellowCards: 0, suspended: false, suspGames: 0, injured: false, injuryGames: 0,
@@ -5251,11 +5262,13 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
         };
         return { ...evolved, seasonStartOverall: evolved.overall, seasonStartValue: getMarketValue(evolved) };
       });
-      const agedYouth=(prev.youth?.players??[]).map(player=>({...player,age:player.age+1,seasonStartOverall:player.overall,seasonStartValue:getMarketValue(player)}));
+      const agedYouth=advanceSquadLifecycle(prev.youth?.players??[],{previousSeason:prev.season??"2025",newSeason,teamId:prev.teamId,userTeamId:prev.teamId,allowRetirements:false}).players.map(player=>({...player,seasonStartOverall:player.overall,seasonStartValue:getMarketValue(player)}));
       const carriedMissions=(prev.scouting?.missions??[]).map(item=>item.status!=="active"?item:{...item,startedMatchday:1,completeMatchday:1+Math.max(1,Math.ceil((item.durationDays*(1-(item.progress??0)/100))/7))});
       let g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, standingsMovement:{}, players: newPlayers, budgetAdjustment:openingBalance-baseBudget,incomeLog:[],seasonOpeningStatement,transfers:(prev.transfers??[]).map(item=>item.season?item:{...item,season:String(prev.season)}), legacy:startNextLegacySeason(prev.legacy,teamData,newSeason),scouting:{...(prev.scouting??{}),missions:carriedMissions,lastProcessedMatchday:1},youth:{...prev.youth,players:agedYouth},seasonTransition:"preseason" };
+      const retirementNews=lifecycleNews(lifecycleEvents,{season:newSeason,matchday:1,userTeamId:prev.teamId});
+      g={...g,legacy:applyRetirementsToLegacy(g.legacy,lifecycleEvents,newSeason),news:mergeNews(g.news??[],retirementNews)};
       g=ensureYouthState(g,teamData);
-      g={...g,youth:{...g.youth,players:g.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(player,newSeason)))}};
+      g={...g,youth:{...g.youth,players:g.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,newSeason,1),newSeason)))}};
       g=refreshScoutingRecommendations(g,getScoutingPool(g));
       g=refreshTransferListings(g,TEAMS,REAL_SQUADS,true);
       const intakePlayers=g.youth.players.filter(player=>(g.youth.lastIntake??[]).includes(player.id));
@@ -5358,7 +5371,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
       const prospect=prev?.youth?.players?.find(player=>player.id===playerId);
       if(!prospect||prev.players.length>=30)return prev;
       const category=getTalentCategory(prospect.potential);
-      const promoted=normalizeMedicalPlayer(enrichPlayerProfile({...prospect,academyStatus:"firstTeam",isYouth:false,salary:Math.max(4,prospect.salary??2),academyData:{...prospect.academyData,promotedSeason:String(prev.season),promotedMatchday:prev.matchday}},prev.season));
+      const promoted=normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle({...prospect,academyStatus:"firstTeam",isYouth:false,salary:Math.max(4,prospect.salary??2),academyData:{...prospect.academyData,promotedSeason:String(prev.season),promotedMatchday:prev.matchday}},prev.season,prev.matchday),prev.season));
       const promotion={playerId:promoted.id,name:promoted.name,season:String(prev.season),matchday:prev.matchday,potential:promoted.potential};
       const prestigeGain=category.id==="historic"?3:category.id==="elite"?2:1;
       const legacy={...prev.legacy,clubPrestige:Math.min(100,prev.legacy.clubPrestige+prestigeGain),manager:{...prev.legacy.manager,prestige:Math.min(100,prev.legacy.manager.prestige+prestigeGain*.5)}};
@@ -5371,7 +5384,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
 
   const openPlayerProfile = (player, teamId = game?.teamId) => {
     if (!player || !game) return;
-    setSelectedPlayer(enrichPlayerProfile(player, game.season ?? "2025"));
+    setSelectedPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player, game.season ?? "2025", game.matchday ?? 1), game.season ?? "2025"));
     setSelectedPlayerTeamId(teamId ?? game.teamId);
     setProfileReturnScreen(screen === "playerProfile" ? profileReturnScreen : screen);
     setScreen("playerProfile");
