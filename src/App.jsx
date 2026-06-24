@@ -4970,9 +4970,13 @@ function migrateNewDataPlayersToSave(game, dataVersion = DATA_VERSION) {
   const knownIds = collectSavePlayerIds(game);
   const previousDataIds = Array.isArray(game.dataPlayerIds) ? new Set(game.dataPlayerIds ?? []) : BUILT_IN_DATA_PLAYER_IDS;
   const alreadyLogged = new Set((game.dataMigrations ?? []).flatMap(log => (log.addedPlayers ?? []).map(player => player.id)));
+  const hasBaselineMigration = (game.dataMigrations ?? []).some(log => log.type === "baseline");
   const additions = [];
   currentDataRows.forEach(({ player, team }) => {
-    if (!player?.id || previousDataIds.has(player.id) || knownIds.has(player.id) || alreadyLogged.has(player.id)) return;
+    if (!player?.id || knownIds.has(player.id) || alreadyLogged.has(player.id)) return;
+    const isNewSinceSnapshot = !previousDataIds.has(player.id);
+    const repairsBadBaseline = hasBaselineMigration && !BUILT_IN_DATA_PLAYER_IDS.has(player.id);
+    if (!isNewSinceSnapshot && !repairsBadBaseline) return;
     additions.push(normalizeFreeAgentFromData(player, team, game));
     knownIds.add(player.id);
   });
