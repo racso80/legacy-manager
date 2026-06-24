@@ -26,7 +26,7 @@ import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPre
 import { createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
 import { advanceScouting, bootstrapScouting, cancelScoutingMission, createScoutingMission, ensureScoutingState, refreshScoutingRecommendations, registerScoutingSigning, toggleScoutingWatch } from "./scouting/scoutingEngine.js";
 import { PRIMARY_NAV, SECONDARY_SCREEN_IDS } from "./navigation/navigationConfig.js";
-import { acceptClubCounter, acceptPlayerCounter, acceptRoleCounter, advanceTransferNegotiations, completeOffer, createClubOffer, createContractOffer, ensureTransferState, maybeCreateAITransfer, maybeCreateIncomingOffer, refreshTransferListings, resolveIncomingOffer, setUserMarketStatus, withdrawOffer } from "./transfers/transferEngine.js";
+import { acceptClubCounter, acceptPlayerCounter, acceptRoleCounter, advanceTransferNegotiations, completeOffer, createClubOffer, createContractOffer, createFreeAgentOffer, ensureTransferState, maybeCreateAITransfer, maybeCreateIncomingOffer, refreshTransferListings, resolveIncomingOffer, setUserMarketStatus, withdrawOffer } from "./transfers/transferEngine.js";
 import { getAttentionCount, getAttentionItems, markAttentionItem } from "./attention/attentionEngine.js";
 import { acceptRenewalCounter, advanceRenewals, completeRenewal, createRenewalOffer, ensureContractState, withdrawRenewalOffer } from "./contracts/contractEngine.js";
 
@@ -1361,7 +1361,7 @@ function FinancesScreen({ game }) {
 
 // ─── MERCADO DE FICHAJES ─────────────────────────────────────────────────────
 
-function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, onViewReport, onClubOffer, onAcceptClubCounter, onContractOffer, onAcceptPlayerCounter, onAcceptRoleCounter, onWithdrawOffer, onFinalizeOffer, onUserMarketStatus, onIncomingOffer }) {
+function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, onViewReport, onClubOffer, onFreeAgentOffer, onAcceptClubCounter, onContractOffer, onAcceptPlayerCounter, onAcceptRoleCounter, onWithdrawOffer, onFinalizeOffer, onUserMarketStatus, onIncomingOffer }) {
   const [tab, setTab]         = useState("comprar"); // comprar | vender | historial
   const [filter, setFilter]   = useState({ pos:"", min:60, max:99, search:"", maxPrice:999999, maxSalary:9999 });
   const [selected, setSelected] = useState(null); // jugador seleccionado para fichar
@@ -1437,6 +1437,8 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
   const selectedReport=selected?reportsByPlayer.get(selected.id):null;
   const activeOffer=selected?(game.transferMarket?.offers??[]).find(item=>item.playerId===selected.id&&!['completed','withdrawn'].includes(item.status)):null;
   const selectedOverall=selectedReport&&selectedReport.confidence<88?`${selectedReport.overallRange[0]}-${selectedReport.overallRange[1]}`:selected?.overall;
+  const isFreeAgent = p => p?._teamId === "agente_libre";
+  const transferCost = p => isFreeAgent(p) ? 0 : marketValue(p);
 
   const marketPlayers = allOtherPlayers2.filter(p => {
     if (players.some(owned => owned.id === p.id)) return false; // ya es tuyo, no aparece
@@ -1451,7 +1453,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
     if (filter.search && !p.name.toLowerCase().includes(filter.search.toLowerCase())) return false;
     if (filter.pos && p.pos !== filter.pos) return false;
     if (p.overall < filter.min || p.overall > filter.max) return false;
-    if(marketValue(p)>filter.maxPrice||(p.salary??0)>filter.maxSalary)return false;
+    if((!isFreeAgent(p)&&marketValue(p)>filter.maxPrice)||(p.salary??0)>filter.maxSalary)return false;
     return true;
   }).map(player=>({...player,_listing:listingsByPlayer.get(player.id)})).sort((a,b) => b.overall - a.overall).slice(0, 60);
 
@@ -1555,13 +1557,13 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
           <div style={{ flex:1, overflowY:"auto", padding:"10px 12px" }}>
             <div style={{ fontSize:10, color:"#6b7280", marginBottom:8, fontWeight:600 }}>{marketPlayers.length} JUGADORES DISPONIBLES</div>
             {marketPlayers.map(p => {
-              const val   = marketValue(p);
+              const val   = transferCost(p);
               const can   = budgetLeft >= val && canAttract(p);
               const alreadyOwned = players.some(pl => pl.id === p.id);
               const report=reportsByPlayer.get(p.id);
               const displayedOverall=report&&report.confidence<88?`${report.overallRange[0]}-${report.overallRange[1]}`:String(p.overall);
               return (
-                <div key={p.id} onClick={()=>{if(alreadyOwned)return;setSelected(p);setClubAmount(p._listing?.type==="transfer"?(p._listing.askingPrice??marketValue(p)):p._listing?.type==="loan"?Math.round(marketValue(p)*.06):marketValue(p));setContractSalary(suggestedSalary(p));}}
+                <div key={p.id} onClick={()=>{if(alreadyOwned)return;setSelected(p);setClubAmount(isFreeAgent(p)?0:p._listing?.type==="transfer"?(p._listing.askingPrice??marketValue(p)):p._listing?.type==="loan"?Math.round(marketValue(p)*.06):marketValue(p));setContractSalary(suggestedSalary(p));}}
                   style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", marginBottom:6,
                     background: selected?.id===p.id ? "rgba(201,168,76,.1)" : "#161a24",
                     border:`1px solid ${selected?.id===p.id?"#c9a84c44":alreadyOwned?"rgba(34,197,94,.2)":"rgba(255,255,255,.06)"}`,
@@ -1582,7 +1584,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
                   </div>
                   {/* Valor */}
                   <div style={{ textAlign:"right", flexShrink:0 }}>
-                    <div style={{ fontSize:13, fontWeight:700, color: can?"#22c55e":"#ef4444" }}>{fmt(val)}</div>
+                    <div style={{ fontSize:13, fontWeight:700, color: can?"#22c55e":"#ef4444" }}>{isFreeAgent(p)?"Libre":fmt(val)}</div>
                     <div style={{ fontSize:9, color:"#4b5563" }}>{fmt(suggestedSalary(p))}/sem</div>
                   </div>
                   <button data-swipe-ignore="true" onClick={event=>{event.stopPropagation();report?onViewReport(report.id):onGoScouting();}} title="Ver informe de scouting" style={{ background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.2)", color:"#c9a84c", borderRadius:6, width:28, height:28, cursor:"pointer" }}>👁</button>
@@ -1605,16 +1607,17 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
                   style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#6b7280", cursor:"pointer", padding:"4px 8px", borderRadius:5, fontSize:12 }}>✕</button>
               </div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
-                {[["Valor de mercado",fmt(marketValue(selected))],["Salario semanal",fmt(suggestedSalary(selected))+"/sem"],
-                  ["Presupuesto disp.",fmt(budgetLeft)],["Tras fichaje",fmt(budgetLeft-marketValue(selected))]
+                {[["Estado",isFreeAgent(selected)?"Agente libre":selected._teamName],["Coste traspaso",fmt(transferCost(selected))],
+                  ["Negociación",isFreeAgent(selected)?"Directa con jugador":"Club + jugador"],["Tras fichaje",fmt(budgetLeft-transferCost(selected))]
                 ].map(([l,v])=>(
                   <div key={l} style={{ background:"#0d0f14", borderRadius:7, padding:"8px 10px" }}>
                     <div style={{ fontSize:9, color:"#6b7280", fontWeight:600 }}>{l.toUpperCase()}</div>
-                    <div style={{ fontSize:13, fontWeight:700, color: l==="Tras fichaje"&&budgetLeft<marketValue(selected)?"#ef4444":"#e8eaf0", marginTop:2 }}>{v}</div>
+                    <div style={{ fontSize:13, fontWeight:700, color: l==="Tras fichaje"&&budgetLeft<transferCost(selected)?"#ef4444":"#e8eaf0", marginTop:2 }}>{v}</div>
                   </div>
                 ))}
               </div>
-              {!activeOffer&&<><div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:7,marginBottom:8}}><input type="number" value={clubAmount} onChange={event=>setClubAmount(Number(event.target.value))} style={{background:"#0d0f14",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:7,padding:"9px 10px",fontSize:12}}/><span style={{alignSelf:"center",fontSize:9,color:"#6b7280"}}>€K · {selected._listing?.type==="loan"?"coste cesión":"oferta fija"}</span></div><button onClick={()=>canAttract(selected)&&clubAmount<=budgetLeft&&onClubOffer(selected,clubAmount,marketValue(selected),suggestedSalary(selected),selected._listing)} className="btn-gold" style={{width:"100%",padding:12,borderRadius:8,fontSize:13}}>Enviar {selected._listing?.type==="loan"?"propuesta de cesión":"oferta al club"}</button></>}
+              {!activeOffer&&isFreeAgent(selected)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#0d0f14",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:7,padding:"9px 10px",fontSize:12}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#0d0f14",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:7}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} años</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#0d0f14",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:7,padding:"9px 10px"}}>{["Estrella","Titular","Rotación","Promesa","Suplente"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>canAttract(selected)&&onFreeAgentOffer(selected,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",width:"100%",padding:12,borderRadius:8,fontSize:13}}>Negociar contrato</button></div>}
+              {!activeOffer&&!isFreeAgent(selected)&&<><div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:7,marginBottom:8}}><input type="number" value={clubAmount} onChange={event=>setClubAmount(Number(event.target.value))} style={{background:"#0d0f14",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:7,padding:"9px 10px",fontSize:12}}/><span style={{alignSelf:"center",fontSize:9,color:"#6b7280"}}>€K · {selected._listing?.type==="loan"?"coste cesión":"oferta fija"}</span></div><button onClick={()=>canAttract(selected)&&clubAmount<=budgetLeft&&onClubOffer(selected,clubAmount,marketValue(selected),suggestedSalary(selected),selected._listing)} className="btn-gold" style={{width:"100%",padding:12,borderRadius:8,fontSize:13}}>Enviar {selected._listing?.type==="loan"?"propuesta de cesión":"oferta al club"}</button></>}
               {activeOffer&&<div style={{background:"#0d0f14",borderRadius:9,padding:10}}><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>NEGOCIACIÓN EN CURSO · {activeOffer.dealType==="loan"?"CESIÓN":"FICHAJE"}</div><div style={{fontSize:12,color:"#e8eaf0",margin:"5px 0 9px"}}>{activeOffer.status==='pendingClub'?`El club responderá en ${activeOffer.responseDays??1} días.`:activeOffer.status==='clubCounter'?`Contraoferta del club: ${fmt(activeOffer.counterAmount)}`:activeOffer.status==='rejected'?'El club ha rechazado la oferta.':activeOffer.status==='outbid'?'Otro club ha superado tu oferta y se ha adelantado.':activeOffer.status==='clubAccepted'?'El club acepta. Ahora negocia con el jugador.':activeOffer.status==='pendingPlayer'?'El jugador estudia el contrato.':activeOffer.status==='playerCounter'?`El jugador solicita ${fmt(activeOffer.counterSalary)}/sem.`:activeOffer.status==='roleCounter'?`El jugador exige un rol de ${activeOffer.counterRole}.`:activeOffer.status==='playerRejected'?'El jugador rechaza las condiciones.':activeOffer.status==='ready'?'Acuerdo total alcanzado.':'Operación cerrada.'}</div>{activeOffer.status==='clubCounter'&&<button onClick={()=>onAcceptClubCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar contraoferta</button>}{['clubAccepted','playerRejected'].includes(activeOffer.status)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:6,padding:8}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} años</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6,padding:8}}>{["Estrella","Titular","Rotación","Promesa","Suplente"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>onContractOffer(activeOffer.id,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",padding:9}}>Enviar contrato al jugador</button></div>}{activeOffer.status==='playerCounter'&&<button onClick={()=>onAcceptPlayerCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar petición salarial</button>}{activeOffer.status==='roleCounter'&&<button onClick={()=>onAcceptRoleCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar rol solicitado</button>}{activeOffer.status==='ready'&&<button onClick={()=>onFinalizeOffer(activeOffer,selected)} className="btn-gold" style={{width:"100%",padding:10}}>Cerrar {activeOffer.dealType==="loan"?"cesión":"fichaje"}</button>}{activeOffer.status!=="ready"&&<button onClick={()=>onWithdrawOffer(activeOffer.id)} className="btn-ghost" style={{width:"100%",padding:8,marginTop:7}}>Retirarse de la negociación</button>}</div>}
               {activeOffer?.status==="clubCounter"&&<button onClick={()=>onClubOffer(selected,Math.round((activeOffer.amount+activeOffer.counterAmount)/2),marketValue(selected),suggestedSalary(selected),selected._listing)} style={{width:"100%",padding:8,marginTop:6,background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.25)",color:"#60a5fa",borderRadius:7,fontSize:10,fontWeight:800}}>Mejorar oferta a {fmt(Math.round((activeOffer.amount+activeOffer.counterAmount)/2))}</button>}
             </div>
@@ -5546,7 +5549,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
       let newGame = { ...prev, players: newPlayers,
         budgetAdjustment: newAdjustment,
         transfers: [...(prev.transfers ?? []), newTransfer],
-        news: mergeNews(prev.news ?? [], transferNews),youth:nextYouth };
+        news: mergeNews(prev.news ?? [], transferNews),youth:nextYouth,
+        freeAgents: ["buy","loanIn"].includes(type) ? (prev.freeAgents ?? []).filter(item=>item.id!==player.id) : (prev.freeAgents ?? []) };
       if(type==="buy")newGame=registerScoutingSigning(newGame,player.id);
       if(offerId)newGame=completeOffer(newGame,offerId);
       saveGame(newGame, lineup);
@@ -5557,12 +5561,13 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
   const updateTransferMarket=updater=>setGame(prev=>{const updated=updater(prev);saveGame(updated,lineup,formation,subs);return updated;});
   const updateContracts=updater=>setGame(prev=>{const updated=updater(ensureContractState(prev));saveGame(updated,lineup,formation,subs);return updated;});
   const handleClubOffer=(player,amount,marketValue,expectedSalary,listing)=>updateTransferMarket(prev=>createClubOffer(prev,{player:{...player,marketValue,expectedSalary},fromTeamId:player._teamId,amount,dealType:listing?.type??"transfer",listingId:listing?.id}));
+  const handleFreeAgentOffer=(player,salary,years,role)=>updateTransferMarket(prev=>createFreeAgentOffer(prev,{player:{...player,marketValue:0,expectedSalary:player.salary??salary},salary,years,role}));
   const handleAcceptClubCounter=offerId=>updateTransferMarket(prev=>acceptClubCounter(prev,offerId));
   const handleContractOffer=(offerId,salary,years,role)=>updateTransferMarket(prev=>createContractOffer(prev,{offerId,salary,years,role}));
   const handleAcceptPlayerCounter=offerId=>updateTransferMarket(prev=>acceptPlayerCounter(prev,offerId));
   const handleAcceptRoleCounter=offerId=>updateTransferMarket(prev=>acceptRoleCounter(prev,offerId));
   const handleWithdrawOffer=offerId=>updateTransferMarket(prev=>withdrawOffer(prev,offerId));
-  const handleFinalizeOffer=(offer,player)=>handleTransfer({type:offer.dealType==="loan"?"loanIn":"buy",player:{...player,contractYears:offer.years,squadRole:offer.role,loanData:offer.dealType==="loan"?{fromTeamId:offer.fromTeamId,untilSeason:String(game.season)}:null},cost:offer.amount,salary:offer.salary,fromTeamId:offer.fromTeamId,offerId:offer.id});
+  const handleFinalizeOffer=(offer,player)=>handleTransfer({type:offer.dealType==="loan"?"loanIn":"buy",player:{...player,contractYears:offer.years,squadRole:offer.role,loanData:offer.dealType==="loan"?{fromTeamId:offer.fromTeamId,untilSeason:String(game.season)}:null},cost:offer.dealType==="free"?0:offer.amount,salary:offer.salary,fromTeamId:offer.fromTeamId,offerId:offer.id});
   const handleUserMarketStatus=(playerId,status)=>{updateTransferMarket(prev=>setUserMarketStatus(prev,playerId,status));setSelectedPlayer(current=>current?.id===playerId?{...current,marketStatus:current.marketStatus===status?null:status,morale:Math.max(20,(current.morale??70)-(current.marketStatus===status?0:status==="transfer"?4:2))}:current);};
   const handleIncomingOffer=(offer,decision,player)=>{if(decision==="accepted"&&player)handleTransfer({type:offer.type==="loan"?"loanOut":"sell",player,value:offer.amount,fromTeamId:game.teamId,toTeamId:offer.toTeamId});updateTransferMarket(prev=>resolveIncomingOffer(prev,offer.id,decision));};
   const handleCreateRenewal=(playerId,salary,years,role)=>updateContracts(prev=>createRenewalOffer(prev,{playerId,salary,years,role}));
@@ -5722,7 +5727,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           {screen === "settings"  && game && <SettingsScreen game={game} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "contracts" && game && <ContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />}
-          {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} />}
+          {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} />}
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} />}
           {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}

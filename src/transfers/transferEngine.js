@@ -101,6 +101,18 @@ export function createClubOffer(game,{player,fromTeamId,amount,dealType="transfe
   return {...current,transferMarket:{...current.transferMarket,offers:[offer,...offers.filter(item=>item.id!==offer.id)]}};
 }
 
+export function createFreeAgentOffer(game,{player,salary,years,role}){
+  const current=ensureTransferState(game);const offers=current.transferMarket.offers??[];
+  const previous=offers.find(item=>item.playerId===player.id&&!["completed","withdrawn","rejected","playerRejected"].includes(item.status));
+  const offer={
+    id:previous?.id??`offer-free-${Date.now()}-${player.id}`,playerId:player.id,playerName:player.name,
+    fromTeamId:"agente_libre",amount:0,marketValue:Math.max(0,Math.round(player.marketValue??0)),dealType:"free",listingId:null,
+    status:"pendingPlayer",createdMatchday:game.matchday,resolveMatchday:game.matchday+1,
+    salary:Math.max(1,Math.round(salary)),expectedSalary:player.expectedSalary??player.salary??salary,years:clamp(Math.round(years),1,5),role:role??"Rotación",responseDays:1+Math.floor(Math.random()*5),counterAmount:null,counterSalary:null,
+  };
+  return {...current,transferMarket:{...current.transferMarket,offers:[offer,...offers.filter(item=>item.id!==offer.id)]}};
+}
+
 export function acceptClubCounter(game,offerId){
   const current=ensureTransferState(game);return {...current,transferMarket:{...current.transferMarket,offers:current.transferMarket.offers.map(item=>item.id===offerId?{...item,amount:item.counterAmount,status:"clubAccepted",counterAmount:null}:item)}};
 }
