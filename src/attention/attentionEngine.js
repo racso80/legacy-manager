@@ -1,14 +1,16 @@
 import { calculateInjuryRisk, formatMedicalDuration } from "../medical/medicalEngine.js";
 
 const PRIORITY_ORDER = { critical: 0, important: 1, info: 2 };
-const CATEGORY_ORDER = ["medical", "market", "contracts", "board", "youth", "training", "match"];
+const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "youth", "scouting", "training"];
 
 export const ATTENTION_CATEGORIES = {
   medical: { label: "Médico", icon: "🏥", accent: "#ef4444" },
   market: { label: "Mercado", icon: "💰", accent: "#22c55e" },
   contracts: { label: "Contratos", icon: "📄", accent: "#f59e0b" },
+  finance: { label: "Finanzas", icon: "💵", accent: "#10b981" },
   board: { label: "Directiva", icon: "🏛", accent: "#a78bfa" },
   youth: { label: "Cantera", icon: "🌱", accent: "#84cc16" },
+  scouting: { label: "Scouting", icon: "👁", accent: "#38bdf8" },
   training: { label: "Entrenamiento", icon: "🏋", accent: "#60a5fa" },
   match: { label: "Partido", icon: "⚽", accent: "#c9a84c" },
 };
@@ -47,6 +49,20 @@ function nextFixture(game) {
   return (game.fixtures ?? []).find(f => !f.played && (f.homeTeamId === game.teamId || f.awayTeamId === game.teamId));
 }
 
+function squadNeeds(players = []) {
+  const targets = { POR: 2, DEF: 7, MED: 6, DEL: 5 };
+  const labels = { POR: "porteros", DEF: "defensas", MED: "centrocampistas", DEL: "delanteros" };
+  return Object.entries(targets)
+    .map(([group, target]) => ({ group, target, label: labels[group], count: players.filter(player => player.group === group).length }))
+    .filter(item => item.count < item.target);
+}
+
+function marketWindowStatus(matchday = 1) {
+  if (matchday <= 8) return { id: "summer", closesIn: 9 - matchday, label: "mercado inicial" };
+  if (matchday >= 31 && matchday <= 38) return { id: "winter", closesIn: 39 - matchday, label: "mercado final" };
+  return null;
+}
+
 function expiringContractLabel(player, game) {
   const yearsLeft = Number(player.contractEnd ?? 9999) - Number(game.season ?? 2025);
   if (yearsLeft <= 0) return "termina esta temporada";
@@ -72,7 +88,22 @@ export function getAttentionItems(game, context = {}) {
     }));
   }
 
+  const selectedIds = new Set((context.lineup ?? game._lineup ?? []).filter(Boolean).map(player => typeof player === "string" ? player : player.id));
+
   for (const player of game.players ?? []) {
+    if (selectedIds.has(player.id) && (player.injured || player.suspended || player.medical?.phase === "injured")) {
+      items.push(createItem(game, {
+        id: `lineup-unavailable:${player.id}:${game.season}:${game.matchday}`,
+        category: "match",
+        priority: "critical",
+        title: `${player.name} no debería estar en el once`,
+        summary: "Está lesionado o sancionado y puede dejarte sin una posición válida.",
+        playerId: player.id,
+        action: { screen: "lineup", playerId: player.id },
+        actionLabel: "Corregir once",
+      }));
+    }
+
     if (player.injured || (player.medical?.phase && player.medical.phase !== "available")) {
       const remaining = player.medical?.remainingDays ?? (player.injuryGames ?? 1) * 7;
       items.push(createItem(game, {
@@ -111,6 +142,32 @@ export function getAttentionItems(game, context = {}) {
         playerId: player.id,
         action: { screen: "training", playerId: player.id },
         actionLabel: "Gestionar carga",
+      }));
+    }
+
+    if ((player.morale ?? 70) <= 35) {
+      items.push(createItem(game, {
+        id: `morale-low:${player.id}:${Math.floor((player.morale ?? 0) / 10)}`,
+        category: "training",
+        priority: (player.morale ?? 70) <= 25 ? "critical" : "important",
+        title: `${player.name} está descontento`,
+        summary: `Moral actual: ${player.morale ?? 0}/100. Revisa minutos, rol o situación de mercado.`,
+        playerId: player.id,
+        action: { screen: "playerProfile", playerId: player.id },
+        actionLabel: "Hablar con jugador",
+      }));
+    }
+
+    if (player.lifecycle?.retirementPlan === "lastSeason") {
+      items.push(createItem(game, {
+        id: `retirement-last-season:${player.id}:${player.lifecycle.retirementPlanSeason ?? game.season}`,
+        category: "contracts",
+        priority: "important",
+        title: `${player.name} afronta su última temporada`,
+        summary: "Conviene planificar un sustituto y valorar su papel en el vestuario.",
+        playerId: player.id,
+        action: { screen: "playerProfile", playerId: player.id },
+        actionLabel: "Ver perfil",
       }));
     }
 
@@ -164,6 +221,32 @@ export function getAttentionItems(game, context = {}) {
     }));
   }
 
+  const windowStatus = marketWindowStatus(game.matchday ?? 1);
+  if (windowStatus && windowStatus.closesIn <= 2) {
+    items.push(createItem(game, {
+      id: `market-window-closing:${game.season}:${windowStatus.id}:${game.matchday}`,
+      category: "market",
+      priority: "important",
+      title: `El ${windowStatus.label} está a punto de cerrar`,
+      summary: `Quedan ${windowStatus.closesIn} jornada${windowStatus.closesIn === 1 ? "" : "s"} para cerrar operaciones pendientes.`,
+      action: { screen: "transfers" },
+      actionLabel: "Abrir mercado",
+    }));
+  }
+
+  const recentMarketPulse = (game.transferMarket?.marketPulse ?? []).filter(item => item.matchday === (game.matchday ?? 1) - 1);
+  if (recentMarketPulse.some(item => item.type === "youth" || item.reason?.includes("Refuerzo"))) {
+    items.push(createItem(game, {
+      id: `market-pulse-scout:${game.season}:${game.matchday}`,
+      category: "market",
+      priority: "info",
+      title: "El mercado IA se está moviendo",
+      summary: "Varios clubes han cubierto necesidades. Revisa oportunidades antes de que desaparezcan.",
+      action: { screen: "transfers" },
+      actionLabel: "Revisar mercado",
+    }));
+  }
+
   const actionableOfferStatuses = new Set(["clubCounter", "playerCounter", "roleCounter", "ready", "rejected", "outbid", "clubAccepted", "playerRejected"]);
   for (const offer of game.transferMarket?.offers ?? []) {
     if (!actionableOfferStatuses.has(offer.status)) continue;
@@ -203,6 +286,47 @@ export function getAttentionItems(game, context = {}) {
     }));
   }
 
+  const objectivesAtRisk = (game.legacy?.objectives ?? []).filter(item => item.progress < 35 && game.matchday >= 12);
+  if (objectivesAtRisk.length) {
+    const objective = objectivesAtRisk[0];
+    items.push(createItem(game, {
+      id: `board-objective-risk:${game.season}:${objective.id}:${Math.floor(objective.progress / 10)}`,
+      category: "board",
+      priority: objective.progress < 20 ? "critical" : "important",
+      title: "Un objetivo de directiva está en riesgo",
+      summary: `${objective.label ?? objective.title ?? "Objetivo"} · progreso ${Math.round(objective.progress)}%.`,
+      action: { screen: "board" },
+      actionLabel: "Ver directiva",
+    }));
+  }
+
+  const financeStatement = game.seasonOpeningStatement;
+  if (financeStatement?.annualNet < -3000 || (game.budgetAdjustment ?? 0) < -12000) {
+    items.push(createItem(game, {
+      id: `finance-pressure:${game.season}:${Math.floor((game.budgetAdjustment ?? 0) / 5000)}`,
+      category: "finance",
+      priority: (game.budgetAdjustment ?? 0) < -20000 ? "critical" : "important",
+      title: "La situación económica requiere revisión",
+      summary: financeStatement?.annualNet < -3000 ? `Balance anual previsto: €${Math.round(financeStatement.annualNet / 1000 * 10) / 10}M.` : "El presupuesto disponible se está tensionando.",
+      action: { screen: "finances" },
+      actionLabel: "Abrir finanzas",
+    }));
+  }
+
+  const needs = squadNeeds(game.players ?? []);
+  if (needs.length && (game.seasonTransition === "preseason" || (game.matchday ?? 1) <= 8)) {
+    const need = needs[0];
+    items.push(createItem(game, {
+      id: `squad-need:${game.season}:${need.group}:${need.count}`,
+      category: "market",
+      priority: "important",
+      title: `Plantilla corta en ${need.label}`,
+      summary: `Tienes ${need.count}/${need.target}. Conviene buscar un refuerzo o promocionar cantera.`,
+      action: { screen: "transfers" },
+      actionLabel: "Buscar refuerzo",
+    }));
+  }
+
   for (const prospect of game.youth?.players ?? []) {
     const ready = prospect.age >= 18 && (prospect.overall >= 70 || prospect.potential >= 86);
     if (!ready) continue;
@@ -215,6 +339,35 @@ export function getAttentionItems(game, context = {}) {
       playerId: prospect.id,
       action: { screen: "youth", playerId: prospect.id },
       actionLabel: "Abrir cantera",
+    }));
+  }
+
+  for (const mission of game.scouting?.missions ?? []) {
+    if (mission.status !== "completed" || mission.attentionDismissed) continue;
+    if ((mission.completedMatchday ?? 0) < (game.matchday ?? 1) - 2) continue;
+    items.push(createItem(game, {
+      id: `scouting-completed:${mission.id}`,
+      category: "scouting",
+      priority: "important",
+      title: `Informe de scouting listo`,
+      summary: `${mission.label} · resultados disponibles para revisar.`,
+      action: { screen: "scouting", missionId: mission.id },
+      actionLabel: "Abrir scouting",
+    }));
+  }
+
+  const highConfidenceReports = (game.scouting?.reports ?? []).filter(report => report.status === "active" && report.confidence >= 88 && (report.opportunity || report.talent));
+  if (highConfidenceReports.length) {
+    const report = highConfidenceReports[0];
+    items.push(createItem(game, {
+      id: `scouting-opportunity:${report.id}`,
+      category: "scouting",
+      priority: report.talent?.label === "Futuro crack" ? "critical" : "important",
+      title: `${report.player.name} merece una decisión`,
+      summary: report.opportunity ?? `${report.talent?.label}. Informe con ${report.confidence}% de confianza.`,
+      playerId: report.playerId,
+      action: { screen: "scouting", reportId: report.id },
+      actionLabel: "Ver informe",
     }));
   }
 
