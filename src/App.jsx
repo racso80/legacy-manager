@@ -4976,7 +4976,8 @@ function migrateNewDataPlayersToSave(game, dataVersion = DATA_VERSION) {
     if (!player?.id || knownIds.has(player.id) || alreadyLogged.has(player.id)) return;
     const isNewSinceSnapshot = !previousDataIds.has(player.id);
     const repairsBadBaseline = hasBaselineMigration && !BUILT_IN_DATA_PLAYER_IDS.has(player.id);
-    if (!isNewSinceSnapshot && !repairsBadBaseline) return;
+    const missingFromUserTeam = team?.id === game.teamId && !(game.players ?? []).some(savedPlayer => savedPlayer.id === player.id);
+    if (!isNewSinceSnapshot && !repairsBadBaseline && !missingFromUserTeam) return;
     additions.push(normalizeFreeAgentFromData(player, team, game));
     knownIds.add(player.id);
   });
