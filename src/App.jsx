@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { resolvePlayerPhoto } from "./data/dataLoader.js";
 import NewsScreen from "./components/NewsScreen.jsx";
 import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
@@ -3874,6 +3874,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [oppSubs, setOppSubs] = useState(()=>oppCallup.bench);
   const [oppSubsUsed, setOppSubsUsed] = useState(0);
   const [oppSubbedOutIds, setOppSubbedOutIds] = useState([]);
+  const processedMinuteRef = useRef(new Set());
 
   // Copias LOCALES de alineación, banco y táctica — los cambios durante el partido
   // son solo para este partido y nunca tocan el estado persistente de App.
@@ -4043,6 +4044,8 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     if (finished || ["firstAddedReady","halftime","secondAddedReady"].includes(matchPhase)) return;
     if(triggerBoundaryPause(currentMinute))return;
     const intervalEnd=Math.min(currentMinute+1,matchTargetMinute);
+    if(processedMinuteRef.current.has(intervalEnd))return;
+    processedMinuteRef.current.add(intervalEnd);
     const currentSegment=Math.min(5,Math.max(0,Math.floor((Math.max(1,intervalEnd)-1)/15)));
     const starterIds = lineup.filter(Boolean);
     const starterPlayers = (starterIds.length > 0
@@ -4058,8 +4061,8 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     events.filter(event=>event.type==="YELLOW").forEach(event=>{const side=event.team==="user"||event.team==="opp"?event.team:null;if(side&&event.playerId)yellowCounts[side][event.playerId]=(yellowCounts[side][event.playerId]??0)+1;});
     const generated=generateSegmentEvents(currentSegment,starterPlayers,userStr,oppStr,score,tactics,isHome,oppSquad,{
       fixtures:game.fixtures,teamId:game.teamId,matchday:fixture.matchday,
-      minuteStart:Math.max(segment*15+1,currentMinute+1),minuteEnd:intervalEnd,yellowCounts,
-    });
+      minuteStart:intervalEnd,minuteEnd:intervalEnd,yellowCounts,
+    }).filter(event=>(event.minute??intervalEnd)<=intervalEnd);
     const flow=eventsUntilExtraordinary(generated);
     const newEvs=flow.events;
 
@@ -4095,6 +4098,9 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     if(autoOppSub)newEvs.push(autoOppSub);
     const elapsedMinutes=Math.max(1,reachedMinute-currentMinute);
     const fatDelta = fatigueDeltaPerSegment(tactics)*(elapsedMinutes/15);
+    const debugMatch=typeof window!=="undefined"&&window.localStorage?.getItem("legacyDebugMatch")==="1";
+    if(debugMatch)console.debug("[LegacyMatch]",{minute:intervalEnd,reachedMinute,elapsedMinutes,phase:matchPhase,eventsTriggered:newEvs.map(event=>({minute:event.minute,type:event.type,desc:event.description})),fatigueDelta:fatDelta,alreadyProcessed:processedMinuteRef.current.has(intervalEnd),playing});
+    const randomFatigueNoise=(isGK=false)=>Math.random()*(isGK ? 0.5 : 2)*(elapsedMinutes/15);
     const onFieldIds = new Set(starterPlayers.map(p => p.id));
     setLivePlayers(prev => prev.map(p => {
       const onField = onFieldIds.has(p.id);
@@ -4105,14 +4111,15 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
         // Solo los jugadores en el campo se cansan; los porteros apenas se cansan; los que no juegan descansan
         fatigue: p.injured ? p.fatigue
           : onField
-            ? Math.min(100, Math.round(p.fatigue + ((isGK ? fatDelta * 0.25 : fatDelta) * ageFactor) + Math.random() * (isGK ? 0.5 : 2)))
-            : Math.max(0, Math.round(p.fatigue - 1)),
+            ? Math.min(100, Number(((p.fatigue??0) + ((isGK ? fatDelta * 0.25 : fatDelta) * ageFactor) + randomFatigueNoise(isGK)).toFixed(2)))
+            : Math.max(0, Number(((p.fatigue??0) - elapsedMinutes/15).toFixed(2))),
       };
       const injuryEvent = newEvs.find(e => e.type === "INJURY" && e.playerId === p.id);
       return injuryEvent ? applyInjury(updated, injuryEvent, game.season ?? "2025", fixture.matchday) : updated;
     }));
     const oppOnFieldIds = new Set(oppSquad.map(player=>player.id));
     const oppFatDelta = fatigueDeltaPerSegment(DEFAULT_TACTICS)*(elapsedMinutes/15);
+    const oppRandomFatigueNoise=(isGK=false)=>Math.random()*(isGK ? .5 : 2)*(elapsedMinutes/15);
     setLiveOppPlayers(prev => prev.map(player => {
       const onField = oppOnFieldIds.has(player.id);
       const isGK = player.group === "POR";
@@ -4122,8 +4129,8 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
         ...player,
         fatigue: player.injured ? player.fatigue
           : onField
-            ? Math.min(100, Math.round((player.fatigue ?? 18) + ((isGK ? oppFatDelta * .25 : oppFatDelta) * ageFactor) + Math.random() * (isGK ? .5 : 2)))
-            : Math.max(0, Math.round((player.fatigue ?? 18) - 1)),
+            ? Math.min(100, Number(((player.fatigue ?? 18) + ((isGK ? oppFatDelta * .25 : oppFatDelta) * ageFactor) + oppRandomFatigueNoise(isGK)).toFixed(2)))
+            : Math.max(0, Number(((player.fatigue ?? 18) - elapsedMinutes/15).toFixed(2))),
       };
       return injuryEvent ? applyInjury(updated, injuryEvent, game.season ?? "2025", fixture.matchday) : updated;
     }));
@@ -4153,7 +4160,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       if(flow.pauseEvent.type==="INJURY")setTab("cambios");else setTab("eventos");
     }else{
       setPauseEvent(null);
-      const next=Math.min(6,Math.ceil(reachedMinute/15));setSegment(next);
+      const next=Math.min(6,Math.floor(reachedMinute/15));setSegment(next);
       triggerBoundaryPause(reachedMinute);
     }
   };
