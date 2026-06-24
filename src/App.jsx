@@ -551,9 +551,12 @@ function generatePlayers(teamId) {
 function getScoutingPool(game) {
   const owned=new Set((game?.players??[]).map(player=>player.id));
   const bought=new Set((game?.transfers??[]).filter(item=>item.type==="buy").map(item=>item.player?.id));
+  const freeAgentIds=new Set((game?.freeAgents??[]).map(player=>player.id));
   const season=game?.season??"2025", matchday=game?.matchday??1;
-  const external=TEAMS.filter(team=>team.id!==game?.teamId).flatMap(team=>(REAL_SQUADS[team.id]??[]).filter(player=>!owned.has(player.id)&&!bought.has(player.id)).map(player=>({...enrichPlayerProfile(ensurePlayerLifecycle(player,season,matchday),season),_teamId:team.id,_teamName:team.name,_teamColor:team.color})));
-  const freeAgents=(game?.transfers??[]).filter(item=>item.type==="sell"&&!owned.has(item.player?.id)).map(item=>({...enrichPlayerProfile(ensurePlayerLifecycle(item.player,season,matchday),season),_teamId:"agente_libre",_teamName:"Agente libre",_teamColor:"#6b7280"}));
+  const external=TEAMS.filter(team=>team.id!==game?.teamId).flatMap(team=>(REAL_SQUADS[team.id]??[]).filter(player=>!owned.has(player.id)&&!bought.has(player.id)&&!freeAgentIds.has(player.id)).map(player=>({...enrichPlayerProfile(ensurePlayerLifecycle(player,season,matchday),season),_teamId:team.id,_teamName:team.name,_teamColor:team.color})));
+  const migratedFreeAgents=(game?.freeAgents??[]).filter(player=>!owned.has(player.id)).map(player=>({...enrichPlayerProfile(ensurePlayerLifecycle(player,season,matchday),season),_teamId:"agente_libre",_teamName:"Agente libre",_teamColor:"#6b7280"}));
+  const soldFreeAgents=(game?.transfers??[]).filter(item=>item.type==="sell"&&!owned.has(item.player?.id)).map(item=>({...enrichPlayerProfile(ensurePlayerLifecycle(item.player,season,matchday),season),_teamId:"agente_libre",_teamName:"Agente libre",_teamColor:"#6b7280"}));
+  const freeAgents=[...migratedFreeAgents,...soldFreeAgents];
   const unique=[...external,...freeAgents].filter((player,index,array)=>array.findIndex(item=>item.id===player.id)===index);
   if(game?.teamId!=="athletic")return unique;
   const basqueDevelopmentClubs=new Set(["realsociedad","osasuna","alaves"]);
@@ -963,18 +966,29 @@ function calculateBudgetSnapshot(game, team) {
   const baseBudget = (team?.budget ?? 50) * 1000;
   const totalWageSpent = matchdaysPlayed * weeklyWages;
   const clubCash = Math.max(0, Math.round(baseBudget - totalWageSpent + (game.budgetAdjustment ?? 0)));
-  const salaryReserve = Math.round(weeklyWages * remainingMatchdays);
-  const operatingReserve = Math.round((4500 + (team?.fanbase ?? 2) * 650) * Math.max(.25, remainingMatchdays / 38));
-  const bonusReserve = Math.round(Math.max(1000, clubCash * .04));
-  const reserved = Math.min(clubCash, Math.max(0, salaryReserve + operatingReserve + bonusReserve));
+  const pendingSalaries = Math.round(weeklyWages * remainingMatchdays);
+  const pendingOperating = Math.round((4500 + (team?.fanbase ?? 2) * 650) * Math.max(.25, remainingMatchdays / 38));
+  const incomeLog = game.incomeLog ?? [];
+  const totalIncome = incomeLog.reduce((sum, item) => sum + (item.total ?? 0), 0);
+  const netBalance = totalIncome - totalWageSpent;
+  const securityRate = netBalance >= 15000 ? .10 : netBalance >= 0 ? .12 : .16;
+  const salaryReserve = Math.round(pendingSalaries * .42);
+  const operatingReserve = Math.round(pendingOperating * .50);
+  const bonusReserve = Math.round(Math.max(500, clubCash * .02));
+  const securityFund = Math.round(clubCash * securityRate);
+  const reserved = Math.min(clubCash, Math.max(0, salaryReserve + operatingReserve + bonusReserve + securityFund));
   return {
     baseBudget,
     weeklyWages,
     totalWageSpent,
     clubCash,
+    pendingSalaries,
+    pendingOperating,
+    pendingExpenses: pendingSalaries + pendingOperating,
     salaryReserve,
     operatingReserve,
     bonusReserve,
+    securityFund,
     reserved,
     transferBudget: Math.max(0, clubCash - reserved),
     reservedPct: clubCash > 0 ? Math.round((reserved / clubCash) * 100) : 0,
@@ -1185,15 +1199,18 @@ function FinancesScreen({ game }) {
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10}}>
           <div style={{background:"#0d0f14",borderRadius:8,padding:"10px 12px"}}>
-            <div style={{fontSize:10,color:"#6b7280",marginBottom:4}}>RESERVADO PARA GASTOS</div>
+            <div style={{fontSize:10,color:"#6b7280",marginBottom:4}}>GASTOS Y RESERVA</div>
             <div style={{fontSize:18,fontWeight:800,color:"#f59e0b"}}>{fmt(budgetSnapshot.reserved)}</div>
-            <div style={{fontSize:9,color:"#4b5563",marginTop:3}}>Salarios, operativa y primas</div>
+            <div style={{fontSize:9,color:"#4b5563",marginTop:3}}>Cobertura parcial + fondo de seguridad</div>
           </div>
           <div style={{background:"#0d0f14",borderRadius:8,padding:"10px 12px"}}>
             <div style={{fontSize:10,color:"#6b7280",marginBottom:4}}>PRESUPUESTO FICHAJES</div>
             <div style={{fontSize:18,fontWeight:800,color:"#22c55e"}}>{fmt(budgetSnapshot.transferBudget)}</div>
             <div style={{fontSize:9,color:"#4b5563",marginTop:3}}>Disponible real para mercado</div>
           </div>
+        </div>
+        <div style={{background:"#0d0f14",borderRadius:8,padding:"9px 11px",marginTop:8}}>
+          {[["Salarios pendientes",budgetSnapshot.pendingSalaries],["Operativa pendiente",budgetSnapshot.pendingOperating],["Cobertura salarios",budgetSnapshot.salaryReserve],["Cobertura operativa",budgetSnapshot.operatingReserve],["Fondo seguridad",budgetSnapshot.securityFund]].map(([label,value],index)=><div key={label} style={{display:"flex",justifyContent:"space-between",fontSize:9,padding:"3px 0",borderTop:index?"1px solid rgba(255,255,255,.035)":"none"}}><span style={{color:"#6b7280"}}>{label}</span><strong style={{color:index<2?"#8b92a3":"#c9ced8"}}>{fmt(value)}</strong></div>)}
         </div>
         <div style={{ marginTop:10 }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
@@ -1390,6 +1407,8 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
   const soldByUser = (game.transfers ?? [])
     .filter(t => t.type === "sell"&&!t.toTeamId)
     .map(t => ({ ...t.player, _teamId: "agente_libre", _teamName: "Agente libre", _teamColor: "#6b7280" }));
+  const migratedFreeAgents = (game.freeAgents ?? [])
+    .map(p => ({ ...p, _teamId: "agente_libre", _teamName: "Agente libre", _teamColor: "#6b7280" }));
 
   // IDs de jugadores que el usuario fichó de otro equipo (para no duplicarlos en su origen)
   const boughtFromOthers = new Set(
@@ -1399,15 +1418,16 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
   const reboughtIds = new Set(
     (game.transfers ?? []).filter(t => t.type === "buy").map(t => t.player.id)
   );
+  const freeAgentIds = new Set(migratedFreeAgents.map(player => player.id));
 
   const allOtherPlayers = TEAMS
     .filter(t => t.id !== game.teamId)
     .flatMap(t => (REAL_SQUADS[t.id] ?? [])
-      .filter(p => !boughtFromOthers.has(p.id)) // ya fichado de ese equipo, no se repite
+      .filter(p => !boughtFromOthers.has(p.id) && !freeAgentIds.has(p.id)) // ya fichado/liberado, no se repite
       .map(p => ({ ...p, _teamId: t.id, _teamName: t.name, _teamColor: t.color })));
 
   // Agentes libres: vendidos por el usuario que no han vuelto a fichar
-  const freeAgents = soldByUser.filter(p => !reboughtIds.has(p.id) || true)
+  const freeAgents = [...migratedFreeAgents, ...soldByUser].filter(p => !reboughtIds.has(p.id) || true)
     .filter(p => !players.some(owned => owned.id === p.id)); // si ya los tienes, no aparecen
 
   const allOtherPlayers2 = [...allOtherPlayers, ...freeAgents];
@@ -1476,7 +1496,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
           <div>
             <div style={{ fontSize:10, color:"#6b7280", fontWeight:600, letterSpacing:".4px" }}>PRESUPUESTO FICHAJES</div>
             <div style={{ fontSize:22, fontWeight:800, color: budgetLeft > 0 ? "#22c55e" : "#ef4444", marginTop:2 }}>{fmt(budgetLeft)}</div>
-            <div style={{ fontSize:9, color:"#6b7280", marginTop:2 }}>Caja {fmt(budgetSnapshot.clubCash)} · reservado {fmt(budgetSnapshot.reserved)}</div>
+            <div style={{ fontSize:9, color:"#6b7280", marginTop:2 }}>Caja {fmt(budgetSnapshot.clubCash)} · gastos/reserva {fmt(budgetSnapshot.reserved)}</div>
           </div>
           <div style={{ textAlign:"right" }}>
             <div style={{ fontSize:10, color:"#6b7280" }}>Masa salarial semanal</div>
@@ -4084,6 +4104,24 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     return () => clearTimeout(timer);
   }, [playing, finished, pauseEvent, pendingInjury, currentMinute, segment]);
 
+  const togglePlay = () => {
+    if (playing) {
+      setPlaying(false);
+      return;
+    }
+    if (pendingInjury) return;
+    if (pauseEvent) {
+      setPauseEvent(null);
+      setKeyEventBanner(null);
+    }
+    setPlaying(true);
+  };
+
+  const manualAdvance = () => {
+    setPlaying(false);
+    simNext();
+  };
+
   const endMatch = () => onMatchEnd(fixture.id, score.home, score.away, events, livePlayer, {
     teamId: game.teamId,
     starters: baseLineup.filter(Boolean),
@@ -4221,7 +4259,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
           <div style={{ padding: 12 }}>
             {events.length === 0 && !finished && (
               <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13, marginTop: 40, lineHeight: 1.7 }}>
-                Configura tus tácticas y pulsa<br />"Simular tramo" para comenzar
+                Configura tus tácticas y pulsa<br />"Play" para comenzar
               </div>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
@@ -4350,14 +4388,10 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
         {!finished ? (
           <>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-            <button onClick={()=>setPlaying(value=>!value)} className={playing?"btn-ghost":"btn-gold"} disabled={!!pendingInjury} style={{padding:12,borderRadius:9,fontSize:13,opacity:pendingInjury?.65:1}}>{playing?"Pausa":"Play"}</button>
-            <button onClick={()=>{setPlaying(false);simNext();}} className="btn-ghost" style={{padding:12,borderRadius:9,fontSize:13}}>Avance manual</button>
+            <button onClick={togglePlay} className={playing?"btn-ghost":"btn-gold"} disabled={!!pendingInjury} style={{padding:14,borderRadius:9,fontSize:14,opacity:pendingInjury?.65:1}}>{playing?"Pausa":"Play"}</button>
+            <button onClick={manualAdvance} className="btn-ghost" style={{padding:14,borderRadius:9,fontSize:14}}>Avance manual</button>
           </div>
-          <button onClick={()=>{setPlaying(false);simNext();}} className="btn-gold"
-            style={{ width:"100%", padding:14, borderRadius:9, fontSize:14 }}>
-            {pauseEvent?(currentMinute>=segments[segment]?`▶ Cerrar pausa del min ${currentMinute}'`:`▶ Continuar simulación → hasta min ${segments[segment]}'`):`▶ Simular tramo ${segment + 1}/6 → hasta min ${segments[segment]}'`}
-          </button>
-          <div style={{fontSize:9,color:"#6b7280",textAlign:"center",lineHeight:1.4,marginTop:7}}>1 segundo real = 1 minuto de partido. Se detiene en goles, penaltis, tarjetas, lesiones y decisiones.</div>
+          <div style={{fontSize:9,color:pauseEvent?"#c9a84c":"#6b7280",textAlign:"center",lineHeight:1.4,marginTop:7}}>{pauseEvent?`Partido detenido en el ${currentMinute}'. Pulsa Play para reanudar o Avance manual para continuar paso a paso.`:"1 segundo real = 1 minuto de partido. Se detiene en goles, penaltis, tarjetas, lesiones y decisiones."}</div>
           </>
         ) : (
           <>
@@ -4881,6 +4915,7 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
 
 const SAVE_INDEX_KEY = "legacy_manager_saves_index"; // lista de partidas: [{id, name, teamId, matchday, season, updatedAt}]
 const saveSlotKey = (id) => `legacy_manager_save_${id}`;
+const DATA_VERSION = "1.0.4";
 
 function getSavesIndex() {
   try {
@@ -4892,8 +4927,116 @@ function setSavesIndex(list) {
   try { localStorage.setItem(SAVE_INDEX_KEY, JSON.stringify(list)); } catch (e) {}
 }
 
+function collectDataPlayers() {
+  return TEAMS.flatMap(team => (REAL_SQUADS[team.id] ?? []).map(player => ({ player, team })));
+}
+
+function collectSavePlayerIds(game) {
+  const ids = new Set();
+  (game.players ?? []).forEach(player => player?.id && ids.add(player.id));
+  (game.freeAgents ?? []).forEach(player => player?.id && ids.add(player.id));
+  (game.youth?.players ?? []).forEach(player => player?.id && ids.add(player.id));
+  (game.transfers ?? []).forEach(item => item.player?.id && ids.add(item.player.id));
+  (game.transferMarket?.offers ?? []).forEach(item => item.playerId && ids.add(item.playerId));
+  (game.transferMarket?.incomingOffers ?? []).forEach(item => item.playerId && ids.add(item.playerId));
+  return ids;
+}
+
+function normalizeFreeAgentFromData(player, team, game) {
+  const season = game?.season ?? "2025";
+  const matchday = game?.matchday ?? 1;
+  return normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle({
+    ...player,
+    originalTeamId: team?.id ?? player.originalTeamId ?? null,
+    originalTeamName: team?.name ?? player.originalTeamName ?? null,
+    marketStatus: null,
+    fatigue: Math.max(0, Math.min(15, player.fatigue ?? 8)),
+    morale: Math.max(55, player.morale ?? 70),
+    injured: false,
+    injuryGames: 0,
+    suspended: false,
+    suspGames: 0,
+    yellowCards: 0,
+    addedAsFreeAgent: true,
+  }, season, matchday), season));
+}
+
+function migrateNewDataPlayersToSave(game, dataVersion = DATA_VERSION) {
+  const previousVersion = game.saveDataVersion ?? "1.0.0";
+  const currentDataRows = collectDataPlayers();
+  const currentDataIds = currentDataRows.map(({ player }) => player?.id).filter(Boolean);
+  if (!Array.isArray(game.dataPlayerIds)) {
+    return {
+      ...game,
+      dataVersion,
+      saveDataVersion: dataVersion,
+      dataPlayerIds: currentDataIds,
+      freeAgents: game.freeAgents ?? [],
+      dataMigrations: [{
+        id: `data-baseline-${dataVersion}-${Date.now()}`,
+        type: "baseline",
+        fromVersion: previousVersion,
+        toVersion: dataVersion,
+        date: new Date().toISOString(),
+        count: currentDataIds.length,
+        addedPlayers: [],
+      }, ...(game.dataMigrations ?? [])],
+    };
+  }
+  const knownIds = collectSavePlayerIds(game);
+  const previousDataIds = new Set(game.dataPlayerIds ?? []);
+  const alreadyLogged = new Set((game.dataMigrations ?? []).flatMap(log => (log.addedPlayers ?? []).map(player => player.id)));
+  const additions = [];
+  currentDataRows.forEach(({ player, team }) => {
+    if (!player?.id || previousDataIds.has(player.id) || knownIds.has(player.id) || alreadyLogged.has(player.id)) return;
+    additions.push(normalizeFreeAgentFromData(player, team, game));
+    knownIds.add(player.id);
+  });
+  const uniqueFreeAgents = [...(game.freeAgents ?? []), ...additions]
+    .filter((player, index, array) => player?.id && array.findIndex(item => item.id === player.id) === index);
+  const migrationLog = additions.length ? {
+    id: `data-migration-${dataVersion}-${Date.now()}`,
+    type: "new-free-agents",
+    fromVersion: previousVersion,
+    toVersion: dataVersion,
+    date: new Date().toISOString(),
+    addedPlayers: additions.map(player => ({ id: player.id, name: player.name, originalTeamId: player.originalTeamId ?? null })),
+    count: additions.length,
+  } : null;
+  const migrationNews = additions.length ? [{
+    id: `news-data-migration-${dataVersion}-${Date.now()}`,
+    type: "transfer",
+    importance: "medium",
+    title: "Nuevos jugadores se incorporan al mercado",
+    summary: `Se han añadido ${additions.length} jugador${additions.length===1?"":"es"} como agente${additions.length===1?"":"s"} libre${additions.length===1?"":"s"} en esta partida.`,
+    season: String(game.season ?? "2025"),
+    matchday: game.matchday ?? 1,
+    createdAt: Date.now(),
+    fingerprint: `data-migration:${dataVersion}:${additions.map(player=>player.id).join(",")}`,
+    metadata: { userClub: true, migration: true },
+  }] : [];
+  return {
+    ...game,
+    dataVersion,
+    saveDataVersion: dataVersion,
+    dataPlayerIds: currentDataIds,
+    freeAgents: uniqueFreeAgents,
+    dataMigrations: migrationLog ? [migrationLog, ...(game.dataMigrations ?? [])] : (game.dataMigrations ?? []),
+    news: migrationNews.length ? mergeNews(game.news ?? [], migrationNews) : (game.news ?? []),
+  };
+}
+
+function detachFreeAgentsFromRealSquads(game) {
+  const freeAgentIds = new Set((game.freeAgents ?? []).map(player => player.id));
+  if (!freeAgentIds.size) return;
+  Object.keys(REAL_SQUADS).forEach(teamId => {
+    REAL_SQUADS[teamId] = (REAL_SQUADS[teamId] ?? []).filter(player => !freeAgentIds.has(player.id));
+  });
+}
+
 export default function App({ externalData }) {
   useGlobalStyles();
+  const currentDataVersion = externalData?.dataVersion ?? DATA_VERSION;
   if (externalData?.players) Object.assign(REAL_SQUADS, externalData.players);
   if (externalData?.teams) {
     externalData.teams.forEach(et => {
@@ -4967,16 +5110,22 @@ export default function App({ externalData }) {
         const parsed = JSON.parse(saved);
         parsed.players = (parsed.players ?? []).map(player => normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player, parsed.season ?? "2025", parsed.matchday ?? 1), parsed.season ?? "2025")));
         parsed.trainingPlan = normalizeTrainingPlan(parsed.trainingPlan);
+        let loadedLineup = emptyLineup();
+        let loadedFormation = "4-3-3";
+        let loadedSubs = emptyBench();
         if (parsed._lineup) {
-          setLineup(normalizeSlots(parsed._lineup, STARTERS_SLOTS));
+          loadedLineup = normalizeSlots(parsed._lineup, STARTERS_SLOTS);
+          setLineup(loadedLineup);
           delete parsed._lineup;
         }
         if (parsed._formation) {
-          setFormation(parsed._formation);
+          loadedFormation = parsed._formation;
+          setFormation(loadedFormation);
           delete parsed._formation;
         }
         if (parsed._subs) {
-          setSubs(normalizeSlots(parsed._subs, BENCH_SLOTS));
+          loadedSubs = normalizeSlots(parsed._subs, BENCH_SLOTS);
+          setSubs(loadedSubs);
           delete parsed._subs;
         }
         // Reaplicar fichajes pasados: quitar de REAL_SQUADS los jugadores ya comprados
@@ -4992,7 +5141,10 @@ export default function App({ externalData }) {
         const loadedTeam=TEAMS.find(team=>team.id===parsed.teamId);
         let migrated=ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam)));
         migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,parsed.season??"2025",parsed.matchday??1),parsed.season??"2025")))};
+        migrated=migrateNewDataPlayersToSave(migrated,currentDataVersion);
+        detachFreeAgentsFromRealSquads(migrated);
         migrated=refreshTransferListings(ensureTransferState(bootstrapScouting(migrated,getScoutingPool(migrated))),TEAMS,REAL_SQUADS);
+        saveGame(migrated, loadedLineup, loadedFormation, loadedSubs, saveId);
         setGame(migrated);
         if(migrated.seasonTransition==="seasonEnd"){setSeasonSummary({standings:migrated.standings,teamId:migrated.teamId,season:migrated.season,history:migrated.history??[],players:migrated.players,legacy:migrated.legacy,game:migrated});setScreen("seasonEnd");}
         else setScreen(migrated.seasonTransition==="preseason"?"preseason":"dashboard");
@@ -5018,7 +5170,7 @@ export default function App({ externalData }) {
     const fixtures = generateFixtures();
     const standings = initStandings();
     const newId = `save_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-    const seeded = ensureYouthState(ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
+    const seeded = ensureYouthState(ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", dataVersion:currentDataVersion, saveDataVersion:currentDataVersion, dataPlayerIds:collectDataPlayers().map(({player})=>player.id).filter(Boolean), freeAgents:[], dataMigrations:[], history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
       country: pendingCountry?.id, league: pendingLeague?.id },team),team);
     let g={...seeded,youth:{...seeded.youth,players:seeded.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,"2025",1),"2025")))}};
     g=ensureContractState(refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS));

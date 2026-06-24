@@ -327,6 +327,19 @@ export function getAttentionItems(game, context = {}) {
     }));
   }
 
+  const lastDataMigration = (game.dataMigrations ?? []).find(item => item.type === "new-free-agents" && item.count > 0);
+  if (lastDataMigration && !game.attentionCenter?.items?.[`data-free-agents:${lastDataMigration.id}`]?.dismissed) {
+    items.push(createItem(game, {
+      id: `data-free-agents:${lastDataMigration.id}`,
+      category: "market",
+      priority: "info",
+      title: "Nuevos jugadores disponibles",
+      summary: `Se han añadido ${lastDataMigration.count} jugador${lastDataMigration.count===1?"":"es"} nuevo${lastDataMigration.count===1?"":"s"} como agente${lastDataMigration.count===1?"":"s"} libre${lastDataMigration.count===1?"":"s"}.`,
+      action: { screen: "transfers", tab: "free" },
+      actionLabel: "Ver agentes libres",
+    }));
+  }
+
   for (const prospect of game.youth?.players ?? []) {
     const ready = prospect.age >= 18 && (prospect.overall >= 70 || prospect.potential >= 86);
     if (!ready) continue;
