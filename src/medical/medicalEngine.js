@@ -23,6 +23,18 @@ export function getRiskLevel(risk) {
   return MEDICAL_LEVELS.find(level => risk <= level.max) ?? MEDICAL_LEVELS[3];
 }
 
+export function getAccumulatedLoad(player) {
+  return Math.max(0, Math.min(100, Math.round(player.accumulatedFatigue ?? player.medical?.accumulatedFatigue ?? 0)));
+}
+
+export function getLoadLevel(load) {
+  const value = Math.max(0, Math.min(100, Math.round(load ?? 0)));
+  if (value >= 76) return { id:"critical", label:"Crítica", icon:"🔴", color:"#ef4444" };
+  if (value >= 56) return { id:"high", label:"Alta", icon:"🟠", color:"#f97316" };
+  if (value >= 31) return { id:"medium", label:"Media", icon:"🟡", color:"#eab308" };
+  return { id:"low", label:"Baja", icon:"🟢", color:"#22c55e" };
+}
+
 function workload(playerId, fixtures = [], teamId) {
   const played = fixtures.filter(f => f.played && (f.homeTeamId === teamId || f.awayTeamId === teamId)).sort((a,b)=>b.matchday-a.matchday);
   let consecutiveStarts = 0;
@@ -45,7 +57,9 @@ export function calculateInjuryRisk(player, { fixtures = [], teamId, tactics, cu
   if (player.medical?.phase === "injured" || player.medical?.phase === "recovery") return 100;
   const load = workload(player.id, fixtures, teamId);
   const fatigue = Math.max(0, Math.min(100, player.fatigue ?? 20));
+  const accumulatedLoad = getAccumulatedLoad(player);
   const fatigueRisk = Math.max(0, fatigue - 18) * .66;
+  const accumulatedRisk = Math.max(0, accumulatedLoad - 30) * .22;
   const ageRisk = Math.max(0, (player.age ?? 25) - 29) * 1.6 * (player.injuryRiskAgeModifier ?? 1);
   const streakRisk = Math.min(20, load.consecutiveStarts * 4);
   const minutesRisk = Math.min(10, load.seasonMinutes / 450);
@@ -54,7 +68,7 @@ export function calculateInjuryRisk(player, { fixtures = [], teamId, tactics, cu
   const limitationRisk = player.medical?.phase === "limited" ? 24 : 0;
   const trainingRisk = Math.max(0, Math.min(25, player.trainingRiskModifier ?? 0));
   const tacticalRisk = (tactics?.presion === "alta" ? 5 : 0) + (tactics?.ritmo === "rapido" ? 4 : 0);
-  return Math.round(Math.max(2, Math.min(98, 3 + fatigueRisk + ageRisk + streakRisk + minutesRisk + inMatchRisk + historyRisk + limitationRisk + trainingRisk + tacticalRisk)));
+  return Math.round(Math.max(2, Math.min(98, 3 + fatigueRisk + accumulatedRisk + ageRisk + streakRisk + minutesRisk + inMatchRisk + historyRisk + limitationRisk + trainingRisk + tacticalRisk)));
 }
 
 function chooseInjuryType(risk, playerId, matchday) {
@@ -78,7 +92,8 @@ export function rollContextualInjury(players, context = {}) {
   let roll = Math.random() * totalWeight;
   const selected = weighted.find(item => (roll -= Math.pow(item.risk,1.7)) <= 0) ?? weighted[weighted.length-1];
   const type = chooseInjuryType(selected.risk, selected.player.id, context.matchday);
-  const totalDays = type.minDays + Math.floor(Math.random() * (type.maxDays - type.minDays + 1));
+  const loadPenalty = selected.player ? Math.max(0, getAccumulatedLoad(selected.player) - 60) : 0;
+  const totalDays = Math.round((type.minDays + Math.floor(Math.random() * (type.maxDays - type.minDays + 1))) * (1 + Math.min(.18, loadPenalty * .004)));
   return { player:selected.player, risk:selected.risk, type, totalDays };
 }
 
@@ -108,7 +123,8 @@ export function applyInjury(player, event, season, matchday) {
 
 export function advanceMedicalRecovery(player, days = 7) {
   if (!player.medical || player.medical.phase === "available") return { ...player, injured:false, injuryGames:0, medical:player.medical ?? { phase:"available" } };
-  const effectiveDays = Math.max(1, Math.round(days / Math.max(.75, player.recoveryModifier ?? 1)));
+  const loadModifier = 1 + Math.max(0, getAccumulatedLoad(player) - 50) * .006;
+  const effectiveDays = Math.max(1, Math.round(days / Math.max(.75, (player.recoveryModifier ?? 1) * loadModifier)));
   const remainingDays = Math.max(0, (player.medical.remainingDays ?? 0) - effectiveDays);
   const totalDays = Math.max(1, player.medical.totalDays ?? remainingDays);
   const recovery = Math.min(100, Math.round((1 - remainingDays / totalDays) * 100));

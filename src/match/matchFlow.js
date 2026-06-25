@@ -1,3 +1,5 @@
+import { getAccumulatedLoad } from "../medical/medicalEngine.js";
+
 export const EXTRAORDINARY_EVENT_TYPES=new Set(["GOAL","PENALTY","YELLOW","RED","INJURY"]);
 
 export function intervalProbability(baseProbability,minutes){
@@ -38,12 +40,13 @@ export function chooseOpponentFormation(teamId=""){
 
 export function buildStartingEleven(players=[],formation="4-3-3"){
   const available=players.filter(player=>!player.injured&&!player.suspended);const used=new Set();
+  const physicalScore=player=>(player.overall??0)-Math.max(0,(player.fatigue??0)-35)*.08-Math.max(0,getAccumulatedLoad(player)-55)*.07;
   return (MATCH_FORMATIONS[formation]??MATCH_FORMATIONS["4-3-3"]).map(position=>{
     const exact=available.filter(player=>!used.has(player.id)&&player.pos===position);
     const sameGroup=available.filter(player=>!used.has(player.id)&&player.group===positionGroup(position));
     const fallback=available.filter(player=>!used.has(player.id));
     const pool=exact.length?exact:sameGroup.length?sameGroup:fallback;
-    const selected=[...pool].sort((a,b)=>(b.overall??0)-(a.overall??0))[0];
+    const selected=[...pool].sort((a,b)=>physicalScore(b)-physicalScore(a))[0];
     if(selected)used.add(selected.id);return selected?.id??null;
   });
 }

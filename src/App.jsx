@@ -20,7 +20,7 @@ import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
 import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle, lifecycleNews, processBirthdays } from "./players/lifecycle.js";
-import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
+import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getAccumulatedLoad, getLoadLevel, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
 import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, normalizeTrainingPlan } from "./training/trainingEngine.js";
 import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason } from "./legacy/legacyEngine.js";
 import { createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
@@ -697,10 +697,12 @@ function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS) {
 
   const moraleAvg  = starters.reduce((s,p)=>s+p.morale,0)  / starters.length;
   const fatigueAvg = starters.reduce((s,p)=>s+p.fatigue,0) / starters.length;
+  const loadAvg = starters.reduce((s,p)=>s+getAccumulatedLoad(p),0) / starters.length;
   const tacticalSharpness = starters.reduce((s,p)=>s+(p.tacticalSharpness??0),0) / starters.length;
 
   const moraleBonus   = (moraleAvg - 70) * 0.12;
   const fatiguePenalty = fatigueAvg * 0.09;
+  const loadPenalty = Math.max(0, loadAvg - 60) * .045;
   const homeBon        = isHome ? 3 : 0;
 
   const mod = tacticModifiers(tactics);
@@ -713,7 +715,7 @@ function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS) {
     gkStr      * 0.10 +
     moraleBonus * 0.05;
 
-  return Math.max(35, lineStrength - fatiguePenalty + homeBon + mod.atkBonus * 0.5 + tacticalSharpness * .6);
+  return Math.max(35, lineStrength - fatiguePenalty - loadPenalty + homeBon + mod.atkBonus * 0.5 + tacticalSharpness * .6);
 }
 
 function calcDefStrength(players, tactics = DEFAULT_TACTICS) {
@@ -2518,7 +2520,7 @@ function SquadScreen({ game, players, onOpenPlayer }) {
 
 // ─── Helpers de energía/cansancio (documento UX) ─────────────────────────────
 function energyLevel(fatigue) {
-  const energy = 100 - (fatigue ?? 0); // energía = inverso del cansancio
+  const energy = Math.round(100 - (fatigue ?? 0)); // energía = inverso del cansancio
   if (energy >= 80) return { energy, color: "#22c55e", emoji: "🟢", label: "Fresco" };
   if (energy >= 70) return { energy, color: "#22c55e", emoji: "🟢", label: "Bien" };
   if (energy >= 60) return { energy, color: "#fbbf24", emoji: "🟡", label: "Cansado" };
@@ -3834,7 +3836,7 @@ function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[],
     const rating = hasRating ? Math.max(4, Math.min(10, 6 + Math.min(90, minutes) / 360 + goals * 1.25 + assists * .7 + saves * .18 + defensiveActions * .14 - yellows * .2 - (red ? 1.5 : 0))) : null;
     return { goals, assists, yellows, red, saves, defensiveActions, minutes, rating: rating ? rating.toFixed(1) : "—" };
   };
-  return <div style={{background:"#161a24",border:`1px solid ${team?.color??"#6b7280"}28`,borderRadius:11,padding:12,marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TeamCrest team={team} size={38}/><div style={{flex:1}}><div style={{fontSize:12,color:"#fff",fontWeight:850}}>{team?.name}</div><div style={{fontSize:9,color:team?.color??"#9aa0b4",marginTop:2}}>{formation} · {active.length} jugadores activos</div></div><div style={{textAlign:"center"}}><div style={{fontSize:20,color:"#c9a84c",fontWeight:900}}>{average}</div><div style={{fontSize:7,color:"#6b7280"}}>MEDIA ONCE</div></div></div><div style={{display:"flex",flexDirection:"column",gap:5}}>{lineupPlayers.map(player=>{const data=playerData(player);const red=data.red;const injured=injuredIds.has(player.id);const subOut=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===player.id);const subIn=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.playerId===player.id);return <div key={player.id} style={{background:red?"rgba(239,68,68,.07)":injured?"rgba(249,115,22,.07)":"#11141c",borderRadius:7,padding:"7px 9px",opacity:red||subOut?.7:1}}><div style={{display:"flex",alignItems:"center",gap:7}}><span style={{width:29,color:"#6b7280",fontSize:9,fontWeight:800}}>{player.pos}</span><span style={{flex:1,color:red?"#ef4444":injured?"#f97316":"#dfe3ec",fontSize:10,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</span>{data.goals>0&&<span>⚽{data.goals}</span>}{data.assists>0&&<span style={{fontSize:8,color:"#60a5fa"}}>A{data.assists}</span>}{data.yellows>0&&<span>🟨</span>}{red&&<span>🟥</span>}{injured&&<span>🏥</span>}<strong style={{fontSize:11,color:Number(data.rating)>=7?"#22c55e":"#c9a84c"}}>{data.rating}</strong></div><div style={{display:"flex",gap:7,marginTop:3,paddingLeft:36,fontSize:8,color:"#697083"}}>{player.fatigue!=null&&<span>⚡ {Math.max(0,100-player.fatigue)}%</span>}{subIn&&<span style={{color:"#22c55e"}}>ENTRA {subIn.minute}'</span>}{subOut&&<span style={{color:"#a855f7"}}>SALE {subOut.minute}'</span>}</div></div>})}</div>{keyPlayer&&<div style={{marginTop:9,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.05)",fontSize:9,color:"#6b7280"}}>⭐ Jugador clave: <strong style={{color:team?.color??"#c9a84c"}}>{keyPlayer.name}</strong> · {keyPlayer.overall}</div>}{changes.length>0&&<div style={{marginTop:6,fontSize:8,color:"#a855f7"}}>🔄 {changes.length} cambio{changes.length===1?"":"s"}</div>}</div>;
+  return <div style={{background:"#161a24",border:`1px solid ${team?.color??"#6b7280"}28`,borderRadius:11,padding:12,marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TeamCrest team={team} size={38}/><div style={{flex:1}}><div style={{fontSize:12,color:"#fff",fontWeight:850}}>{team?.name}</div><div style={{fontSize:9,color:team?.color??"#9aa0b4",marginTop:2}}>{formation} · {active.length} jugadores activos</div></div><div style={{textAlign:"center"}}><div style={{fontSize:20,color:"#c9a84c",fontWeight:900}}>{average}</div><div style={{fontSize:7,color:"#6b7280"}}>MEDIA ONCE</div></div></div><div style={{display:"flex",flexDirection:"column",gap:5}}>{lineupPlayers.map(player=>{const data=playerData(player);const red=data.red;const injured=injuredIds.has(player.id);const subOut=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===player.id);const subIn=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.playerId===player.id);return <div key={player.id} style={{background:red?"rgba(239,68,68,.07)":injured?"rgba(249,115,22,.07)":"#11141c",borderRadius:7,padding:"7px 9px",opacity:red||subOut?.7:1}}><div style={{display:"flex",alignItems:"center",gap:7}}><span style={{width:29,color:"#6b7280",fontSize:9,fontWeight:800}}>{player.pos}</span><span style={{flex:1,color:red?"#ef4444":injured?"#f97316":"#dfe3ec",fontSize:10,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</span>{data.goals>0&&<span>⚽{data.goals}</span>}{data.assists>0&&<span style={{fontSize:8,color:"#60a5fa"}}>A{data.assists}</span>}{data.yellows>0&&<span>🟨</span>}{red&&<span>🟥</span>}{injured&&<span>🏥</span>}<strong style={{fontSize:11,color:Number(data.rating)>=7?"#22c55e":"#c9a84c"}}>{data.rating}</strong></div><div style={{display:"flex",gap:7,marginTop:3,paddingLeft:36,fontSize:8,color:"#697083"}}>{player.fatigue!=null&&<span>⚡ {Math.max(0,Math.round(100-player.fatigue))}%</span>}{subIn&&<span style={{color:"#22c55e"}}>ENTRA {subIn.minute}'</span>}{subOut&&<span style={{color:"#a855f7"}}>SALE {subOut.minute}'</span>}</div></div>})}</div>{keyPlayer&&<div style={{marginTop:9,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.05)",fontSize:9,color:"#6b7280"}}>⭐ Jugador clave: <strong style={{color:team?.color??"#c9a84c"}}>{keyPlayer.name}</strong> · {keyPlayer.overall}</div>}{changes.length>0&&<div style={{marginTop:6,fontSize:8,color:"#a855f7"}}>🔄 {changes.length} cambio{changes.length===1?"":"s"}</div>}</div>;
 }
 
 function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, lineup: baseLineup, setLineup: setBaseLineup, subs: baseSubs, setSubs: setBaseSubs, formation:baseFormation="4-3-3", onMatchEnd }) {
@@ -4106,12 +4108,13 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       const onField = onFieldIds.has(p.id);
       const isGK = p.group === "POR";
       const ageFactor = p.age >= 32 ? 1.18 : p.age <= 22 ? .92 : 1;
+      const loadFactor = 1 + Math.max(0, getAccumulatedLoad(p) - 60) * .004;
       const updated = {
         ...p,
         // Solo los jugadores en el campo se cansan; los porteros apenas se cansan; los que no juegan descansan
         fatigue: p.injured ? p.fatigue
           : onField
-            ? Math.min(100, Number(((p.fatigue??0) + ((isGK ? fatDelta * 0.25 : fatDelta) * ageFactor) + randomFatigueNoise(isGK)).toFixed(2)))
+            ? Math.min(100, Number(((p.fatigue??0) + ((isGK ? fatDelta * 0.25 : fatDelta) * ageFactor * loadFactor) + randomFatigueNoise(isGK)).toFixed(2)))
             : Math.max(0, Number(((p.fatigue??0) - elapsedMinutes/15).toFixed(2))),
       };
       const injuryEvent = newEvs.find(e => e.type === "INJURY" && e.playerId === p.id);
@@ -4124,12 +4127,13 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       const onField = oppOnFieldIds.has(player.id);
       const isGK = player.group === "POR";
       const ageFactor = player.age >= 32 ? 1.18 : player.age <= 22 ? .92 : 1;
+      const loadFactor = 1 + Math.max(0, getAccumulatedLoad(player) - 60) * .004;
       const injuryEvent = newEvs.find(event => event.type === "INJURY" && event.team === "opp" && event.playerId === player.id);
       const updated = {
         ...player,
         fatigue: player.injured ? player.fatigue
           : onField
-            ? Math.min(100, Number(((player.fatigue ?? 18) + ((isGK ? oppFatDelta * .25 : oppFatDelta) * ageFactor) + oppRandomFatigueNoise(isGK)).toFixed(2)))
+            ? Math.min(100, Number(((player.fatigue ?? 18) + ((isGK ? oppFatDelta * .25 : oppFatDelta) * ageFactor * loadFactor) + oppRandomFatigueNoise(isGK)).toFixed(2)))
             : Math.max(0, Number(((player.fatigue ?? 18) - elapsedMinutes/15).toFixed(2))),
       };
       return injuryEvent ? applyInjury(updated, injuryEvent, game.season ?? "2025", fixture.matchday) : updated;
@@ -5322,6 +5326,23 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
   };
 }
 
+function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
+  const squad = REAL_SQUADS[teamId] ?? [];
+  if (!squad.length) return;
+  const starterIds = new Set(buildStartingEleven(squad, formation).filter(Boolean));
+  REAL_SQUADS[teamId] = squad.map(player => {
+    const starts = starterIds.has(player.id);
+    const resistance = player.attrs?.fisico ?? 70;
+    const ageFactor = player.age >= 32 ? 1.18 : player.age <= 22 ? .92 : 1;
+    const positionLoad = player.group==="POR" ? .35 : ["LD","LI","ED","EI"].includes(player.pos) ? 1.2 : player.group==="DEF" ? .85 : 1;
+    const matchFatigue = starts ? Math.round((14 + Math.max(0,70-resistance)*.12) * ageFactor * positionLoad) : -3;
+    const previousLoad = getAccumulatedLoad(player);
+    const loadGain = starts ? Math.round((player.group==="POR"?1:4) * ageFactor * positionLoad) : -3;
+    const accumulatedFatigue = Math.max(0,Math.min(100,previousLoad+loadGain));
+    return { ...player, fatigue:Math.max(0,Math.min(100,Math.round((player.fatigue??18)+matchFatigue))), accumulatedFatigue, medical:{...(player.medical??{}),accumulatedFatigue} };
+  });
+}
+
   const handleMatchEnd = (fixtureId, homeGoals, awayGoals, events, livePlayer, participation) => {
     let summaryData = null;
     setGame(prev => {
@@ -5335,6 +5356,8 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
           const ht = TEAMS.find(t => t.id === f.homeTeamId);
           const at = TEAMS.find(t => t.id === f.awayTeamId);
           const res = simAIGame(ht, at);
+          applyAiPhysicalAfterMatch(f.homeTeamId, chooseOpponentFormation(f.homeTeamId));
+          applyAiPhysicalAfterMatch(f.awayTeamId, chooseOpponentFormation(f.awayTeamId));
           return { ...f, played: true, homeGoals: res.homeGoals, awayGoals: res.awayGoals, events: res.events ?? [] };
         }
         return f;
