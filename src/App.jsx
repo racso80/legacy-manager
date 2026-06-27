@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { resolvePlayerPhoto } from "./data/dataLoader.js";
 import NewsScreen from "./components/NewsScreen.jsx";
 import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
@@ -48,66 +48,66 @@ const emptyLineup = () => Array(STARTERS_SLOTS).fill(null);
 const emptyBench = () => Array(BENCH_SLOTS).fill(null);
 const normalizeSlots = (list = [], size) => [...list.slice(0, size), ...Array(Math.max(0, size - list.length)).fill(null)];
 
-// â”€â”€â”€ DATOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── DATOS ───────────────────────────────────────────────────────────────────
 
 const TEAMS = [
-  { id: "athletic",    name: "Athletic Club",      short: "ATH", color: "#c9a84c", stadium: "San MamÃ©s",               budget: 48,  avg: 79, obj: "Top 6",       city: "Bilbao",        capacity: 53289, fanbase: 4 },
-  { id: "atletico",   name: "AtlÃ©tico Madrid",     short: "ATM", color: "#c8102e", stadium: "Civitas Metropolitano",   budget: 120, avg: 85, obj: "CampeÃ³n",     city: "Madrid",        capacity: 70460, fanbase: 5 },
-  { id: "barcelona",  name: "FC Barcelona",        short: "BAR", color: "#a50044", stadium: "Spotify Camp Nou",        budget: 180, avg: 88, obj: "CampeÃ³n",     city: "Barcelona",     capacity: 105000, fanbase: 5 },
-  { id: "betis",      name: "Real Betis",          short: "BET", color: "#00a650", stadium: "Benito VillamarÃ­n",       budget: 65,  avg: 78, obj: "Top 6",       city: "Sevilla",       capacity: 60721, fanbase: 4 },
-  { id: "celta",      name: "Celta de Vigo",       short: "CEL", color: "#6cb4e4", stadium: "Abanca BalaÃ­dos",         budget: 38,  avg: 75, obj: "Mitad tabla", city: "Vigo",          capacity: 29000, fanbase: 3 },
+  { id: "athletic",    name: "Athletic Club",      short: "ATH", color: "#c9a84c", stadium: "San Mamés",               budget: 48,  avg: 79, obj: "Top 6",       city: "Bilbao",        capacity: 53289, fanbase: 4 },
+  { id: "atletico",   name: "Atlético Madrid",     short: "ATM", color: "#c8102e", stadium: "Civitas Metropolitano",   budget: 120, avg: 85, obj: "Campeón",     city: "Madrid",        capacity: 70460, fanbase: 5 },
+  { id: "barcelona",  name: "FC Barcelona",        short: "BAR", color: "#a50044", stadium: "Spotify Camp Nou",        budget: 180, avg: 88, obj: "Campeón",     city: "Barcelona",     capacity: 105000, fanbase: 5 },
+  { id: "betis",      name: "Real Betis",          short: "BET", color: "#00a650", stadium: "Benito Villamarín",       budget: 65,  avg: 78, obj: "Top 6",       city: "Sevilla",       capacity: 60721, fanbase: 4 },
+  { id: "celta",      name: "Celta de Vigo",       short: "CEL", color: "#6cb4e4", stadium: "Abanca Balaídos",         budget: 38,  avg: 75, obj: "Mitad tabla", city: "Vigo",          capacity: 29000, fanbase: 3 },
   { id: "espanyol",   name: "RCD Espanyol",        short: "ESP", color: "#005395", stadium: "Stage Front Stadium",     budget: 32,  avg: 74, obj: "Permanencia", city: "Barcelona",     capacity: 40500, fanbase: 2 },
   { id: "getafe",     name: "Getafe CF",           short: "GET", color: "#005ca9", stadium: "Coliseum",                budget: 28,  avg: 73, obj: "Permanencia", city: "Getafe",        capacity: 17393, fanbase: 2 },
   { id: "girona",     name: "Girona FC",           short: "GIR", color: "#b22222", stadium: "Montilivi",               budget: 44,  avg: 77, obj: "Top 10",      city: "Girona",        capacity: 14624, fanbase: 2 },
-  { id: "laspalmas",  name: "Elche CF",            short: "ELC", color: "#006400", stadium: "MartÃ­nez Valero",         budget: 22,  avg: 73, obj: "Permanencia", city: "Elche",         capacity: 33732, fanbase: 2 },
+  { id: "laspalmas",  name: "Elche CF",            short: "ELC", color: "#006400", stadium: "Martínez Valero",         budget: 22,  avg: 73, obj: "Permanencia", city: "Elche",         capacity: 33732, fanbase: 2 },
   { id: "leganes",    name: "Levante UD",          short: "LEV", color: "#003DA5", stadium: "Estadio Ciudad de Valencia", budget: 24, avg: 72, obj: "Permanencia", city: "Valencia",    capacity: 26354, fanbase: 2 },
   { id: "mallorca",   name: "RCD Mallorca",        short: "MAL", color: "#c8102e", stadium: "Visit Mallorca Estadi",   budget: 30,  avg: 74, obj: "Permanencia", city: "Palma",         capacity: 23142, fanbase: 2 },
   { id: "osasuna",    name: "CA Osasuna",          short: "OSA", color: "#c8102e", stadium: "El Sadar",                budget: 32,  avg: 74, obj: "Mitad tabla", city: "Pamplona",      capacity: 23576, fanbase: 3 },
   { id: "rayo",       name: "Rayo Vallecano",      short: "RAY", color: "#c8102e", stadium: "Estadio de Vallecas",     budget: 25,  avg: 74, obj: "Permanencia", city: "Madrid",        capacity: 14708, fanbase: 2 },
-  { id: "realmadrid", name: "Real Madrid",         short: "RMA", color: "#ffd700", stadium: "Santiago BernabÃ©u",       budget: 250, avg: 90, obj: "CampeÃ³n",     city: "Madrid",        capacity: 78297, fanbase: 5 },
-  { id: "realsociedad",name: "Real Sociedad",      short: "RSO", color: "#003DA5", stadium: "Reale Arena",             budget: 72,  avg: 79, obj: "Top 6",       city: "San SebastiÃ¡n", capacity: 39313, fanbase: 4 },
-  { id: "sevilla",    name: "Sevilla FC",          short: "SEV", color: "#e8001c", stadium: "RamÃ³n SÃ¡nchez-PizjuÃ¡n",   budget: 85,  avg: 76, obj: "Top 10",      city: "Sevilla",       capacity: 43883, fanbase: 4 },
+  { id: "realmadrid", name: "Real Madrid",         short: "RMA", color: "#ffd700", stadium: "Santiago Bernabéu",       budget: 250, avg: 90, obj: "Campeón",     city: "Madrid",        capacity: 78297, fanbase: 5 },
+  { id: "realsociedad",name: "Real Sociedad",      short: "RSO", color: "#003DA5", stadium: "Reale Arena",             budget: 72,  avg: 79, obj: "Top 6",       city: "San Sebastián", capacity: 39313, fanbase: 4 },
+  { id: "sevilla",    name: "Sevilla FC",          short: "SEV", color: "#e8001c", stadium: "Ramón Sánchez-Pizjuán",   budget: 85,  avg: 76, obj: "Top 10",      city: "Sevilla",       capacity: 43883, fanbase: 4 },
   { id: "valencia",   name: "Valencia CF",         short: "VAL", color: "#ff7f00", stadium: "Mestalla",                budget: 52,  avg: 75, obj: "Mitad tabla", city: "Valencia",      capacity: 49430, fanbase: 4 },
   { id: "valladolid", name: "Real Oviedo",         short: "OVI", color: "#003DA5", stadium: "Carlos Tartiere",         budget: 18,  avg: 72, obj: "Permanencia", city: "Oviedo",        capacity: 30500, fanbase: 2 },
-  { id: "villarreal", name: "Villarreal CF",       short: "VIL", color: "#ffd700", stadium: "Estadio de la CerÃ¡mica",  budget: 78,  avg: 79, obj: "Top 6",       city: "Villarreal",    capacity: 23008, fanbase: 3 },
-  { id: "alaves",     name: "Deportivo AlavÃ©s",    short: "ALA", color: "#007ac2", stadium: "Mendizorroza",            budget: 22,  avg: 72, obj: "Permanencia", city: "Vitoria",       capacity: 19840, fanbase: 2 },
+  { id: "villarreal", name: "Villarreal CF",       short: "VIL", color: "#ffd700", stadium: "Estadio de la Cerámica",  budget: 78,  avg: 79, obj: "Top 6",       city: "Villarreal",    capacity: 23008, fanbase: 3 },
+  { id: "alaves",     name: "Deportivo Alavés",    short: "ALA", color: "#007ac2", stadium: "Mendizorroza",            budget: 22,  avg: 72, obj: "Permanencia", city: "Vitoria",       capacity: 19840, fanbase: 2 },
 ];
 
-// â”€â”€â”€ PLANTILLAS REALES LALIGA 2025/26 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── PLANTILLAS REALES LALIGA 2025/26 ────────────────────────────────────────
 function _r(ov){return ov>=85?"SPECIAL":ov>=75?"GOLD":ov>=65?"SILVER":"BRONZE";}
 function _p(id,name,pos,group,ov,age,nat,pace,shoot,pass,drib,def,phys){
   const gk=group==="POR"?Math.round(ov*0.98):Math.round(5+Math.random()*10);
-  // Salario semanal en miles de euros segÃºn overall
+  // Salario semanal en miles de euros según overall
   const salary = ov>=88?250:ov>=84?150:ov>=80?90:ov>=76?55:ov>=72?30:ov>=68?16:8;
   return{id,name,pos,group,overall:ov,age,nat,rarity:_r(ov),
     fatigue:Math.floor(Math.random()*25),morale:65+Math.floor(Math.random()*30),
     injured:false,injuryGames:0,suspended:false,suspGames:0,
     yellowCards:Math.floor(Math.random()*3),
-    salary, // â‚¬K/semana
+    salary, // €K/semana
     attrs:{ritmo:pace,tiro:shoot,pase:pass,regate:drib,defensa:def,fisico:phys,porteria:gk}};
 }
 
 const REAL_SQUADS = {
   athletic:[
-    _p("ath-1","Unai SimÃ³n","POR","POR",84,27,"ES",60,22,63,44,20,74),
-    _p("ath-2","Ãlex Padilla","POR","POR",70,22,"ES",55,18,55,40,18,65),
+    _p("ath-1","Unai Simón","POR","POR",84,27,"ES",60,22,63,44,20,74),
+    _p("ath-2","Álex Padilla","POR","POR",70,22,"ES",55,18,55,40,18,65),
     _p("ath-3","Dani Vivian","DFC","DEF",79,24,"ES",65,40,66,54,80,78),
     _p("ath-4","Aitor Paredes","DFC","DEF",78,24,"ES",66,38,64,52,79,77),
-    _p("ath-5","Yeray Ãlvarez","DFC","DEF",77,29,"ES",60,35,65,50,79,80),
+    _p("ath-5","Yeray Álvarez","DFC","DEF",77,29,"ES",60,35,65,50,79,80),
     _p("ath-6","Aymeric Laporte","DFC","DEF",83,31,"ES",63,44,72,58,84,78),
-    _p("ath-7","IÃ±igo Lekue","LD","DEF",74,32,"ES",73,50,68,62,72,70),
+    _p("ath-7","Iñigo Lekue","LD","DEF",74,32,"ES",73,50,68,62,72,70),
     _p("ath-8","Andoni Gorosabel","LD","DEF",73,27,"ES",74,48,66,60,71,69),
     _p("ath-9","Yuri Berchiche","LI","DEF",76,34,"FR",70,50,70,63,73,70),
-    _p("ath-10","JesÃºs Areso","LD","DEF",72,24,"ES",76,46,64,62,70,68),
+    _p("ath-10","Jesús Areso","LD","DEF",72,24,"ES",76,46,64,62,70,68),
     _p("ath-11","Mikel Vesga","MCD","MED",76,31,"ES",64,58,72,60,77,78),
     _p("ath-12","Oihan Sancet","MC","MED",82,23,"ES",76,74,80,78,52,72),
     _p("ath-13","I. Ruiz de Galarreta","MC","MED",75,28,"ES",68,60,76,66,68,72),
-    _p("ath-14","BeÃ±at Prados","MC","MED",73,22,"ES",70,62,74,68,54,68),
-    _p("ath-15","Unai GÃ³mez","MCO","MED",74,23,"ES",68,68,76,72,44,66),
+    _p("ath-14","Beñat Prados","MC","MED",73,22,"ES",70,62,74,68,54,68),
+    _p("ath-15","Unai Gómez","MCO","MED",74,23,"ES",68,68,76,72,44,66),
     _p("ath-16","Mikel Jauregizar","LD","DEF",71,22,"ES",74,44,64,60,70,68),
     _p("ath-17","Robert Navarro","EI","DEL",76,23,"ES",84,70,72,80,36,70),
-    _p("ath-18","Selton SÃ¡nchez","MC","MED",68,20,"ES",72,58,70,66,48,64),
-    _p("ath-19","IÃ±aki Williams","DC","DEL",83,30,"GH",91,78,68,80,40,86),
+    _p("ath-18","Selton Sánchez","MC","MED",68,20,"ES",72,58,70,66,48,64),
+    _p("ath-19","Iñaki Williams","DC","DEL",83,30,"GH",91,78,68,80,40,86),
     _p("ath-20","Nico Williams","EI","DEL",88,22,"ES",95,80,78,91,38,74),
     _p("ath-21","Gorka Guruzeta","DC","DEL",80,27,"ES",74,80,64,70,38,82),
     _p("ath-22","Maroan Sannadi","DC","DEL",68,20,"ES",76,64,58,68,32,70),
@@ -116,57 +116,57 @@ const REAL_SQUADS = {
   atletico:[
     _p("atm-1","Jan Oblak","POR","POR",88,32,"SI",58,20,62,40,18,88),
     _p("atm-2","Juan Musso","POR","POR",78,31,"AR",56,18,58,38,16,78),
-    _p("atm-3","JosÃ© M. GimÃ©nez","DFC","DEF",83,30,"UY",66,46,68,56,84,82),
+    _p("atm-3","José M. Giménez","DFC","DEF",83,30,"UY",66,46,68,56,84,82),
     _p("atm-4","Nahuel Molina","LD","DEF",80,27,"AR",84,58,72,70,74,74),
     _p("atm-5","Robin Le Normand","DFC","DEF",82,28,"ES",64,42,70,56,83,80),
-    _p("atm-6","ClÃ©ment Lenglet","DFC","DEF",77,29,"FR",62,40,70,56,78,74),
+    _p("atm-6","Clément Lenglet","DFC","DEF",77,29,"FR",62,40,70,56,78,74),
     _p("atm-7","Matteo Ruggeri","LI","DEF",78,24,"IT",78,50,70,66,75,74),
     _p("atm-8","Marc Pubill","LD","DEF",75,22,"ES",82,50,68,68,72,72),
-    _p("atm-9","DÃ¡vid Hancko","DFC","DEF",80,27,"SK",68,44,70,58,82,76),
+    _p("atm-9","Dávid Hancko","DFC","DEF",80,27,"SK",68,44,70,58,82,76),
     _p("atm-10","Koke","MC","MED",82,33,"ES",68,70,84,76,60,72),
     _p("atm-11","Marcos Llorente","MC","MED",83,30,"ES",84,72,78,78,64,80),
     _p("atm-12","Pablo Barrios","MCD","MED",80,22,"ES",72,62,78,72,72,74),
     _p("atm-13","Javi Serrano","MCD","MED",74,22,"ES",70,58,74,68,70,70),
-    _p("atm-14","Ãlex Baena","MCO","MED",83,24,"ES",84,76,80,84,44,70),
+    _p("atm-14","Álex Baena","MCO","MED",83,24,"ES",84,76,80,84,44,70),
     _p("atm-15","Thiago Almada","MC","MED",80,24,"AR",80,72,78,82,48,72),
     _p("atm-16","Johnny Cardoso","MCD","MED",77,23,"US",72,60,74,68,74,76),
     _p("atm-17","Obed Vargas","MCD","MED",73,20,"US",74,58,72,68,68,70),
     _p("atm-18","Antoine Griezmann","SD","DEL",87,34,"FR",80,86,84,84,50,76),
     _p("atm-19","Giuliano Simeone","ED","DEL",78,22,"AR",86,72,68,82,36,72),
-    _p("atm-20","Borja GarcÃ©s","DC","DEL",74,23,"ES",74,76,62,68,34,74),
-    _p("atm-21","Alexander SÃ¸rloth","DC","DEL",80,29,"NO",76,82,64,68,40,84),
-    _p("atm-22","JuliÃ¡n Ãlvarez","DC","DEL",87,25,"AR",84,86,80,84,46,80),
-    _p("atm-23","Nico GonzÃ¡lez","EI","DEL",76,23,"ES",84,70,72,80,36,70),
+    _p("atm-20","Borja Garcés","DC","DEL",74,23,"ES",74,76,62,68,34,74),
+    _p("atm-21","Alexander Sørloth","DC","DEL",80,29,"NO",76,82,64,68,40,84),
+    _p("atm-22","Julián Álvarez","DC","DEL",87,25,"AR",84,86,80,84,46,80),
+    _p("atm-23","Nico González","EI","DEL",76,23,"ES",84,70,72,80,36,70),
     _p("atm-24","Ademola Lookman","EI","DEL",85,27,"NG",90,82,76,88,36,72),
   ],
   osasuna:[
     _p("osa-1","Sergio Herrera","POR","POR",78,32,"ES",58,20,60,40,18,78),
-    _p("osa-2","Aitor FernÃ¡ndez","POR","POR",75,34,"ES",55,18,58,38,16,75),
+    _p("osa-2","Aitor Fernández","POR","POR",75,34,"ES",55,18,58,38,16,75),
     _p("osa-3","Juan Cruz","LI","DEF",75,26,"AR",76,50,68,62,73,72),
     _p("osa-4","Alejandro Catena","DFC","DEF",77,27,"ES",62,38,66,52,78,78),
     _p("osa-5","Jorge Herrando","DFC","DEF",73,23,"ES",64,36,64,50,74,74),
     _p("osa-6","Diego Moreno","LD","DEF",72,22,"ES",74,46,64,60,70,68),
     _p("osa-7","Enzo Boyomo","DFC","DEF",74,25,"CM",66,38,62,52,76,78),
     _p("osa-8","Valentin Rosier","LD","DEF",73,28,"FR",78,48,66,64,70,68),
-    _p("osa-9","Javi GalÃ¡n","LI","DEF",78,29,"ES",80,52,72,70,72,72),
-    _p("osa-10","Lucas TorrÃ³","MCD","MED",76,31,"ES",66,58,72,62,76,76),
+    _p("osa-9","Javi Galán","LI","DEF",78,29,"ES",80,52,72,70,72,72),
+    _p("osa-10","Lucas Torró","MCD","MED",76,31,"ES",66,58,72,62,76,76),
     _p("osa-11","Jon Moncayola","MC","MED",76,28,"ES",72,64,74,70,62,72),
     _p("osa-12","Aimar Oroz","MCO","MED",78,23,"ES",74,72,78,76,48,68),
-    _p("osa-13","Moi GÃ³mez","MCO","MED",78,31,"ES",78,72,76,78,44,68),
-    _p("osa-14","Iker MuÃ±oz","MC","MED",70,23,"ES",68,60,70,66,58,68),
-    _p("osa-15","VÃ­ctor MuÃ±oz","MCD","MED",71,24,"ES",68,56,70,62,68,70),
+    _p("osa-13","Moi Gómez","MCO","MED",78,31,"ES",78,72,76,78,44,68),
+    _p("osa-14","Iker Muñoz","MC","MED",70,23,"ES",68,60,70,66,58,68),
+    _p("osa-15","Víctor Muñoz","MCD","MED",71,24,"ES",68,56,70,62,68,70),
     _p("osa-16","Kike Barja","ED","DEL",76,27,"ES",84,70,68,80,34,68),
-    _p("osa-17","RubÃ©n GarcÃ­a","EI","DEL",76,30,"ES",80,72,70,78,36,68),
+    _p("osa-17","Rubén García","EI","DEL",76,30,"ES",80,72,70,78,36,68),
     _p("osa-18","Ante Budimir","DC","DEL",80,33,"HR",72,82,62,66,38,80),
-    _p("osa-19","RaÃºl GarcÃ­a","DC","DEL",77,37,"ES",70,78,66,68,44,78),
-    _p("osa-20","RaÃºl Moro","EI","DEL",74,23,"ES",84,68,68,78,30,66),
+    _p("osa-19","Raúl García","DC","DEL",77,37,"ES",70,78,66,68,44,78),
+    _p("osa-20","Raúl Moro","EI","DEL",74,23,"ES",84,68,68,78,30,66),
     _p("osa-21","Ander Yoldi","DC","DEL",68,21,"ES",72,66,58,62,30,68),
   ],
   alaves:[
     _p("ala-1","Antonio Sivera","POR","POR",76,28,"ES",58,18,58,38,16,76),
-    _p("ala-2","RaÃºl FernÃ¡ndez","POR","POR",72,30,"ES",55,16,54,36,14,72),
+    _p("ala-2","Raúl Fernández","POR","POR",72,30,"ES",55,16,54,36,14,72),
     _p("ala-3","Nahuel Tenaglia","LD","DEF",74,28,"AR",76,48,66,62,72,70),
-    _p("ala-4","Facundo GarcÃ©s","DFC","DEF",75,25,"AR",64,38,64,52,76,78),
+    _p("ala-4","Facundo Garcés","DFC","DEF",75,25,"AR",64,38,64,52,76,78),
     _p("ala-5","Iurie Iovu","DFC","DEF",72,24,"MD",62,36,62,50,74,74),
     _p("ala-6","Jonny Otto","LD","DEF",74,29,"ES",78,52,68,64,70,68),
     _p("ala-7","Jon Pacheco","DFC","DEF",73,27,"ES",62,36,64,50,74,74),
@@ -174,53 +174,53 @@ const REAL_SQUADS = {
     _p("ala-9","Antonio Blanco","MCD","MED",74,24,"ES",70,58,72,64,70,70),
     _p("ala-10","Jon Guridi","MC","MED",73,25,"ES",70,60,72,66,60,68),
     _p("ala-11","Carlos Benavidez","MC","MED",72,24,"UY",72,60,72,68,56,68),
-    _p("ala-12","Carles AleÃ±Ã¡","MC","MED",74,27,"ES",70,64,76,72,52,66),
-    _p("ala-13","Denis SuÃ¡rez","MCO","MED",75,31,"ES",72,68,78,74,48,66),
+    _p("ala-12","Carles Aleñá","MC","MED",74,27,"ES",70,64,76,72,52,66),
+    _p("ala-13","Denis Suárez","MCO","MED",75,31,"ES",72,68,78,74,48,66),
     _p("ala-14","Calebe","MC","MED",73,23,"BR",74,62,72,70,50,68),
-    _p("ala-15","Toni MartÃ­nez","DC","DEL",76,30,"ES",72,78,60,64,34,78),
+    _p("ala-15","Toni Martínez","DC","DEL",76,30,"ES",72,78,60,64,34,78),
     _p("ala-16","Abde Rebbach","EI","DEL",74,23,"MA",86,66,62,80,30,66),
-    _p("ala-17","Lucas BoyÃ©","DC","DEL",74,28,"AR",78,74,60,70,32,76),
+    _p("ala-17","Lucas Boyé","DC","DEL",74,28,"AR",78,74,60,70,32,76),
     _p("ala-18","Ibrahim Diabate","DC","DEL",72,23,"CI",74,72,56,64,30,76),
-    _p("ala-19","Mariano DÃ­az","DC","DEL",73,30,"DO",76,74,58,66,32,76),
+    _p("ala-19","Mariano Díaz","DC","DEL",73,30,"DO",76,74,58,66,32,76),
   ],
   laspalmas:[ // Elche CF
-    _p("elc-1","MatÃ­as Dituro","POR","POR",76,34,"AR",56,18,56,36,14,76),
+    _p("elc-1","Matías Dituro","POR","POR",76,34,"AR",56,18,56,36,14,76),
     _p("elc-2","Axel Werner","POR","POR",71,26,"AR",54,16,52,34,12,71),
-    _p("elc-3","IÃ±aki PeÃ±a","POR","POR",74,26,"ES",56,18,58,36,14,74),
+    _p("elc-3","Iñaki Peña","POR","POR",74,26,"ES",56,18,58,36,14,74),
     _p("elc-4","John Donald","DFC","DEF",72,25,"SE",62,34,60,48,74,74),
     _p("elc-5","Pedro Bigas","DFC","DEF",73,31,"ES",60,34,62,48,74,76),
-    _p("elc-6","LÃ©o PÃ©trot","LI","DEF",72,27,"FR",72,42,62,58,70,66),
-    _p("elc-7","VÃ­ctor Chust","DFC","DEF",73,25,"ES",62,34,62,48,74,72),
-    _p("elc-8","HÃ©ctor Fort","LD","DEF",73,21,"ES",76,44,64,62,70,64),
-    _p("elc-9","AdriÃ  Pedrosa","LI","DEF",73,26,"ES",74,44,64,60,70,64),
+    _p("elc-6","Léo Pétrot","LI","DEF",72,27,"FR",72,42,62,58,70,66),
+    _p("elc-7","Víctor Chust","DFC","DEF",73,25,"ES",62,34,62,48,74,72),
+    _p("elc-8","Héctor Fort","LD","DEF",73,21,"ES",76,44,64,62,70,64),
+    _p("elc-9","Adrià Pedrosa","LI","DEF",73,26,"ES",74,44,64,60,70,64),
     _p("elc-10","Aleix Febas","MC","MED",74,29,"ES",68,62,72,66,54,64),
     _p("elc-11","Marc Aguado","MCD","MED",72,24,"ES",68,56,68,60,66,66),
     _p("elc-12","Federico Redondo","MC","MED",74,23,"AR",70,62,74,68,54,66),
     _p("elc-13","Gonzalo Villar","MC","MED",74,26,"ES",68,60,74,66,54,64),
     _p("elc-14","Martim Neto","MC","MED",70,22,"PT",68,56,68,62,56,64),
-    _p("elc-15","Ãlvaro RodrÃ­guez","DC","DEL",74,22,"ES",74,72,62,66,30,68),
-    _p("elc-16","AndrÃ© Silva","DC","DEL",76,30,"PT",72,76,62,64,32,74),
+    _p("elc-15","Álvaro Rodríguez","DC","DEL",74,22,"ES",74,72,62,66,30,68),
+    _p("elc-16","André Silva","DC","DEL",76,30,"PT",72,76,62,64,32,74),
     _p("elc-17","Josan","EI","DEL",72,30,"ES",78,66,62,72,28,62),
     _p("elc-18","Grady Diangana","EI","DEL",73,27,"CD",82,66,62,74,28,64),
     _p("elc-19","Rafa Mir","DC","DEL",74,27,"ES",70,74,60,62,32,74),
   ],
   barcelona:[
     _p("bar-1","Wojciech SzczÄ™sny","POR","POR",84,35,"PL",55,20,62,38,16,84),
-    _p("bar-2","Joan GarcÃ­a","POR","POR",78,23,"ES",58,18,60,38,16,78),
-    _p("bar-3","Ãlex Balde","LI","DEF",82,21,"ES",86,58,74,76,76,76),
-    _p("bar-4","Ronald AraÃºjo","DFC","DEF",85,26,"UY",70,50,70,60,87,86),
+    _p("bar-2","Joan García","POR","POR",78,23,"ES",58,18,60,38,16,78),
+    _p("bar-3","Álex Balde","LI","DEF",82,21,"ES",86,58,74,76,76,76),
+    _p("bar-4","Ronald Araújo","DFC","DEF",85,26,"UY",70,50,70,60,87,86),
     _p("bar-5","Andreas Christensen","DFC","DEF",82,29,"DK",66,44,76,60,84,76),
-    _p("bar-6","Jules KoundÃ©","LD","DEF",85,26,"FR",82,58,76,76,86,80),
-    _p("bar-7","Pau CubarsÃ­","DFC","DEF",83,18,"ES",68,44,76,62,84,76),
-    _p("bar-8","Eric GarcÃ­a","DFC","DEF",78,24,"ES",64,40,72,58,80,72),
-    _p("bar-9","JoÃ£o Cancelo","LD","DEF",84,31,"PT",84,62,78,78,80,76),
+    _p("bar-6","Jules Koundé","LD","DEF",85,26,"FR",82,58,76,76,86,80),
+    _p("bar-7","Pau Cubarsí","DFC","DEF",83,18,"ES",68,44,76,62,84,76),
+    _p("bar-8","Eric García","DFC","DEF",78,24,"ES",64,40,72,58,80,72),
+    _p("bar-9","João Cancelo","LD","DEF",84,31,"PT",84,62,78,78,80,76),
     _p("bar-10","Gavi","MC","MED",85,20,"ES",78,74,84,84,68,76),
     _p("bar-11","Pedri","MC","MED",88,23,"ES",80,78,88,90,60,72),
-    _p("bar-12","FermÃ­n LÃ³pez","MC","MED",81,22,"ES",78,76,80,80,56,72),
+    _p("bar-12","Fermín López","MC","MED",81,22,"ES",78,76,80,80,56,72),
     _p("bar-13","Frenkie de Jong","MC","MED",85,28,"NL",76,70,86,82,64,78),
-    _p("bar-14","Marc CasadÃ³","MCD","MED",78,21,"ES",72,60,78,70,72,72),
+    _p("bar-14","Marc Casadó","MCD","MED",78,21,"ES",72,60,78,70,72,72),
     _p("bar-15","Dani Olmo","MCO","MED",85,27,"ES",82,80,84,84,52,74),
-    _p("bar-16","FerrÃ¡n Torres","ED","DEL",80,25,"ES",84,78,72,82,40,70),
+    _p("bar-16","Ferrán Torres","ED","DEL",80,25,"ES",84,78,72,82,40,70),
     _p("bar-17","Robert Lewandowski","DC","DEL",88,37,"PL",74,92,78,80,36,80),
     _p("bar-18","Raphinha","ED","DEL",87,28,"BR",90,84,78,88,38,72),
     _p("bar-19","Lamine Yamal","ED","DEL",92,18,"ES",92,86,84,94,36,68),
@@ -229,40 +229,40 @@ const REAL_SQUADS = {
   getafe:[
     _p("get-1","David Soria","POR","POR",78,30,"ES",58,18,60,38,16,78),
     _p("get-2","Jiri Letacek","POR","POR",70,26,"CZ",54,16,54,36,14,70),
-    _p("get-3","DjenÃ©","DFC","DEF",77,31,"TG",70,38,62,54,79,80),
+    _p("get-3","Djené","DFC","DEF",77,31,"TG",70,38,62,54,79,80),
     _p("get-4","Domingos Duarte","DFC","DEF",76,30,"PT",64,38,64,52,78,80),
     _p("get-5","Juan Iglesias","DFC","DEF",72,26,"ES",62,34,62,50,74,74),
     _p("get-6","Diego Rico","LI","DEF",74,31,"ES",74,46,68,60,72,68),
-    _p("get-7","Kiko FemenÃ­a","LD","DEF",74,33,"ES",76,48,68,62,72,68),
+    _p("get-7","Kiko Femenía","LD","DEF",74,33,"ES",76,48,68,62,72,68),
     _p("get-8","Zaid Romero","DFC","DEF",73,25,"AR",66,36,62,52,74,76),
     _p("get-9","Allan Nyom","LD","DEF",72,34,"CM",76,46,62,62,70,70),
     _p("get-10","Luis Milla","MC","MED",76,27,"ES",68,62,74,68,62,70),
     _p("get-11","Mauro Arambarri","MCD","MED",77,29,"UY",70,60,72,64,74,76),
-    _p("get-12","Javi MuÃ±oz","MC","MED",72,26,"ES",68,60,72,66,58,68),
-    _p("get-13","Mario MartÃ­n","MC","MED",68,21,"ES",66,58,68,62,54,64),
+    _p("get-12","Javi Muñoz","MC","MED",72,26,"ES",68,60,72,66,58,68),
+    _p("get-13","Mario Martín","MC","MED",68,21,"ES",66,58,68,62,54,64),
     _p("get-14","Borja Mayoral","DC","DEL",78,28,"ES",74,78,66,70,36,74),
     _p("get-15","Juanmi","DC","DEL",74,32,"ES",74,74,64,68,34,68),
-    _p("get-16","Ãlex Sancris","EI","DEL",70,22,"ES",80,64,60,72,30,64),
-    _p("get-17","AdriÃ¡n Liso","EI","DEL",72,21,"ES",82,66,62,74,28,64),
+    _p("get-16","Álex Sancris","EI","DEL",70,22,"ES",80,64,60,72,30,64),
+    _p("get-17","Adrián Liso","EI","DEL",72,21,"ES",82,66,62,74,28,64),
     _p("get-18","Abu Kamara","ED","DEL",74,23,"SL",84,68,64,76,30,70),
-    _p("get-19","MartÃ­n Satriano","DC","DEL",74,24,"UY",72,74,60,66,34,76),
+    _p("get-19","Martín Satriano","DC","DEL",74,24,"UY",72,74,60,66,34,76),
     _p("get-20","Veljko Birmancevic","ED","DEL",74,26,"RS",82,68,64,76,30,68),
   ],
   girona:[
     _p("gir-1","M-A. ter Stegen","POR","POR",85,33,"DE",58,20,64,40,18,85),
     _p("gir-2","Paulo Gazzaniga","POR","POR",78,33,"AR",56,18,58,38,16,78),
-    _p("gir-3","RubÃ©n Blanco","POR","POR",74,31,"ES",56,18,56,38,14,74),
-    _p("gir-4","Arnau MartÃ­nez","LD","DEF",77,23,"ES",80,52,70,66,74,70),
-    _p("gir-5","David LÃ³pez","DFC","DEF",77,33,"ES",60,38,68,54,78,76),
+    _p("gir-3","Rubén Blanco","POR","POR",74,31,"ES",56,18,56,38,14,74),
+    _p("gir-4","Arnau Martínez","LD","DEF",77,23,"ES",80,52,70,66,74,70),
+    _p("gir-5","David López","DFC","DEF",77,33,"ES",60,38,68,54,78,76),
     _p("gir-6","Daley Blind","DFC","DEF",78,35,"NL",62,40,76,60,78,70),
     _p("gir-7","Vitor Reis","DFC","DEF",76,20,"BR",68,40,66,56,77,76),
-    _p("gir-8","Ãlex Moreno","LI","DEF",78,31,"ES",80,52,72,70,74,70),
-    _p("gir-9","Alejandro FrancÃ©s","DFC","DEF",75,24,"ES",64,38,66,54,76,74),
-    _p("gir-10","IvÃ¡n MartÃ­n","MCO","MED",78,24,"ES",76,72,78,76,50,68),
+    _p("gir-8","Álex Moreno","LI","DEF",78,31,"ES",80,52,72,70,74,70),
+    _p("gir-9","Alejandro Francés","DFC","DEF",75,24,"ES",64,38,66,54,76,74),
+    _p("gir-10","Iván Martín","MCO","MED",78,24,"ES",76,72,78,76,50,68),
     _p("gir-11","Donny van de Beek","MC","MED",77,28,"NL",74,68,78,74,56,72),
     _p("gir-12","Thomas Lemar","MC","MED",79,29,"FR",78,72,82,80,52,68),
     _p("gir-13","Axel Witsel","MCD","MED",78,36,"BE",62,60,74,62,74,76),
-    _p("gir-14","Fran BeltrÃ¡n","MCD","MED",76,27,"ES",68,60,76,64,70,70),
+    _p("gir-14","Fran Beltrán","MCD","MED",76,27,"ES",68,60,76,64,70,70),
     _p("gir-15","Azzedine Ounahi","MC","MED",76,25,"MA",76,64,74,74,58,70),
     _p("gir-16","Claudio Echeverri","MCO","MED",76,20,"AR",78,70,76,80,44,66),
     _p("gir-17","Cristhian Stuani","DC","DEL",77,38,"UY",72,80,62,64,36,78),
@@ -275,72 +275,72 @@ const REAL_SQUADS = {
     _p("lev-1","Mathew Ryan","POR","POR",76,33,"AU",56,18,58,36,14,76),
     _p("lev-2","Pablo Campos","POR","POR",68,24,"ES",54,14,52,34,12,68),
     _p("lev-3","Alan Matturro","DFC","DEF",72,22,"UY",64,34,60,48,74,74),
-    _p("lev-4","VÃ­ctor GarcÃ­a","DFC","DEF",70,24,"ES",62,32,60,46,72,72),
+    _p("lev-4","Víctor García","DFC","DEF",70,24,"ES",62,32,60,46,72,72),
     _p("lev-5","Jeremy Toljan","LD","DEF",73,30,"DE",76,46,64,62,70,66),
-    _p("lev-6","Manu SÃ¡nchez","LI","DEF",74,26,"ES",74,46,66,62,70,66),
-    _p("lev-7","MatÃ­as Moreno","DFC","DEF",71,25,"CL",62,34,60,46,72,72),
+    _p("lev-6","Manu Sánchez","LI","DEF",74,26,"ES",74,46,66,62,70,66),
+    _p("lev-7","Matías Moreno","DFC","DEF",71,25,"CL",62,34,60,46,72,72),
     _p("lev-8","Unai Elgezabal","DFC","DEF",69,22,"ES",60,32,58,44,70,70),
     _p("lev-9","Unai Vencedor","MCD","MED",75,25,"ES",68,58,72,62,70,70),
     _p("lev-10","Kervin Arriaga","MC","MED",73,24,"HN",72,60,68,66,52,68),
-    _p("lev-11","Carlos Ãlvarez","MC","MED",70,24,"ES",68,58,66,60,52,64),
+    _p("lev-11","Carlos Álvarez","MC","MED",70,24,"ES",68,58,66,60,52,64),
     _p("lev-12","Ugo Raghouber","MC","MED",71,25,"FR",70,60,68,64,52,66),
-    _p("lev-13","Pablo MartÃ­nez","MCD","MED",71,23,"ES",68,56,68,60,64,66),
+    _p("lev-13","Pablo Martínez","MCD","MED",71,23,"ES",68,56,68,60,64,66),
     _p("lev-14","Iker Losada","MC","MED",72,25,"ES",70,62,70,66,48,62),
-    _p("lev-15","IvÃ¡n Romero","EI","DEL",74,27,"ES",80,68,64,74,28,64),
-    _p("lev-16","JosÃ© Luis Morales","EI","DEL",74,37,"ES",78,68,64,72,30,62),
-    _p("lev-17","Roger BruguÃ©","DC","DEL",70,24,"ES",70,68,58,60,30,68),
-    _p("lev-18","Paco CortÃ©s","DC","DEL",68,23,"ES",68,66,56,58,28,66),
+    _p("lev-15","Iván Romero","EI","DEL",74,27,"ES",80,68,64,74,28,64),
+    _p("lev-16","José Luis Morales","EI","DEL",74,37,"ES",78,68,64,72,30,62),
+    _p("lev-17","Roger Brugué","DC","DEL",70,24,"ES",70,68,58,60,30,68),
+    _p("lev-18","Paco Cortés","DC","DEL",68,23,"ES",68,66,56,58,28,66),
     _p("lev-19","Karl Etta Eyong","ED","DEL",70,23,"CM",80,64,60,72,26,64),
   ],
   mallorca:[
-    _p("mal-1","Leo RomÃ¡n","POR","POR",74,22,"ES",56,16,56,36,14,74),
-    _p("mal-2","Lucas BergstrÃ¶m","POR","POR",72,23,"SE",55,16,54,36,14,72),
+    _p("mal-1","Leo Román","POR","POR",74,22,"ES",56,16,56,36,14,74),
+    _p("mal-2","Lucas Bergström","POR","POR",72,23,"SE",55,16,54,36,14,72),
     _p("mal-3","Toni Lato","LI","DEF",74,29,"ES",74,46,66,60,72,68),
     _p("mal-4","Pablo Maffeo","LD","DEF",76,27,"ES",80,50,68,66,74,70),
-    _p("mal-5","Antonio RaÃ­llo","DFC","DEF",77,33,"ES",60,38,66,54,78,78),
+    _p("mal-5","Antonio Raíllo","DFC","DEF",77,33,"ES",60,38,66,54,78,78),
     _p("mal-6","Martin Valjent","DFC","DEF",76,30,"SK",62,38,66,52,78,76),
     _p("mal-7","Johan Mojica","LI","DEF",75,32,"CO",76,46,66,64,72,70),
     _p("mal-8","Marash Kumbulla","DFC","DEF",74,26,"AL",64,38,64,52,76,74),
     _p("mal-9","Mateu Morey","LD","DEF",72,25,"ES",76,46,64,62,70,66),
     _p("mal-10","Omar Mascarell","MCD","MED",74,32,"ES",62,56,72,60,72,68),
     _p("mal-11","Sergi Darder","MC","MED",78,29,"ES",72,68,78,72,58,68),
-    _p("mal-12","SamÃº Costa","MCD","MED",74,24,"PT",70,58,70,64,68,70),
-    _p("mal-13","Antonio SÃ¡nchez","MC","MED",72,24,"ES",68,58,68,62,60,66),
+    _p("mal-12","Samú Costa","MCD","MED",74,24,"PT",70,58,70,64,68,70),
+    _p("mal-13","Antonio Sánchez","MC","MED",72,24,"ES",68,58,68,62,60,66),
     _p("mal-14","Pablo Torre","MCO","MED",74,22,"ES",72,66,74,72,44,64),
     _p("mal-15","Manu Morlanes","MC","MED",72,28,"ES",68,58,70,62,60,66),
     _p("mal-16","Vedat Muriqi","DC","DEL",79,31,"XK",72,80,60,64,36,82),
-    _p("mal-17","AbdÃ³n Prats","DC","DEL",74,32,"ES",68,74,60,62,32,72),
+    _p("mal-17","Abdón Prats","DC","DEL",74,32,"ES",68,74,60,62,32,72),
     _p("mal-18","Takuma Asano","ED","DEL",74,30,"JP",86,68,62,76,28,66),
     _p("mal-19","Zito Luvumbo","EI","DEL",74,23,"AO",86,66,62,76,28,66),
     _p("mal-20","Mateo Joseph","DC","DEL",70,22,"EN",74,68,60,64,30,68),
   ],
   rayo:[
-    _p("ray-1","Dani CÃ¡rdenas","POR","POR",76,27,"ES",58,18,58,38,14,76),
+    _p("ray-1","Dani Cárdenas","POR","POR",76,27,"ES",58,18,58,38,14,76),
     _p("ray-2","Augusto Batalla","POR","POR",72,26,"AR",54,16,54,36,14,72),
     _p("ray-3","Andrei Ratiu","LD","DEF",75,26,"RO",78,48,66,64,72,68),
-    _p("ray-4","Pep ChavarrÃ­a","DFC","DEF",72,26,"ES",62,36,62,50,74,74),
+    _p("ray-4","Pep Chavarría","DFC","DEF",72,26,"ES",62,36,62,50,74,74),
     _p("ray-5","Alfonso Espino","LI","DEF",74,29,"ES",74,46,66,60,72,68),
     _p("ray-6","Abdul Mumin","DFC","DEF",74,27,"GH",66,38,62,52,76,78),
     _p("ray-7","Florian Lejeune","DFC","DEF",74,34,"FR",62,38,66,52,76,74),
     _p("ray-8","Luiz Felipe","DFC","DEF",76,28,"BR",66,40,68,56,78,76),
-    _p("ray-9","IvÃ¡n Balliu","LD","DEF",72,32,"AL",76,44,62,60,70,66),
-    _p("ray-10","Ã“scar Trejo","MCO","MED",76,34,"AR",70,68,76,72,50,64),
+    _p("ray-9","Iván Balliu","LD","DEF",72,32,"AL",76,44,62,60,70,66),
+    _p("ray-10","Óscar Trejo","MCO","MED",76,34,"AR",70,68,76,72,50,64),
     _p("ray-11","Randy Nteka","MC","MED",73,26,"CG",74,62,70,68,54,70),
-    _p("ray-12","PathÃ© Ciss","MCD","MED",74,31,"SN",70,56,68,62,72,72),
-    _p("ray-13","Ã“scar ValentÃ­n","MC","MED",72,26,"ES",70,60,70,64,56,68),
-    _p("ray-14","Unai LÃ³pez","MC","MED",74,28,"ES",72,64,74,70,56,68),
-    _p("ray-15","Pedro DÃ­az","MCD","MED",74,26,"ES",70,58,72,64,70,70),
-    _p("ray-16","Isi PalazÃ³n","ED","DEL",78,31,"ES",84,72,70,80,32,66),
-    _p("ray-17","Ãlvaro GarcÃ­a","EI","DEL",76,31,"ES",82,70,68,76,32,66),
+    _p("ray-12","Pathé Ciss","MCD","MED",74,31,"SN",70,56,68,62,72,72),
+    _p("ray-13","Óscar Valentín","MC","MED",72,26,"ES",70,60,70,64,56,68),
+    _p("ray-14","Unai López","MC","MED",74,28,"ES",72,64,74,70,56,68),
+    _p("ray-15","Pedro Díaz","MCD","MED",74,26,"ES",70,58,72,64,70,70),
+    _p("ray-16","Isi Palazón","ED","DEL",78,31,"ES",84,72,70,80,32,66),
+    _p("ray-17","Álvaro García","EI","DEL",76,31,"ES",82,70,68,76,32,66),
     _p("ray-18","Jorge de Frutos","EI","DEL",74,28,"ES",80,66,66,76,30,64),
     _p("ray-19","Sergio Camello","DC","DEL",74,23,"ES",74,74,60,66,30,72),
     _p("ray-20","Ilias Akhomach","EI","DEL",74,21,"ES",86,66,64,78,28,62),
-    _p("ray-21","AlemÃ£o","DC","DEL",72,27,"BR",74,72,58,64,30,72),
+    _p("ray-21","Alemão","DC","DEL",72,27,"BR",74,72,58,64,30,72),
   ],
   espanyol:[
     _p("esp-1","Marko Dmitrovic","POR","POR",79,32,"RS",58,18,58,38,14,79),
-    _p("esp-2","Ãngel FortuÃ±o","POR","POR",68,23,"ES",54,16,52,36,14,68),
-    _p("esp-3","RubÃ©n SÃ¡nchez","LD","DEF",73,28,"ES",74,46,64,62,72,68),
+    _p("esp-2","Ángel Fortuño","POR","POR",68,23,"ES",54,16,52,36,14,68),
+    _p("esp-3","Rubén Sánchez","LD","DEF",73,28,"ES",74,46,64,62,72,68),
     _p("esp-4","Fernando Calero","DFC","DEF",75,29,"ES",62,36,64,52,76,76),
     _p("esp-5","Leandro Cabrera","DFC","DEF",75,33,"UY",62,36,64,52,76,78),
     _p("esp-6","Miguel Rubio","DFC","DEF",72,24,"ES",62,36,62,50,74,74),
@@ -348,28 +348,28 @@ const REAL_SQUADS = {
     _p("esp-8","Clemens Riedel","LD","DEF",71,24,"DE",74,44,62,60,68,66),
     _p("esp-9","Omar El Hilali","LI","DEF",70,22,"MA",72,42,60,58,68,64),
     _p("esp-10","Pol Lozano","MCD","MED",74,25,"ES",68,58,72,64,70,68),
-    _p("esp-11","Edu ExpÃ³sito","MC","MED",75,28,"ES",70,64,74,68,58,68),
-    _p("esp-12","RamÃ³n Terrats","MC","MED",74,27,"ES",70,62,74,68,56,66),
+    _p("esp-11","Edu Expósito","MC","MED",75,28,"ES",70,64,74,68,58,68),
+    _p("esp-12","Ramón Terrats","MC","MED",74,27,"ES",70,62,74,68,56,66),
     _p("esp-13","Charles Pickel","MCD","MED",74,28,"CH",68,58,70,62,70,72),
-    _p("esp-14","U. G. de ZÃ¡rate","MC","MED",70,22,"ES",68,58,68,62,54,64),
+    _p("esp-14","U. G. de Zárate","MC","MED",70,22,"ES",68,58,68,62,54,64),
     _p("esp-15","Javi Puado","ED","DEL",76,26,"ES",82,72,66,76,32,66),
     _p("esp-16","Pere Milla","EI","DEL",73,29,"ES",80,68,62,74,30,64),
-    _p("esp-17","Kike GarcÃ­a","DC","DEL",74,32,"ES",70,74,60,62,32,74),
+    _p("esp-17","Kike García","DC","DEL",74,32,"ES",70,74,60,62,32,74),
     _p("esp-18","Cyril Ngonge","EI","DEL",75,24,"BE",86,70,64,78,28,66),
     _p("esp-19","Tyrhys Dolan","ED","DEL",72,24,"EN",84,66,62,74,28,62),
     _p("esp-20","Jofre Carreras","DC","DEL",70,21,"ES",72,68,58,62,30,68),
   ],
   betis:[
-    _p("bet-1","Pau LÃ³pez","POR","POR",77,30,"ES",58,18,58,38,14,77),
-    _p("bet-2","Ãlvaro Valles","POR","POR",76,27,"ES",58,18,60,38,14,76),
-    _p("bet-3","AdriÃ¡n","POR","POR",76,38,"ES",56,18,58,38,14,76),
-    _p("bet-4","HÃ©ctor BellerÃ­n","LD","DEF",76,30,"ES",80,52,70,68,72,68),
+    _p("bet-1","Pau López","POR","POR",77,30,"ES",58,18,58,38,14,77),
+    _p("bet-2","Álvaro Valles","POR","POR",76,27,"ES",58,18,60,38,14,76),
+    _p("bet-3","Adrián","POR","POR",76,38,"ES",56,18,58,38,14,76),
+    _p("bet-4","Héctor Bellerín","LD","DEF",76,30,"ES",80,52,70,68,72,68),
     _p("bet-5","Marc Bartra","DFC","DEF",76,34,"ES",64,40,72,58,76,72),
     _p("bet-6","Diego Llorente","DFC","DEF",77,31,"ES",64,40,70,56,78,74),
-    _p("bet-7","Ricardo RodrÃ­guez","LI","DEF",75,32,"CH",74,46,70,62,74,68),
+    _p("bet-7","Ricardo Rodríguez","LI","DEF",75,32,"CH",74,46,70,62,74,68),
     _p("bet-8","Natan","DFC","DEF",74,23,"BR",66,38,64,54,76,76),
     _p("bet-9","Junior Firpo","LI","DEF",75,28,"DO",78,48,68,66,72,70),
-    _p("bet-10","ValentÃ­n GÃ³mez","DFC","DEF",73,22,"AR",64,36,62,50,74,76),
+    _p("bet-10","Valentín Gómez","DFC","DEF",73,22,"AR",64,36,62,50,74,76),
     _p("bet-11","Pablo Fornals","MC","MED",80,29,"ES",76,70,80,78,52,68),
     _p("bet-12","Isco","MCO","MED",83,33,"ES",70,76,86,86,48,66),
     _p("bet-13","Marc Roca","MCD","MED",78,28,"ES",68,60,76,64,72,72),
@@ -377,19 +377,19 @@ const REAL_SQUADS = {
     _p("bet-15","Nelson Deossa","MC","MED",76,24,"CO",76,66,76,76,52,70),
     _p("bet-16","Sofyan Amrabat","MCD","MED",78,29,"MA",70,58,74,64,76,78),
     _p("bet-17","Sergi Altimira","MCD","MED",74,25,"ES",68,58,72,64,68,68),
-    _p("bet-18","Ãlvaro Fidalgo","MC","MED",74,27,"ES",70,64,74,68,54,66),
+    _p("bet-18","Álvaro Fidalgo","MC","MED",74,27,"ES",70,64,74,68,54,66),
     _p("bet-19","Abde Ezzalzouli","EI","DEL",80,23,"MA",90,72,70,84,30,66),
-    _p("bet-20","Cucho HernÃ¡ndez","DC","DEL",80,26,"CO",82,78,66,76,34,78),
+    _p("bet-20","Cucho Hernández","DC","DEL",80,26,"CO",82,78,66,76,34,78),
     _p("bet-21","Rodrigo Riquelme","EI","DEL",78,24,"ES",84,72,72,80,32,66),
-    _p("bet-22","Chimy Ãvila","DC","DEL",77,32,"AR",80,76,62,72,34,76),
+    _p("bet-22","Chimy Ávila","DC","DEL",77,32,"AR",80,76,62,72,34,76),
     _p("bet-23","Antony","ED","DEL",76,25,"BR",86,70,66,82,30,64),
     _p("bet-24","Aitor Ruibal","ED","DEL",75,28,"ES",82,68,66,76,32,66),
   ],
   celta:[
-    _p("cel-1","IvÃ¡n Villar","POR","POR",76,27,"ES",58,18,58,38,14,76),
+    _p("cel-1","Iván Villar","POR","POR",76,27,"ES",58,18,58,38,14,76),
     _p("cel-2","IonuÈ› Radu","POR","POR",73,28,"RO",56,16,54,36,14,73),
     _p("cel-3","Carl Starfelt","DFC","DEF",77,30,"SE",64,38,66,54,78,76),
-    _p("cel-4","Ã“scar Mingueza","LD","DEF",76,25,"ES",78,50,70,66,74,68),
+    _p("cel-4","Óscar Mingueza","LD","DEF",76,25,"ES",78,50,70,66,74,68),
     _p("cel-5","Mihailo Ristic","LI","DEF",74,27,"RS",76,46,66,62,72,68),
     _p("cel-6","Marcos Alonso","LI","DEF",76,34,"ES",72,50,70,62,74,70),
     _p("cel-7","Joseph Aidoo","DFC","DEF",76,29,"GH",68,38,62,54,78,80),
@@ -397,85 +397,85 @@ const REAL_SQUADS = {
     _p("cel-9","Javi Rueda","DFC","DEF",70,23,"ES",62,32,60,46,72,72),
     _p("cel-10","Hugo Sotelo","MC","MED",73,24,"ES",72,62,72,68,54,66),
     _p("cel-11","Ilaix Moriba","MC","MED",76,22,"GN",76,64,72,72,58,74),
-    _p("cel-12","MatÃ­as Vecino","MCD","MED",77,33,"UY",68,62,72,62,70,76),
+    _p("cel-12","Matías Vecino","MCD","MED",77,33,"UY",68,62,72,62,70,76),
     _p("cel-13","Iago Aspas","SD","DEL",83,37,"ES",76,84,82,84,44,70),
     _p("cel-14","Franco Cervi","EI","DEL",74,30,"AR",84,68,66,78,30,64),
     _p("cel-15","Williot Swedberg","ED","DEL",74,22,"SE",82,68,66,76,30,66),
-    _p("cel-16","Ferran JutglÃ ","DC","DEL",76,26,"ES",76,76,64,70,32,70),
+    _p("cel-16","Ferran Jutglà","DC","DEL",76,26,"ES",76,76,64,70,32,70),
     _p("cel-17","Borja Iglesias","DC","DEL",78,32,"ES",72,78,62,68,34,74),
-    _p("cel-18","Hugo Ãlvarez","MC","MED",71,21,"ES",70,62,70,66,52,64),
+    _p("cel-18","Hugo Álvarez","MC","MED",71,21,"ES",70,62,70,66,52,64),
   ],
   realmadrid:[
     _p("rma-1","Thibaut Courtois","POR","POR",90,33,"BE",58,22,66,42,18,90),
     _p("rma-2","Andriy Lunin","POR","POR",82,26,"UA",58,18,60,40,16,82),
     _p("rma-3","Dani Carvajal","LD","DEF",84,33,"ES",82,60,76,72,82,76),
-    _p("rma-4","Ã‰der MilitÃ£o","DFC","DEF",85,27,"BR",72,48,70,62,86,82),
+    _p("rma-4","Éder Militão","DFC","DEF",85,27,"BR",72,48,70,62,86,82),
     _p("rma-5","David Alaba","DFC","DEF",83,33,"AT",70,52,78,68,84,76),
-    _p("rma-6","Fran GarcÃ­a","LI","DEF",78,25,"ES",80,50,70,68,74,70),
-    _p("rma-7","Antonio RÃ¼diger","DFC","DEF",84,32,"DE",70,46,68,58,86,84),
+    _p("rma-6","Fran García","LI","DEF",78,25,"ES",80,50,70,68,74,70),
+    _p("rma-7","Antonio Rüdiger","DFC","DEF",84,32,"DE",70,46,68,58,86,84),
     _p("rma-8","Ferland Mendy","LI","DEF",82,30,"FR",82,52,70,70,80,76),
     _p("rma-9","Trent Alexander-Arnold","LD","DEF",86,27,"EN",84,64,84,78,80,74),
     _p("rma-10","Dean Huijsen","DFC","DEF",78,20,"NL",68,42,68,56,80,76),
-    _p("rma-11","RaÃºl Asencio","DFC","DEF",76,22,"ES",66,40,64,54,78,76),
-    _p("rma-12","Ãlvaro Carreras","LI","DEF",76,23,"ES",78,48,68,66,72,68),
+    _p("rma-11","Raúl Asencio","DFC","DEF",76,22,"ES",66,40,64,54,78,76),
+    _p("rma-12","Álvaro Carreras","LI","DEF",76,23,"ES",78,48,68,66,72,68),
     _p("rma-13","Jude Bellingham","MC","MED",91,22,"EN",84,84,86,88,70,82),
     _p("rma-14","Eduardo Camavinga","MC","MED",85,22,"FR",82,72,80,82,68,78),
     _p("rma-15","Fede Valverde","MC","MED",87,27,"UY",84,78,82,82,68,82),
-    _p("rma-16","AurÃ©lien TchouamÃ©ni","MCD","MED",85,25,"FR",76,66,78,72,78,80),
+    _p("rma-16","Aurélien Tchouaméni","MCD","MED",85,25,"FR",76,66,78,72,78,80),
     _p("rma-17","Dani Ceballos","MC","MED",78,29,"ES",74,66,80,76,58,68),
-    _p("rma-18","Brahim DÃ­az","MCO","MED",82,26,"ES",84,76,78,84,42,66),
-    _p("rma-19","Arda GÃ¼ler","MCO","MED",82,20,"TR",76,78,82,84,44,64),
+    _p("rma-18","Brahim Díaz","MCO","MED",82,26,"ES",84,76,78,84,42,66),
+    _p("rma-19","Arda Güler","MCO","MED",82,20,"TR",76,78,82,84,44,64),
     _p("rma-20","Franco Mastantuono","MC","MED",76,18,"AR",76,68,76,78,46,66),
-    _p("rma-21","VinÃ­cius JÃºnior","EI","DEL",92,25,"BR",96,84,78,94,36,76),
+    _p("rma-21","Vinícius Júnior","EI","DEL",92,25,"BR",96,84,78,94,36,76),
     _p("rma-22","Rodrygo","EI","DEL",87,24,"BR",88,82,78,88,38,72),
-    _p("rma-23","Kylian MbappÃ©","DC","DEL",93,27,"FR",97,90,82,90,40,80),
-    _p("rma-24","Arda GÃ¼ler","MCO","MED",82,20,"TR",76,78,82,84,44,64),
+    _p("rma-23","Kylian Mbappé","DC","DEL",93,27,"FR",97,90,82,90,40,80),
+    _p("rma-24","Arda Güler","MCO","MED",82,20,"TR",76,78,82,84,44,64),
   ],
   realsociedad:[
-    _p("rso-1","Ãlex Remiro","POR","POR",82,30,"ES",58,18,62,40,16,82),
+    _p("rso-1","Álex Remiro","POR","POR",82,30,"ES",58,18,62,40,16,82),
     _p("rso-2","Unai Marrero","POR","POR",68,22,"ES",55,16,54,36,14,68),
-    _p("rso-3","Ãlvaro Odriozola","LD","DEF",76,29,"ES",80,52,70,68,72,68),
-    _p("rso-4","Aihen MuÃ±oz","LI","DEF",74,27,"ES",76,46,66,62,70,66),
+    _p("rso-3","Álvaro Odriozola","LD","DEF",76,29,"ES",80,52,70,68,72,68),
+    _p("rso-4","Aihen Muñoz","LI","DEF",74,27,"ES",76,46,66,62,70,66),
     _p("rso-5","Igor Zubeldia","DFC","DEF",78,27,"ES",64,40,70,58,80,76),
     _p("rso-6","Aritz Elustondo","DFC","DEF",75,32,"ES",62,36,66,52,76,74),
     _p("rso-7","Duje Caleta-Car","DFC","DEF",77,29,"HR",64,40,68,56,78,78),
     _p("rso-8","Jon Aramburu","LD","DEF",73,25,"ES",76,46,64,62,70,66),
-    _p("rso-9","Sergio GÃ³mez","LI","DEF",76,24,"ES",78,50,72,68,72,66),
+    _p("rso-9","Sergio Gómez","LI","DEF",76,24,"ES",78,50,72,68,72,66),
     _p("rso-10","Arsen Zakharyan","MC","MED",78,22,"RU",78,70,78,78,54,68),
     _p("rso-11","Takefusa Kubo","ED","DEL",83,23,"JP",86,76,80,86,44,66),
-    _p("rso-12","BeÃ±at Turrientes","MCD","MED",76,23,"ES",70,58,74,66,70,70),
-    _p("rso-13","Brais MÃ©ndez","MC","MED",80,28,"ES",78,72,78,76,54,70),
+    _p("rso-12","Beñat Turrientes","MCD","MED",76,23,"ES",70,58,74,66,70,70),
+    _p("rso-13","Brais Méndez","MC","MED",80,28,"ES",78,72,78,76,54,70),
     _p("rso-14","Luka Sucic","MC","MED",78,23,"HR",76,68,78,76,52,68),
     _p("rso-15","Yangel Herrera","MC","MED",78,27,"VE",72,64,74,68,62,72),
     _p("rso-16","Carlos Soler","MC","MED",79,28,"ES",74,72,80,76,56,70),
     _p("rso-17","Jon Gorrotxategi","MCD","MED",71,22,"ES",68,56,68,62,64,66),
     _p("rso-18","Ander Barrenetxea","EI","DEL",78,23,"ES",86,70,72,80,32,66),
     _p("rso-19","Mikel Oyarzabal","DC","DEL",84,28,"ES",78,82,80,82,44,72),
-    _p("rso-20","GonÃ§alo Guedes","EI","DEL",78,28,"PT",84,72,70,80,34,68),
-    _p("rso-21","Orri Ã“skarsson","DC","DEL",74,22,"IS",76,74,64,68,32,72),
+    _p("rso-20","Gonçalo Guedes","EI","DEL",78,28,"PT",84,72,70,80,34,68),
+    _p("rso-21","Orri Óskarsson","DC","DEL",74,22,"IS",76,74,64,68,32,72),
     _p("rso-22","Jon Karrikaburu","DC","DEL",72,22,"ES",74,70,62,66,30,68),
   ],
   sevilla:[
-    _p("sev-1","Ã˜rjan Nyland","POR","POR",78,34,"NO",56,18,58,36,14,78),
+    _p("sev-1","Ørjan Nyland","POR","POR",78,34,"NO",56,18,58,36,14,78),
     _p("sev-2","Odysseas Vlachodimos","POR","POR",76,30,"GR",56,18,56,36,14,76),
     _p("sev-3","Kike Salas","DFC","DEF",75,24,"ES",64,38,64,52,76,74),
     _p("sev-4","Tanguy Nianzou","DFC","DEF",77,23,"FR",70,40,64,56,78,78),
-    _p("sev-5","MarcÃ£o","DFC","DEF",76,28,"BR",64,38,62,52,78,80),
-    _p("sev-6","CÃ©sar Azpilicueta","LD","DEF",76,36,"ES",72,48,72,62,76,68),
-    _p("sev-7","Juanlu SÃ¡nchez","LD","DEF",74,23,"ES",76,48,66,62,70,66),
+    _p("sev-5","Marcão","DFC","DEF",76,28,"BR",64,38,62,52,78,80),
+    _p("sev-6","César Azpilicueta","LD","DEF",76,36,"ES",72,48,72,62,76,68),
+    _p("sev-7","Juanlu Sánchez","LD","DEF",74,23,"ES",76,48,66,62,70,66),
     _p("sev-8","Gabriel Suazo","LI","DEF",73,28,"CL",74,44,64,60,70,66),
     _p("sev-9","Federico Gattoni","DFC","DEF",73,26,"AR",62,36,62,50,74,76),
-    _p("sev-10","FÃ¡bio Cardoso","DFC","DEF",72,30,"PT",60,34,62,48,74,74),
+    _p("sev-10","Fábio Cardoso","DFC","DEF",72,30,"PT",60,34,62,48,74,74),
     _p("sev-11","Nemanja Gudelj","MCD","MED",76,33,"RS",62,56,70,58,72,72),
     _p("sev-12","Djibril Sow","MCD","MED",77,28,"CH",70,60,72,64,72,74),
-    _p("sev-13","Joan JordÃ¡n","MC","MED",76,30,"ES",70,62,74,66,62,68),
-    _p("sev-14","Lucien AgoumÃ©","MC","MED",74,23,"FR",70,60,72,66,60,70),
+    _p("sev-13","Joan Jordán","MC","MED",76,30,"ES",70,62,74,66,62,68),
+    _p("sev-14","Lucien Agoumé","MC","MED",74,23,"FR",70,60,72,66,60,70),
     _p("sev-15","Batista Mendy","MC","MED",73,24,"SN",72,60,70,66,58,68),
     _p("sev-16","Manu Bueno","MC","MED",72,24,"ES",68,60,70,64,54,66),
     _p("sev-17","Isaac Romero","DC","DEL",77,24,"ES",72,78,62,66,34,76),
-    _p("sev-18","Alexis SÃ¡nchez","EI","DEL",78,37,"CL",80,76,74,80,36,66),
+    _p("sev-18","Alexis Sánchez","EI","DEL",78,37,"CL",80,76,74,80,36,66),
     _p("sev-19","Chidera Ejuke","EI","DEL",74,27,"NG",88,66,62,78,28,64),
-    _p("sev-20","RubÃ©n Vargas","EI","DEL",75,26,"CH",84,68,66,76,30,66),
+    _p("sev-20","Rubén Vargas","EI","DEL",75,26,"CH",84,68,66,76,30,66),
     _p("sev-21","Neal Maupay","DC","DEL",74,29,"FR",74,74,60,66,30,70),
     _p("sev-22","Adnan Januzaj","EI","DEL",72,31,"BE",78,68,68,76,30,62),
   ],
@@ -484,59 +484,59 @@ const REAL_SQUADS = {
     _p("val-2","Stole Dimitrievski","POR","POR",76,31,"MK",56,18,56,36,14,76),
     _p("val-3","Cristian Rivero","POR","POR",68,23,"ES",54,16,52,34,12,68),
     _p("val-4","Mouctar Diakhaby","DFC","DEF",76,28,"FR",68,38,62,54,78,80),
-    _p("val-5","JosÃ© GayÃ ","LI","DEF",80,30,"ES",78,52,74,70,76,70),
-    _p("val-6","Cenk Ã–zkacar","DFC","DEF",74,24,"TR",64,36,62,50,76,76),
-    _p("val-7","JesÃºs VÃ¡zquez","LI","DEF",72,22,"ES",74,44,62,60,68,64),
-    _p("val-8","TÃ¡rrega","DFC","DEF",72,22,"ES",62,34,60,48,74,72),
-    _p("val-9","AndrÃ© Almeida","LD","DEF",74,26,"PT",76,48,66,62,72,68),
+    _p("val-5","José Gayà","LI","DEF",80,30,"ES",78,52,74,70,76,70),
+    _p("val-6","Cenk Özkacar","DFC","DEF",74,24,"TR",64,36,62,50,76,76),
+    _p("val-7","Jesús Vázquez","LI","DEF",72,22,"ES",74,44,62,60,68,64),
+    _p("val-8","Tárrega","DFC","DEF",72,22,"ES",62,34,60,48,74,72),
+    _p("val-9","André Almeida","LD","DEF",74,26,"PT",76,48,66,62,72,68),
     _p("val-10","Javi Guerra","MC","MED",76,23,"ES",72,64,74,68,56,68),
     _p("val-11","Pepelu","MC","MED",77,26,"ES",70,64,76,68,60,68),
     _p("val-12","Dani Wass","MC","MED",73,35,"DK",68,60,70,62,60,68),
     _p("val-13","Rioja","EI","DEL",74,28,"ES",82,68,64,76,30,64),
     _p("val-14","Danjuma","EI","DEL",76,28,"NL",86,72,66,80,30,66),
     _p("val-15","Hugo Duro","DC","DEL",76,24,"ES",74,76,62,66,34,74),
-    _p("val-16","Diego LÃ³pez","DC","DEL",74,22,"ES",74,74,60,64,32,70),
+    _p("val-16","Diego López","DC","DEL",74,22,"ES",74,74,60,64,32,70),
     _p("val-17","Rafa Mir","DC","DEL",75,27,"ES",70,74,60,62,32,74),
-    _p("val-18","Fran PÃ©rez","EI","DEL",70,22,"ES",80,62,60,70,28,60),
+    _p("val-18","Fran Pérez","EI","DEL",70,22,"ES",80,62,60,70,28,60),
     _p("val-19","Luis Rioja","ED","DEL",73,29,"ES",80,66,62,72,28,62),
   ],
   valladolid:[ // Real Oviedo
-    _p("ovi-1","AarÃ³n Escandell","POR","POR",74,26,"ES",56,16,56,36,12,74),
+    _p("ovi-1","Aarón Escandell","POR","POR",74,26,"ES",56,16,56,36,12,74),
     _p("ovi-2","HoraÈ›iu Moldovan","POR","POR",75,28,"RO",56,18,58,36,14,75),
     _p("ovi-3","David Costas","DFC","DEF",73,29,"ES",62,36,64,50,74,74),
     _p("ovi-4","Dani Calvo","DFC","DEF",72,34,"ES",60,34,62,48,72,72),
     _p("ovi-5","Eric Bailly","DFC","DEF",73,31,"CI",66,34,60,48,74,74),
-    _p("ovi-6","Ãlvaro Lemos","LD","DEF",72,25,"ES",74,42,62,58,68,64),
+    _p("ovi-6","Álvaro Lemos","LD","DEF",72,25,"ES",74,42,62,58,68,64),
     _p("ovi-7","Nacho Vidal","LD","DEF",72,30,"ES",74,44,62,60,70,64),
     _p("ovi-8","Lucas Ahijado","LI","DEF",70,23,"ES",72,40,60,56,68,62),
-    _p("ovi-9","Javi LÃ³pez","LD","DEF",70,28,"ES",72,42,60,58,66,62),
+    _p("ovi-9","Javi López","LD","DEF",70,28,"ES",72,42,60,58,66,62),
     _p("ovi-10","Santi Cazorla","MC","MED",72,40,"ES",60,64,78,70,44,54),
     _p("ovi-11","Leander Dendoncker","MCD","MED",75,30,"BE",68,58,68,60,70,74),
-    _p("ovi-12","NicolÃ¡s Fonseca","MCD","MED",74,25,"UY",68,56,68,60,66,68),
+    _p("ovi-12","Nicolás Fonseca","MCD","MED",74,25,"UY",68,56,68,60,66,68),
     _p("ovi-13","Luka Ilic","MC","MED",72,22,"RS",70,62,72,66,50,62),
     _p("ovi-14","Kwasi Sibo","MC","MED",70,24,"GH",70,58,68,64,52,66),
     _p("ovi-15","Alberto Reina","MC","MED",70,25,"ES",68,58,66,62,50,64),
     _p("ovi-16","Haissem Hassan","EI","DEL",73,25,"ES",82,66,62,72,28,62),
     _p("ovi-17","Ilyas Chaira","EI","DEL",72,25,"ES",80,66,62,72,28,60),
-    _p("ovi-18","Ãlex ForÃ©s","DC","DEL",70,25,"ES",70,68,58,60,28,66),
-    _p("ovi-19","Thiago FernÃ¡ndez","DC","DEL",70,22,"ES",70,68,56,60,28,66),
+    _p("ovi-18","Álex Forés","DC","DEL",70,25,"ES",70,68,58,60,28,66),
+    _p("ovi-19","Thiago Fernández","DC","DEL",70,22,"ES",70,68,56,60,28,66),
     _p("ovi-20","Ovie Ejaria","MC","MED",72,28,"EN",74,64,70,68,46,64),
   ],
   villarreal:[
     _p("vil-1","Diego Conde","POR","POR",78,25,"ES",58,18,60,38,14,78),
-    _p("vil-2","Filip JÃ¶rgensen","POR","POR",76,22,"SE",56,18,58,36,14,76),
+    _p("vil-2","Filip Jörgensen","POR","POR",76,22,"SE",56,18,58,36,14,76),
     _p("vil-3","Alfonso Pedraza","LI","DEF",78,28,"ES",80,52,72,68,74,68),
     _p("vil-4","Juan Foyth","LD","DEF",80,27,"AR",80,52,70,68,78,72),
     _p("vil-5","Pau Torres","DFC","DEF",84,28,"ES",68,46,76,62,84,78),
-    _p("vil-6","RaÃºl Albiol","DFC","DEF",78,39,"ES",56,38,72,54,80,70),
+    _p("vil-6","Raúl Albiol","DFC","DEF",78,39,"ES",56,38,72,54,80,70),
     _p("vil-7","Eric Bailly","DFC","DEF",74,31,"CI",68,36,60,50,76,76),
     _p("vil-8","Serge Aurier","LD","DEF",74,32,"CI",78,48,66,62,72,70),
     _p("vil-9","Dani Parejo","MC","MED",81,36,"ES",64,70,86,78,56,66),
-    _p("vil-10","Ã‰tienne Capoue","MCD","MED",76,37,"FR",62,58,70,60,72,72),
-    _p("vil-11","Santi ComesaÃ±a","MCD","MED",76,27,"ES",68,58,72,62,72,70),
+    _p("vil-10","Étienne Capoue","MCD","MED",76,37,"FR",62,58,70,60,72,72),
+    _p("vil-11","Santi Comesaña","MCD","MED",76,27,"ES",68,58,72,62,72,70),
     _p("vil-12","Francis Coquelin","MCD","MED",75,34,"FR",66,54,68,60,72,72),
     _p("vil-13","Nico Paz","MC","MED",78,20,"AR",76,70,78,78,50,66),
-    _p("vil-14","Ãlex Baena","MCO","MED",83,24,"ES",84,76,80,84,44,70),
+    _p("vil-14","Álex Baena","MCO","MED",83,24,"ES",84,76,80,84,44,70),
     _p("vil-15","Yeremy Pino","ED","DEL",82,23,"ES",88,76,74,84,36,68),
     _p("vil-16","Samuel Chukwueze","ED","DEL",78,26,"NG",90,72,66,82,28,66),
     _p("vil-17","Gerard Moreno","DC","DEL",82,33,"ES",76,84,76,78,38,72),
@@ -579,12 +579,12 @@ function generateFixtures() {
   const fixtures = [];
   let id = 1;
 
-  // Circle (round-robin) algorithm â€” fixes the fixed team at position 0
+  // Circle (round-robin) algorithm — fixes the fixed team at position 0
   // Each team plays home once and away once vs every other team across 38 jornadas
   const rotating = [...teamIds.slice(1)]; // teams 1..19 rotate
   const fixed    = teamIds[0];            // team 0 is fixed
 
-  const rounds = []; // 19 rounds Ã— 10 pairs
+  const rounds = []; // 19 rounds × 10 pairs
 
   for (let r = 0; r < n - 1; r++) {
     const circle = [fixed, ...rotating];
@@ -602,7 +602,7 @@ function generateFixtures() {
     rotating.unshift(rotating.pop());
   }
 
-  // Primera vuelta (J1â€“J19)
+  // Primera vuelta (J1–J19)
   rounds.forEach((pairs, r) => {
     pairs.forEach(([h, a]) => {
       fixtures.push({
@@ -613,7 +613,7 @@ function generateFixtures() {
     });
   });
 
-  // Segunda vuelta (J20â€“J38): invertir local/visitante de la primera
+  // Segunda vuelta (J20–J38): invertir local/visitante de la primera
   rounds.forEach((pairs, r) => {
     pairs.forEach(([h, a]) => {
       fixtures.push({
@@ -648,7 +648,7 @@ function initStandings() {
   return TEAMS.map(t => ({ teamId: t.id, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0 }));
 }
 
-// â”€â”€â”€ TÃCTICAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── TÁCTICAS ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_TACTICS = {
   mentalidad: "equilibrada",  // defensiva | equilibrada | ofensiva
@@ -658,7 +658,7 @@ const DEFAULT_TACTICS = {
   riesgo:     "normal",       // conservador | normal | agresivo
 };
 
-// Modificadores tÃ¡cticos sobre la fuerza de ataque/defensa y cansancio
+// Modificadores tácticos sobre la fuerza de ataque/defensa y cansancio
 function tacticModifiers(tactics) {
   const m = { atkBonus: 0, defBonus: 0, fatigueExtra: 0, goalConvRate: 0, chancesRate: 0, yellowRisk: 0 };
 
@@ -666,7 +666,7 @@ function tacticModifiers(tactics) {
   if (tactics.mentalidad === "ofensiva")   { m.atkBonus += 4; m.defBonus -= 3; m.chancesRate += 0.06; }
   if (tactics.mentalidad === "defensiva")  { m.atkBonus -= 3; m.defBonus += 4; m.chancesRate -= 0.04; }
 
-  // PresiÃ³n
+  // Presión
   if (tactics.presion === "alta")  { m.atkBonus += 2; m.fatigueExtra += 4; m.yellowRisk += 0.05; m.chancesRate += 0.03; }
   if (tactics.presion === "baja")  { m.defBonus += 2; m.fatigueExtra -= 2; }
 
@@ -687,7 +687,7 @@ function tacticModifiers(tactics) {
   return m;
 }
 
-// â”€â”€â”€ MOTOR DE PARTIDO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── MOTOR DE PARTIDO ────────────────────────────────────────────────────────
 
 function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS) {
   const available = players.filter(p => !p.injured && !p.suspended);
@@ -748,7 +748,7 @@ function simAIGame(homeTeam, awayTeam) {
   const hGoals = Math.min(6, Math.max(0, Math.round(Math.random() * 2.5 + diff * 0.04)));
   const aGoals = Math.min(6, Math.max(0, Math.round(Math.random() * 2.2 - diff * 0.04)));
 
-  // Generar eventos de gol con goleadores reales para que aparezcan en la clasificaciÃ³n de goleadores
+  // Generar eventos de gol con goleadores reales para que aparezcan en la clasificación de goleadores
   const events = [];
   const homeSquad = REAL_SQUADS[homeTeam.id] ?? [];
   const awaySquad = REAL_SQUADS[awayTeam.id] ?? [];
@@ -777,14 +777,14 @@ function simAIGame(homeTeam, awayTeam) {
   return { homeGoals: hGoals, awayGoals: aGoals, events };
 }
 
-// Descripciones contextuales por estilo tÃ¡ctico
+// Descripciones contextuales por estilo táctico
 function goalDesc(scorer, tactics, team) {
   const name = scorer?.name ?? (team === "home" ? "El local" : "El visitante");
   const byStyle = {
-    directo:      [`${name} remata de cabeza un balÃ³n largo.`, `Pase en profundidad y ${name} define sin dudar.`],
-    posesion:     [`Tras una elaborada jugada de toque, ${name} marca.`, `${name} culmina una jugada de combinaciÃ³n de lujo.`],
-    bandas:       [`Centro desde la banda y ${name} aparece en el segundo palo.`, `${name} recoge el rechace tras un centro al Ã¡rea.`],
-    contraataque: [`Robo en el centro del campo y ${name} sentencia a la contra.`, `TransiciÃ³n rÃ¡pida, ${name} se planta solo ante el portero.`],
+    directo:      [`${name} remata de cabeza un balón largo.`, `Pase en profundidad y ${name} define sin dudar.`],
+    posesion:     [`Tras una elaborada jugada de toque, ${name} marca.`, `${name} culmina una jugada de combinación de lujo.`],
+    bandas:       [`Centro desde la banda y ${name} aparece en el segundo palo.`, `${name} recoge el rechace tras un centro al área.`],
+    contraataque: [`Robo en el centro del campo y ${name} sentencia a la contra.`, `Transición rápida, ${name} se planta solo ante el portero.`],
   };
   const opts = byStyle[tactics?.estilo] ?? [`${name} marca un golazo.`];
   return opts[Math.floor(Math.random() * opts.length)];
@@ -800,11 +800,11 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   const minuteEnd=Math.min((segment+1)*15,medicalContext.minuteEnd??(segment+1)*15);
   const intervalMinutes=Math.max(1,minuteEnd-minuteStart+1);
 
-  // Probabilidades base ajustadas por tÃ¡cticas y diferencia de fuerza
+  // Probabilidades base ajustadas por tácticas y diferencia de fuerza
   const hChanceProb = Math.min(0.75, Math.max(0.08, 0.24 + diff * 0.008 + mod.chancesRate));
   const aChanceProb = Math.min(0.65, Math.max(0.06, 0.18 - diff * 0.008));
 
-  // Defensa rival reduce conversiÃ³n de gol del usuario
+  // Defensa rival reduce conversión de gol del usuario
   const oppDefStr   = calcDefStrength(oppSquad);
   const userDefStr  = calcDefStrength(players,tactics);
   const hGoalConv   = Math.min(0.78, Math.max(0.30, 0.52 + mod.goalConvRate - (oppDefStr - 65) * 0.003));
@@ -824,7 +824,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   const oppScorerPool = oppAttackers.length ? oppAttackers : (oppMids.length ? oppMids : oppSquad);
   const pickOppScorer = () => oppScorerPool.length ? pick(oppScorerPool) : null;
 
-  // â”€â”€ ATAQUE LOCAL â”€â”€
+  // ── ATAQUE LOCAL ──
   if (Math.random() < intervalProbability(hChanceProb,intervalMinutes)) {
     const scorer = pick(attackers.length ? attackers : allField);
     if (Math.random() < hGoalConv) {
@@ -833,24 +833,24 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
       events.push({
         minute: min(), type: isPenalty ? "PENALTY" : "GOAL", team: "user", playerId: scorer?.id, assistId: assistant?.id,
         description: isPenalty
-          ? `Â¡PENALTI! ${scorer?.name ?? "Delantero"} transforma desde los once metros. âš½`
-          : `âš½ GOL â€” ${goalDesc(scorer, tactics, "home")}`,
+          ? `¡PENALTI! ${scorer?.name ?? "Delantero"} transforma desde los once metros. ⚽`
+          : `⚽ GOL — ${goalDesc(scorer, tactics, "home")}`,
       });
     } else {
       const creator = pick([...mids, ...attackers].filter(Boolean));
       const saved=Boolean(oppGk)&&Math.random()<.68;
       events.push({
         minute: min(), type: saved?"SAVE":"BIG_CHANCE", team: saved?"opp":"user", playerId:saved?oppGk.id:undefined,
-        description: saved?`ðŸ§¤ Gran parada de ${oppGk.name} ante ${scorer?.name??"el atacante"}.`:pick([
-          `OcasiÃ³n clara de ${scorer?.name ?? "local"}. El disparo se va rozando el palo.`,
+        description: saved?`🧤 Gran parada de ${oppGk.name} ante ${scorer?.name??"el atacante"}.`:pick([
+          `Ocasión clara de ${scorer?.name ?? "local"}. El disparo se va rozando el palo.`,
           `${creator?.name ?? "El centrocampista"} mete un pase de gol pero el portero adivina la esquina.`,
-          `Remate al larguero de ${scorer?.name ?? "local"}. Â¡QuÃ© cerca estuvo!`,
+          `Remate al larguero de ${scorer?.name ?? "local"}. ¡Qué cerca estuvo!`,
         ]),
       });
     }
   }
 
-  // â”€â”€ ATAQUE VISITANTE â”€â”€
+  // ── ATAQUE VISITANTE ──
   if (Math.random() < intervalProbability(aChanceProb,intervalMinutes)) {
     if (Math.random() < aGoalConv) {
       const oppScorer = pickOppScorer();
@@ -859,11 +859,11 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
       events.push({
         minute: min(), type: isPenalty ? "PENALTY" : "GOAL", team: "opp", playerId: oppScorer?.id, assistId: assistant?.id,
         description: isPenalty
-          ? `Â¡PENALTI! ${oppScorer?.name ?? "El rival"} no falla desde los once metros.`
+          ? `¡PENALTI! ${oppScorer?.name ?? "El rival"} no falla desde los once metros.`
           : pick([
-              `âš½ GOL â€” ${oppScorer?.name ?? "El rival"} sorprende con un disparo lejano inapelable.`,
-              `âš½ GOL â€” Contragolpe letal, ${oppScorer?.name ?? "el delantero rival"} marca.`,
-              `âš½ GOL â€” ${oppScorer?.name ?? "El rival"} remata a placer una jugada ensayada a balÃ³n parado.`,
+              `⚽ GOL — ${oppScorer?.name ?? "El rival"} sorprende con un disparo lejano inapelable.`,
+              `⚽ GOL — Contragolpe letal, ${oppScorer?.name ?? "el delantero rival"} marca.`,
+              `⚽ GOL — ${oppScorer?.name ?? "El rival"} remata a placer una jugada ensayada a balón parado.`,
             ]),
       });
     } else {
@@ -871,34 +871,34 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
       events.push({
         minute: min(), type: "BIG_CHANCE", team: "opp",
         description: pick([
-          `${oppScorer?.name ?? "El visitante"} falla una ocasiÃ³n clarÃ­sima ante el portero.`,
-          gk ? `Â¡ParadÃ³n de ${gk.name}! Mantiene el resultado vivo.` : `El portero lo para in extremis.`,
+          `${oppScorer?.name ?? "El visitante"} falla una ocasión clarísima ante el portero.`,
+          gk ? `¡Paradón de ${gk.name}! Mantiene el resultado vivo.` : `El portero lo para in extremis.`,
           `Remate de ${oppScorer?.name ?? "el rival"} que se va alto por muy poco.`,
         ]),
       });
     }
   }
 
-  // â”€â”€ PARADA DESTACADA â”€â”€
+  // ── PARADA DESTACADA ──
   if (Math.random() < intervalProbability(0.12 + (tactics.mentalidad === "defensiva" ? 0.06 : 0),intervalMinutes) && gk) {
     events.push({
       minute: min(), type: "SAVE", team: "user",
       playerId:gk.id,
       description: pick([
-        `ðŸ§¤ Gran parada de ${gk.name}. El equipo le debe los tres puntos.`,
-        `ðŸ§¤ ${gk.name} vuela a su derecha y despeja el peligro.`,
-        `ðŸ§¤ Mano providencial de ${gk.name} bajo los palos.`,
+        `🧤 Gran parada de ${gk.name}. El equipo le debe los tres puntos.`,
+        `🧤 ${gk.name} vuela a su derecha y despeja el peligro.`,
+        `🧤 Mano providencial de ${gk.name} bajo los palos.`,
       ]),
     });
   }
 
-  // â”€â”€ ACCIÃ“N DEFENSIVA DESTACADA â”€â”€
+  // ── ACCIÓN DEFENSIVA DESTACADA ──
   if(Math.random()<intervalProbability(.18,intervalMinutes)){
     const userAction=Math.random()<.5;const defender=userAction?pick(defs.length?defs:allField):pick(oppSquad.filter(player=>player.group==="DEF"));
-    if(defender)events.push({minute:min(),type:"DEFENSIVE_ACTION",team:userAction?"user":"opp",playerId:defender.id,description:userAction?`ðŸ›¡ï¸ ${defender.name} corta una ocasiÃ³n peligrosa con una intervenciÃ³n decisiva.`:`ðŸ›¡ï¸ ${defender.name} frena el ataque con una gran acciÃ³n defensiva.`});
+    if(defender)events.push({minute:min(),type:"DEFENSIVE_ACTION",team:userAction?"user":"opp",playerId:defender.id,description:userAction?`🛡️ ${defender.name} corta una ocasión peligrosa con una intervención decisiva.`:`🛡️ ${defender.name} frena el ataque con una gran acción defensiva.`});
   }
 
-  // â”€â”€ TARJETA AMARILLA LOCAL â”€â”€
+  // ── TARJETA AMARILLA LOCAL ──
   const yellowBaseHome = 0.16 + mod.yellowRisk + (tactics.presion === "alta" ? 0.05 : 0);
   if (Math.random() < intervalProbability(yellowBaseHome,intervalMinutes) && allField.length) {
     const carded = pick(tactics.presion === "alta" ? (defs.length ? defs : allField) : allField);
@@ -906,15 +906,15 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
       minute: min(), type: "YELLOW", team: "user", playerId: carded?.id,
       playerName:carded?.name,
       description: pick([
-        `ðŸŸ¡ Tarjeta amarilla para ${carded?.name ?? "el jugador local"} por una entrada imprudente.`,
-        `ðŸŸ¡ ${carded?.name ?? "El jugador"} llega tarde y ve la amarilla.`,
-        `ðŸŸ¡ AmonestaciÃ³n para ${carded?.name ?? "el local"} por protestar al Ã¡rbitro.`,
+        `🟡 Tarjeta amarilla para ${carded?.name ?? "el jugador local"} por una entrada imprudente.`,
+        `🟡 ${carded?.name ?? "El jugador"} llega tarde y ve la amarilla.`,
+        `🟡 Amonestación para ${carded?.name ?? "el local"} por protestar al árbitro.`,
       ]),
     };
     events.push(promoteSecondYellow(yellow,medicalContext.yellowCounts?.user?.[carded?.id]??0));
   }
 
-  // â”€â”€ TARJETA AMARILLA VISITANTE â”€â”€
+  // ── TARJETA AMARILLA VISITANTE ──
   const oppFieldPlayers = oppSquad.filter(p => p.group !== "POR");
   if (Math.random() < intervalProbability(0.14,intervalMinutes)) {
     const oppCarded = oppFieldPlayers.length ? pick(oppFieldPlayers) : null;
@@ -922,34 +922,34 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
       minute: min(), type: "YELLOW", team: "opp", playerId: oppCarded?.id,
       playerName:oppCarded?.name,
       description: pick([
-        `ðŸŸ¡ Tarjeta amarilla para ${oppCarded?.name ?? "el centrocampista visitante"} por una falta tÃ¡ctica.`,
-        `ðŸŸ¡ ${oppCarded?.name ?? "El defensa visitante"} corta un contragolpe y ve la amarilla.`,
-        `ðŸŸ¡ AmonestaciÃ³n para ${oppCarded?.name ?? "el capitÃ¡n visitante"} por protestar.`,
+        `🟡 Tarjeta amarilla para ${oppCarded?.name ?? "el centrocampista visitante"} por una falta táctica.`,
+        `🟡 ${oppCarded?.name ?? "El defensa visitante"} corta un contragolpe y ve la amarilla.`,
+        `🟡 Amonestación para ${oppCarded?.name ?? "el capitán visitante"} por protestar.`,
       ]),
     };
     events.push(promoteSecondYellow(yellow,medicalContext.yellowCounts?.opp?.[oppCarded?.id]??0));
   }
 
-  // â”€â”€ TARJETA ROJA â”€â”€
+  // ── TARJETA ROJA ──
   if (Math.random() < intervalProbability(0.03,intervalMinutes)) {
     const side = Math.random() < 0.4 ? "home" : "away";
     if (side === "home" && allField.length) {
       const sent = pick(allField);
       events.push({
         minute: min(), type: "RED", team: "user", playerId: sent?.id,
-        description: `ðŸŸ¥ Â¡ROJA para ${sent?.name ?? "el local"}! El equipo se queda con diez.`,
+        description: `🟥 ¡ROJA para ${sent?.name ?? "el local"}! El equipo se queda con diez.`,
       });
     } else {
       const oppSent = oppFieldPlayers.length ? pick(oppFieldPlayers) : null;
       events.push({
         minute: min(), type: "RED", team: "opp", playerId: oppSent?.id,
-        description: `ðŸŸ¥ Â¡ROJA para ${oppSent?.name ?? "el visitante"}! Entrada temeraria y el Ã¡rbitro no duda.`,
+        description: `🟥 ¡ROJA para ${oppSent?.name ?? "el visitante"}! Entrada temeraria y el árbitro no duda.`,
       });
     }
   }
 
-  // â”€â”€ LESIÃ“N CONTEXTUAL â”€â”€
-  // El riesgo combina cansancio, edad, minutos, partidos consecutivos y exigencia tÃ¡ctica.
+  // ── LESIÓN CONTEXTUAL ──
+  // El riesgo combina cansancio, edad, minutos, partidos consecutivos y exigencia táctica.
   const injuryResult = Math.random()<intervalMinutes/15?rollContextualInjury(allField, { ...medicalContext, tactics, currentMatchMinutes:minuteEnd }):null;
   const injuryEvent = createInjuryEvent(injuryResult, min());
   if (injuryEvent) events.push(injuryEvent);
@@ -957,7 +957,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   return events.sort((a, b) => a.minute - b.minute);
 }
 
-// Cansancio extra por tramo segÃºn tÃ¡cticas
+// Cansancio extra por tramo según tácticas
 function fatigueDeltaPerSegment(tactics) {
   let base = 3;
   if (tactics.presion === "alta")  base += 2;
@@ -967,7 +967,7 @@ function fatigueDeltaPerSegment(tactics) {
   return base;
 }
 
-// â”€â”€â”€ UTILIDADES VISUALES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── UTILIDADES VISUALES ──────────────────────────────────────────────────────
 
 function calculateBudgetSnapshot(game, team) {
   const players = game.players ?? [];
@@ -1010,7 +1010,7 @@ function calculateBudgetSnapshot(game, team) {
 const RARITY_ACCENT = { BRONZE: "#cd853f", SILVER: "#9aa0b4", GOLD: "#c9a84c", SPECIAL: "#c4b5fd" };
 const RARITY_BG = { BRONZE: "#2a1a0a", SILVER: "#14161a", GOLD: "#1a1700", SPECIAL: "#180e2a" };
 const RARITY_LABEL = { BRONZE: "Bronce", SILVER: "Plata", GOLD: "Oro", SPECIAL: "Especial" };
-const NAT_FLAG = { ES: "ðŸ‡ªðŸ‡¸", FR: "ðŸ‡«ðŸ‡·", GH: "ðŸ‡¬ðŸ‡­", BR: "ðŸ‡§ðŸ‡·", AR: "ðŸ‡¦ðŸ‡·", PT: "ðŸ‡µðŸ‡¹", DE: "ðŸ‡©ðŸ‡ª" };
+const NAT_FLAG = { ES: "🇪🇸", FR: "🇫🇷", GH: "🇬🇭", BR: "🇧🇷", AR: "🇦🇷", PT: "🇵🇹", DE: "🇩🇪" };
 
 function Initials({ name, size = 44, rarity = "GOLD", borderRadius = 8 }) {
   const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -1035,7 +1035,7 @@ function StatBar({ label, value, accent }) {
   );
 }
 
-// â”€â”€â”€ CARTA DE JUGADOR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── CARTA DE JUGADOR ─────────────────────────────────────────────────────────
 
 function PlayerCard({ player, onSelect, selected }) {
   const [flipped, setFlipped] = useState(false);
@@ -1062,7 +1062,7 @@ function PlayerCard({ player, onSelect, selected }) {
         {/* ANVERSO */}
         <div style={{ position: "absolute", width: "100%", height: "100%", backfaceVisibility: "hidden", borderRadius: 12, overflow: "hidden", background: bg, border: borderStyle }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: acc }} />
-          {/* Foto del jugador â€” carga desde /players/{id}.png, fallback a avatar */}
+          {/* Foto del jugador — carga desde /players/{id}.png, fallback a avatar */}
           <div style={{ width: "100%", height: "100%", position: "relative", background: `linear-gradient(180deg, ${bg} 0%, #0d0f14 100%)` }}>
             <img
               src={player.imageUrl || `/players/${player.id}.png`}
@@ -1073,10 +1073,10 @@ function PlayerCard({ player, onSelect, selected }) {
             />
             {/* Fallback avatar si no hay foto */}
             <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center", position: "absolute", inset: 0 }}>
-              <div style={{ fontSize: 80, opacity: 0.18, paddingBottom: 60 }}>ðŸ‘¤</div>
+              <div style={{ fontSize: 80, opacity: 0.18, paddingBottom: 60 }}>👤</div>
             </div>
           </div>
-          {/* Media y posiciÃ³n arriba izquierda */}
+          {/* Media y posición arriba izquierda */}
           <div style={{ position: "absolute", top: 10, left: 10, display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}>
             <span style={{ fontSize: 22, fontWeight: 700, color: acc }}>{player.overall}</span>
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".5px", color: acc, marginTop: 1 }}>{player.pos}</span>
@@ -1084,7 +1084,7 @@ function PlayerCard({ player, onSelect, selected }) {
           {/* Overlay inferior */}
           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 10px 12px", background: "linear-gradient(to top, rgba(0,0,0,.92) 0%, rgba(0,0,0,.5) 60%, transparent 100%)" }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1.2 }}>{player.name}</div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,.6)", marginTop: 2 }}>{NAT_FLAG[player.nat] || "ðŸŒ"} Â· {player.age} aÃ±os</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,.6)", marginTop: 2 }}>{NAT_FLAG[player.nat] || "🌍"} · {player.age} años</div>
             <div style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "center" }}>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 9, color: "rgba(255,255,255,.45)", fontWeight: 600 }}>MOR</div>
@@ -1094,8 +1094,8 @@ function PlayerCard({ player, onSelect, selected }) {
                 <div style={{ fontSize: 9, color: "rgba(255,255,255,.45)", fontWeight: 600 }}>CAN</div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: fatColor }}>{player.fatigue}</div>
               </div>
-              {player.injured && <span style={{ background: "#ef444430", color: "#ef4444", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4 }}>LESIÃ“N</span>}
-              {player.suspended && <span style={{ background: "#f59e0b30", color: "#f59e0b", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4 }}>SANCIÃ“N</span>}
+              {player.injured && <span style={{ background: "#ef444430", color: "#ef4444", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4 }}>LESIÓN</span>}
+              {player.suspended && <span style={{ background: "#f59e0b30", color: "#f59e0b", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4 }}>SANCIÓN</span>}
             </div>
           </div>
         </div>
@@ -1107,7 +1107,7 @@ function PlayerCard({ player, onSelect, selected }) {
             <Initials name={player.name} size={40} rarity={player.rarity} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#e8eaf0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{player.name}</div>
-              <div style={{ fontSize: 10, color: "#6b7280", marginTop: 1 }}>{player.pos} Â· {player.age}a Â· {NAT_FLAG[player.nat] || "ðŸŒ"}</div>
+              <div style={{ fontSize: 10, color: "#6b7280", marginTop: 1 }}>{player.pos} · {player.age}a · {NAT_FLAG[player.nat] || "🌍"}</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: acc, lineHeight: 1, marginTop: 2 }}>{player.overall}</div>
             </div>
           </div>
@@ -1120,7 +1120,7 @@ function PlayerCard({ player, onSelect, selected }) {
             {player.suspended && <span style={{ background: "#f59e0b22", color: "#f59e0b", fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4 }}>Sancionado</span>}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.08)" }}>
-            {[["MORAL", player.morale, moraleColor], ["CAN", player.fatigue, fatColor], ["ðŸŸ¡", player.yellowCards, "#f59e0b"]].map(([l, v, c]) => (
+            {[["MORAL", player.morale, moraleColor], ["CAN", player.fatigue, fatColor], ["🟡", player.yellowCards, "#f59e0b"]].map(([l, v, c]) => (
               <div key={l} style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 9, color: "#6b7280", fontWeight: 600 }}>{l}</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: c }}>{v}</div>
@@ -1133,9 +1133,9 @@ function PlayerCard({ player, onSelect, selected }) {
   );
 }
 
-// â”€â”€â”€ NAVEGACIÃ“N INFERIOR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── NAVEGACIÓN INFERIOR ──────────────────────────────────────────────────────
 
-// â”€â”€â”€ PANTALLA DE FINANZAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── PANTALLA DE FINANZAS ─────────────────────────────────────────────────────
 
 function FinancesScreen({ game }) {
   const team    = TEAMS.find(t => t.id === game.teamId);
@@ -1148,7 +1148,7 @@ function FinancesScreen({ game }) {
   const matchdaysPlayed = Math.max(0, matchday - 1);
   const totalWageSpent  = matchdaysPlayed * weeklyWages;
 
-  // â”€â”€ Ingresos reales acumulados de cada jornada jugada â”€â”€
+  // ── Ingresos reales acumulados de cada jornada jugada ──
   const incomeLog = game.incomeLog ?? [];
   const totalGate    = incomeLog.reduce((s,e) => s + (e.gateRevenue ?? 0), 0);
   const totalMembers = incomeLog.reduce((s,e) => s + (e.memberIncomePerHomeMatch ?? 0), 0);
@@ -1167,7 +1167,7 @@ function FinancesScreen({ game }) {
   const balance = totalIncome - totalWageSpent;
   const balanceColor = balance >= 0 ? "#22c55e" : "#ef4444";
   const budgetK       = budgetTotal * 1000;
-  const budgetAdjustment = game.budgetAdjustment ?? 0; // â‚¬K acumulado: ingresos de jornadas + fichajes/ventas
+  const budgetAdjustment = game.budgetAdjustment ?? 0; // €K acumulado: ingresos de jornadas + fichajes/ventas
   const budgetSnapshot = calculateBudgetSnapshot(game, team);
   const budgetLeft    = budgetSnapshot.clubCash;
   const budgetPct     = Math.max(0, Math.min(100, Math.round((budgetSnapshot.transferBudget / Math.max(1,budgetLeft)) * 100)));
@@ -1176,14 +1176,14 @@ function FinancesScreen({ game }) {
   const groupWages = { POR:0, DEF:0, MED:0, DEL:0 };
   players.forEach(p => { if (groupWages[p.group] !== undefined) groupWages[p.group] += (p.salary??0); });
   const totalGroupWage = Object.values(groupWages).reduce((s,v)=>s+v,0);
-  const fmt  = (v) => v >= 1000 ? `â‚¬${(v/1000).toFixed(1)}M` : `â‚¬${v}K`;
-  const fmtW = (v) => `â‚¬${v}K/sem`;
+  const fmt  = (v) => v >= 1000 ? `€${(v/1000).toFixed(1)}M` : `€${v}K`;
+  const fmtW = (v) => `€${v}K/sem`;
   const fanLove = game.fanLove ?? 70;
   const fanLoveColor = fanLove >= 70 ? "#22c55e" : fanLove >= 40 ? "#f59e0b" : "#ef4444";
 
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
-      {game.seasonOpeningStatement&&<div style={{background:"linear-gradient(135deg,rgba(201,168,76,.13),#161a24)",border:"1px solid rgba(201,168,76,.25)",borderRadius:12,padding:14,marginBottom:12}}><div style={{fontSize:11,color:"#c9a84c",fontWeight:800,marginBottom:10}}>CIERRE Y APERTURA DE TEMPORADA</div>{[["Saldo de cierre",game.seasonOpeningStatement.closingBalance],["Derechos TV",game.seasonOpeningStatement.tvRights],["Patrocinios",game.seasonOpeningStatement.sponsorship],["Socios",game.seasonOpeningStatement.members],["Premio clasificaciÃ³n",game.seasonOpeningStatement.positionPrize],["Gastos operativos",-game.seasonOpeningStatement.operatingCosts]].map(([label,value])=><div key={label} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:11,borderBottom:"1px solid rgba(255,255,255,.04)"}}><span style={{color:"#8b92a3"}}>{label}</span><strong style={{color:value>=0?"#22c55e":"#ef4444"}}>{value>=0?"+":"-"}{fmt(Math.abs(value))}</strong></div>)}<div style={{display:"flex",justifyContent:"space-between",paddingTop:9,fontSize:12}}><span style={{color:"#e8eaf0",fontWeight:800}}>Presupuesto inicial</span><strong style={{color:"#c9a84c"}}>{fmt(game.seasonOpeningStatement.openingBalance)}</strong></div></div>}
+      {game.seasonOpeningStatement&&<div style={{background:"linear-gradient(135deg,rgba(201,168,76,.13),#161a24)",border:"1px solid rgba(201,168,76,.25)",borderRadius:12,padding:14,marginBottom:12}}><div style={{fontSize:11,color:"#c9a84c",fontWeight:800,marginBottom:10}}>CIERRE Y APERTURA DE TEMPORADA</div>{[["Saldo de cierre",game.seasonOpeningStatement.closingBalance],["Derechos TV",game.seasonOpeningStatement.tvRights],["Patrocinios",game.seasonOpeningStatement.sponsorship],["Socios",game.seasonOpeningStatement.members],["Premio clasificación",game.seasonOpeningStatement.positionPrize],["Gastos operativos",-game.seasonOpeningStatement.operatingCosts]].map(([label,value])=><div key={label} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:11,borderBottom:"1px solid rgba(255,255,255,.04)"}}><span style={{color:"#8b92a3"}}>{label}</span><strong style={{color:value>=0?"#22c55e":"#ef4444"}}>{value>=0?"+":"-"}{fmt(Math.abs(value))}</strong></div>)}<div style={{display:"flex",justifyContent:"space-between",paddingTop:9,fontSize:12}}><span style={{color:"#e8eaf0",fontWeight:800}}>Presupuesto inicial</span><strong style={{color:"#c9a84c"}}>{fmt(game.seasonOpeningStatement.openingBalance)}</strong></div></div>}
       <div style={{ background:"#1a1f2e", border:"1px solid rgba(201,168,76,.2)", borderRadius:12, padding:16, marginBottom:14 }}>
         <div style={{ fontSize:11, color:"#c9a84c", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>BALANCE TEMPORADA</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
@@ -1235,18 +1235,18 @@ function FinancesScreen({ game }) {
         </div>
       </div>
 
-      {/* CariÃ±o de la aficiÃ³n */}
+      {/* Cariño de la afición */}
       <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:12, display:"flex", alignItems:"center", gap:14 }}>
-        <div style={{ fontSize:28 }}>â¤ï¸</div>
+        <div style={{ fontSize:28 }}>❤️</div>
         <div style={{ flex:1 }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-            <span style={{ fontSize:11, color:"#6b7280", fontWeight:600 }}>CARIÃ‘O DE LA AFICIÃ“N</span>
+            <span style={{ fontSize:11, color:"#6b7280", fontWeight:600 }}>CARIÑO DE LA AFICIÓN</span>
             <span style={{ fontSize:12, fontWeight:700, color:fanLoveColor }}>{fanLove}/100</span>
           </div>
           <div style={{ height:5, background:"#1e2330", borderRadius:3, overflow:"hidden" }}>
             <div style={{ width:`${fanLove}%`, height:"100%", background:fanLoveColor, borderRadius:3 }}/>
           </div>
-          <div style={{ fontSize:10, color:"#4b5563", marginTop:4 }}>Sube ganando partidos Â· baja con derrotas y rachas negativas. Afecta la ocupaciÃ³n del estadio.</div>
+          <div style={{ fontSize:10, color:"#4b5563", marginTop:4 }}>Sube ganando partidos · baja con derrotas y rachas negativas. Afecta la ocupación del estadio.</div>
         </div>
       </div>
 
@@ -1254,10 +1254,10 @@ function FinancesScreen({ game }) {
       <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:12 }}>
         <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>FUENTES DE INGRESOS</div>
         {[
-          ["ðŸŽŸï¸", "Taquilla", totalGate, "#22c55e", `${homeMatchesPlayed} partidos en casa`],
-          ["ðŸŽ«", "Socios y abonados", totalMembers, "#3b82f6", "Cuota prorrateada por jornada"],
-          ["ðŸ›ï¸", "Tienda y merchandising", totalShop, "#c9a84c", "Todas las jornadas"],
-          ["ðŸ“º", "Publicidad y patrocinios", totalAds, "#a855f7", `PosiciÃ³n + prestigio del club (${Math.round(game.legacy?.clubPrestige??30)}/100)`],
+          ["🎟️", "Taquilla", totalGate, "#22c55e", `${homeMatchesPlayed} partidos en casa`],
+          ["🎫", "Socios y abonados", totalMembers, "#3b82f6", "Cuota prorrateada por jornada"],
+          ["🛍️", "Tienda y merchandising", totalShop, "#c9a84c", "Todas las jornadas"],
+          ["📺", "Publicidad y patrocinios", totalAds, "#a855f7", `Posición + prestigio del club (${Math.round(game.legacy?.clubPrestige??30)}/100)`],
         ].map(([icon,label,val,color,sub]) => {
           const pct = totalIncome > 0 ? Math.round((val/totalIncome)*100) : 0;
           return (
@@ -1270,20 +1270,20 @@ function FinancesScreen({ game }) {
               <div style={{ height:4, background:"#1e2330", borderRadius:2, overflow:"hidden", marginLeft:22 }}>
                 <div style={{ width:`${pct}%`, height:"100%", background:color, borderRadius:2 }}/>
               </div>
-              <div style={{ fontSize:9, color:"#4b5563", marginLeft:22, marginTop:2 }}>{sub} Â· {pct}% del total</div>
+              <div style={{ fontSize:9, color:"#4b5563", marginLeft:22, marginTop:2 }}>{sub} · {pct}% del total</div>
             </div>
           );
         })}
         {lastIncome && (
           <div style={{ background:"#0d0f14", borderRadius:8, padding:"10px 12px", marginTop:8 }}>
-            <div style={{ fontSize:10, color:"#6b7280", marginBottom:6 }}>ÃšLTIMA JORNADA (J{lastIncome.matchday})</div>
+            <div style={{ fontSize:10, color:"#6b7280", marginBottom:6 }}>ÚLTIMA JORNADA (J{lastIncome.matchday})</div>
             {lastIncome.isHome ? (
               <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#9aa0b4" }}>
-                <span>ðŸ‘¥ {lastIncome.matchAttendance?.toLocaleString()} espectadores</span>
+                <span>👥 {lastIncome.matchAttendance?.toLocaleString()} espectadores</span>
                 <span>{Math.round((lastIncome.occupancy??0)*100)}% aforo</span>
               </div>
             ) : (
-              <div style={{ fontSize:11, color:"#6b7280" }}>Partido a domicilio Â· sin ingresos de taquilla</div>
+              <div style={{ fontSize:11, color:"#6b7280" }}>Partido a domicilio · sin ingresos de taquilla</div>
             )}
             <div style={{ fontSize:13, fontWeight:700, color:"#22c55e", marginTop:4 }}>+{fmt(lastIncome.total)} esta jornada</div>
           </div>
@@ -1295,7 +1295,7 @@ function FinancesScreen({ game }) {
               <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf0" }}>{avgAttendance.toLocaleString()}</div>
             </div>
             <div style={{ background:"#0d0f14", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
-              <div style={{ fontSize:9, color:"#6b7280" }}>OCUPACIÃ“N MEDIA</div>
+              <div style={{ fontSize:9, color:"#6b7280" }}>OCUPACIÓN MEDIA</div>
               <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf0" }}>{avgOccupancy}%</div>
             </div>
           </div>
@@ -1311,7 +1311,7 @@ function FinancesScreen({ game }) {
             </div>
           ))}
         </div>
-        <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, marginBottom:8 }}>DESGLOSE POR LÃNEA</div>
+        <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, marginBottom:8 }}>DESGLOSE POR LÍNEA</div>
         {Object.entries(groupWages).map(([group, wages]) => {
           const pct = totalGroupWage > 0 ? Math.round((wages/totalGroupWage)*100) : 0;
           const colors = { POR:"#3b82f6", DEF:"#22c55e", MED:"#c9a84c", DEL:"#ef4444" };
@@ -1371,7 +1371,7 @@ function FinancesScreen({ game }) {
   );
 }
 
-// â”€â”€â”€ MERCADO DE FICHAJES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── MERCADO DE FICHAJES ─────────────────────────────────────────────────────
 
 function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, onViewReport, onClubOffer, onFreeAgentOffer, onAcceptClubCounter, onContractOffer, onAcceptPlayerCounter, onAcceptRoleCounter, onWithdrawOffer, onFinalizeOffer, onUserMarketStatus, onIncomingOffer }) {
   const [tab, setTab]         = useState("comprar"); // comprar | vender | historial
@@ -1382,22 +1382,22 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
   const [clubAmount,setClubAmount]=useState(0);
   const [contractSalary,setContractSalary]=useState(0);
   const [contractYears,setContractYears]=useState(3);
-  const [contractRole,setContractRole]=useState("RotaciÃ³n");
+  const [contractRole,setContractRole]=useState("Rotación");
   const [marketMode,setMarketMode]=useState("all");
 
   const team    = TEAMS.find(t => t.id === game.teamId);
   const players = game.players;
   const matchday = game.matchday;
 
-  // Presupuesto disponible (igual que en finanzas) â€” los ingresos reales ya estÃ¡n en budgetAdjustment
+  // Presupuesto disponible (igual que en finanzas) — los ingresos reales ya están en budgetAdjustment
   const budgetK      = (team.budget ?? 50) * 1000;
   const weeklyWages  = players.reduce((s,p) => s + (p.salary ?? 0), 0);
   const matchPlayed  = Math.max(0, matchday - 1);
   const wages        = matchPlayed * weeklyWages;
-  const budgetAdjustment = game.budgetAdjustment ?? 0; // â‚¬K acumulado: ingresos de jornadas + fichajes/ventas
+  const budgetAdjustment = game.budgetAdjustment ?? 0; // €K acumulado: ingresos de jornadas + fichajes/ventas
   const budgetSnapshot = calculateBudgetSnapshot(game, team);
   const budgetLeft   = budgetSnapshot.transferBudget;
-  const fmt          = v => v >= 1000 ? `â‚¬${(v/1000).toFixed(1)}M` : `â‚¬${v}K`;
+  const fmt          = v => v >= 1000 ? `€${(v/1000).toFixed(1)}M` : `€${v}K`;
 
   // Valor de mercado = media * 500K aproximado (simplificado)
   const marketValue  = p => {
@@ -1415,18 +1415,18 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
 
   // Jugadores disponibles en el mercado:
   // 1) Plantillas de los otros 19 equipos (datos base, simplificado: no se gestionan sus ventas)
-  // 2) Jugadores vendidos por el usuario â€” vuelven a estar disponibles para refichar
+  // 2) Jugadores vendidos por el usuario — vuelven a estar disponibles para refichar
   const soldByUser = (game.transfers ?? [])
     .filter(t => t.type === "sell"&&!t.toTeamId)
     .map(t => ({ ...t.player, _teamId: "agente_libre", _teamName: "Agente libre", _teamColor: "#6b7280" }));
   const migratedFreeAgents = (game.freeAgents ?? [])
     .map(p => ({ ...p, _teamId: "agente_libre", _teamName: "Agente libre", _teamColor: "#6b7280" }));
 
-  // IDs de jugadores que el usuario fichÃ³ de otro equipo (para no duplicarlos en su origen)
+  // IDs de jugadores que el usuario fichó de otro equipo (para no duplicarlos en su origen)
   const boughtFromOthers = new Set(
     (game.transfers ?? []).filter(t => t.type === "buy" && t.fromTeamId).map(t => t.player.id)
   );
-  // IDs de jugadores que el usuario vendiÃ³ mÃ¡s tarde volviÃ³ a fichar (evitar duplicado en agentes libres)
+  // IDs de jugadores que el usuario vendió más tarde volvió a fichar (evitar duplicado en agentes libres)
   const reboughtIds = new Set(
     (game.transfers ?? []).filter(t => t.type === "buy").map(t => t.player.id)
   );
@@ -1510,7 +1510,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
           <div>
             <div style={{ fontSize:10, color:"#6b7280", fontWeight:600, letterSpacing:".4px" }}>PRESUPUESTO FICHAJES</div>
             <div style={{ fontSize:22, fontWeight:800, color: budgetLeft > 0 ? "#22c55e" : "#ef4444", marginTop:2 }}>{fmt(budgetLeft)}</div>
-            <div style={{ fontSize:9, color:"#6b7280", marginTop:2 }}>Caja {fmt(budgetSnapshot.clubCash)} Â· gastos/reserva {fmt(budgetSnapshot.reserved)}</div>
+            <div style={{ fontSize:9, color:"#6b7280", marginTop:2 }}>Caja {fmt(budgetSnapshot.clubCash)} · gastos/reserva {fmt(budgetSnapshot.reserved)}</div>
           </div>
           <div style={{ textAlign:"right" }}>
             <div style={{ fontSize:10, color:"#6b7280" }}>Masa salarial semanal</div>
@@ -1526,7 +1526,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
 
       {/* Tabs */}
       <div style={{ display:"flex", background:"#161a24", borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
-        {[["comprar","ðŸ›’ Mercado"],["negociar",`ðŸ“¬ Ofertas${negotiationAlertCount?` (${negotiationAlertCount})`:""}`],["vender","ðŸ’° Salidas"],["historial","ðŸ“‹ Historial"]].map(([id,label])=>(
+        {[["comprar","🛒 Mercado"],["negociar",`📬 Ofertas${negotiationAlertCount?` (${negotiationAlertCount})`:""}`],["vender","💰 Salidas"],["historial","📋 Historial"]].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)}
             style={{ flex:1, background:"transparent", border:"none", borderBottom:tab===id?"2px solid #c9a84c":"2px solid transparent",
               color:tab===id?"#c9a84c":"#6b7280", padding:"9px 6px", fontSize:12, fontWeight:tab===id?700:500, cursor:"pointer" }}>
@@ -1541,10 +1541,10 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
           {/* Filtros */}
           <div style={{ padding:"8px 12px", background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
-            <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:7}}>{[["all","Todos"],["transfer","ðŸ“Œ Transferibles"],["loan","ðŸ” Cedibles"],["free","Libres"],["contract","Ãšltimo aÃ±o"],["young","JÃ³venes"],["opportunity","Oportunidades"]].map(([id,label])=><button key={id} onClick={()=>setMarketMode(id)} style={{flex:"0 0 auto",background:marketMode===id?"#c9a84c":"#1e2330",color:marketMode===id?"#1a1200":"#8b92a3",border:"none",borderRadius:14,padding:"6px 9px",fontSize:9,fontWeight:800}}>{label}</button>)}</div>
+            <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:7}}>{[["all","Todos"],["transfer","📌 Transferibles"],["loan","🔁 Cedibles"],["free","Libres"],["contract","Último año"],["young","Jóvenes"],["opportunity","Oportunidades"]].map(([id,label])=><button key={id} onClick={()=>setMarketMode(id)} style={{flex:"0 0 auto",background:marketMode===id?"#c9a84c":"#1e2330",color:marketMode===id?"#1a1200":"#8b92a3",border:"none",borderRadius:14,padding:"6px 9px",fontSize:9,fontWeight:800}}>{label}</button>)}</div>
             <div style={{ display:"flex", gap:6 }}>
               <input value={filter.search} onChange={e=>setFilter(f=>({...f,search:e.target.value}))}
-                placeholder="ðŸ” Buscar jugador..."
+                placeholder="🔍 Buscar jugador..."
                 style={{ flex:2, background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", padding:"6px 9px", borderRadius:6, fontSize:12, fontFamily:"inherit" }}/>
               <select value={filter.pos} onChange={e=>setFilter(f=>({...f,pos:e.target.value}))}
                 style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", padding:"6px 8px", borderRadius:6, fontSize:11, fontFamily:"inherit" }}>
@@ -1555,15 +1555,15 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
                 setFilter(f=>({...f,min:mn,max:mx}));
               }} style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", padding:"6px 8px", borderRadius:6, fontSize:11, fontFamily:"inherit" }}>
                 <option value="60-99">Media</option>
-                <option value="85-99">85-99 â­</option>
+                <option value="85-99">85-99 ⭐</option>
                 <option value="80-84">80-84</option>
                 <option value="75-79">75-79</option>
                 <option value="70-74">70-74</option>
                 <option value="60-69">&lt;70</option>
               </select>
             </div>
-            <div style={{display:"flex",gap:6,marginTop:6}}><select value={filter.maxPrice} onChange={event=>setFilter(current=>({...current,maxPrice:Number(event.target.value)}))} style={{flex:1,background:"#1e2330",border:"1px solid rgba(255,255,255,.1)",color:"#9aa0b4",padding:"6px 8px",borderRadius:6,fontSize:10}}><option value="999999">Cualquier precio</option><option value="5000">Hasta â‚¬5M</option><option value="10000">Hasta â‚¬10M</option><option value="25000">Hasta â‚¬25M</option><option value="50000">Hasta â‚¬50M</option></select><select value={filter.maxSalary} onChange={event=>setFilter(current=>({...current,maxSalary:Number(event.target.value)}))} style={{flex:1,background:"#1e2330",border:"1px solid rgba(255,255,255,.1)",color:"#9aa0b4",padding:"6px 8px",borderRadius:6,fontSize:10}}><option value="9999">Cualquier salario</option><option value="30">Hasta â‚¬30K/sem</option><option value="60">Hasta â‚¬60K/sem</option><option value="100">Hasta â‚¬100K/sem</option><option value="200">Hasta â‚¬200K/sem</option></select></div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:7,fontSize:9,color:"#6b7280"}}><span>Solo aparecen jugadores con informe.</span><button data-swipe-ignore="true" onClick={onGoScouting} style={{background:"transparent",border:"none",color:"#60a5fa",fontSize:9,fontWeight:800,cursor:"pointer"}}>ðŸ”Ž Abrir scouting</button></div>
+            <div style={{display:"flex",gap:6,marginTop:6}}><select value={filter.maxPrice} onChange={event=>setFilter(current=>({...current,maxPrice:Number(event.target.value)}))} style={{flex:1,background:"#1e2330",border:"1px solid rgba(255,255,255,.1)",color:"#9aa0b4",padding:"6px 8px",borderRadius:6,fontSize:10}}><option value="999999">Cualquier precio</option><option value="5000">Hasta €5M</option><option value="10000">Hasta €10M</option><option value="25000">Hasta €25M</option><option value="50000">Hasta €50M</option></select><select value={filter.maxSalary} onChange={event=>setFilter(current=>({...current,maxSalary:Number(event.target.value)}))} style={{flex:1,background:"#1e2330",border:"1px solid rgba(255,255,255,.1)",color:"#9aa0b4",padding:"6px 8px",borderRadius:6,fontSize:10}}><option value="9999">Cualquier salario</option><option value="30">Hasta €30K/sem</option><option value="60">Hasta €60K/sem</option><option value="100">Hasta €100K/sem</option><option value="200">Hasta €200K/sem</option></select></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:7,fontSize:9,color:"#6b7280"}}><span>Solo aparecen jugadores con informe.</span><button data-swipe-ignore="true" onClick={onGoScouting} style={{background:"transparent",border:"none",color:"#60a5fa",fontSize:9,fontWeight:800,cursor:"pointer"}}>🔎 Abrir scouting</button></div>
           </div>
 
           <div style={{ flex:1, overflowY:"auto", padding:"10px 12px" }}>
@@ -1587,19 +1587,19 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight:600, color: alreadyOwned?"#22c55e":"#e8eaf0",
                       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                      {p.name} {alreadyOwned?"âœ“":""}
+                      {p.name} {alreadyOwned?"✓":""}
                     </div>
                     <div style={{ fontSize:10, color:"#6b7280", marginTop:1 }}>
-                      {p.pos} Â· {p.age}a Â· <span style={{ color:p._teamColor }}>{p._teamName}</span>
+                      {p.pos} · {p.age}a · <span style={{ color:p._teamColor }}>{p._teamName}</span>
                     </div>
-                    {p._listing&&<div style={{fontSize:8,color:p._listing.type==="loan"?"#60a5fa":"#f59e0b",marginTop:3}}>{p._listing.type==="loan"?`ðŸ” CesiÃ³n Â· ${p._listing.wageCoverage}% salario Â· ${p._listing.optionType==="none"?"sin opciÃ³n":`opciÃ³n ${fmt(p._listing.optionPrice)}`}`:`ðŸ“Œ ${p._listing.reason} Â· pide ${fmt(p._listing.askingPrice)}`}</div>}
+                    {p._listing&&<div style={{fontSize:8,color:p._listing.type==="loan"?"#60a5fa":"#f59e0b",marginTop:3}}>{p._listing.type==="loan"?`🔁 Cesión · ${p._listing.wageCoverage}% salario · ${p._listing.optionType==="none"?"sin opción":`opción ${fmt(p._listing.optionPrice)}`}`:`📌 ${p._listing.reason} · pide ${fmt(p._listing.askingPrice)}`}</div>}
                   </div>
                   {/* Valor */}
                   <div style={{ textAlign:"right", flexShrink:0 }}>
                     <div style={{ fontSize:13, fontWeight:700, color: can?"#22c55e":"#ef4444" }}>{isFreeAgent(p)?"Libre":fmt(val)}</div>
                     <div style={{ fontSize:9, color:"#4b5563" }}>{fmt(suggestedSalary(p))}/sem</div>
                   </div>
-                  <button data-swipe-ignore="true" onClick={event=>{event.stopPropagation();report?onViewReport(report.id):onGoScouting();}} title="Ver informe de scouting" style={{ background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.2)", color:"#c9a84c", borderRadius:6, width:28, height:28, cursor:"pointer" }}>ðŸ‘</button>
+                  <button data-swipe-ignore="true" onClick={event=>{event.stopPropagation();report?onViewReport(report.id):onGoScouting();}} title="Ver informe de scouting" style={{ background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.2)", color:"#c9a84c", borderRadius:6, width:28, height:28, cursor:"pointer" }}>👁</button>
                 </div>
               );
             })}
@@ -1613,14 +1613,14 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
                   display:"flex", alignItems:"center", justifyContent:"center", fontSize:String(selectedOverall).length>2?11:16, fontWeight:800, color:acc(selected) }}>{selectedOverall}</div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf0" }}>{selected.name}</div>
-                  <div style={{ fontSize:11, color:"#6b7280" }}>{selected.pos} Â· {selected.age}a Â· {selected._teamName}</div>
+                  <div style={{ fontSize:11, color:"#6b7280" }}>{selected.pos} · {selected.age}a · {selected._teamName}</div>
                 </div>
                 <button onClick={()=>setSelected(null)}
-                  style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#6b7280", cursor:"pointer", padding:"4px 8px", borderRadius:5, fontSize:12 }}>âœ•</button>
+                  style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#6b7280", cursor:"pointer", padding:"4px 8px", borderRadius:5, fontSize:12 }}>✕</button>
               </div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
                 {[["Estado",isFreeAgent(selected)?"Agente libre":selected._teamName],["Coste traspaso",fmt(transferCost(selected))],
-                  ["NegociaciÃ³n",isFreeAgent(selected)?"Directa con jugador":"Club + jugador"],["Tras fichaje",fmt(budgetLeft-transferCost(selected))]
+                  ["Negociación",isFreeAgent(selected)?"Directa con jugador":"Club + jugador"],["Tras fichaje",fmt(budgetLeft-transferCost(selected))]
                 ].map(([l,v])=>(
                   <div key={l} style={{ background:"#0d0f14", borderRadius:7, padding:"8px 10px" }}>
                     <div style={{ fontSize:9, color:"#6b7280", fontWeight:600 }}>{l.toUpperCase()}</div>
@@ -1628,9 +1628,9 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
                   </div>
                 ))}
               </div>
-              {!activeOffer&&isFreeAgent(selected)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#0d0f14",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:7,padding:"9px 10px",fontSize:12}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#0d0f14",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:7}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} aÃ±os</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#0d0f14",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:7,padding:"9px 10px"}}>{["Estrella","Titular","RotaciÃ³n","Promesa","Suplente"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>canAttract(selected)&&onFreeAgentOffer(selected,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",width:"100%",padding:12,borderRadius:8,fontSize:13}}>Negociar contrato</button></div>}
-              {!activeOffer&&!isFreeAgent(selected)&&<><div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:7,marginBottom:8}}><input type="number" value={clubAmount} onChange={event=>setClubAmount(Number(event.target.value))} style={{background:"#0d0f14",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:7,padding:"9px 10px",fontSize:12}}/><span style={{alignSelf:"center",fontSize:9,color:"#6b7280"}}>â‚¬K Â· {selected._listing?.type==="loan"?"coste cesiÃ³n":"oferta fija"}</span></div><button onClick={()=>canAttract(selected)&&clubAmount<=budgetLeft&&onClubOffer(selected,clubAmount,marketValue(selected),suggestedSalary(selected),selected._listing)} className="btn-gold" style={{width:"100%",padding:12,borderRadius:8,fontSize:13}}>Enviar {selected._listing?.type==="loan"?"propuesta de cesiÃ³n":"oferta al club"}</button></>}
-              {activeOffer&&<div style={{background:"#0d0f14",borderRadius:9,padding:10}}><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>NEGOCIACIÃ“N EN CURSO Â· {activeOffer.dealType==="loan"?"CESIÃ“N":activeOffer.dealType==="free"?"AGENTE LIBRE":"FICHAJE"}</div><div style={{fontSize:12,color:"#e8eaf0",margin:"5px 0 9px"}}>{activeOffer.status==='pendingClub'?`El club responderÃ¡ en ${activeOffer.responseDays??1} dÃ­as.`:activeOffer.status==='clubCounter'?`Contraoferta del club: ${fmt(activeOffer.counterAmount)}`:activeOffer.status==='rejected'?'El club ha rechazado la oferta.':activeOffer.status==='outbid'?'Otro club ha superado tu oferta y se ha adelantado.':activeOffer.status==='clubAccepted'?'El club acepta. Ahora negocia con el jugador.':activeOffer.status==='pendingPlayer'?'El jugador estudia el contrato.':activeOffer.status==='playerCounter'?`El jugador solicita ${fmt(activeOffer.counterSalary)}/sem.`:activeOffer.status==='roleCounter'?`El jugador exige un rol de ${activeOffer.counterRole}.`:activeOffer.status==='playerRejected'?'El jugador rechaza las condiciones.':activeOffer.status==='ready'?'Acuerdo total alcanzado.':'OperaciÃ³n cerrada.'}</div>{activeOffer.status==='clubCounter'&&<button onClick={()=>onAcceptClubCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar contraoferta</button>}{['clubAccepted','playerRejected'].includes(activeOffer.status)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:6,padding:8}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} aÃ±os</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6,padding:8}}>{["Estrella","Titular","RotaciÃ³n","Promesa","Suplente"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>onContractOffer(activeOffer.id,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",padding:9}}>Enviar contrato al jugador</button></div>}{activeOffer.status==='playerCounter'&&<button onClick={()=>onAcceptPlayerCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar peticiÃ³n salarial</button>}{activeOffer.status==='roleCounter'&&<button onClick={()=>onAcceptRoleCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar rol solicitado</button>}{activeOffer.status==='ready'&&<button onClick={()=>{onFinalizeOffer(activeOffer,selected);setSelected(null);setTab("historial");}} className="btn-gold" style={{width:"100%",padding:10}}>Cerrar {activeOffer.dealType==="loan"?"cesiÃ³n":"fichaje"}</button>}{activeOffer.status!=="ready"&&<button onClick={()=>onWithdrawOffer(activeOffer.id)} className="btn-ghost" style={{width:"100%",padding:8,marginTop:7}}>Retirarse de la negociaciÃ³n</button>}</div>}
+              {!activeOffer&&isFreeAgent(selected)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#0d0f14",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:7,padding:"9px 10px",fontSize:12}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#0d0f14",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:7}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} años</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#0d0f14",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:7,padding:"9px 10px"}}>{["Estrella","Titular","Rotación","Promesa","Suplente"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>canAttract(selected)&&onFreeAgentOffer(selected,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",width:"100%",padding:12,borderRadius:8,fontSize:13}}>Negociar contrato</button></div>}
+              {!activeOffer&&!isFreeAgent(selected)&&<><div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:7,marginBottom:8}}><input type="number" value={clubAmount} onChange={event=>setClubAmount(Number(event.target.value))} style={{background:"#0d0f14",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:7,padding:"9px 10px",fontSize:12}}/><span style={{alignSelf:"center",fontSize:9,color:"#6b7280"}}>€K · {selected._listing?.type==="loan"?"coste cesión":"oferta fija"}</span></div><button onClick={()=>canAttract(selected)&&clubAmount<=budgetLeft&&onClubOffer(selected,clubAmount,marketValue(selected),suggestedSalary(selected),selected._listing)} className="btn-gold" style={{width:"100%",padding:12,borderRadius:8,fontSize:13}}>Enviar {selected._listing?.type==="loan"?"propuesta de cesión":"oferta al club"}</button></>}
+              {activeOffer&&<div style={{background:"#0d0f14",borderRadius:9,padding:10}}><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>NEGOCIACIÓN EN CURSO · {activeOffer.dealType==="loan"?"CESIÓN":activeOffer.dealType==="free"?"AGENTE LIBRE":"FICHAJE"}</div><div style={{fontSize:12,color:"#e8eaf0",margin:"5px 0 9px"}}>{activeOffer.status==='pendingClub'?`El club responderá en ${activeOffer.responseDays??1} días.`:activeOffer.status==='clubCounter'?`Contraoferta del club: ${fmt(activeOffer.counterAmount)}`:activeOffer.status==='rejected'?'El club ha rechazado la oferta.':activeOffer.status==='outbid'?'Otro club ha superado tu oferta y se ha adelantado.':activeOffer.status==='clubAccepted'?'El club acepta. Ahora negocia con el jugador.':activeOffer.status==='pendingPlayer'?'El jugador estudia el contrato.':activeOffer.status==='playerCounter'?`El jugador solicita ${fmt(activeOffer.counterSalary)}/sem.`:activeOffer.status==='roleCounter'?`El jugador exige un rol de ${activeOffer.counterRole}.`:activeOffer.status==='playerRejected'?'El jugador rechaza las condiciones.':activeOffer.status==='ready'?'Acuerdo total alcanzado.':'Operación cerrada.'}</div>{activeOffer.status==='clubCounter'&&<button onClick={()=>onAcceptClubCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar contraoferta</button>}{['clubAccepted','playerRejected'].includes(activeOffer.status)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:6,padding:8}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} años</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6,padding:8}}>{["Estrella","Titular","Rotación","Promesa","Suplente"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>onContractOffer(activeOffer.id,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",padding:9}}>Enviar contrato al jugador</button></div>}{activeOffer.status==='playerCounter'&&<button onClick={()=>onAcceptPlayerCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar petición salarial</button>}{activeOffer.status==='roleCounter'&&<button onClick={()=>onAcceptRoleCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar rol solicitado</button>}{activeOffer.status==='ready'&&<button onClick={()=>{onFinalizeOffer(activeOffer,selected);setSelected(null);setTab("historial");}} className="btn-gold" style={{width:"100%",padding:10}}>Cerrar {activeOffer.dealType==="loan"?"cesión":"fichaje"}</button>}{activeOffer.status!=="ready"&&<button onClick={()=>onWithdrawOffer(activeOffer.id)} className="btn-ghost" style={{width:"100%",padding:8,marginTop:7}}>Retirarse de la negociación</button>}</div>}
               {activeOffer?.status==="clubCounter"&&<button onClick={()=>onClubOffer(selected,Math.round((activeOffer.amount+activeOffer.counterAmount)/2),marketValue(selected),suggestedSalary(selected),selected._listing)} style={{width:"100%",padding:8,marginTop:6,background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.25)",color:"#60a5fa",borderRadius:7,fontSize:10,fontWeight:800}}>Mejorar oferta a {fmt(Math.round((activeOffer.amount+activeOffer.counterAmount)/2))}</button>}
             </div>
           )}
@@ -1639,12 +1639,12 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
 
       {tab === "negociar" && (
         <div style={{flex:1,overflowY:"auto",padding:"12px 14px"}}>
-          <div style={{fontSize:10,color:"#6b7280",fontWeight:800,marginBottom:9}}>ðŸ“¬ OFERTAS RECIBIDAS</div>
+          <div style={{fontSize:10,color:"#6b7280",fontWeight:800,marginBottom:9}}>📬 OFERTAS RECIBIDAS</div>
           {(game.transferMarket?.incomingOffers??[]).length===0&&<div style={{background:"#161a24",borderRadius:9,padding:16,color:"#6b7280",fontSize:11,textAlign:"center",marginBottom:15}}>Marca jugadores como transferibles o cedibles para atraer ofertas.</div>}
-          {(game.transferMarket?.incomingOffers??[]).map(offer=>{const buyer=TEAMS.find(team=>team.id===offer.toTeamId);const player=players.find(item=>item.id===offer.playerId);return <div key={offer.id} style={{background:"#161a24",border:"1px solid rgba(96,165,250,.18)",borderRadius:10,padding:11,marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:9}}><TeamCrest team={buyer} size={30}/><div style={{flex:1}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:800}}>{offer.playerName}</div><div style={{fontSize:9,color:"#6b7280",marginTop:2}}>{buyer?.name} Â· {offer.type==="loan"?"cesiÃ³n":"traspaso"}</div></div><strong style={{color:"#22c55e",fontSize:13}}>{fmt(offer.amount)}</strong></div>{offer.status==="pending"?<div style={{display:"flex",gap:7,marginTop:9}}><button onClick={()=>onIncomingOffer(offer,"rejected",player)} className="btn-ghost" style={{flex:1,padding:8}}>Rechazar</button><button onClick={()=>onIncomingOffer(offer,"accepted",player)} className="btn-gold" style={{flex:1,padding:8}}>Aceptar</button></div>:<div style={{fontSize:9,color:offer.status==="accepted"?"#22c55e":"#ef4444",marginTop:7,fontWeight:800}}>{offer.status==="accepted"?"âœ… ACEPTADA":"âŒ RECHAZADA"}</div>}</div>})}
-          <div style={{fontSize:10,color:"#6b7280",fontWeight:800,margin:"17px 0 9px"}}>ðŸ¤ TUS NEGOCIACIONES</div>
+          {(game.transferMarket?.incomingOffers??[]).map(offer=>{const buyer=TEAMS.find(team=>team.id===offer.toTeamId);const player=players.find(item=>item.id===offer.playerId);return <div key={offer.id} style={{background:"#161a24",border:"1px solid rgba(96,165,250,.18)",borderRadius:10,padding:11,marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:9}}><TeamCrest team={buyer} size={30}/><div style={{flex:1}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:800}}>{offer.playerName}</div><div style={{fontSize:9,color:"#6b7280",marginTop:2}}>{buyer?.name} · {offer.type==="loan"?"cesión":"traspaso"}</div></div><strong style={{color:"#22c55e",fontSize:13}}>{fmt(offer.amount)}</strong></div>{offer.status==="pending"?<div style={{display:"flex",gap:7,marginTop:9}}><button onClick={()=>onIncomingOffer(offer,"rejected",player)} className="btn-ghost" style={{flex:1,padding:8}}>Rechazar</button><button onClick={()=>onIncomingOffer(offer,"accepted",player)} className="btn-gold" style={{flex:1,padding:8}}>Aceptar</button></div>:<div style={{fontSize:9,color:offer.status==="accepted"?"#22c55e":"#ef4444",marginTop:7,fontWeight:800}}>{offer.status==="accepted"?"✅ ACEPTADA":"❌ RECHAZADA"}</div>}</div>})}
+          <div style={{fontSize:10,color:"#6b7280",fontWeight:800,margin:"17px 0 9px"}}>🤝 TUS NEGOCIACIONES</div>
           {(game.transferMarket?.offers??[]).length===0&&<div style={{background:"#161a24",borderRadius:9,padding:16,color:"#6b7280",fontSize:11,textAlign:"center"}}>No hay negociaciones abiertas.</div>}
-          {(game.transferMarket?.offers??[]).map(offer=>{const status={pendingClub:["ðŸ•’","Pendiente del club","#f59e0b"],clubCounter:["ðŸ”„","Contraoferta","#60a5fa"],clubAccepted:["âœ…","Club acepta","#22c55e"],pendingPlayer:["â³","Esperando jugador","#f59e0b"],playerCounter:["ðŸ”„","Pide mÃ¡s salario","#60a5fa"],roleCounter:["ðŸ”„","Pide otro rol","#60a5fa"],ready:["âœï¸","Acuerdo total","#22c55e"],rejected:["âŒ","Rechazada","#ef4444"],playerRejected:["âŒ","Jugador rechaza","#ef4444"],outbid:["âš ï¸","Otro club se adelanta","#ef4444"],withdrawn:["â†©ï¸","Retirada","#6b7280"],completed:["ðŸ“Œ","Finalizada","#c9a84c"]}[offer.status]??["â€¢",offer.status,"#6b7280"];return <div key={offer.id} onClick={()=>{const player=allOtherPlayers2.find(item=>item.id===offer.playerId);if(player){setSelected({...player,_listing:listingsByPlayer.get(player.id)});setTab("comprar");}}} style={{background:"#161a24",border:`1px solid ${status[2]}33`,borderRadius:10,padding:11,marginBottom:8,cursor:"pointer"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><div style={{fontSize:12,color:"#e8eaf0",fontWeight:800}}>{offer.playerName}</div><div style={{fontSize:9,color:"#6b7280",marginTop:3}}>Oferta: {fmt(offer.amount)} Â· {offer.dealType==="loan"?"cesiÃ³n":"fichaje"}</div></div><div style={{fontSize:9,color:status[2],fontWeight:800,textAlign:"right"}}>{status[0]} {status[1]}</div></div></div>})}
+          {(game.transferMarket?.offers??[]).map(offer=>{const status={pendingClub:["🕒","Pendiente del club","#f59e0b"],clubCounter:["🔄","Contraoferta","#60a5fa"],clubAccepted:["✅","Club acepta","#22c55e"],pendingPlayer:["⏳","Esperando jugador","#f59e0b"],playerCounter:["🔄","Pide más salario","#60a5fa"],roleCounter:["🔄","Pide otro rol","#60a5fa"],ready:["✍️","Acuerdo total","#22c55e"],rejected:["❌","Rechazada","#ef4444"],playerRejected:["❌","Jugador rechaza","#ef4444"],outbid:["⚠️","Otro club se adelanta","#ef4444"],withdrawn:["↩️","Retirada","#6b7280"],completed:["📌","Finalizada","#c9a84c"]}[offer.status]??["•",offer.status,"#6b7280"];return <div key={offer.id} onClick={()=>{const player=allOtherPlayers2.find(item=>item.id===offer.playerId);if(player){setSelected({...player,_listing:listingsByPlayer.get(player.id)});setTab("comprar");}}} style={{background:"#161a24",border:`1px solid ${status[2]}33`,borderRadius:10,padding:11,marginBottom:8,cursor:"pointer"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><div style={{fontSize:12,color:"#e8eaf0",fontWeight:800}}>{offer.playerName}</div><div style={{fontSize:9,color:"#6b7280",marginTop:3}}>Oferta: {fmt(offer.amount)} · {offer.dealType==="loan"?"cesión":"fichaje"}</div></div><div style={{fontSize:9,color:status[2],fontWeight:800,textAlign:"right"}}>{status[0]} {status[1]}</div></div></div>})}
         </div>
       )}
 
@@ -1652,7 +1652,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
       {tab === "vender" && (
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
           <div style={{ flex:1, overflowY:"auto", padding:"10px 12px" }}>
-            <div style={{ fontSize:10, color:"#6b7280", marginBottom:8, fontWeight:600 }}>TU PLANTILLA â€” {players.length} JUGADORES</div>
+            <div style={{ fontSize:10, color:"#6b7280", marginBottom:8, fontWeight:600 }}>TU PLANTILLA — {players.length} JUGADORES</div>
             {[...players].sort((a,b)=>b.overall-a.overall).map(p => {
               const val = marketValue(p);
               return (
@@ -1665,21 +1665,21 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
                     display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:800, color:acc(p), flexShrink:0 }}>{p.overall}</div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
-                    <div style={{ fontSize:10, color:"#6b7280", marginTop:1 }}>{p.pos} Â· {p.age}a Â· {fmt(p.salary??0)}/sem</div>
-                    {p.marketStatus&&<div style={{fontSize:8,color:p.marketStatus==="transfer"?"#f59e0b":"#60a5fa",marginTop:3,fontWeight:800}}>{p.marketStatus==="transfer"?"ðŸ“Œ TRANSFERIBLE":"ðŸ” CEDIBLE"}</div>}
+                    <div style={{ fontSize:10, color:"#6b7280", marginTop:1 }}>{p.pos} · {p.age}a · {fmt(p.salary??0)}/sem</div>
+                    {p.marketStatus&&<div style={{fontSize:8,color:p.marketStatus==="transfer"?"#f59e0b":"#60a5fa",marginTop:3,fontWeight:800}}>{p.marketStatus==="transfer"?"📌 TRANSFERIBLE":"🔁 CEDIBLE"}</div>}
                   </div>
                   <div style={{ textAlign:"right" }}>
                     <div style={{ fontSize:13, fontWeight:700, color:"#22c55e" }}>{fmt(val)}</div>
                     <div style={{ fontSize:9, color:"#4b5563" }}>Valor</div>
                   </div>
-                  <button onClick={event=>{event.stopPropagation();onOpenPlayer(p,game.teamId);}} title="Ver perfil" style={{ background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.2)", color:"#c9a84c", borderRadius:6, width:28, height:28, cursor:"pointer" }}>ðŸ‘</button>
+                  <button onClick={event=>{event.stopPropagation();onOpenPlayer(p,game.teamId);}} title="Ver perfil" style={{ background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.2)", color:"#c9a84c", borderRadius:6, width:28, height:28, cursor:"pointer" }}>👁</button>
                 </div>
               );
             })}
           </div>
           {selling && (
             <div style={{ background:"#1a1f2e", borderTop:"1px solid rgba(239,68,68,.2)", padding:"12px 14px", flexShrink:0 }}>
-              <div style={{ fontSize:12, color:"#9aa0b4", marginBottom:8 }}>SituaciÃ³n de <strong style={{color:"#e8eaf0"}}>{selling.name}</strong></div><div style={{fontSize:10,color:"#6b7280",marginBottom:10}}>Valor orientativo {fmt(marketValue(selling))}. Otros clubes podrÃ¡n presentar ofertas en prÃ³ximas jornadas.</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}><button onClick={()=>{onUserMarketStatus(selling.id,"transfer");setSelling({...selling,marketStatus:selling.marketStatus==="transfer"?null:"transfer"});}} style={{padding:10,borderRadius:8,border:"1px solid rgba(245,158,11,.25)",background:selling.marketStatus==="transfer"?"#f59e0b":"rgba(245,158,11,.08)",color:selling.marketStatus==="transfer"?"#1a1200":"#f59e0b",fontWeight:800,fontSize:11}}>{selling.marketStatus==="transfer"?"Quitar transferible":"ðŸ“Œ Poner transferible"}</button><button onClick={()=>{onUserMarketStatus(selling.id,"loan");setSelling({...selling,marketStatus:selling.marketStatus==="loan"?null:"loan"});}} style={{padding:10,borderRadius:8,border:"1px solid rgba(96,165,250,.25)",background:selling.marketStatus==="loan"?"#60a5fa":"rgba(96,165,250,.08)",color:selling.marketStatus==="loan"?"#08111f":"#60a5fa",fontWeight:800,fontSize:11}}>{selling.marketStatus==="loan"?"Quitar cedible":"ðŸ” Poner cedible"}</button></div>
+              <div style={{ fontSize:12, color:"#9aa0b4", marginBottom:8 }}>Situación de <strong style={{color:"#e8eaf0"}}>{selling.name}</strong></div><div style={{fontSize:10,color:"#6b7280",marginBottom:10}}>Valor orientativo {fmt(marketValue(selling))}. Otros clubes podrán presentar ofertas en próximas jornadas.</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}><button onClick={()=>{onUserMarketStatus(selling.id,"transfer");setSelling({...selling,marketStatus:selling.marketStatus==="transfer"?null:"transfer"});}} style={{padding:10,borderRadius:8,border:"1px solid rgba(245,158,11,.25)",background:selling.marketStatus==="transfer"?"#f59e0b":"rgba(245,158,11,.08)",color:selling.marketStatus==="transfer"?"#1a1200":"#f59e0b",fontWeight:800,fontSize:11}}>{selling.marketStatus==="transfer"?"Quitar transferible":"📌 Poner transferible"}</button><button onClick={()=>{onUserMarketStatus(selling.id,"loan");setSelling({...selling,marketStatus:selling.marketStatus==="loan"?null:"loan"});}} style={{padding:10,borderRadius:8,border:"1px solid rgba(96,165,250,.25)",background:selling.marketStatus==="loan"?"#60a5fa":"rgba(96,165,250,.08)",color:selling.marketStatus==="loan"?"#08111f":"#60a5fa",fontWeight:800,fontSize:11}}>{selling.marketStatus==="loan"?"Quitar cedible":"🔁 Poner cedible"}</button></div>
             </div>
           )}
         </div>
@@ -1690,7 +1690,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
         <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
           {history.length === 0 ? (
             <div style={{ textAlign:"center", color:"#4b5563", padding:"40px 0", fontSize:13 }}>
-              El mercado todavÃ­a no ha registrado movimientos.
+              El mercado todavía no ha registrado movimientos.
             </div>
           ) : (
             history.map((t,i)=>{
@@ -1702,18 +1702,18 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
                   <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                     <div style={{ width:32, height:32, borderRadius:7, background:isBuy?"rgba(201,168,76,.15)":"rgba(34,197,94,.15)",
                       display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>
-                      {t.type==="loanIn"?"ðŸ”":isBuy?"ðŸ›’":t.type==="loan"?"ðŸ”„":t.type==="renewal"?"ðŸ“":isLeague?"ðŸ¤":"ðŸ’°"}
+                      {t.type==="loanIn"?"🔁":isBuy?"🛒":t.type==="loan"?"🔄":t.type==="renewal"?"📝":isLeague?"🤝":"💰"}
                     </div>
                     <div style={{ flex:1 }}>
                       <div style={{ fontSize:13, fontWeight:600, color:"#e8eaf0" }}>{t.player.name}</div>
-                      <div style={{ fontSize:10, color:"#6b7280" }}>{isLeague?(t.type==="renewal"?`${from?.short} Â· renovaciÃ³n`:`${from?.short} â†’ ${to?.short}`):t.player.pos} Â· J{t.matchday}</div>
-                      {["buy","loanIn"].includes(t.type)&&<div style={{fontSize:8,color:"#8b92a3",marginTop:3}}>Oferta club: {fmt(t.cost)} Â· Contrato: {fmt(t.salary)}/sem Â· {t.player.contractYears??3} aÃ±os Â· Cerrada</div>}
+                      <div style={{ fontSize:10, color:"#6b7280" }}>{isLeague?(t.type==="renewal"?`${from?.short} · renovación`:`${from?.short} → ${to?.short}`):t.player.pos} · J{t.matchday}</div>
+                      {["buy","loanIn"].includes(t.type)&&<div style={{fontSize:8,color:"#8b92a3",marginTop:3}}>Oferta club: {fmt(t.cost)} · Contrato: {fmt(t.salary)}/sem · {t.player.contractYears??3} años · Cerrada</div>}
                     </div>
                     <div style={{ textAlign:"right" }}>
                       <div style={{ fontSize:13, fontWeight:700, color:isBuy?"#ef4444":isLeague?"#60a5fa":"#22c55e" }}>
                         {isLeague?(t.type==="renewal"?"Renovado":fmt(t.value)):`${isBuy?"-":"+"}${fmt(isBuy?t.cost:t.value)}`}
                       </div>
-                      <div style={{ fontSize:9, color:"#4b5563" }}>{isLeague?"Mercado IA":t.type==="loanIn"?"Coste cesiÃ³n":isBuy?"Coste":"Ingreso"}</div>
+                      <div style={{ fontSize:9, color:"#4b5563" }}>{isLeague?"Mercado IA":t.type==="loanIn"?"Coste cesión":isBuy?"Coste":"Ingreso"}</div>
                     </div>
                   </div>
                 </div>
@@ -1756,7 +1756,7 @@ function CloudSyncIndicator({ session, syncState, conflict, onClick }) {
     </button>
   );
 }
-// â”€â”€â”€ ESTILOS GLOBALES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── ESTILOS GLOBALES ────────────────────────────────────────────────────────
 
 const GLOBAL_CSS = `
   @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
@@ -1836,7 +1836,7 @@ function useGlobalStyles() {
   }, []);
 }
 
-// Wrapper con animaciÃ³n de entrada para cada pantalla
+// Wrapper con animación de entrada para cada pantalla
 function ScreenWrapper({ children, animKey }) {
   return (
     <div key={animKey} className="screen-enter" style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minHeight:0 }}>
@@ -1866,17 +1866,17 @@ function MainMenu({ onNew, onSaves, onCloud, savesCount }) {
       </div>
       <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"40px 28px", position:"relative", zIndex:1 }}>
         <div style={{ textAlign:"center", marginBottom:44 }}>
-          <div style={{ width:90, height:90, background:"linear-gradient(135deg,#c9a84c,#f5d080)", borderRadius:20, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 20px", fontSize:44, boxShadow:"0 8px 32px rgba(201,168,76,.35), 0 0 0 1px rgba(201,168,76,.3)" }}>âš½</div>
+          <div style={{ width:90, height:90, background:"linear-gradient(135deg,#c9a84c,#f5d080)", borderRadius:20, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 20px", fontSize:44, boxShadow:"0 8px 32px rgba(201,168,76,.35), 0 0 0 1px rgba(201,168,76,.3)" }}>⚽</div>
           <div style={{ fontSize:36, fontWeight:800, letterSpacing:6, color:"#c9a84c", lineHeight:1, textShadow:"0 2px 20px rgba(201,168,76,.4)" }}>LEGACY</div>
           <div style={{ fontSize:36, fontWeight:200, letterSpacing:8, color:"#e8eaf0", lineHeight:1.1 }}>MANAGER</div>
           <div style={{ width:60, height:2, background:"linear-gradient(90deg,transparent,#c9a84c,transparent)", margin:"14px auto 12px" }}/>
-          <div style={{ fontSize:12, color:"#4b5563", letterSpacing:2, textTransform:"uppercase" }}>Construye tu club Â· Forja tu legado</div>
+          <div style={{ fontSize:12, color:"#4b5563", letterSpacing:2, textTransform:"uppercase" }}>Construye tu club · Forja tu legado</div>
         </div>
         <div style={{ width:"100%", maxWidth:300, display:"flex", flexDirection:"column", gap:10 }}>
           <button onClick={onNew}
             onMouseEnter={()=>setHovNew(true)} onMouseLeave={()=>setHovNew(false)}
             style={{ width:"100%", background: hovNew?"#d4b05c":"linear-gradient(135deg,#c9a84c,#e8c96a)", color:"#1a1200", border:"none", padding:"16px 24px", borderRadius:10, fontWeight:800, fontSize:16, cursor:"pointer", letterSpacing:.5, boxShadow: hovNew?"0 6px 24px rgba(201,168,76,.5)":"0 4px 16px rgba(201,168,76,.3)", transition:"all .2s", transform:hovNew?"translateY(-1px)":"none" }}>
-            â–¶ Nueva partida
+            ▶ Nueva partida
           </button>
           {savesCount > 0 && (
             <button onClick={onSaves}
@@ -1887,16 +1887,16 @@ function MainMenu({ onNew, onSaves, onCloud, savesCount }) {
           )}
           <button onClick={onCloud}
             style={{ width:"100%", background:"rgba(96,165,250,.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,.22)", padding:"13px 24px", borderRadius:10, fontSize:13, fontWeight:800, cursor:"pointer", transition:"all .2s" }}>
-            â˜ï¸ Cargar desde la nube
+            ☁️ Cargar desde la nube
           </button>
         </div>
-        <div style={{ marginTop:40, fontSize:11, color:"#374151", letterSpacing:1.5, textTransform:"uppercase" }}>LaLiga EA Sports Â· 2025/26</div>
+        <div style={{ marginTop:40, fontSize:11, color:"#374151", letterSpacing:1.5, textTransform:"uppercase" }}>LaLiga EA Sports · 2025/26</div>
       </div>
     </div>
   );
 }
 
-// â”€â”€â”€ PANTALLA: LISTA DE PARTIDAS GUARDADAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── PANTALLA: LISTA DE PARTIDAS GUARDADAS ────────────────────────────────────
 function SavesScreen({ saves, onLoad, onDelete, onNew, onBack }) {
   const [confirmDelete, setConfirmDelete] = useState(null);
 
@@ -1926,16 +1926,16 @@ function SavesScreen({ saves, onLoad, onDelete, onNew, onBack }) {
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name ?? team?.name ?? "Partida"}</div>
-                  <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>J{s.matchday} Â· Temp. {s.season}/{ parseInt(s.season)+1 }</div>
+                  <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>J{s.matchday} · Temp. {s.season}/{ parseInt(s.season)+1 }</div>
                   <div style={{ fontSize:10, color:"#374151", marginTop:1 }}>Guardada: {fmtDate(s.updatedAt)}</div>
                 </div>
               </div>
               <div style={{ display:"flex", gap:8 }}>
                 {confirmDelete === s.id ? (
                   <>
-                    <div style={{ flex:1, fontSize:11, color:"#ef4444", display:"flex", alignItems:"center" }}>Â¿Eliminar esta partida?</div>
+                    <div style={{ flex:1, fontSize:11, color:"#ef4444", display:"flex", alignItems:"center" }}>¿Eliminar esta partida?</div>
                     <button onClick={() => { onDelete(s.id); setConfirmDelete(null); }}
-                      style={{ background:"rgba(239,68,68,.15)", border:"1px solid rgba(239,68,68,.3)", color:"#ef4444", padding:"6px 12px", borderRadius:7, fontSize:12, cursor:"pointer" }}>SÃ­, borrar</button>
+                      style={{ background:"rgba(239,68,68,.15)", border:"1px solid rgba(239,68,68,.3)", color:"#ef4444", padding:"6px 12px", borderRadius:7, fontSize:12, cursor:"pointer" }}>Sí, borrar</button>
                     <button onClick={() => setConfirmDelete(null)}
                       style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", padding:"6px 12px", borderRadius:7, fontSize:12, cursor:"pointer" }}>Cancelar</button>
                   </>
@@ -1943,11 +1943,11 @@ function SavesScreen({ saves, onLoad, onDelete, onNew, onBack }) {
                   <>
                     <button onClick={() => onLoad(s.id)} className="btn-gold"
                       style={{ flex:1, padding:"9px", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>
-                      â–¶ Continuar
+                      ▶ Continuar
                     </button>
                     <button onClick={() => setConfirmDelete(s.id)}
                       style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)", color:"#ef4444", padding:"9px 14px", borderRadius:8, fontSize:13, cursor:"pointer" }}>
-                      ðŸ—‘
+                      🗑
                     </button>
                   </>
                 )}
@@ -1963,53 +1963,53 @@ function SavesScreen({ saves, onLoad, onDelete, onNew, onBack }) {
       <div style={{ padding:"10px 14px", borderTop:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
         <button onClick={onBack} className="btn-ghost"
           style={{ width:"100%", padding:"10px", borderRadius:8, fontSize:12, cursor:"pointer" }}>
-          â† Volver al menÃº
+          ← Volver al menú
         </button>
       </div>
     </div>
   );
 }
 
-// â”€â”€â”€ DATOS DE PAÃSES Y LIGAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── DATOS DE PAÍSES Y LIGAS ─────────────────────────────────────────────────
 const COUNTRIES = [
-  { id: "es", name: "EspaÃ±a", flag: "ðŸ‡ªðŸ‡¸", available: true },
-  { id: "en", name: "Inglaterra", flag: "ðŸ´ó §ó ¢ó ¥ó ®ó §ó ¿", available: false },
-  { id: "de", name: "Alemania",   flag: "ðŸ‡©ðŸ‡ª", available: false },
-  { id: "it", name: "Italia",     flag: "ðŸ‡®ðŸ‡¹", available: false },
-  { id: "fr", name: "Francia",    flag: "ðŸ‡«ðŸ‡·", available: false },
-  { id: "pt", name: "Portugal",   flag: "ðŸ‡µðŸ‡¹", available: false },
+  { id: "es", name: "España", flag: "🇪🇸", available: true },
+  { id: "en", name: "Inglaterra", flag: "🏴", available: false },
+  { id: "de", name: "Alemania",   flag: "🇩🇪", available: false },
+  { id: "it", name: "Italia",     flag: "🇮🇹", available: false },
+  { id: "fr", name: "Francia",    flag: "🇫🇷", available: false },
+  { id: "pt", name: "Portugal",   flag: "🇵🇹", available: false },
 ];
 
 const LEAGUES_BY_COUNTRY = {
   es: [
-    { id: "laliga",   name: "LaLiga EA Sports",  division: "1Âª DivisiÃ³n", teams: 20, available: true },
-    { id: "laliga2",  name: "LaLiga Hypermotion", division: "2Âª DivisiÃ³n", teams: 22, available: false },
+    { id: "laliga",   name: "LaLiga EA Sports",  division: "1ª División", teams: 20, available: true },
+    { id: "laliga2",  name: "LaLiga Hypermotion", division: "2ª División", teams: 22, available: false },
   ],
   en: [
-    { id: "premier",  name: "Premier League",     division: "1Âª DivisiÃ³n", teams: 20, available: false },
-    { id: "championship", name: "Championship",   division: "2Âª DivisiÃ³n", teams: 24, available: false },
+    { id: "premier",  name: "Premier League",     division: "1ª División", teams: 20, available: false },
+    { id: "championship", name: "Championship",   division: "2ª División", teams: 24, available: false },
   ],
   de: [
-    { id: "bundesliga", name: "Bundesliga",       division: "1Âª DivisiÃ³n", teams: 18, available: false },
+    { id: "bundesliga", name: "Bundesliga",       division: "1ª División", teams: 18, available: false },
   ],
   it: [
-    { id: "seriea",   name: "Serie A",            division: "1Âª DivisiÃ³n", teams: 20, available: false },
+    { id: "seriea",   name: "Serie A",            division: "1ª División", teams: 20, available: false },
   ],
   fr: [
-    { id: "ligue1",   name: "Ligue 1",            division: "1Âª DivisiÃ³n", teams: 18, available: false },
+    { id: "ligue1",   name: "Ligue 1",            division: "1ª División", teams: 18, available: false },
   ],
   pt: [
-    { id: "primeiramain", name: "Primeira Liga",  division: "1Âª DivisiÃ³n", teams: 18, available: false },
+    { id: "primeiramain", name: "Primeira Liga",  division: "1ª División", teams: 18, available: false },
   ],
 };
 
-// â”€â”€â”€ PANTALLA: SELECCIÃ“N DE PAÃS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── PANTALLA: SELECCIÓN DE PAÍS ─────────────────────────────────────────────
 function CountryScreen({ onSelect, onBack }) {
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"14px 16px", flexShrink:0 }}>
-        <div style={{ fontSize:18, fontWeight:800, color:"#e8eaf0" }}>Selecciona un paÃ­s</div>
-        <div style={{ fontSize:11, color:"#4b5563", marginTop:2 }}>Elige el paÃ­s de la liga que quieres gestionar</div>
+        <div style={{ fontSize:18, fontWeight:800, color:"#e8eaf0" }}>Selecciona un país</div>
+        <div style={{ fontSize:11, color:"#4b5563", marginTop:2 }}>Elige el país de la liga que quieres gestionar</div>
       </div>
       <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
@@ -2023,7 +2023,7 @@ function CountryScreen({ onSelect, onBack }) {
               onMouseLeave={e => c.available && (e.currentTarget.style.background="#161a24")}>
               <div style={{ fontSize:36, marginBottom:8 }}>{c.flag}</div>
               <div style={{ fontSize:13, fontWeight:700, color: c.available ? "#e8eaf0" : "#4b5563" }}>{c.name}</div>
-              {!c.available && <div style={{ fontSize:10, color:"#374151", marginTop:4 }}>PrÃ³ximamente</div>}
+              {!c.available && <div style={{ fontSize:10, color:"#374151", marginTop:4 }}>Próximamente</div>}
             </div>
           ))}
         </div>
@@ -2031,14 +2031,14 @@ function CountryScreen({ onSelect, onBack }) {
       <div style={{ padding:"10px 14px", borderTop:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
         <button onClick={onBack} className="btn-ghost"
           style={{ width:"100%", padding:"10px", borderRadius:8, fontSize:12, cursor:"pointer" }}>
-          â† Volver
+          ← Volver
         </button>
       </div>
     </div>
   );
 }
 
-// â”€â”€â”€ PANTALLA: SELECCIÃ“N DE LIGA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── PANTALLA: SELECCIÓN DE LIGA ─────────────────────────────────────────────
 function LeagueScreen({ country, onSelect, onBack }) {
   const leagues = LEAGUES_BY_COUNTRY[country?.id] ?? [];
   return (
@@ -2056,48 +2056,48 @@ function LeagueScreen({ country, onSelect, onBack }) {
               opacity: l.available ? 1 : .5, display:"flex", alignItems:"center", gap:14, transition:"background .15s" }}
             onMouseEnter={e => l.available && (e.currentTarget.style.background="#1e2330")}
             onMouseLeave={e => l.available && (e.currentTarget.style.background="#161a24")}>
-            <div style={{ width:48, height:48, borderRadius:10, background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>ðŸ†</div>
+            <div style={{ width:48, height:48, borderRadius:10, background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>🏆</div>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:14, fontWeight:700, color: l.available ? "#e8eaf0" : "#4b5563" }}>{l.name}</div>
-              <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>{l.division} Â· {l.teams} equipos</div>
-              {!l.available && <div style={{ fontSize:10, color:"#374151", marginTop:3 }}>PrÃ³ximamente</div>}
+              <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>{l.division} · {l.teams} equipos</div>
+              {!l.available && <div style={{ fontSize:10, color:"#374151", marginTop:3 }}>Próximamente</div>}
             </div>
-            {l.available && <div style={{ fontSize:16, color:"#c9a84c" }}>â†’</div>}
+            {l.available && <div style={{ fontSize:16, color:"#c9a84c" }}>→</div>}
           </div>
         ))}
       </div>
       <div style={{ padding:"10px 14px", borderTop:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
         <button onClick={onBack} className="btn-ghost"
           style={{ width:"100%", padding:"10px", borderRadius:8, fontSize:12, cursor:"pointer" }}>
-          â† Volver a paÃ­ses
+          ← Volver a países
         </button>
       </div>
     </div>
   );
 }
 
-// Datos extra por equipo para la ficha de selecciÃ³n
+// Datos extra por equipo para la ficha de selección
 const TEAM_DETAILS = {
-  athletic:    { liga: "Primera DivisiÃ³n", fundacion: 1898, rivalidad: "Real Sociedad", estilo: "Cantera vasca Â· FÃ­sico Â· PresiÃ³n alta" },
-  atletico:    { liga: "Primera DivisiÃ³n", fundacion: 1903, rivalidad: "Real Madrid",   estilo: "Defensivo Â· Intenso Â· Contraataque" },
-  barcelona:   { liga: "Primera DivisiÃ³n", fundacion: 1899, rivalidad: "Real Madrid",   estilo: "PosesiÃ³n Â· Toque corto Â· PresiÃ³n alta" },
-  betis:       { liga: "Primera DivisiÃ³n", fundacion: 1907, rivalidad: "Sevilla",        estilo: "TÃ©cnico Â· Juego combinativo Â· Ofensivo" },
-  celta:       { liga: "Primera DivisiÃ³n", fundacion: 1923, rivalidad: "Deportivo",      estilo: "Ataque Â· Velocidad Â· Juego abierto" },
-  espanyol:    { liga: "Primera DivisiÃ³n", fundacion: 1900, rivalidad: "Barcelona",      estilo: "Organizado Â· Equilibrado Â· Transiciones" },
-  getafe:      { liga: "Primera DivisiÃ³n", fundacion: 1983, rivalidad: "LeganÃ©s",        estilo: "Defensivo Â· FÃ­sico Â· Directo" },
-  girona:      { liga: "Primera DivisiÃ³n", fundacion: 1930, rivalidad: "Barcelona",      estilo: "Ofensivo Â· PresiÃ³n Â· PosesiÃ³n" },
-  laspalmas:   { liga: "Primera DivisiÃ³n", fundacion: 1923, rivalidad: "Tenerife",       estilo: "TÃ©cnico Â· PosesiÃ³n Â· Juego combinado" },
-  leganes:     { liga: "Primera DivisiÃ³n", fundacion: 1928, rivalidad: "Getafe",         estilo: "Organizado Â· Compacto Â· Transiciones" },
-  mallorca:    { liga: "Primera DivisiÃ³n", fundacion: 1916, rivalidad: "AtlÃ©tico Baleares", estilo: "FÃ­sico Â· Directo Â· Defensivo" },
-  osasuna:     { liga: "Primera DivisiÃ³n", fundacion: 1920, rivalidad: "Athletic",       estilo: "Intenso Â· PresiÃ³n Â· FÃ­sico" },
-  rayo:        { liga: "Primera DivisiÃ³n", fundacion: 1924, rivalidad: "AtlÃ©tico",       estilo: "Ataque Â· Velocidad Â· Directo" },
-  realmadrid:  { liga: "Primera DivisiÃ³n", fundacion: 1902, rivalidad: "Barcelona",      estilo: "Ganador Â· Contraataque Â· Calidad individual" },
-  realsociedad:{ liga: "Primera DivisiÃ³n", fundacion: 1909, rivalidad: "Athletic",       estilo: "TÃ©cnico Â· PosesiÃ³n Â· Cantera" },
-  sevilla:     { liga: "Primera DivisiÃ³n", fundacion: 1890, rivalidad: "Betis",          estilo: "Organizado Â· Europa Â· Intenso" },
-  valencia:    { liga: "Primera DivisiÃ³n", fundacion: 1919, rivalidad: "Villarreal",     estilo: "HistÃ³rico Â· FÃ­sico Â· Equilibrado" },
-  valladolid:  { liga: "Primera DivisiÃ³n", fundacion: 1928, rivalidad: "Salamanca",      estilo: "Compacto Â· Defensivo Â· Directo" },
-  villarreal:  { liga: "Primera DivisiÃ³n", fundacion: 1923, rivalidad: "Valencia",       estilo: "TÃ©cnico Â· Europa Â· PosesiÃ³n" },
-  alaves:      { liga: "Primera DivisiÃ³n", fundacion: 1921, rivalidad: "Athletic",       estilo: "Compacto Â· FÃ­sico Â· Contraataque" },
+  athletic:    { liga: "Primera División", fundacion: 1898, rivalidad: "Real Sociedad", estilo: "Cantera vasca · Físico · Presión alta" },
+  atletico:    { liga: "Primera División", fundacion: 1903, rivalidad: "Real Madrid",   estilo: "Defensivo · Intenso · Contraataque" },
+  barcelona:   { liga: "Primera División", fundacion: 1899, rivalidad: "Real Madrid",   estilo: "Posesión · Toque corto · Presión alta" },
+  betis:       { liga: "Primera División", fundacion: 1907, rivalidad: "Sevilla",        estilo: "Técnico · Juego combinativo · Ofensivo" },
+  celta:       { liga: "Primera División", fundacion: 1923, rivalidad: "Deportivo",      estilo: "Ataque · Velocidad · Juego abierto" },
+  espanyol:    { liga: "Primera División", fundacion: 1900, rivalidad: "Barcelona",      estilo: "Organizado · Equilibrado · Transiciones" },
+  getafe:      { liga: "Primera División", fundacion: 1983, rivalidad: "Leganés",        estilo: "Defensivo · Físico · Directo" },
+  girona:      { liga: "Primera División", fundacion: 1930, rivalidad: "Barcelona",      estilo: "Ofensivo · Presión · Posesión" },
+  laspalmas:   { liga: "Primera División", fundacion: 1923, rivalidad: "Tenerife",       estilo: "Técnico · Posesión · Juego combinado" },
+  leganes:     { liga: "Primera División", fundacion: 1928, rivalidad: "Getafe",         estilo: "Organizado · Compacto · Transiciones" },
+  mallorca:    { liga: "Primera División", fundacion: 1916, rivalidad: "Atlético Baleares", estilo: "Físico · Directo · Defensivo" },
+  osasuna:     { liga: "Primera División", fundacion: 1920, rivalidad: "Athletic",       estilo: "Intenso · Presión · Físico" },
+  rayo:        { liga: "Primera División", fundacion: 1924, rivalidad: "Atlético",       estilo: "Ataque · Velocidad · Directo" },
+  realmadrid:  { liga: "Primera División", fundacion: 1902, rivalidad: "Barcelona",      estilo: "Ganador · Contraataque · Calidad individual" },
+  realsociedad:{ liga: "Primera División", fundacion: 1909, rivalidad: "Athletic",       estilo: "Técnico · Posesión · Cantera" },
+  sevilla:     { liga: "Primera División", fundacion: 1890, rivalidad: "Betis",          estilo: "Organizado · Europa · Intenso" },
+  valencia:    { liga: "Primera División", fundacion: 1919, rivalidad: "Villarreal",     estilo: "Histórico · Físico · Equilibrado" },
+  valladolid:  { liga: "Primera División", fundacion: 1928, rivalidad: "Salamanca",      estilo: "Compacto · Defensivo · Directo" },
+  villarreal:  { liga: "Primera División", fundacion: 1923, rivalidad: "Valencia",       estilo: "Técnico · Europa · Posesión" },
+  alaves:      { liga: "Primera División", fundacion: 1921, rivalidad: "Athletic",       estilo: "Compacto · Físico · Contraataque" },
 };
 
 function TeamSelection({ onSelect }) {
@@ -2139,20 +2139,20 @@ function TeamSelection({ onSelect }) {
         <div style={{ background:`linear-gradient(135deg, ${selected.color}22, #0d0f14)`, borderBottom:"1px solid rgba(255,255,255,.08)", padding:"16px 16px 14px", flexShrink:0 }}>
           <button onClick={() => setSelected(null)}
             style={{ background:"transparent", border:"none", color:"#9aa0b4", cursor:"pointer", fontSize:13, padding:0, marginBottom:12, display:"flex", alignItems:"center", gap:4 }}>
-            â† Volver a la lista
+            ← Volver a la lista
           </button>
           <div style={{ display:"flex", alignItems:"center", gap:14 }}>
             <TeamCrest team={selected} size={60}/>
             <div>
               <div style={{ fontSize:20, fontWeight:800, color:"#e8eaf0" }}>{selected.name}</div>
-              <div style={{ fontSize:12, color:"#6b7280", marginTop:2 }}>ðŸ“ {selected.city} Â· {selected.stadium}</div>
-              <div style={{ fontSize:11, color:selected.color, marginTop:3, fontWeight:600 }}>ðŸŽ¯ Objetivo: {selected.obj}</div>
+              <div style={{ fontSize:12, color:"#6b7280", marginTop:2 }}>📍 {selected.city} · {selected.stadium}</div>
+              <div style={{ fontSize:11, color:selected.color, marginTop:3, fontWeight:600 }}>🎯 Objetivo: {selected.obj}</div>
             </div>
           </div>
         </div>
 
         <div style={{ flex:1, overflowY:"auto", padding:14 }}>
-          {/* Medias por lÃ­nea */}
+          {/* Medias por línea */}
           <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:12 }}>
             <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>NIVEL DE LA PLANTILLA</div>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
@@ -2184,7 +2184,7 @@ function TeamSelection({ onSelect }) {
 
           {/* Jugadores estrella */}
           <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:12 }}>
-            <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>â­ JUGADORES ESTRELLA</div>
+            <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>⭐ JUGADORES ESTRELLA</div>
             {stars.map((p, i) => {
               const acc = RARITY_ACCENT[p.rarity];
               return (
@@ -2194,7 +2194,7 @@ function TeamSelection({ onSelect }) {
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf0" }}>{p.name}</div>
-                    <div style={{ fontSize:11, color:"#6b7280", marginTop:1 }}>{p.pos} Â· {p.age} aÃ±os Â· {NAT_FLAG[p.nat]??""}</div>
+                    <div style={{ fontSize:11, color:"#6b7280", marginTop:1 }}>{p.pos} · {p.age} años · {NAT_FLAG[p.nat]??""}</div>
                   </div>
                   <div style={{ display:"flex", gap:6 }}>
                     {Object.entries(p.attrs).filter(([k])=>k!=="porteria"||p.group==="POR").slice(0,3).map(([k,v])=>(
@@ -2214,12 +2214,12 @@ function TeamSelection({ onSelect }) {
           <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:12 }}>
             <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>INFO DEL CLUB</div>
             {[
-              ["ðŸŸï¸ Estadio",    selected.stadium],
-              ["ðŸ“… FundaciÃ³n",  details.fundacion],
-              ["âš”ï¸ Rival",      details.rivalidad],
-              ["ðŸ’¶ Presupuesto",`â‚¬${selected.budget}M`],
-              ["ðŸ‘¥ Plantilla",  `${squad.length} jugadores`],
-              ["ðŸŽ® Estilo",     details.estilo],
+              ["🏟️ Estadio",    selected.stadium],
+              ["📅 Fundación",  details.fundacion],
+              ["⚔️ Rival",      details.rivalidad],
+              ["💶 Presupuesto",`€${selected.budget}M`],
+              ["👥 Plantilla",  `${squad.length} jugadores`],
+              ["🎮 Estilo",     details.estilo],
             ].map(([label, val]) => (
               <div key={label} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid rgba(255,255,255,.04)" }}>
                 <span style={{ fontSize:12, color:"#6b7280" }}>{label}</span>
@@ -2233,11 +2233,11 @@ function TeamSelection({ onSelect }) {
             <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:8 }}>DIFICULTAD</div>
             {(() => {
               const avg = totalAvg;
-              const diff = avg >= 85 ? { label:"Muy difÃ­cil", color:"#ef4444", stars:5, desc:"MÃ¡xima exigencia. Se esperan tÃ­tulos." }
-                         : avg >= 79 ? { label:"DifÃ­cil",     color:"#f97316", stars:4, desc:"Objetivo Champions. PresiÃ³n alta." }
+              const diff = avg >= 85 ? { label:"Muy difícil", color:"#ef4444", stars:5, desc:"Máxima exigencia. Se esperan títulos." }
+                         : avg >= 79 ? { label:"Difícil",     color:"#f97316", stars:4, desc:"Objetivo Champions. Presión alta." }
                          : avg >= 74 ? { label:"Media",       color:"#f59e0b", stars:3, desc:"Competir en la mitad alta de la tabla." }
-                         : avg >= 70 ? { label:"Asequible",   color:"#22c55e", stars:2, desc:"Salvar la categorÃ­a como prioridad." }
-                         :             { label:"FÃ¡cil",        color:"#3b82f6", stars:1, desc:"Sin presiÃ³n. Ideal para aprender." };
+                         : avg >= 70 ? { label:"Asequible",   color:"#22c55e", stars:2, desc:"Salvar la categoría como prioridad." }
+                         :             { label:"Fácil",        color:"#3b82f6", stars:1, desc:"Sin presión. Ideal para aprender." };
               return (
                 <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                   <div style={{ flex:1 }}>
@@ -2254,10 +2254,10 @@ function TeamSelection({ onSelect }) {
             })()}
           </div>
 
-          {/* BotÃ³n confirmar */}
+          {/* Botón confirmar */}
           <button onClick={() => onSelect(selected)}
             style={{ width:"100%", background:`linear-gradient(135deg, ${selected.color}, ${selected.color}bb)`, color:"#000", border:"none", padding:"15px", borderRadius:10, fontWeight:800, fontSize:16, cursor:"pointer", letterSpacing:".5px" }}>
-            Elegir {selected.name} â†’
+            Elegir {selected.name} →
           </button>
         </div>
       </div>
@@ -2270,19 +2270,19 @@ function TeamSelection({ onSelect }) {
       {/* Buscador */}
       <div style={{ padding:"10px 14px", borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
         <div style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.1)", borderRadius:8, padding:"8px 12px", display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ color:"#6b7280", fontSize:14 }}>ðŸ”</span>
+          <span style={{ color:"#6b7280", fontSize:14 }}>🔍</span>
           <input
             value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="Buscar equipo o ciudad..."
             style={{ background:"transparent", border:"none", outline:"none", color:"#e8eaf0", fontSize:13, flex:1, fontFamily:"inherit" }}
           />
-          {search && <button onClick={()=>setSearch("")} style={{ background:"transparent", border:"none", color:"#6b7280", cursor:"pointer", fontSize:14, padding:0 }}>âœ•</button>}
+          {search && <button onClick={()=>setSearch("")} style={{ background:"transparent", border:"none", color:"#6b7280", cursor:"pointer", fontSize:14, padding:0 }}>✕</button>}
         </div>
       </div>
 
       <div style={{ overflowY:"auto", flex:1, padding:12 }}>
         <div style={{ fontSize:11, color:"#6b7280", marginBottom:10, letterSpacing:".5px" }}>
-          PRIMERA DIVISIÃ“N 2025/26 Â· {filtered.length} equipos
+          PRIMERA DIVISIÓN 2025/26 · {filtered.length} equipos
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
           {filtered.map(t => {
@@ -2301,11 +2301,11 @@ function TeamSelection({ onSelect }) {
                 {/* Info */}
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf0" }}>{t.name}</div>
-                  <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>ðŸ“ {t.city} Â· {t.stadium}</div>
+                  <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>📍 {t.city} · {t.stadium}</div>
                   {/* Estrellas */}
                   {stars.length > 0 && (
                     <div style={{ fontSize:10, color:"#4b5563", marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                      â­ {stars.map(p=>p.name.split(" ")[0]).join(" Â· ")}
+                      ⭐ {stars.map(p=>p.name.split(" ")[0]).join(" · ")}
                     </div>
                   )}
                 </div>
@@ -2342,14 +2342,14 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
   const lineupValid      = lineupPlayers.length === 11;
   const lineupCount      = lineupPlayers.length;
 
-  // Presupuesto disponible REAL â€” mismo cÃ¡lculo que en FinancesScreen, para que ambas pantallas coincidan
+  // Presupuesto disponible REAL — mismo cálculo que en FinancesScreen, para que ambas pantallas coincidan
   const budgetSnapshot = calculateBudgetSnapshot(game, team);
   const budgetLeft     = budgetSnapshot.transferBudget;
-  const fmtBudget = (v) => v >= 1000 ? `â‚¬${(v/1000).toFixed(1)}M` : `â‚¬${Math.round(v)}K`;
+  const fmtBudget = (v) => v >= 1000 ? `€${(v/1000).toFixed(1)}M` : `€${Math.round(v)}K`;
 
   const getOpponent = (f) => TEAMS.find(t => t.id===(f.homeTeamId===game.teamId?f.awayTeamId:f.homeTeamId));
 
-  // Racha Ãºltimos 5
+  // Racha últimos 5
   const racha = [...lastResults].reverse().map(f => {
     const h=f.homeTeamId===game.teamId; const my=h?f.homeGoals:f.awayGoals; const th=h?f.awayGoals:f.homeGoals;
     return my>th?"V":my===th?"E":"D";
@@ -2371,10 +2371,10 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
           <TeamCrest team={team} size={50}/>
           <div style={{ flex:1 }}>
             <div style={{ fontWeight:700, fontSize:16, color:"#e8eaf0" }}>{team.name}</div>
-            <div style={{ fontSize:11, color:"#6b7280", marginTop:1 }}>{team.stadium} Â· T. {seasonLabel}</div>
+            <div style={{ fontSize:11, color:"#6b7280", marginTop:1 }}>{team.stadium} · T. {seasonLabel}</div>
           </div>
           <div style={{ textAlign:"right" }}>
-            <div style={{ fontSize:28, fontWeight:800, color:"#c9a84c", lineHeight:1 }}>{pos}Âº</div>
+            <div style={{ fontSize:28, fontWeight:800, color:"#c9a84c", lineHeight:1 }}>{pos}º</div>
             <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>{standing?.points??0} pts</div>
           </div>
         </div>
@@ -2393,17 +2393,17 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
         )}
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}><button onClick={()=>setScreen("board")} style={{textAlign:"left",background:"linear-gradient(135deg,rgba(201,168,76,.13),#161a24)",border:"1px solid rgba(201,168,76,.2)",borderRadius:9,padding:11,cursor:"pointer"}}><div style={{fontSize:9,color:"#6b7280",fontWeight:700}}>ðŸ† PRESTIGIO CLUB</div><div style={{fontSize:21,color:clubPrestigeLevel.color,fontWeight:900,marginTop:3}}>{Math.round(game.legacy?.clubPrestige??30)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:clubPrestigeLevel.color}}>{clubPrestigeLevel.label}</div></button><button onClick={()=>setScreen("board")} style={{textAlign:"left",background:"linear-gradient(135deg,rgba(167,139,250,.10),#161a24)",border:"1px solid rgba(167,139,250,.18)",borderRadius:9,padding:11,cursor:"pointer"}}><div style={{fontSize:9,color:"#6b7280",fontWeight:700}}>â­ PRESTIGIO ENTRENADOR</div><div style={{fontSize:21,color:managerPrestigeLevel.color,fontWeight:900,marginTop:3}}>{Math.round(game.legacy?.manager?.prestige??10)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:managerPrestigeLevel.color}}>{managerPrestigeLevel.label}</div></button></div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}><button onClick={()=>setScreen("board")} style={{textAlign:"left",background:"linear-gradient(135deg,rgba(201,168,76,.13),#161a24)",border:"1px solid rgba(201,168,76,.2)",borderRadius:9,padding:11,cursor:"pointer"}}><div style={{fontSize:9,color:"#6b7280",fontWeight:700}}>🏆 PRESTIGIO CLUB</div><div style={{fontSize:21,color:clubPrestigeLevel.color,fontWeight:900,marginTop:3}}>{Math.round(game.legacy?.clubPrestige??30)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:clubPrestigeLevel.color}}>{clubPrestigeLevel.label}</div></button><button onClick={()=>setScreen("board")} style={{textAlign:"left",background:"linear-gradient(135deg,rgba(167,139,250,.10),#161a24)",border:"1px solid rgba(167,139,250,.18)",borderRadius:9,padding:11,cursor:"pointer"}}><div style={{fontSize:9,color:"#6b7280",fontWeight:700}}>⭐ PRESTIGIO ENTRENADOR</div><div style={{fontSize:21,color:managerPrestigeLevel.color,fontWeight:900,marginTop:3}}>{Math.round(game.legacy?.manager?.prestige??10)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:managerPrestigeLevel.color}}>{managerPrestigeLevel.label}</div></button></div>
 
       {/* Temporada terminada */}
       {allPlayed && (
         <div style={{ background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.3)", borderRadius:10, padding:14, marginBottom:12, textAlign:"center" }}>
-          <div style={{ fontSize:16, fontWeight:700, color:"#c9a84c", marginBottom:4 }}>ðŸ Â¡Temporada {seasonLabel} completada!</div>
-          <div style={{ fontSize:12, color:"#9aa0b4" }}>PosiciÃ³n final: {pos}Âº Â· {standing?.points} puntos</div>
+          <div style={{ fontSize:16, fontWeight:700, color:"#c9a84c", marginBottom:4 }}>🏁 ¡Temporada {seasonLabel} completada!</div>
+          <div style={{ fontSize:12, color:"#9aa0b4" }}>Posición final: {pos}º · {standing?.points} puntos</div>
         </div>
       )}
 
-      {/* PrÃ³ximo partido */}
+      {/* Próximo partido */}
       {nextFixture && !allPlayed && (() => {
         const opp     = getOpponent(nextFixture);
         const isHome  = nextFixture.homeTeamId===game.teamId;
@@ -2411,12 +2411,12 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
         const awayT   = TEAMS.find(t=>t.id===nextFixture.awayTeamId);
         return (
           <div style={{ background:"#1a1f2e", border:"1px solid rgba(255,255,255,.08)", borderRadius:10, padding:14, marginBottom:12 }}>
-            <div style={{ fontSize:11, color:"#c9a84c", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>PRÃ“XIMO PARTIDO Â· J{nextFixture.matchday}</div>
+            <div style={{ fontSize:11, color:"#c9a84c", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>PRÓXIMO PARTIDO · J{nextFixture.matchday}</div>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
               <div style={{ textAlign:"center", flex:1 }}>
                 <TeamCrest team={homeT} size={38} style={{margin:"0 auto 4px"}}/>
                 <div style={{ fontSize:14, fontWeight:700, color: isHome?"#c9a84c":"#e8eaf0" }}>{homeT?.short}</div>
-                <div style={{ fontSize:10, color:"#22c55e" }}>ðŸ  Local{isHome?" â˜…":""}</div>
+                <div style={{ fontSize:10, color:"#22c55e" }}>🏠 Local{isHome?" ★":""}</div>
               </div>
               <div style={{ background:"#0d0f14", padding:"8px 14px", borderRadius:8, textAlign:"center" }}>
                 <div style={{ fontSize:18, fontWeight:700, color:"#c9a84c" }}>VS</div>
@@ -2424,16 +2424,16 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
               <div style={{ textAlign:"center", flex:1 }}>
                 <TeamCrest team={awayT} size={38} style={{margin:"0 auto 4px"}}/>
                 <div style={{ fontSize:14, fontWeight:700, color:!isHome?"#c9a84c":"#e8eaf0" }}>{awayT?.short}</div>
-                <div style={{ fontSize:10, color:"#6b7280" }}>âœˆï¸ Visitante{!isHome?" â˜…":""}</div>
+                <div style={{ fontSize:10, color:"#6b7280" }}>✈️ Visitante{!isHome?" ★":""}</div>
               </div>
             </div>
             <div style={{ fontSize:11, color:"#6b7280", textAlign:"center", marginTop:6 }}>
-              {opp?.name} Â· Media {opp?.avg??TEAM_REAL_AVG[opp?.id??""]}
+              {opp?.name} · Media {opp?.avg??TEAM_REAL_AVG[opp?.id??""]}
             </div>
             <button onClick={()=>lineupValid?onPlay():setScreen("lineup")}
               className={lineupValid?"btn-gold":""}
               style={{ width:"100%", marginTop:12, background:lineupValid?undefined:"#374151", color:lineupValid?undefined:"#9aa0b4", border:lineupValid?undefined:"1px solid rgba(255,255,255,.08)", padding:"13px", borderRadius:9, fontWeight:700, fontSize:14, cursor:"pointer" }}>
-              {lineupValid?"â–¶ Jugar partido":`âš ï¸ AlineaciÃ³n incompleta (${lineupCount}/11) â€” Configurar`}
+              {lineupValid?"▶ Jugar partido":`⚠️ Alineación incompleta (${lineupCount}/11) — Configurar`}
             </button>
           </div>
         );
@@ -2442,26 +2442,26 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
       <div style={{ background:urgentAttention.length?"linear-gradient(145deg,rgba(201,168,76,.12),#161a24 52%)":"linear-gradient(145deg,rgba(34,197,94,.10),#161a24 52%)", border:`1px solid ${urgentAttention.length?"rgba(201,168,76,.25)":"rgba(34,197,94,.22)"}`, borderRadius:12, padding:14, marginBottom:12 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, marginBottom:urgentAttention.length?9:0 }}>
           <div>
-            <div style={{ fontSize:11, color:urgentAttention.length?"#c9a84c":"#22c55e", fontWeight:900, letterSpacing:".6px" }}>{urgentAttention.length?"âš  REQUIERE TU ATENCIÃ“N":"âœ… TODO BAJO CONTROL"}</div>
+            <div style={{ fontSize:11, color:urgentAttention.length?"#c9a84c":"#22c55e", fontWeight:900, letterSpacing:".6px" }}>{urgentAttention.length?"⚠ REQUIERE TU ATENCIÓN":"✅ TODO BAJO CONTROL"}</div>
             <div style={{ fontSize:10, color:"#6b7280", marginTop:3 }}>{urgentAttention.length?`${urgentAttention.length} asunto${urgentAttention.length===1?"":"s"} pendiente${urgentAttention.length===1?"":"s"}`:"No hay asuntos urgentes."}</div>
           </div>
           <button onClick={()=>setScreen("attention")} className={urgentAttention.length?"btn-gold":"btn-ghost"} style={{ padding:"8px 10px", borderRadius:8, fontSize:10, whiteSpace:"nowrap" }}>{urgentAttention.length?"Ver asuntos":"Abrir"}</button>
         </div>
         {topAttention.map((item,index)=>(
           <button key={item.id} onClick={()=>setScreen("attention")} style={{ width:"100%", display:"flex", alignItems:"center", gap:8, textAlign:"left", background:"transparent", border:"none", borderTop:index?"1px solid rgba(255,255,255,.05)":"none", padding:index?"8px 0 0":"0", marginTop:index?0:2, cursor:"pointer" }}>
-            <span style={{ fontSize:13 }}>{item.priority==="critical"?"ðŸ”´":"ðŸŸ "}</span>
+            <span style={{ fontSize:13 }}>{item.priority==="critical"?"🔴":"🟠"}</span>
             <span style={{ flex:1, color:"#dfe3ec", fontSize:11, fontWeight:700, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.title}</span>
-            <span style={{ color:"#c9a84c", fontSize:13 }}>â†’</span>
+            <span style={{ color:"#c9a84c", fontSize:13 }}>→</span>
           </button>
         ))}
       </div>
 
-      <div style={{fontSize:10,color:"#6b7280",fontWeight:800,letterSpacing:".7px",margin:"2px 0 8px"}}>ACCIONES RÃPIDAS</div>
+      <div style={{fontSize:10,color:"#6b7280",fontWeight:800,letterSpacing:".7px",margin:"2px 0 8px"}}>ACCIONES RÁPIDAS</div>
       <div className="quick-actions-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-        {[["ðŸ“‹","Gestionar alineaciÃ³n","lineup","Once y suplentes","#3b82f6"],["ðŸ’°","Mercado de fichajes","transfers","Altas y bajas","#22c55e"],["ðŸ‹","Entrenar plantilla","training","Plan semanal","#f59e0b"],["ðŸ“°","Ver noticias","news","Centro de prensa","#a78bfa"]].map(([icon,label,target,helper,accent],index)=><button key={target} onClick={()=>setScreen(target)} className="quick-action-card" style={{display:"flex",alignItems:"center",gap:9,textAlign:"left",background:`linear-gradient(145deg,${accent}10,#161a24)`,border:`1px solid ${accent}22`,borderRadius:10,padding:11,minHeight:72,cursor:"pointer",animationDelay:`${index*35}ms`}}><span style={{fontSize:20}}>{icon}</span><span><strong style={{display:"block",fontSize:10,color:"#e8eaf0",lineHeight:1.25}}>{label}</strong><small style={{display:"block",fontSize:8,color:"#6b7280",marginTop:3}}>{helper}</small></span></button>)}
+        {[["📋","Gestionar alineación","lineup","Once y suplentes","#3b82f6"],["💰","Mercado de fichajes","transfers","Altas y bajas","#22c55e"],["🏋","Entrenar plantilla","training","Plan semanal","#f59e0b"],["📰","Ver noticias","news","Centro de prensa","#a78bfa"]].map(([icon,label,target,helper,accent],index)=><button key={target} onClick={()=>setScreen(target)} className="quick-action-card" style={{display:"flex",alignItems:"center",gap:9,textAlign:"left",background:`linear-gradient(145deg,${accent}10,#161a24)`,border:`1px solid ${accent}22`,borderRadius:10,padding:11,minHeight:72,cursor:"pointer",animationDelay:`${index*35}ms`}}><span style={{fontSize:20}}>{icon}</span><span><strong style={{display:"block",fontSize:10,color:"#e8eaf0",lineHeight:1.25}}>{label}</strong><small style={{display:"block",fontSize:8,color:"#6b7280",marginTop:3}}>{helper}</small></span></button>)}
       </div>
 
-      {/* Stats rÃ¡pidas */}
+      {/* Stats rápidas */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
         {[
           ["Moral",      avgMorale,  avgMorale>=70?"#22c55e":avgMorale>=50?"#f59e0b":"#ef4444"],
@@ -2476,30 +2476,30 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
         ))}
       </div>
 
-      {/* Informe mÃ©dico */}
+      {/* Informe médico */}
       <div style={{ background:"#161a24", border:"1px solid rgba(34,197,94,.17)", borderRadius:10, padding:14, marginBottom:12 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:medicalAlerts.length?8:0 }}><div style={{ fontSize:11, color:"#22c55e", fontWeight:700, letterSpacing:".5px" }}>ðŸ‘¨â€âš•ï¸ INFORME MÃ‰DICO</div><button onClick={()=>setScreen("medical")} style={{ background:"transparent", border:"none", color:"#22c55e", fontSize:10, fontWeight:700, cursor:"pointer" }}>Abrir centro â†’</button></div>
-        {medicalAlerts.length?medicalAlerts.map(({player,risk,status},index)=><div key={player.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 0", borderTop:index?"1px solid rgba(255,255,255,.05)":"none" }}><span>{status.icon}</span><div style={{ flex:1, color:"#c9ced8", fontSize:11 }}>{player.name}<div style={{ color:status.color, fontSize:9, marginTop:2 }}>{player.injured?status.label:`Riesgo de lesiÃ³n ${risk}% Â· se recomienda descanso`}</div></div></div>):<div style={{ color:"#6b7280", fontSize:11, marginTop:7 }}>La plantilla se encuentra en buenas condiciones.</div>}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:medicalAlerts.length?8:0 }}><div style={{ fontSize:11, color:"#22c55e", fontWeight:700, letterSpacing:".5px" }}>👨‍⚕️ INFORME MÉDICO</div><button onClick={()=>setScreen("medical")} style={{ background:"transparent", border:"none", color:"#22c55e", fontSize:10, fontWeight:700, cursor:"pointer" }}>Abrir centro →</button></div>
+        {medicalAlerts.length?medicalAlerts.map(({player,risk,status},index)=><div key={player.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 0", borderTop:index?"1px solid rgba(255,255,255,.05)":"none" }}><span>{status.icon}</span><div style={{ flex:1, color:"#c9ced8", fontSize:11 }}>{player.name}<div style={{ color:status.color, fontSize:9, marginTop:2 }}>{player.injured?status.label:`Riesgo de lesión ${risk}% · se recomienda descanso`}</div></div></div>):<div style={{ color:"#6b7280", fontSize:11, marginTop:7 }}>La plantilla se encuentra en buenas condiciones.</div>}
       </div>
 
       {/* Actualidad relevante del club */}
       <div style={{ background:"linear-gradient(145deg,rgba(201,168,76,.08),#161a24 45%)", border:"1px solid rgba(201,168,76,.22)", borderRadius:11, padding:14, marginBottom:12 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:latestNews.length?8:0 }}>
-          <div style={{ fontSize:11, color:"#c9a84c", fontWeight:800, letterSpacing:".6px" }}>ðŸ“Œ DESTACADO EN TU CLUB</div>
-          <button onClick={()=>setScreen("news")} style={{ background:"transparent", border:"none", color:"#c9a84c", fontSize:10, fontWeight:700, cursor:"pointer" }}>Ver todas â†’</button>
+          <div style={{ fontSize:11, color:"#c9a84c", fontWeight:800, letterSpacing:".6px" }}>📌 DESTACADO EN TU CLUB</div>
+          <button onClick={()=>setScreen("news")} style={{ background:"transparent", border:"none", color:"#c9a84c", fontSize:10, fontWeight:700, cursor:"pointer" }}>Ver todas →</button>
         </div>
         {latestNews.length ? latestNews.map((item,index)=>(
           <button key={item.id} onClick={()=>setScreen("news")} style={{ width:"100%", display:"flex", alignItems:"flex-start", gap:9, textAlign:"left", background:item.featured?"rgba(239,68,68,.06)":"transparent", border:item.featured?"1px solid rgba(239,68,68,.14)":"none", borderTop:!item.featured&&index?"1px solid rgba(255,255,255,.05)":item.featured?"1px solid rgba(239,68,68,.14)":"none", borderRadius:item.featured?8:0, padding:item.featured?10:"8px 0", marginBottom:item.featured?5:0, cursor:"pointer" }}>
-            <span style={{ color:item.importance==="critical"?"#ef4444":item.importance==="high"?"#f97316":"#c9a84c", fontSize:item.featured?15:12 }}>{item.featured?"ðŸ”¥":"â—"}</span>
+            <span style={{ color:item.importance==="critical"?"#ef4444":item.importance==="high"?"#f97316":"#c9a84c", fontSize:item.featured?15:12 }}>{item.featured?"🔥":"●"}</span>
             <span style={{flex:1}}><strong style={{display:"block",color:"#dfe3ec",fontSize:item.featured?12:11,lineHeight:1.4}}>{item.title}</strong>{item.featured&&item.summary&&<small style={{display:"block",color:"#72798a",fontSize:9,lineHeight:1.45,marginTop:3}}>{item.summary}</small>}</span>
           </button>
-        )) : <div style={{ color:"#6b7280", fontSize:11, lineHeight:1.5, marginTop:7 }}>TodavÃ­a no hay novedades relevantes en tu club.</div>}
+        )) : <div style={{ color:"#6b7280", fontSize:11, lineHeight:1.5, marginTop:7 }}>Todavía no hay novedades relevantes en tu club.</div>}
       </div>
 
-      {/* Ãšltimos resultados */}
+      {/* Últimos resultados */}
       {lastResults.length > 0 && (
         <div style={{ background:"#161a24", borderRadius:8, padding:14, marginBottom:12 }}>
-          <div style={{ fontSize:11, color:"#6b7280", marginBottom:10, letterSpacing:".5px" }}>ÃšLTIMOS RESULTADOS</div>
+          <div style={{ fontSize:11, color:"#6b7280", marginBottom:10, letterSpacing:".5px" }}>ÚLTIMOS RESULTADOS</div>
           {[...lastResults].reverse().map(f=>{
             const opp=getOpponent(f); const isHome=f.homeTeamId===game.teamId;
             const my=isHome?f.homeGoals:f.awayGoals; const th=isHome?f.awayGoals:f.homeGoals;
@@ -2518,7 +2518,7 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
         </div>
       )}
 
-      {/* Accesos rÃ¡pidos â€” ya estÃ¡n en la barra de navegaciÃ³n */}
+      {/* Accesos rápidos — ya están en la barra de navegación */}
     </div>
   );
 }
@@ -2532,7 +2532,7 @@ function SquadScreen({ game, players, onOpenPlayer }) {
   const seasonStats=player=>statsSeason===String(game.season)?getPlayerSeasonStats(player,game,game.teamId):(player.careerHistory??[]).find(entry=>String(entry.season)===statsSeason)??{};
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"9px 14px",background:"#13161f",borderBottom:"1px solid rgba(255,255,255,.06)"}}><div><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>ESTADÃSTICAS</div><div style={{fontSize:11,color:"#e8eaf0",marginTop:2}}>{statsSeason===String(game.season)?"Temporada actual":"Temporada histÃ³rica"}</div></div><select value={statsSeason} onChange={event=>setStatsSeason(event.target.value)} style={{background:"#1e2330",border:"1px solid rgba(201,168,76,.25)",color:"#c9a84c",borderRadius:7,padding:"7px 9px",fontSize:11,fontWeight:700}}>{seasons.map(season=><option key={season} value={season}>{season}/{String(Number(season)+1).slice(-2)}{season===String(game.season)?" Â· actual":""}</option>)}</select></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"9px 14px",background:"#13161f",borderBottom:"1px solid rgba(255,255,255,.06)"}}><div><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>ESTADÍSTICAS</div><div style={{fontSize:11,color:"#e8eaf0",marginTop:2}}>{statsSeason===String(game.season)?"Temporada actual":"Temporada histórica"}</div></div><select value={statsSeason} onChange={event=>setStatsSeason(event.target.value)} style={{background:"#1e2330",border:"1px solid rgba(201,168,76,.25)",color:"#c9a84c",borderRadius:7,padding:"7px 9px",fontSize:11,fontWeight:700}}>{seasons.map(season=><option key={season} value={season}>{season}/{String(Number(season)+1).slice(-2)}{season===String(game.season)?" · actual":""}</option>)}</select></div>
       <div style={{ display: "flex", gap: 8, padding: "10px 14px", overflowX: "auto", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
         {filters.map(([val, label]) => (
           <button key={val} onClick={() => setFilter(val)} style={{ background: filter === val ? "#c9a84c" : "#1e2330", color: filter === val ? "#1a1200" : "#9aa0b4", border: "none", padding: "7px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", transition: "background .15s, color .15s" }}>
@@ -2543,7 +2543,7 @@ function SquadScreen({ game, players, onOpenPlayer }) {
       <SwipeTabs tabs={filters.map(([id])=>id)} activeTab={filter} onChange={setFilter} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
         <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "12px 10px", boxSizing: "border-box" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, width: "100%" }}>
-            {shown.map(p => {const stats=seasonStats(p);return <div key={p.id} style={{minWidth:0}}><PlayerCard player={p} onSelect={onOpenPlayer}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2,background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:8,padding:"6px 3px",marginTop:4}}>{[["PJ",stats.appearances??0],["G",stats.goals??0],["A",stats.assists??0],["NOTA",stats.averageRating??"â€”"]].map(([label,value])=><div key={label} style={{textAlign:"center"}}><div style={{fontSize:11,color:label==="NOTA"?"#c9a84c":"#e8eaf0",fontWeight:800}}>{value}</div><div style={{fontSize:7,color:"#6b7280",fontWeight:700}}>{label}</div></div>)}</div></div>})}
+            {shown.map(p => {const stats=seasonStats(p);return <div key={p.id} style={{minWidth:0}}><PlayerCard player={p} onSelect={onOpenPlayer}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2,background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:8,padding:"6px 3px",marginTop:4}}>{[["PJ",stats.appearances??0],["G",stats.goals??0],["A",stats.assists??0],["NOTA",stats.averageRating??"—"]].map(([label,value])=><div key={label} style={{textAlign:"center"}}><div style={{fontSize:11,color:label==="NOTA"?"#c9a84c":"#e8eaf0",fontWeight:800}}>{value}</div><div style={{fontSize:7,color:"#6b7280",fontWeight:700}}>{label}</div></div>)}</div></div>})}
           </div>
         </div>
       </SwipeTabs>
@@ -2551,7 +2551,7 @@ function SquadScreen({ game, players, onOpenPlayer }) {
   );
 }
 
-// â”€â”€â”€ Helpers de energÃ­a/cansancio (documento UX) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers de energía/cansancio (documento UX) ─────────────────────────────
 function LockerRoomScreen({ game, onOpenPlayer, onGoContracts, onGoLineup, onGoTraining }) {
   const [filter,setFilter]=useState("all");
   const squad=ensureSquadMorale(game.players??[],game.season);
@@ -2563,38 +2563,38 @@ function LockerRoomScreen({ game, onOpenPlayer, onGoContracts, onGoLineup, onGoT
     return true;
   }).sort((a,b)=>(a.morale??70)-(b.morale??70));
   const atmosphereColor=summary.atmosphere==="positivo"?"#22c55e":summary.atmosphere==="tenso"?"#ef4444":"#c9a84c";
-  const roleColor=role=>({Estrella:"#c9a84c",Titular:"#22c55e","RotaciÃ³n":"#60a5fa",Promesa:"#84cc16",Suplente:"#9ca3af",Emergencia:"#6b7280"}[role]??"#9ca3af");
+  const roleColor=role=>({Estrella:"#c9a84c",Titular:"#22c55e","Rotación":"#60a5fa",Promesa:"#84cc16",Suplente:"#9ca3af",Emergencia:"#6b7280"}[role]??"#9ca3af");
   return <div style={{flex:1,overflowY:"auto",padding:14}}>
     <div style={{background:"linear-gradient(135deg,rgba(201,168,76,.16),#161a24)",border:"1px solid rgba(201,168,76,.25)",borderRadius:13,padding:15,marginBottom:13}}><div style={{fontSize:10,color:"#c9a84c",fontWeight:900,letterSpacing:".8px"}}>VESTUARIO</div><div style={{fontSize:22,color:"#fff",fontWeight:900,marginTop:5,textTransform:"capitalize"}}>Ambiente {summary.atmosphere}</div><div style={{height:6,background:"#252a36",borderRadius:999,overflow:"hidden",marginTop:11}}><div style={{width:`${summary.avgMorale}%`,height:"100%",background:atmosphereColor}}/></div></div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:13}}>{[["MORAL",summary.avgMorale,"#22c55e"],["FELICIDAD",summary.avgHappiness,"#c9a84c"],["CONFIANZA",summary.avgTrust,"#60a5fa"]].map(([label,value,color])=><div key={label} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:10,padding:10}}><div style={{fontSize:8,color:"#6b7280",fontWeight:800}}>{label}</div><div style={{fontSize:21,color,fontWeight:900,marginTop:4}}>{value}</div></div>)}</div>
-    <div style={{fontSize:10,color:"#6b7280",fontWeight:900,letterSpacing:".6px",marginBottom:8}}>LÃDERES DEL GRUPO</div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:14}}>{summary.leaders.map(player=><button key={player.id} onClick={()=>onOpenPlayer(player,game.teamId)} style={{background:"#161a24",border:"1px solid rgba(201,168,76,.18)",borderRadius:10,padding:10,textAlign:"left",cursor:"pointer"}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>â­ {player.name}</div><div style={{fontSize:9,color:"#6b7280",marginTop:3}}>{player.personality?.profileLabel} Â· Liderazgo {player.personality?.traits?.leadership}</div></button>)}</div>
-    <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:10}}>{[["all","Todos"],["concerns",`Preocupados (${summary.unhappy.length})`],["leaders","LÃ­deres"],["young","JÃ³venes"]].map(([id,label])=><button key={id} onClick={()=>setFilter(id)} style={{flex:"0 0 auto",background:filter===id?"#c9a84c":"#1e2330",color:filter===id?"#1a1200":"#8b92a3",border:"none",borderRadius:15,padding:"7px 10px",fontSize:10,fontWeight:900}}>{label}</button>)}</div>
-    <div style={{display:"flex",flexDirection:"column",gap:8}}>{filtered.map(player=>{const morale=getMoraleLevel(player.morale);const concern=(player.morale??70)<45||(player.happiness??70)<45||(player.managerTrust??70)<45;return <div key={player.id} style={{background:"#161a24",border:`1px solid ${concern?"rgba(249,115,22,.3)":"rgba(255,255,255,.06)"}`,borderRadius:11,padding:11}}><div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:36,height:36,borderRadius:9,background:`${morale.color}18`,color:morale.color,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900}}>{player.overall}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,color:"#e8eaf0",fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</div><div style={{fontSize:9,color:"#6b7280",marginTop:2}}>{player.personality?.profileLabel} Â· <span style={{color:roleColor(player.squadRole)}}>{player.squadRole}</span></div></div><button onClick={()=>onOpenPlayer(player,game.teamId)} style={{background:"rgba(201,168,76,.1)",border:"1px solid rgba(201,168,76,.2)",color:"#c9a84c",borderRadius:7,padding:"6px 8px",fontSize:10,fontWeight:800}}>Perfil</button></div><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,marginTop:9}}>{[["Moral",player.morale,morale.color],["Felicidad",player.happiness,(player.happiness??70)>=55?"#22c55e":"#f97316"],["Confianza",player.managerTrust,(player.managerTrust??70)>=55?"#60a5fa":"#ef4444"]].map(([label,value,color])=><div key={label} style={{background:"#0d0f14",borderRadius:7,padding:"6px 5px"}}><div style={{fontSize:7,color:"#6b7280",fontWeight:800}}>{label.toUpperCase()}</div><div style={{fontSize:13,color,fontWeight:900}}>{value}</div></div>)}</div>{player.moraleEvents?.[0]&&<div style={{fontSize:9,color:"#f59e0b",marginTop:8}}>Ãšltimo acontecimiento: {player.moraleEvents[0].label}</div>}{concern&&<div style={{display:"flex",gap:6,marginTop:9}}><button onClick={onGoLineup} className="btn-gold" style={{flex:1,padding:8,fontSize:10}}>Dar minutos</button><button onClick={onGoContracts} style={{flex:1,background:"#1e2330",border:"1px solid rgba(255,255,255,.1)",color:"#e8eaf0",borderRadius:7,fontSize:10}}>Contrato</button><button onClick={onGoTraining} style={{flex:1,background:"#1e2330",border:"1px solid rgba(255,255,255,.1)",color:"#e8eaf0",borderRadius:7,fontSize:10}}>Carga</button></div>}</div>})}</div>
+    <div style={{fontSize:10,color:"#6b7280",fontWeight:900,letterSpacing:".6px",marginBottom:8}}>LÍDERES DEL GRUPO</div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:14}}>{summary.leaders.map(player=><button key={player.id} onClick={()=>onOpenPlayer(player,game.teamId)} style={{background:"#161a24",border:"1px solid rgba(201,168,76,.18)",borderRadius:10,padding:10,textAlign:"left",cursor:"pointer"}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>⭐ {player.name}</div><div style={{fontSize:9,color:"#6b7280",marginTop:3}}>{player.personality?.profileLabel} · Liderazgo {player.personality?.traits?.leadership}</div></button>)}</div>
+    <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:10}}>{[["all","Todos"],["concerns",`Preocupados (${summary.unhappy.length})`],["leaders","Líderes"],["young","Jóvenes"]].map(([id,label])=><button key={id} onClick={()=>setFilter(id)} style={{flex:"0 0 auto",background:filter===id?"#c9a84c":"#1e2330",color:filter===id?"#1a1200":"#8b92a3",border:"none",borderRadius:15,padding:"7px 10px",fontSize:10,fontWeight:900}}>{label}</button>)}</div>
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>{filtered.map(player=>{const morale=getMoraleLevel(player.morale);const concern=(player.morale??70)<45||(player.happiness??70)<45||(player.managerTrust??70)<45;return <div key={player.id} style={{background:"#161a24",border:`1px solid ${concern?"rgba(249,115,22,.3)":"rgba(255,255,255,.06)"}`,borderRadius:11,padding:11}}><div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:36,height:36,borderRadius:9,background:`${morale.color}18`,color:morale.color,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900}}>{player.overall}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,color:"#e8eaf0",fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</div><div style={{fontSize:9,color:"#6b7280",marginTop:2}}>{player.personality?.profileLabel} · <span style={{color:roleColor(player.squadRole)}}>{player.squadRole}</span></div></div><button onClick={()=>onOpenPlayer(player,game.teamId)} style={{background:"rgba(201,168,76,.1)",border:"1px solid rgba(201,168,76,.2)",color:"#c9a84c",borderRadius:7,padding:"6px 8px",fontSize:10,fontWeight:800}}>Perfil</button></div><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,marginTop:9}}>{[["Moral",player.morale,morale.color],["Felicidad",player.happiness,(player.happiness??70)>=55?"#22c55e":"#f97316"],["Confianza",player.managerTrust,(player.managerTrust??70)>=55?"#60a5fa":"#ef4444"]].map(([label,value,color])=><div key={label} style={{background:"#0d0f14",borderRadius:7,padding:"6px 5px"}}><div style={{fontSize:7,color:"#6b7280",fontWeight:800}}>{label.toUpperCase()}</div><div style={{fontSize:13,color,fontWeight:900}}>{value}</div></div>)}</div>{player.moraleEvents?.[0]&&<div style={{fontSize:9,color:"#f59e0b",marginTop:8}}>Último acontecimiento: {player.moraleEvents[0].label}</div>}{concern&&<div style={{display:"flex",gap:6,marginTop:9}}><button onClick={onGoLineup} className="btn-gold" style={{flex:1,padding:8,fontSize:10}}>Dar minutos</button><button onClick={onGoContracts} style={{flex:1,background:"#1e2330",border:"1px solid rgba(255,255,255,.1)",color:"#e8eaf0",borderRadius:7,fontSize:10}}>Contrato</button><button onClick={onGoTraining} style={{flex:1,background:"#1e2330",border:"1px solid rgba(255,255,255,.1)",color:"#e8eaf0",borderRadius:7,fontSize:10}}>Carga</button></div>}</div>})}</div>
   </div>;
 }
 
 function energyLevel(fatigue) {
-  const energy = Math.round(100 - (fatigue ?? 0)); // energÃ­a = inverso del cansancio
-  if (energy >= 80) return { energy, color: "#22c55e", emoji: "ðŸŸ¢", label: "Fresco" };
-  if (energy >= 70) return { energy, color: "#22c55e", emoji: "ðŸŸ¢", label: "Bien" };
-  if (energy >= 60) return { energy, color: "#fbbf24", emoji: "ðŸŸ¡", label: "Cansado" };
-  if (energy >= 40) return { energy, color: "#f97316", emoji: "ðŸŸ ", label: "Muy cansado" };
-  return { energy, color: "#ef4444", emoji: "ðŸ”´", label: "Agotado" };
+  const energy = Math.round(100 - (fatigue ?? 0)); // energía = inverso del cansancio
+  if (energy >= 80) return { energy, color: "#22c55e", emoji: "🟢", label: "Fresco" };
+  if (energy >= 70) return { energy, color: "#22c55e", emoji: "🟢", label: "Bien" };
+  if (energy >= 60) return { energy, color: "#fbbf24", emoji: "🟡", label: "Cansado" };
+  if (energy >= 40) return { energy, color: "#f97316", emoji: "🟠", label: "Muy cansado" };
+  return { energy, color: "#ef4444", emoji: "🔴", label: "Agotado" };
 }
 
 const slotPositionGroup = position => position === "POR" ? "POR" : ["DFC","LD","LI"].includes(position) ? "DEF" : ["MCD","MC","MCO","MD","MI"].includes(position) ? "MED" : "DEL";
 
 function LineupScreen({ game, players, lineup, setLineup, formation, setFormation, subs, setSubs, savedLineups, onSaveLineups, onOpenPlayer }) {
   const [activeSlot, setActiveSlot] = useState(null); // null | {type:'starter',idx} | {type:'sub',idx}
-  // subTarget: cuando pulsas un titular para sustituir rÃ¡pido â†’ {idx, player}
+  // subTarget: cuando pulsas un titular para sustituir rápido → {idx, player}
   const [subTarget, setSubTarget] = useState(null);
   const [sortBy, setSortBy] = useState("role"); // role | energy | overall | pos | age
   const [showFormations, setShowFormations] = useState(false);
   const [showSavedLineups, setShowSavedLineups] = useState(false);
   const [savingPreset, setSavingPreset] = useState(false);
   const [presetName, setPresetName] = useState("");
-  const [presetIcon, setPresetIcon] = useState("ðŸ ");
+  const [presetIcon, setPresetIcon] = useState("🏠");
 
   const formations = {
     "4-3-3":   ["POR","LD","DFC","DFC","LI","MC","MCD","MC","ED","DC","EI"],
@@ -2638,29 +2638,29 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   const usedStarterIds = lineup.filter(Boolean);
   const usedSubIds = subs.filter(Boolean);
   const allUsedIds = [...usedStarterIds, ...usedSubIds];
-  const notCalled = available.filter(p => !allUsedIds.includes(p.id)); // âšª no convocados
+  const notCalled = available.filter(p => !allUsedIds.includes(p.id)); // ⚪ no convocados
 
   const startersCount = lineup.filter(id => id && available.find(p => p.id === id)).length;
   const lineupValid = startersCount === 11;
 
-  // â”€â”€ 7. Resumen de estado de plantilla â”€â”€
+  // ── 7. Resumen de estado de plantilla ──
   const fresh = available.filter(p => energyLevel(p.fatigue).energy >= 70).length;
   const tired = available.filter(p => { const e = energyLevel(p.fatigue).energy; return e >= 40 && e < 70; }).length;
   const veryTired = available.filter(p => energyLevel(p.fatigue).energy < 40).length;
   const avgEnergy = available.length ? Math.round(available.reduce((s,p) => s + energyLevel(p.fatigue).energy, 0) / available.length) : 0;
 
-  // â”€â”€ 10. JerarquÃ­a: titular habitual / rotaciÃ³n / suplente / canterano â”€â”€
+  // ── 10. Jerarquía: titular habitual / rotación / suplente / canterano ──
   const getRole = (p) => {
-    if (p.age <= 19) return { icon: "ðŸŒ±", label: "Canterano" };
-    if (p.overall >= 80) return { icon: "â­", label: "Titular habitual" };
-    if (p.overall >= 73) return { icon: "ðŸ”„", label: "RotaciÃ³n" };
-    return { icon: "âšª", label: "Suplente" };
+    if (p.age <= 19) return { icon: "🌱", label: "Canterano" };
+    if (p.overall >= 80) return { icon: "⭐", label: "Titular habitual" };
+    if (p.overall >= 73) return { icon: "🔄", label: "Rotación" };
+    return { icon: "⚪", label: "Suplente" };
   };
 
   const handlePitchSlot = (idx) => {
     const player = players.find(p => p.id === lineup[idx]);
     if (player) {
-      // 4. Sistema de intercambio directo: pulsar titular â†’ menÃº de sustituciÃ³n rÃ¡pida
+      // 4. Sistema de intercambio directo: pulsar titular → menú de sustitución rápida
       setSubTarget({ idx, player });
       setActiveSlot(null);
     } else {
@@ -2699,7 +2699,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
     setActiveSlot(null);
   };
 
-  // â”€â”€ 4 + 5. Intercambio automÃ¡tico + menÃº de sustituciÃ³n rÃ¡pida â”€â”€
+  // ── 4 + 5. Intercambio automático + menú de sustitución rápida ──
   // Sustituto entra al once, titular sale directo al banquillo (sin huecos)
   const swapWithSub = (incomingPlayer) => {
     if (!subTarget) return;
@@ -2722,7 +2722,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
     setSubTarget(null);
   };
 
-  // Candidatos de sustituciÃ³n ordenados: misma posiciÃ³n â†’ mejor energÃ­a â†’ mejor media
+  // Candidatos de sustitución ordenados: misma posición → mejor energía → mejor media
   const getSubCandidates = () => {
     if (!subTarget) return [];
     const posLabel = slotPositions[subTarget.idx];
@@ -2740,18 +2740,18 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
       });
   };
 
-  // â”€â”€ 6. Recomendaciones de descanso â”€â”€
+  // ── 6. Recomendaciones de descanso ──
   const restRisk = (p) => {
     const risk = calculateInjuryRisk(p,{fixtures:game.fixtures,teamId:game.teamId,game});
     const level = getRiskLevel(risk);
-    if (risk > 75) return { level:"high", label:`ðŸ”´ Riesgo crÃ­tico ${risk}%`, risk, color:level.color };
-    if (risk > 50) return { level:"high", label:`ðŸŸ  Riesgo alto ${risk}%`, risk, color:level.color };
-    if (risk > 20) return { level:"mid", label:`ðŸŸ¡ Riesgo moderado ${risk}%`, risk, color:level.color };
+    if (risk > 75) return { level:"high", label:`🔴 Riesgo crítico ${risk}%`, risk, color:level.color };
+    if (risk > 50) return { level:"high", label:`🟠 Riesgo alto ${risk}%`, risk, color:level.color };
+    if (risk > 20) return { level:"mid", label:`🟡 Riesgo moderado ${risk}%`, risk, color:level.color };
     return null;
   };
 
-  // â”€â”€ 8. RotaciÃ³n recomendada â”€â”€
-  // â”€â”€ 8. RotaciÃ³n recomendada â€” genera una PROPUESTA, no aplica directo â”€â”€
+  // ── 8. Rotación recomendada ──
+  // ── 8. Rotación recomendada — genera una PROPUESTA, no aplica directo ──
   const computeRecommendedRotation = () => {
     const newLineup = [...lineup];
     const newSubs = [...subs];
@@ -2763,7 +2763,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
       const risk = restRisk(starter);
       const starterEnergy = energyLevel(starter.fatigue).energy;
       const accumulated=starter.accumulatedFatigue??starter.medical?.accumulatedFatigue??0;
-      if ((!risk || risk.risk < 51) && starterEnergy >= 45 && accumulated < 55) return; // solo rota con motivo fÃ­sico claro
+      if ((!risk || risk.risk < 51) && starterEnergy >= 45 && accumulated < 55) return; // solo rota con motivo físico claro
       const posLabel = slotPositions[idx];
       const candidates = [...newSubs.filter(Boolean).map(id => players.find(p => p.id === id)), ...notCalled]
         .filter(Boolean)
@@ -2794,7 +2794,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
     return { newLineup, newSubs, changes };
   };
 
-  // â”€â”€ 9. Mejor once disponible â€” tambiÃ©n como PROPUESTA â”€â”€
+  // ── 9. Mejor once disponible — también como PROPUESTA ──
   const computeBestXI = () => {
     const isUnavailable = (p) => p.injured || p.suspended;
     const score = (p, posLabel) => (p.overall ?? 70) + (p.pos === posLabel ? 9 : p.group === slotPositionGroup(posLabel) ? 3 : -8);
@@ -2817,7 +2817,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
     const newSubs = emptyBench();
     restPool.slice(0, BENCH_SLOTS).forEach((p, i) => { newSubs[i] = p.id; claimed.add(p.id); });
 
-    // Calcular quÃ© cambia respecto al once actual, para mostrarlo igual que la rotaciÃ³n
+    // Calcular qué cambia respecto al once actual, para mostrarlo igual que la rotación
     const changes = [];
     newLineup.forEach((newId, idx) => {
       if (newId !== lineup[idx]) {
@@ -2848,8 +2848,8 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   };
   const discardProposal = () => setProposal(null);
 
-  // â”€â”€ 12. Alineaciones guardadas â”€â”€
-  const PRESET_ICONS = ["ðŸ ","âœˆï¸","ðŸ”„","ðŸ†","âš½","ðŸ›¡ï¸","âš¡"];
+  // ── 12. Alineaciones guardadas ──
+  const PRESET_ICONS = ["🏠","✈️","🔄","🏆","⚽","🛡️","⚡"];
 
   const saveCurrentAsPreset = () => {
     if (!presetName.trim()) return;
@@ -2864,7 +2864,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
     onSaveLineups([...(savedLineups ?? []), newPreset]);
     setSavingPreset(false);
     setPresetName("");
-    setPresetIcon("ðŸ ");
+    setPresetIcon("🏠");
   };
 
   const loadPreset = (preset) => {
@@ -2887,7 +2887,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   const isActiveStarter = (idx) => activeSlot?.type === "starter" && activeSlot?.idx === idx;
   const isActiveSub = (idx) => activeSlot?.type === "sub" && activeSlot?.idx === idx;
 
-  // â”€â”€ 11. OrdenaciÃ³n de "no convocados" â”€â”€
+  // ── 11. Ordenación de "no convocados" ──
   const sortedNotCalled = [...notCalled].sort((a, b) => {
     if (sortBy === "energy") return energyLevel(b.fatigue).energy - energyLevel(a.fatigue).energy;
     if (sortBy === "overall") return b.overall - a.overall;
@@ -2899,42 +2899,42 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
-      {/* â”€â”€ 7. Tarjeta resumen de plantilla â”€â”€ */}
+      {/* ── 7. Tarjeta resumen de plantilla ── */}
       <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"10px 14px", flexShrink:0 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:7 }}>
           <span style={{ fontSize:10, color:"#6b7280", fontWeight:700, letterSpacing:".5px" }}>ESTADO DE PLANTILLA</span>
-          <span style={{ fontSize:13, fontWeight:800, color: avgEnergy>=70?"#22c55e":avgEnergy>=50?"#fbbf24":"#ef4444" }}>âš¡ {avgEnergy}%</span>
+          <span style={{ fontSize:13, fontWeight:800, color: avgEnergy>=70?"#22c55e":avgEnergy>=50?"#fbbf24":"#ef4444" }}>⚡ {avgEnergy}%</span>
         </div>
         <div style={{ display:"flex", gap:8 }}>
           <div style={{ flex:1, display:"flex", alignItems:"center", gap:5, background:"#161a24", borderRadius:7, padding:"5px 8px" }}>
-            <span>ðŸŸ¢</span><span style={{ fontSize:12, fontWeight:700, color:"#22c55e" }}>{fresh}</span><span style={{ fontSize:10, color:"#6b7280" }}>frescos</span>
+            <span>🟢</span><span style={{ fontSize:12, fontWeight:700, color:"#22c55e" }}>{fresh}</span><span style={{ fontSize:10, color:"#6b7280" }}>frescos</span>
           </div>
           <div style={{ flex:1, display:"flex", alignItems:"center", gap:5, background:"#161a24", borderRadius:7, padding:"5px 8px" }}>
-            <span>ðŸŸ¡</span><span style={{ fontSize:12, fontWeight:700, color:"#fbbf24" }}>{tired}</span><span style={{ fontSize:10, color:"#6b7280" }}>cansados</span>
+            <span>🟡</span><span style={{ fontSize:12, fontWeight:700, color:"#fbbf24" }}>{tired}</span><span style={{ fontSize:10, color:"#6b7280" }}>cansados</span>
           </div>
           <div style={{ flex:1, display:"flex", alignItems:"center", gap:5, background:"#161a24", borderRadius:7, padding:"5px 8px" }}>
-            <span>ðŸ”´</span><span style={{ fontSize:12, fontWeight:700, color:"#ef4444" }}>{veryTired}</span><span style={{ fontSize:10, color:"#6b7280" }}>muy cansados</span>
+            <span>🔴</span><span style={{ fontSize:12, fontWeight:700, color:"#ef4444" }}>{veryTired}</span><span style={{ fontSize:10, color:"#6b7280" }}>muy cansados</span>
           </div>
         </div>
       </div>
 
-      {/* â”€â”€ Formaciones (colapsable) + acciones rÃ¡pidas (8 y 9) â”€â”€ */}
+      {/* ── Formaciones (colapsable) + acciones rápidas (8 y 9) ── */}
       <div style={{ borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
         <div style={{ display:"flex", gap:6, padding:"8px 12px", alignItems:"center" }}>
           <button onClick={() => setShowFormations(s => !s)}
             style={{ background:"#1e2330", border:"none", color:"#e8eaf0", padding:"7px 12px", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
-            {formation} â–¾
+            {formation} ▾
           </button>
           <button onClick={openRotationProposal}
             style={{ flex:1, background:"rgba(251,191,36,.12)", border:"1px solid rgba(251,191,36,.3)", color:"#fbbf24", padding:"7px 8px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
-            ðŸ”„ RotaciÃ³n recomendada
+            🔄 Rotación recomendada
           </button>
           <button onClick={openBestXIProposal}
             style={{ flex:1, background:"rgba(201,168,76,.12)", border:"1px solid rgba(201,168,76,.3)", color:"#c9a84c", padding:"7px 8px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
-            â­ Mejor once
+            ⭐ Mejor once
           </button>
           <div style={{ fontSize:11, fontWeight:700, color: lineupValid ? "#22c55e" : "#f59e0b", background: lineupValid ? "#22c55e18" : "#f59e0b18", padding:"6px 9px", borderRadius:6, whiteSpace:"nowrap", flexShrink:0 }}>
-            {lineupValid ? "âœ“" : `${startersCount}/11`}
+            {lineupValid ? "✓" : `${startersCount}/11`}
           </div>
         </div>
         {showFormations && (
@@ -2948,22 +2948,22 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
           </div>
         )}
 
-        {/* â”€â”€ Panel de propuesta: RotaciÃ³n recomendada / Mejor once â€” el usuario decide â”€â”€ */}
+        {/* ── Panel de propuesta: Rotación recomendada / Mejor once — el usuario decide ── */}
         {proposal && (
           <div style={{ padding:"0 12px 10px" }}>
             <div style={{ background:"#161a24", border:`1px solid ${proposal.type==="rotation"?"rgba(251,191,36,.35)":"rgba(201,168,76,.35)"}`, borderRadius:9, padding:12 }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
                 <div style={{ fontSize:12, fontWeight:700, color: proposal.type==="rotation"?"#fbbf24":"#c9a84c" }}>
-                  {proposal.type==="rotation" ? "ðŸ”„ Propuesta de rotaciÃ³n" : "â­ Propuesta de mejor once"}
+                  {proposal.type==="rotation" ? "🔄 Propuesta de rotación" : "⭐ Propuesta de mejor once"}
                 </div>
-                <button onClick={discardProposal} style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#9aa0b4", padding:"4px 9px", borderRadius:6, fontSize:11, cursor:"pointer" }}>âœ•</button>
+                <button onClick={discardProposal} style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#9aa0b4", padding:"4px 9px", borderRadius:6, fontSize:11, cursor:"pointer" }}>✕</button>
               </div>
 
               {proposal.changes.length === 0 ? (
                 <div style={{ fontSize:12, color:"#6b7280", textAlign:"center", padding:"10px 0" }}>
                   {proposal.type==="rotation"
-                    ? "No hay jugadores con fatiga suficiente como para recomendar un cambio. Tu plantilla estÃ¡ bien de energÃ­a. ðŸ‘"
-                    : "Tu once actual ya es el mejor disponible segÃºn media y energÃ­a. ðŸ‘"}
+                    ? "No hay jugadores con fatiga suficiente como para recomendar un cambio. Tu plantilla está bien de energía. 👍"
+                    : "Tu once actual ya es el mejor disponible según media y energía. 👍"}
                 </div>
               ) : (
                 <>
@@ -2975,12 +2975,12 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                       return (
                         <div key={i} style={{ display:"flex", alignItems:"center", gap:6, background:"#0d0f14", borderRadius:7, padding:"7px 9px", flexShrink:0 }}>
                           <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:5 }}>
-                            <span style={{ fontSize:10, color:"#ef4444" }}>â†“</span>
-                            <span style={{ fontSize:11, color:"#9aa0b4", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.outPlayer?.name ?? "VacÃ­o"}</span>
+                            <span style={{ fontSize:10, color:"#ef4444" }}>↓</span>
+                            <span style={{ fontSize:11, color:"#9aa0b4", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.outPlayer?.name ?? "Vacío"}</span>
                             {outEng && <span style={{ fontSize:10, fontWeight:700, color:outEng.color, flexShrink:0 }}>{outEng.emoji}{outEng.energy}</span>}
                           </div>
                           <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:5 }}>
-                            <span style={{ fontSize:10, color:"#22c55e" }}>â†‘</span>
+                            <span style={{ fontSize:10, color:"#22c55e" }}>↑</span>
                             <span style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.inPlayer.name}</span>
                             <span style={{ fontSize:10, fontWeight:700, color:inEng.color, flexShrink:0 }}>{inEng.emoji}{inEng.energy}</span>
                           </div>
@@ -2999,7 +2999,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                   </button>
                   <button onClick={acceptProposal} className="btn-gold"
                     style={{ flex:1, padding:9, borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                    âœ“ Aplicar cambios
+                    ✓ Aplicar cambios
                   </button>
                 </div>
               )}
@@ -3007,15 +3007,15 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
           </div>
         )}
 
-        {/* â”€â”€ 12. Alineaciones guardadas â”€â”€ */}
+        {/* ── 12. Alineaciones guardadas ── */}
         <div style={{ display:"flex", gap:6, padding:"0 12px 8px" }}>
           <button onClick={() => setShowSavedLineups(s => !s)}
             style={{ flex:1, background:"rgba(59,130,246,.1)", border:"1px solid rgba(59,130,246,.25)", color:"#60a5fa", padding:"7px 8px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer" }}>
-            ðŸ“‹ Alineaciones guardadas {savedLineups?.length ? `(${savedLineups.length})` : ""} {showSavedLineups ? "â–´" : "â–¾"}
+            📋 Alineaciones guardadas {savedLineups?.length ? `(${savedLineups.length})` : ""} {showSavedLineups ? "▴" : "▾"}
           </button>
           <button onClick={() => setSavingPreset(true)}
             style={{ background:"rgba(34,197,94,.1)", border:"1px solid rgba(34,197,94,.25)", color:"#22c55e", padding:"7px 10px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
-            ðŸ’¾ Guardar actual
+            💾 Guardar actual
           </button>
         </div>
 
@@ -3023,7 +3023,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
           <div style={{ padding:"0 12px 10px", display:"flex", flexDirection:"column", gap:6 }}>
             {(!savedLineups || savedLineups.length === 0) && (
               <div style={{ fontSize:11, color:"#4b5563", textAlign:"center", padding:"10px 0" }}>
-                AÃºn no tienes alineaciones guardadas. Configura un once y pulsa "Guardar actual".
+                Aún no tienes alineaciones guardadas. Configura un once y pulsa "Guardar actual".
               </div>
             )}
             {(savedLineups ?? []).map(preset => (
@@ -3031,7 +3031,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                 <span style={{ fontSize:18 }}>{preset.icon}</span>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:12, fontWeight:700, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{preset.name}</div>
-                  <div style={{ fontSize:10, color:"#6b7280" }}>{preset.formation} Â· {preset.lineup.filter(Boolean).length}/11 titulares</div>
+                  <div style={{ fontSize:10, color:"#6b7280" }}>{preset.formation} · {preset.lineup.filter(Boolean).length}/11 titulares</div>
                 </div>
                 <button onClick={() => loadPreset(preset)} className="btn-gold"
                   style={{ padding:"6px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer" }}>
@@ -3039,20 +3039,20 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                 </button>
                 <button onClick={() => deletePreset(preset.id)}
                   style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)", color:"#ef4444", padding:"6px 9px", borderRadius:6, fontSize:11, cursor:"pointer" }}>
-                  ðŸ—‘
+                  🗑
                 </button>
               </div>
             ))}
           </div>
         )}
 
-        {/* Modal: guardar alineaciÃ³n actual con nombre e icono */}
+        {/* Modal: guardar alineación actual con nombre e icono */}
         {savingPreset && (
           <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.6)", zIndex:50, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
             onClick={() => setSavingPreset(false)}>
             <div onClick={e => e.stopPropagation()}
               style={{ background:"#161a24", border:"1px solid rgba(201,168,76,.3)", borderRadius:12, padding:18, width:"100%", maxWidth:320 }}>
-              <div style={{ fontSize:14, fontWeight:700, color:"#c9a84c", marginBottom:12 }}>Guardar alineaciÃ³n actual</div>
+              <div style={{ fontSize:14, fontWeight:700, color:"#c9a84c", marginBottom:12 }}>Guardar alineación actual</div>
               <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="Nombre (ej. Liga, Visitante...)"
                 autoFocus
                 style={{ width:"100%", background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#e8eaf0", padding:"9px 11px", borderRadius:7, fontSize:13, marginBottom:12, fontFamily:"inherit" }}/>
@@ -3083,7 +3083,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
-          {/* â”€â”€ 3. Campo con media + energÃ­a visible por jugador â”€â”€ */}
+          {/* ── 3. Campo con media + energía visible por jugador ── */}
           <div style={{ height:240, flexShrink:0, position:"relative", background:"#061206", borderBottom:"1px solid rgba(255,255,255,.06)", overflow:"hidden" }}>
             <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%" }} viewBox="0 0 100 100" preserveAspectRatio="none">
               <rect x="5" y="2" width="90" height="96" fill="none" stroke="rgba(255,255,255,.09)" strokeWidth=".8"/>
@@ -3115,11 +3115,11 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                       : <span style={{ fontSize:8, color:"rgba(255,255,255,.35)" }}>{posLabel}</span>}
                     {unavail && (
                       <span style={{ position:"absolute", top:-4, right:-4, fontSize:11, background:"#ef4444", borderRadius:"50%", width:14, height:14, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        {player.injured ? "ðŸš‘" : "ðŸŸ¥"}
+                        {player.injured ? "🚑" : "🟥"}
                       </span>
                     )}
                     {nearSuspension && !unavail && (
-                      <span style={{ position:"absolute", top:-4, right:-4, fontSize:9, background:"#fbbf24", borderRadius:"50%", width:14, height:14, display:"flex", alignItems:"center", justifyContent:"center" }} title="4 amarillas, a una de sanciÃ³n">ðŸŸ¨</span>
+                      <span style={{ position:"absolute", top:-4, right:-4, fontSize:9, background:"#fbbf24", borderRadius:"50%", width:14, height:14, display:"flex", alignItems:"center", justifyContent:"center" }} title="4 amarillas, a una de sanción">🟨</span>
                     )}
                   </div>
                   {player && (
@@ -3133,7 +3133,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
             })}
           </div>
 
-          {/* â”€â”€ 5. MenÃº de sustituciÃ³n rÃ¡pida (al pulsar titular) â”€â”€ */}
+          {/* ── 5. Menú de sustitución rápida (al pulsar titular) ── */}
           {subTarget && (
             <div style={{ background:"#1a1f2e", borderBottom:"1px solid rgba(201,168,76,.25)", padding:"10px 12px", flexShrink:0, display:"flex", flexDirection:"column", maxHeight:"40vh" }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, flexShrink:0 }}>
@@ -3143,7 +3143,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                     {energyLevel(subTarget.player.fatigue).emoji}{energyLevel(subTarget.player.fatigue).energy}
                   </span>
                 </div>
-                <button onClick={() => setSubTarget(null)} style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#9aa0b4", padding:"4px 9px", borderRadius:6, fontSize:11, cursor:"pointer" }}>âœ•</button>
+                <button onClick={() => setSubTarget(null)} style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#9aa0b4", padding:"4px 9px", borderRadius:6, fontSize:11, cursor:"pointer" }}>✕</button>
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:5, overflowY:"auto", paddingRight:2 }}>
                 {getSubCandidates().length === 0 && (
@@ -3158,7 +3158,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                       <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={5}/>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
-                        <div style={{ fontSize:9, color:"#6b7280" }}>{p.pos}{samePos?" Â· misma posiciÃ³n":""}</div>
+                        <div style={{ fontSize:9, color:"#6b7280" }}>{p.pos}{samePos?" · misma posición":""}</div>
                       </div>
                       <span style={{ fontSize:11, fontWeight:700, color:eng.color }}>{eng.emoji}{eng.energy}</span>
                       <span style={{ fontSize:13, fontWeight:700, color:RARITY_ACCENT[p.rarity] }}>{p.overall}</span>
@@ -3169,23 +3169,23 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
             </div>
           )}
 
-          {/* â”€â”€ 1 + 2. Bloques: Titulares / Banquillo / No convocados, con energÃ­a visible â”€â”€ */}
+          {/* ── 1 + 2. Bloques: Titulares / Banquillo / No convocados, con energía visible ── */}
           <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", borderTop:"1px solid rgba(255,255,255,.05)" }}>
             {activeSlot && (
               <div style={{ background:"#c9a84c22", borderBottom:"1px solid #c9a84c44", padding:"7px 12px", flexShrink:0 }}>
                 <div style={{ fontSize:11, color:"#c9a84c", fontWeight:700 }}>
                   {activeSlot.type==="starter"
-                    ? `Slot ${activeSlot.idx+1} Â· ${slotPositions[activeSlot.idx]} Â· elige titular`
-                    : `Suplente ${activeSlot.idx+1} Â· elige reserva`}
+                    ? `Slot ${activeSlot.idx+1} · ${slotPositions[activeSlot.idx]} · elige titular`
+                    : `Suplente ${activeSlot.idx+1} · elige reserva`}
                 </div>
               </div>
             )}
 
             <div style={{ flex:1, overflowY:"auto", padding:"8px 10px" }}>
 
-              {/* ðŸŸ¢ TITULARES */}
+              {/* 🟢 TITULARES */}
               <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6, marginTop:2 }}>
-                <span style={{ fontSize:11 }}>ðŸŸ¢</span>
+                <span style={{ fontSize:11 }}>🟢</span>
                 <span style={{ fontSize:10, fontWeight:700, color:"#22c55e", letterSpacing:".4px" }}>TITULARES ({startersCount}/11)</span>
               </div>
               {lineup.map((id, idx) => {
@@ -3203,25 +3203,25 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}>
                         <span title={role.label}>{role.icon}</span>{p.name}
-                        {(p.yellowCards ?? 0) > 0 && <span style={{ fontSize:9, color:"#fbbf24" }}>ðŸŸ¨{p.yellowCards}</span>}
+                        {(p.yellowCards ?? 0) > 0 && <span style={{ fontSize:9, color:"#fbbf24" }}>🟨{p.yellowCards}</span>}
                       </div>
                       <div style={{ fontSize:9, color: risk?.level==="high"?"#ef4444":risk?.level==="mid"?"#f97316":"#6b7280" }}>
-                        {p.pos} Â· {slotPositions[idx]}{risk ? ` Â· ${risk.label}` : ""}
+                        {p.pos} · {slotPositions[idx]}{risk ? ` · ${risk.label}` : ""}
                       </div>
                     </div>
                     <div style={{ textAlign:"center" }}>
                       <div style={{ fontSize:14, fontWeight:700, color:RARITY_ACCENT[p.rarity] }}>{p.overall}</div>
                       <div style={{ fontSize:11, fontWeight:800, color:eng.color }}>{eng.emoji}{eng.energy}</div>
                     </div>
-                    <button onClick={event=>{event.stopPropagation();onOpenPlayer(p);}} title="Ver perfil" style={{ background:"transparent", border:"none", color:"#c9a84c", cursor:"pointer", padding:4 }}>â“˜</button>
+                    <button onClick={event=>{event.stopPropagation();onOpenPlayer(p);}} title="Ver perfil" style={{ background:"transparent", border:"none", color:"#c9a84c", cursor:"pointer", padding:4 }}>ⓘ</button>
                   </div>
                 );
               })}
 
-              {/* ðŸŸ¡ BANQUILLO */}
+              {/* 🟡 BANQUILLO */}
               <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6, marginTop:14 }}>
-                <span style={{ fontSize:11 }}>ðŸŸ¡</span>
-                <span style={{ fontSize:10, fontWeight:700, color:"#fbbf24", letterSpacing:".4px" }}>BANQUILLO ({usedSubIds.length}/{BENCH_SLOTS}) Â· {STARTERS_SLOTS + usedSubIds.length}/{CALLED_UP_SLOTS} convocados</span>
+                <span style={{ fontSize:11 }}>🟡</span>
+                <span style={{ fontSize:10, fontWeight:700, color:"#fbbf24", letterSpacing:".4px" }}>BANQUILLO ({usedSubIds.length}/{BENCH_SLOTS}) · {STARTERS_SLOTS + usedSubIds.length}/{CALLED_UP_SLOTS} convocados</span>
               </div>
               {subs.map((id, idx) => {
                 const p = players.find(pl => pl.id === id);
@@ -3254,24 +3254,24 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                       <div style={{ fontSize:14, fontWeight:700, color:RARITY_ACCENT[p.rarity] }}>{p.overall}</div>
                       <div style={{ fontSize:11, fontWeight:800, color:eng.color }}>{eng.emoji}{eng.energy}</div>
                     </div>
-                    <button onClick={event=>{event.stopPropagation();onOpenPlayer(p);}} title="Ver perfil" style={{ background:"transparent", border:"none", color:"#c9a84c", cursor:"pointer", padding:4 }}>â“˜</button>
+                    <button onClick={event=>{event.stopPropagation();onOpenPlayer(p);}} title="Ver perfil" style={{ background:"transparent", border:"none", color:"#c9a84c", cursor:"pointer", padding:4 }}>ⓘ</button>
                   </div>
                 );
               })}
 
-              {/* âšª NO CONVOCADOS */}
+              {/* ⚪ NO CONVOCADOS */}
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:14, marginBottom:6 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                  <span style={{ fontSize:11 }}>âšª</span>
+                  <span style={{ fontSize:11 }}>⚪</span>
                   <span style={{ fontSize:10, fontWeight:700, color:"#9aa0b4", letterSpacing:".4px" }}>NO CONVOCADOS ({sortedNotCalled.length})</span>
                 </div>
-                {/* 11. OrdenaciÃ³n */}
+                {/* 11. Ordenación */}
                 <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                   style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", fontSize:9, borderRadius:5, padding:"3px 5px" }}>
                   <option value="role">Calidad</option>
-                  <option value="energy">EnergÃ­a</option>
+                  <option value="energy">Energía</option>
                   <option value="overall">Media</option>
-                  <option value="pos">PosiciÃ³n</option>
+                  <option value="pos">Posición</option>
                   <option value="age">Edad</option>
                 </select>
               </div>
@@ -3287,13 +3287,13 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                       <div style={{ fontSize:11, fontWeight:600, color:"#c9ccd4", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}>
                         <span title={role.label}>{role.icon}</span>{p.name}
                       </div>
-                      <div style={{ fontSize:9, color:"#6b7280" }}>{p.pos} Â· {p.age}a</div>
+                      <div style={{ fontSize:9, color:"#6b7280" }}>{p.pos} · {p.age}a</div>
                     </div>
                     <div style={{ textAlign:"center" }}>
                       <div style={{ fontSize:12, fontWeight:700, color:RARITY_ACCENT[p.rarity] }}>{p.overall}</div>
                       <div style={{ fontSize:10, fontWeight:700, color:eng.color }}>{eng.emoji}{eng.energy}</div>
                     </div>
-                    <button onClick={event=>{event.stopPropagation();onOpenPlayer(p);}} title="Ver perfil" style={{ background:"transparent", border:"none", color:"#c9a84c", cursor:"pointer", padding:4 }}>â“˜</button>
+                    <button onClick={event=>{event.stopPropagation();onOpenPlayer(p);}} title="Ver perfil" style={{ background:"transparent", border:"none", color:"#c9a84c", cursor:"pointer", padding:4 }}>ⓘ</button>
                   </div>
                 );
               })}
@@ -3307,8 +3307,8 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:11, color:"#6b7280", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
                       </div>
-                      {p.injured && <span style={{ fontSize:9, color:"#ef4444", fontWeight:700 }}>LESIÃ“N{p.injuryGames?` ${p.injuryGames}J`:""}</span>}
-                      {p.suspended && <span style={{ fontSize:9, color:"#f59e0b", fontWeight:700 }}>SANCIÃ“N{p.yellowCards>=5?" (5 amarillas)":""}</span>}
+                      {p.injured && <span style={{ fontSize:9, color:"#ef4444", fontWeight:700 }}>LESIÓN{p.injuryGames?` ${p.injuryGames}J`:""}</span>}
+                      {p.suspended && <span style={{ fontSize:9, color:"#f59e0b", fontWeight:700 }}>SANCIÓN{p.yellowCards>=5?" (5 amarillas)":""}</span>}
                     </div>
                   ))}
                 </div>
@@ -3385,20 +3385,20 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
       {/* Selector jornada */}
       <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
         <button onClick={()=>setMatchday(m=>Math.max(1,m-1))}
-          style={{ background:"#1e2330", color:"#e8eaf0", border:"1px solid rgba(255,255,255,.08)", padding:"7px 12px", borderRadius:7, cursor:"pointer", fontSize:14, fontWeight:600 }}>â†</button>
+          style={{ background:"#1e2330", color:"#e8eaf0", border:"1px solid rgba(255,255,255,.08)", padding:"7px 12px", borderRadius:7, cursor:"pointer", fontSize:14, fontWeight:600 }}>←</button>
         <select value={matchday} onChange={e=>setMatchday(Number(e.target.value))}
           style={{ flex:1, background:"#1e2330", color:"#c9a84c", border:"1px solid rgba(255,255,255,.1)", borderRadius:7, padding:"7px 10px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
           {mdOptions.map(md=>(
-            <option key={md} value={md}>Jornada {md}{md===nextUnplayed?.matchday?" â† siguiente":""}</option>
+            <option key={md} value={md}>Jornada {md}{md===nextUnplayed?.matchday?" ← siguiente":""}</option>
           ))}
         </select>
         <button onClick={()=>setMatchday(m=>Math.min(38,m+1))}
-          style={{ background:"#1e2330", color:"#e8eaf0", border:"1px solid rgba(255,255,255,.08)", padding:"7px 12px", borderRadius:7, cursor:"pointer", fontSize:14, fontWeight:600 }}>â†’</button>
+          style={{ background:"#1e2330", color:"#e8eaf0", border:"1px solid rgba(255,255,255,.08)", padding:"7px 12px", borderRadius:7, cursor:"pointer", fontSize:14, fontWeight:600 }}>→</button>
       </div>
 
       {/* Tabs */}
       <div style={{ display:"flex", background:"#161a24", borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
-        {[["todos","ðŸ—“ï¸ Todos"],["mi_equipo","âš½ Mi partido"]].map(([id,label])=>(
+        {[["todos","🗓️ Todos"],["mi_equipo","⚽ Mi partido"]].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)}
             style={{ flex:1, background:"transparent", border:"none", borderBottom:tab===id?"2px solid #c9a84c":"2px solid transparent", color:tab===id?"#c9a84c":"#6b7280", padding:"9px 8px", fontSize:12, fontWeight:tab===id?700:500, cursor:"pointer" }}>
             {label}
@@ -3413,7 +3413,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
           <button onClick={lineupValid?onPlay:undefined} className={lineupValid?"btn-gold":""}
             style={{ width:"100%", marginBottom:12, padding:"12px", borderRadius:9, fontSize:13, fontWeight:700, cursor:"pointer",
               ...(!lineupValid?{background:"#374151",color:"#9aa0b4",border:"1px solid rgba(255,255,255,.08)"}:{}) }}>
-            {lineupValid ? `â–¶ Jugar Jornada ${matchday}` : `âš ï¸ AlineaciÃ³n incompleta (${lineup.filter(Boolean).length}/11)`}
+            {lineupValid ? `▶ Jugar Jornada ${matchday}` : `⚠️ Alineación incompleta (${lineup.filter(Boolean).length}/11)`}
           </button>
         )}
 
@@ -3430,7 +3430,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
               borderRadius:10, padding:"11px 12px", marginBottom:7 }}>
               {isUserGame && (
                 <div style={{ fontSize:9, color:isNext?"#c9a84c":"#6b7280", fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:5 }}>
-                  {isNext?"â–¶ Tu prÃ³ximo partido":"Tu partido"}
+                  {isNext?"▶ Tu próximo partido":"Tu partido"}
                 </div>
               )}
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
@@ -3453,7 +3453,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
                 <button onClick={lineupValid?onPlay:undefined} className={lineupValid?"btn-gold":""}
                   style={{ width:"100%", marginTop:9, padding:9, borderRadius:7, fontSize:13, fontWeight:700, cursor:"pointer",
                     ...(!lineupValid?{background:"#374151",color:"#9aa0b4",border:"1px solid rgba(255,255,255,.08)"}:{}) }}>
-                  {lineupValid?"â–¶ Jugar este partido":"âš ï¸ Configura tu alineaciÃ³n primero"}
+                  {lineupValid?"▶ Jugar este partido":"⚠️ Configura tu alineación primero"}
                 </button>
               )}
             </div>
@@ -3491,27 +3491,27 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
   const nextOpponentId=nextFixture?(nextFixture.homeTeamId===teamId?nextFixture.awayTeamId:nextFixture.homeTeamId):null;
   const lastResultFor=clubId=>[...fixtures].filter(f=>f.played&&(f.homeTeamId===clubId||f.awayTeamId===clubId)).sort((a,b)=>(b.matchday??0)-(a.matchday??0))[0];
 
-  // â”€â”€ Goleadores: extraer de todos los eventos de fixtures jugados â”€â”€
-  // FunciÃ³n para resolver el EQUIPO ACTUAL de un jugador (puede haber cambiado por fichaje)
+  // ── Goleadores: extraer de todos los eventos de fixtures jugados ──
+  // Función para resolver el EQUIPO ACTUAL de un jugador (puede haber cambiado por fichaje)
   const resolveCurrentTeamId = (playerId, fallbackTeamId) => {
-    if (players?.some(p => p.id === playerId)) return teamId; // estÃ¡ en la plantilla del usuario ahora
-    // Buscar en quÃ© REAL_SQUADS estÃ¡ actualmente (si fue fichado por otro club de la IA, no lo gestionamos, asÃ­ que se queda en el fallback)
+    if (players?.some(p => p.id === playerId)) return teamId; // está en la plantilla del usuario ahora
+    // Buscar en qué REAL_SQUADS está actualmente (si fue fichado por otro club de la IA, no lo gestionamos, así que se queda en el fallback)
     for (const tId of Object.keys(REAL_SQUADS)) {
       if (REAL_SQUADS[tId]?.some(p => p.id === playerId)) return tId;
     }
-    return fallbackTeamId; // ya no estÃ¡ en ninguna plantilla conocida (caso raro), usar el de cuando marcÃ³
+    return fallbackTeamId; // ya no está en ninguna plantilla conocida (caso raro), usar el de cuando marcó
   };
 
-  const scorerMap = {};  // playerId â†’ { goals, name, teamId, overall, rarity, pos }
+  const scorerMap = {};  // playerId → { goals, name, teamId, overall, rarity, pos }
   fixtures.filter(f => f.played && f.events?.length).forEach(f => {
     f.events.filter(e => (e.type==="GOAL"||e.type==="PENALTY") && e.playerId).forEach(e => {
-      // team:"home" â†’ fixture.homeTeamId, team:"away" â†’ fixture.awayTeamId (equipo en el momento del gol)
+      // team:"home" → fixture.homeTeamId, team:"away" → fixture.awayTeamId (equipo en el momento del gol)
       const scoringTeamIdAtTime = e.team === "home" ? f.homeTeamId : f.awayTeamId;
       if (!scorerMap[e.playerId]) {
-        // Nombre: buscar primero en la plantilla del usuario (datos en vivo), luego en la plantilla de cuando marcÃ³
+        // Nombre: buscar primero en la plantilla del usuario (datos en vivo), luego en la plantilla de cuando marcó
         const pl = players?.find(p => p.id===e.playerId)
           ?? (REAL_SQUADS[scoringTeamIdAtTime] ?? []).find(p => p.id === e.playerId);
-        // Equipo a mostrar: el ACTUAL del jugador (puede haber cambiado de equipo desde que marcÃ³ este gol)
+        // Equipo a mostrar: el ACTUAL del jugador (puede haber cambiado de equipo desde que marcó este gol)
         const currentTeamId = resolveCurrentTeamId(e.playerId, scoringTeamIdAtTime);
         scorerMap[e.playerId] = { id:e.playerId, player:pl, goals:0, name: pl?.name ?? "Jugador desconocido", teamId: currentTeamId, overall: pl?.overall??75, rarity: pl?.rarity??"GOLD", pos: pl?.pos??"DC", isUser: currentTeamId===teamId };
       }
@@ -3520,14 +3520,14 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
   });
   const scorerList = Object.values(scorerMap).sort((a,b)=>b.goals-a.goals).slice(0,20);
 
-  // â”€â”€ Stats de equipos: ofensiva/defensiva â”€â”€
+  // ── Stats de equipos: ofensiva/defensiva ──
   const teamStats = sorted.map(s => ({
     ...s,
     avgGoalsFor:  s.played > 0 ? (s.goalsFor/s.played).toFixed(1)  : "0.0",
     avgGoalsAgainst: s.played > 0 ? (s.goalsAgainst/s.played).toFixed(1) : "0.0",
   }));
 
-  const tabs = [["tabla","ðŸ“Š Tabla"],["goleadores","âš½ Goleadores"],["stats","ðŸ“ˆ Stats"]];
+  const tabs = [["tabla","📊 Tabla"],["goleadores","⚽ Goleadores"],["stats","📈 Stats"]];
 
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
@@ -3545,7 +3545,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
       <SwipeTabs tabs={tabs.map(([id])=>id)} activeTab={tab} onChange={setTab} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
       <div style={{ flex:1, overflowY:"auto" }}>
 
-        {/* â”€â”€ TABLA CLASIFICACIÃ“N â”€â”€ */}
+        {/* ── TABLA CLASIFICACIÓN ── */}
         {tab==="tabla" && (
           <div style={{ padding:12 }}>
             <div style={{ overflowX:"auto" }}>
@@ -3565,13 +3565,13 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
                     const zoneBorder=i===3?"border-bottom:2px solid #c9a84c44":i===6?"border-bottom:1px dashed #22c55e33":i===16?"border-bottom:2px solid #ef444433":"";
                     return (
                       <tr key={s.teamId} style={{ borderBottom:i===3?"2px solid rgba(201,168,76,.2)":i===6?"1px dashed rgba(34,197,94,.15)":i===16?"2px solid rgba(239,68,68,.2)":"1px solid rgba(255,255,255,.03)", background:isUser?"rgba(201,168,76,.09)":isNext?"rgba(96,165,250,.08)":"transparent", transition:"background .1s" }}>
-                        <td style={{ padding:"7px 4px", textAlign:"center", fontWeight:700, color:posColor, fontSize:11 }}>{i+1}<span style={{display:"block",fontSize:8,color:move>0?"#22c55e":move<0?"#ef4444":"#4b5563"}}>{move>0?`â–²${move}`:move<0?`â–¼${Math.abs(move)}`:"â€”"}</span></td>
+                        <td style={{ padding:"7px 4px", textAlign:"center", fontWeight:700, color:posColor, fontSize:11 }}>{i+1}<span style={{display:"block",fontSize:8,color:move>0?"#22c55e":move<0?"#ef4444":"#4b5563"}}>{move>0?`▲${move}`:move<0?`▼${Math.abs(move)}`:"—"}</span></td>
                         <td style={{ padding:"7px 4px" }}>
                           <div style={{ display:"flex", alignItems:"center", gap:5 }}>
                             <TeamCrest team={t} size={20}/>
                             <span style={{ color:isUser?"#c9a84c":"#e8eaf0", fontWeight:isUser?700:400, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:85, fontSize:12 }}>{t?.name}</span>
-                            {isUser && <span style={{ fontSize:8, color:"#c9a84c" }}>â˜…</span>}
-                            {isNext&&<span style={{fontSize:7,color:"#60a5fa",fontWeight:900}}>PRÃ“X.</span>}
+                            {isUser && <span style={{ fontSize:8, color:"#c9a84c" }}>★</span>}
+                            {isNext&&<span style={{fontSize:7,color:"#60a5fa",fontWeight:900}}>PRÓX.</span>}
                           </div>
                           {last&&<div style={{fontSize:8,color:"#5f6675",marginTop:2}}>{getTeam(last.homeTeamId)?.short} {last.homeGoals}-{last.awayGoals} {getTeam(last.awayTeamId)?.short}</div>}
                         </td>
@@ -3597,27 +3597,27 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
           </div>
         )}
 
-        {/* â”€â”€ GOLEADORES â”€â”€ */}
+        {/* ── GOLEADORES ── */}
         {tab==="goleadores" && (
           <div style={{ padding:14 }}>
             {scorerList.length === 0 ? (
               <div style={{ textAlign:"center", color:"#4b5563", fontSize:13, marginTop:40 }}>
-                AÃºn no hay goles registrados.<br/>Juega tu primer partido para ver los goleadores.
+                Aún no hay goles registrados.<br/>Juega tu primer partido para ver los goleadores.
               </div>
             ) : (
               <>
-                <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>CLASIFICACIÃ“N DE GOLEADORES</div>
+                <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>CLASIFICACIÓN DE GOLEADORES</div>
                 {scorerList.map((s,i)=>{
                   const acc = RARITY_ACCENT[s.rarity] ?? "#c9a84c";
                   const team = getTeam(s.teamId);
                   const isUser = s.isUser;
                   const maxGoals = scorerList[0]?.goals ?? 1;
                   const pct = Math.round((s.goals/maxGoals)*100);
-                  const podium = i===0?"ðŸ¥‡":i===1?"ðŸ¥ˆ":i===2?"ðŸ¥‰":null;
+                  const podium = i===0?"🥇":i===1?"🥈":i===2?"🥉":null;
                   return (
                     <div key={s.name+i} onClick={()=>s.player&&onOpenPlayer(s.player,s.teamId)} style={{ background: isUser?"rgba(201,168,76,.08)":"#161a24", border:`1px solid ${isUser?"rgba(201,168,76,.2)":"rgba(255,255,255,.05)"}`, borderRadius:10, padding:"11px 13px", marginBottom:8, cursor:s.player?"pointer":"default" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                        {/* PosiciÃ³n */}
+                        {/* Posición */}
                         <div style={{ fontSize:14, minWidth:24, textAlign:"center" }}>
                           {podium ?? <span style={{ fontSize:12, fontWeight:700, color:"#4b5563" }}>{i+1}</span>}
                         </div>
@@ -3626,11 +3626,11 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
                         {/* Info */}
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:13, fontWeight: isUser?700:600, color: isUser?"#c9a84c":"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                            {s.name} {isUser?"â˜…":""}
+                            {s.name} {isUser?"★":""}
                           </div>
                           <div style={{ fontSize:10, color:"#6b7280", marginTop:2, display:"flex", alignItems:"center", gap:6 }}>
                             <span>{s.pos}</span>
-                            {team && <><span>Â·</span><span style={{ color:team.color }}>{team.short}</span></>}
+                            {team && <><span>·</span><span style={{ color:team.color }}>{team.short}</span></>}
                           </div>
                           {/* Barra */}
                           <div style={{ marginTop:5, height:3, background:"#1e2330", borderRadius:2, overflow:"hidden" }}>
@@ -3651,12 +3651,12 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
           </div>
         )}
 
-        {/* â”€â”€ STATS DE EQUIPOS â”€â”€ */}
+        {/* ── STATS DE EQUIPOS ── */}
         {tab==="stats" && (
           <div style={{ padding:14 }}>
             {/* Top atacantes */}
             <div style={{ background:"#161a24", borderRadius:10, padding:13, marginBottom:12 }}>
-              <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>EQUIPOS MÃS GOLEADORES</div>
+              <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>EQUIPOS MÁS GOLEADORES</div>
               {[...teamStats].sort((a,b)=>b.goalsFor-a.goalsFor).slice(0,5).map((s,i)=>{
                 const t=getTeam(s.teamId); const isUser=s.teamId===teamId;
                 const max=[...teamStats].sort((a,b)=>b.goalsFor-a.goalsFor)[0]?.goalsFor||1;
@@ -3687,7 +3687,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
 
             {/* Menos goles encajados */}
             <div style={{ background:"#161a24", borderRadius:10, padding:13, marginBottom:12 }}>
-              <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>DEFENSAS MÃS SÃ“LIDAS</div>
+              <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>DEFENSAS MÁS SÓLIDAS</div>
               {[...teamStats].filter(s=>s.played>0).sort((a,b)=>a.goalsAgainst-b.goalsAgainst).slice(0,5).map((s,i)=>{
                 const t=getTeam(s.teamId); const isUser=s.teamId===teamId;
                 const max=[...teamStats].sort((a,b)=>b.goalsAgainst-a.goalsAgainst)[0]?.goalsAgainst||1;
@@ -3735,7 +3735,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
               return (
                 <div style={{ background:"linear-gradient(135deg,#1a1700,#1a2010)", border:"1px solid rgba(201,168,76,.2)", borderRadius:10, padding:13 }}>
                   <div style={{ fontSize:11, color:"#c9a84c", fontWeight:600, letterSpacing:".5px", marginBottom:12 }}>
-                    â­ {myTeam?.name?.toUpperCase()} â€” TEMPORADA
+                    ⭐ {myTeam?.name?.toUpperCase()} — TEMPORADA
                   </div>
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, marginBottom:12 }}>
                     {[["V",won,"#22c55e"],["E",drawn,"#f59e0b"],["D",lost,"#ef4444"],["GF-GC",`${totalGF}-${totalGA}`,"#c9a84c"]].map(([l,v,c])=>(
@@ -3745,7 +3745,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
                       </div>
                     ))}
                   </div>
-                  <div style={{ fontSize:10, color:"#6b7280", marginBottom:6, fontWeight:600 }}>RACHA (Ãºltimos {Math.min(results.length,10)})</div>
+                  <div style={{ fontSize:10, color:"#6b7280", marginBottom:6, fontWeight:600 }}>RACHA (últimos {Math.min(results.length,10)})</div>
                   <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
                     {results.slice(0,10).map((r,i)=>{
                       const col=r==="V"?"#22c55e":r==="E"?"#f59e0b":"#ef4444";
@@ -3763,7 +3763,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
   );
 }
 
-// â”€â”€â”€ PANTALLA DE TÃCTICAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── PANTALLA DE TÁCTICAS ─────────────────────────────────────────────────────
 
 function TacticsScreen({ tactics, setTactics }) {
   const S = { background: "#161a24", borderRadius: 10, padding: 14, marginBottom: 12 };
@@ -3793,34 +3793,34 @@ function TacticsScreen({ tactics, setTactics }) {
 
   const impacts = {
     mentalidad: {
-      defensiva:   "âˆ’3 ataque Â· +4 defensa Â· Menos ocasiones generadas",
+      defensiva:   "−3 ataque · +4 defensa · Menos ocasiones generadas",
       equilibrada: "Balance neutro entre ataque y defensa",
-      ofensiva:    "+4 ataque Â· âˆ’3 defensa Â· MÃ¡s ocasiones, mÃ¡s espacios atrÃ¡s",
+      ofensiva:    "+4 ataque · −3 defensa · Más ocasiones, más espacios atrás",
     },
     presion: {
-      baja:  "Menos cansancio Â· +2 defensa Â· Menor riesgo de amarillas",
-      media: "Balance neutro Â· PresiÃ³n moderada en todo el campo",
-      alta:  "+2 ataque Â· +3 cansancio Â· MÃ¡s amarillas Â· MÃ¡s recuperaciones",
+      baja:  "Menos cansancio · +2 defensa · Menor riesgo de amarillas",
+      media: "Balance neutro · Presión moderada en todo el campo",
+      alta:  "+2 ataque · +3 cansancio · Más amarillas · Más recuperaciones",
     },
     ritmo: {
-      lento:  "âˆ’1 cansancio Â· MÃ¡s control Â· Menos ocasiones por tramo",
+      lento:  "−1 cansancio · Más control · Menos ocasiones por tramo",
       normal: "Ritmo equilibrado en el partido",
-      rapido: "+1.5 cansancio Â· MÃ¡s transiciones Â· MÃ¡s ocasiones",
+      rapido: "+1.5 cansancio · Más transiciones · Más ocasiones",
     },
     estilo: {
-      directo:      "Balones largos Â· Mejor conversiÃ³n de gol Â· Menos toque",
-      posesion:     "+1 defensa Â· MÃ¡s toque Â· Desgaste rival",
-      bandas:       "+2 ataque Â· MÃ¡s centros Â· Ideal con extremos rÃ¡pidos",
-      contraataque: "+3 defensa Â· Alta conversiÃ³n Â· Ideal siendo inferior",
+      directo:      "Balones largos · Mejor conversión de gol · Menos toque",
+      posesion:     "+1 defensa · Más toque · Desgaste rival",
+      bandas:       "+2 ataque · Más centros · Ideal con extremos rápidos",
+      contraataque: "+3 defensa · Alta conversión · Ideal siendo inferior",
     },
     riesgo: {
-      conservador: "âˆ’2 ataque Â· +3 defensa Â· GestiÃ³n segura del resultado",
-      normal:      "Riesgo equilibrado segÃºn el contexto",
-      agresivo:    "+3 ataque Â· âˆ’2 defensa Â· MÃ¡s amarillas Â· A por el partido",
+      conservador: "−2 ataque · +3 defensa · Gestión segura del resultado",
+      normal:      "Riesgo equilibrado según el contexto",
+      agresivo:    "+3 ataque · −2 defensa · Más amarillas · A por el partido",
     },
   };
 
-  // Calcular fuerza tÃ¡ctica estimada
+  // Calcular fuerza táctica estimada
   const mod = tacticModifiers(tactics);
   const atkNet = mod.atkBonus + mod.chancesRate * 20;
   const defNet = mod.defBonus;
@@ -3829,7 +3829,7 @@ function TacticsScreen({ tactics, setTactics }) {
     <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
       {/* Resumen de impacto */}
       <div style={{ background: "#1a1f2e", border: "1px solid rgba(201,168,76,.2)", borderRadius: 10, padding: 14, marginBottom: 14 }}>
-        <div style={{ fontSize: 11, color: "#c9a84c", fontWeight: 600, letterSpacing: ".5px", marginBottom: 10 }}>IMPACTO TÃCTICO ACTUAL</div>
+        <div style={{ fontSize: 11, color: "#c9a84c", fontWeight: 600, letterSpacing: ".5px", marginBottom: 10 }}>IMPACTO TÁCTICO ACTUAL</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
           {[
             ["Ataque", atkNet, "#22c55e", "#ef4444"],
@@ -3849,14 +3849,14 @@ function TacticsScreen({ tactics, setTactics }) {
       <OptionGroup label="Mentalidad" field="mentalidad"
         options={[["defensiva","Defensiva"],["equilibrada","Equilibrada"],["ofensiva","Ofensiva"]]}
         descriptions={impacts.mentalidad} />
-      <OptionGroup label="PresiÃ³n" field="presion"
+      <OptionGroup label="Presión" field="presion"
         options={[["baja","Baja"],["media","Media"],["alta","Alta"]]}
         descriptions={impacts.presion} />
       <OptionGroup label="Ritmo" field="ritmo"
-        options={[["lento","Lento"],["normal","Normal"],["rapido","RÃ¡pido"]]}
+        options={[["lento","Lento"],["normal","Normal"],["rapido","Rápido"]]}
         descriptions={impacts.ritmo} />
       <OptionGroup label="Estilo de ataque" field="estilo"
-        options={[["directo","Directo"],["posesion","PosesiÃ³n"],["bandas","Bandas"],["contraataque","Contra"]]}
+        options={[["directo","Directo"],["posesion","Posesión"],["bandas","Bandas"],["contraataque","Contra"]]}
         descriptions={impacts.estilo} />
       <OptionGroup label="Riesgo" field="riesgo"
         options={[["conservador","Conservador"],["normal","Normal"],["agresivo","Agresivo"]]}
@@ -3889,9 +3889,9 @@ function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[],
     const minutes = hasPlayed ? Math.max(0, Math.min(currentMinute || 0, subOut?.minute ?? (currentMinute || 0)) - (subIn?.minute ?? 0)) : 0;
     const hasRating = minutes > 0 || goals || assists || saves || defensiveActions || yellows || red;
     const rating = hasRating ? Math.max(4, Math.min(10, 6 + Math.min(90, minutes) / 360 + goals * 1.25 + assists * .7 + saves * .18 + defensiveActions * .14 - yellows * .2 - (red ? 1.5 : 0))) : null;
-    return { goals, assists, yellows, red, saves, defensiveActions, minutes, rating: rating ? rating.toFixed(1) : "â€”" };
+    return { goals, assists, yellows, red, saves, defensiveActions, minutes, rating: rating ? rating.toFixed(1) : "—" };
   };
-  return <div style={{background:"#161a24",border:`1px solid ${team?.color??"#6b7280"}28`,borderRadius:11,padding:12,marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TeamCrest team={team} size={38}/><div style={{flex:1}}><div style={{fontSize:12,color:"#fff",fontWeight:850}}>{team?.name}</div><div style={{fontSize:9,color:team?.color??"#9aa0b4",marginTop:2}}>{formation} Â· {active.length} jugadores activos</div></div><div style={{textAlign:"center"}}><div style={{fontSize:20,color:"#c9a84c",fontWeight:900}}>{average}</div><div style={{fontSize:7,color:"#6b7280"}}>MEDIA ONCE</div></div></div><div style={{display:"flex",flexDirection:"column",gap:5}}>{lineupPlayers.map(player=>{const data=playerData(player);const red=data.red;const injured=injuredIds.has(player.id);const subOut=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===player.id);const subIn=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.playerId===player.id);return <div key={player.id} style={{background:red?"rgba(239,68,68,.07)":injured?"rgba(249,115,22,.07)":"#11141c",borderRadius:7,padding:"7px 9px",opacity:red||subOut?.7:1}}><div style={{display:"flex",alignItems:"center",gap:7}}><span style={{width:29,color:"#6b7280",fontSize:9,fontWeight:800}}>{player.pos}</span><span style={{flex:1,color:red?"#ef4444":injured?"#f97316":"#dfe3ec",fontSize:10,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</span>{data.goals>0&&<span>âš½{data.goals}</span>}{data.assists>0&&<span style={{fontSize:8,color:"#60a5fa"}}>A{data.assists}</span>}{data.yellows>0&&<span>ðŸŸ¨</span>}{red&&<span>ðŸŸ¥</span>}{injured&&<span>ðŸ¥</span>}<strong style={{fontSize:11,color:Number(data.rating)>=7?"#22c55e":"#c9a84c"}}>{data.rating}</strong></div><div style={{display:"flex",gap:7,marginTop:3,paddingLeft:36,fontSize:8,color:"#697083"}}>{player.fatigue!=null&&<span>âš¡ {Math.max(0,Math.round(100-player.fatigue))}%</span>}{subIn&&<span style={{color:"#22c55e"}}>ENTRA {subIn.minute}'</span>}{subOut&&<span style={{color:"#a855f7"}}>SALE {subOut.minute}'</span>}</div></div>})}</div>{keyPlayer&&<div style={{marginTop:9,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.05)",fontSize:9,color:"#6b7280"}}>â­ Jugador clave: <strong style={{color:team?.color??"#c9a84c"}}>{keyPlayer.name}</strong> Â· {keyPlayer.overall}</div>}{changes.length>0&&<div style={{marginTop:6,fontSize:8,color:"#a855f7"}}>ðŸ”„ {changes.length} cambio{changes.length===1?"":"s"}</div>}</div>;
+  return <div style={{background:"#161a24",border:`1px solid ${team?.color??"#6b7280"}28`,borderRadius:11,padding:12,marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TeamCrest team={team} size={38}/><div style={{flex:1}}><div style={{fontSize:12,color:"#fff",fontWeight:850}}>{team?.name}</div><div style={{fontSize:9,color:team?.color??"#9aa0b4",marginTop:2}}>{formation} · {active.length} jugadores activos</div></div><div style={{textAlign:"center"}}><div style={{fontSize:20,color:"#c9a84c",fontWeight:900}}>{average}</div><div style={{fontSize:7,color:"#6b7280"}}>MEDIA ONCE</div></div></div><div style={{display:"flex",flexDirection:"column",gap:5}}>{lineupPlayers.map(player=>{const data=playerData(player);const red=data.red;const injured=injuredIds.has(player.id);const subOut=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===player.id);const subIn=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.playerId===player.id);return <div key={player.id} style={{background:red?"rgba(239,68,68,.07)":injured?"rgba(249,115,22,.07)":"#11141c",borderRadius:7,padding:"7px 9px",opacity:red||subOut?.7:1}}><div style={{display:"flex",alignItems:"center",gap:7}}><span style={{width:29,color:"#6b7280",fontSize:9,fontWeight:800}}>{player.pos}</span><span style={{flex:1,color:red?"#ef4444":injured?"#f97316":"#dfe3ec",fontSize:10,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</span>{data.goals>0&&<span>⚽{data.goals}</span>}{data.assists>0&&<span style={{fontSize:8,color:"#60a5fa"}}>A{data.assists}</span>}{data.yellows>0&&<span>🟨</span>}{red&&<span>🟥</span>}{injured&&<span>🏥</span>}<strong style={{fontSize:11,color:Number(data.rating)>=7?"#22c55e":"#c9a84c"}}>{data.rating}</strong></div><div style={{display:"flex",gap:7,marginTop:3,paddingLeft:36,fontSize:8,color:"#697083"}}>{player.fatigue!=null&&<span>⚡ {Math.max(0,Math.round(100-player.fatigue))}%</span>}{subIn&&<span style={{color:"#22c55e"}}>ENTRA {subIn.minute}'</span>}{subOut&&<span style={{color:"#a855f7"}}>SALE {subOut.minute}'</span>}</div></div>})}</div>{keyPlayer&&<div style={{marginTop:9,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.05)",fontSize:9,color:"#6b7280"}}>⭐ Jugador clave: <strong style={{color:team?.color??"#c9a84c"}}>{keyPlayer.name}</strong> · {keyPlayer.overall}</div>}{changes.length>0&&<div style={{marginTop:6,fontSize:8,color:"#a855f7"}}>🔄 {changes.length} cambio{changes.length===1?"":"s"}</div>}</div>;
 }
 
 function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, lineup: baseLineup, setLineup: setBaseLineup, subs: baseSubs, setSubs: setBaseSubs, formation:baseFormation="4-3-3", onMatchEnd }) {
@@ -3908,15 +3908,15 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [liveOppPlayers, setLiveOppPlayers] = useState(()=>initialOppPlayers.map(player=>({...player,fatigue:player.fatigue??18})));
   const [subsUsed, setSubsUsed] = useState(0);
   const MAX_SUBS = MAX_MATCH_SUBS;
-  // LesiÃ³n pendiente de sustituciÃ³n forzada: { playerId, name }
+  // Lesión pendiente de sustitución forzada: { playerId, name }
   const [pendingInjury, setPendingInjury] = useState(null);
   // Slot del titular que se quiere sustituir manualmente: index en lineup, o null
   const [subbingSlot, setSubbingSlot] = useState(null);
-  // Banner de evento clave del Ãºltimo tramo (gol, tarjeta) â€” se autodescarta
+  // Banner de evento clave del último tramo (gol, tarjeta) — se autodescarta
   const [keyEventBanner, setKeyEventBanner] = useState(null);
-  // PosesiÃ³n del balÃ³n (% del equipo del usuario) â€” se actualiza tras cada tramo
+  // Posesión del balón (% del equipo del usuario) — se actualiza tras cada tramo
   const [possession, setPossession] = useState(50);
-  // IDs de jugadores expulsados durante ESTE partido â€” quedan fuera del campo el resto del encuentro
+  // IDs de jugadores expulsados durante ESTE partido — quedan fuera del campo el resto del encuentro
   const [sentOffIds, setSentOffIds] = useState([]);
   const [oppSentOffIds, setOppSentOffIds] = useState([]);
   const [currentMinute, setCurrentMinute] = useState(0);
@@ -3924,7 +3924,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [playing, setPlaying] = useState(false);
   const [matchPhase, setMatchPhase] = useState("firstRegular");
   const [addedTime, setAddedTime] = useState({ first:null, second:null });
-  // IDs de jugadores ya sustituidos (salieron del campo) â€” no pueden volver a jugar este partido
+  // IDs de jugadores ya sustituidos (salieron del campo) — no pueden volver a jugar este partido
   const [subbedOutIds, setSubbedOutIds] = useState([]);
   const [oppCallup] = useState(()=>buildMatchdaySquad(initialOppPlayers,initialOppFormation,BENCH_SLOTS));
   const [oppLineup, setOppLineup] = useState(()=>oppCallup.lineup);
@@ -3933,9 +3933,9 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const [oppSubbedOutIds, setOppSubbedOutIds] = useState([]);
   const processedMinuteRef = useRef(new Set());
 
-  // Copias LOCALES de alineaciÃ³n, banco y tÃ¡ctica â€” los cambios durante el partido
+  // Copias LOCALES de alineación, banco y táctica — los cambios durante el partido
   // son solo para este partido y nunca tocan el estado persistente de App.
-  // Al terminar el partido se descartan automÃ¡ticamente (no se sincronizan de vuelta).
+  // Al terminar el partido se descartan automáticamente (no se sincronizan de vuelta).
   const [lineup, setLineup] = useState(normalizeSlots(baseLineup, STARTERS_SLOTS));
   const [subs, setSubs]     = useState(normalizeSlots(baseSubs, BENCH_SLOTS));
   const [tactics, setTactics] = useState(baseTactics);
@@ -3974,7 +3974,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const triggerBoundaryPause = (minute) => {
     if(matchPhase==="firstRegular"&&minute>=45){
       const added=calculateAddedMinutes("first");
-      const event={minute:45,type:"ADDED_TIME",description:`â±ï¸ Tiempo aÃ±adido de la primera parte: +${added}.`};
+      const event={minute:45,type:"ADDED_TIME",description:`⏱️ Tiempo añadido de la primera parte: +${added}.`};
       setAddedTime(current=>({...current,first:added}));
       setMatchPhase("firstAddedReady");
       setEvents(current=>current.some(item=>item.type==="ADDED_TIME"&&item.minute===45)?current:[...current,event]);
@@ -3984,17 +3984,17 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       return true;
     }
     if(matchPhase==="firstAdded"&&minute>=45+(addedTime.first??0)){
-      const event={minute,type:"HALFTIME",description:"â˜• Descanso. Revisa cambios, tÃ¡cticas y estado fÃ­sico antes de iniciar la segunda parte."};
+      const event={minute,type:"HALFTIME",description:"☕ Descanso. Revisa cambios, tácticas y estado físico antes de iniciar la segunda parte."};
       setMatchPhase("halftime");
       setEvents(current=>current.some(item=>item.type==="HALFTIME")?current:[...current,event]);
       setPauseEvent(event);
-      setKeyEventBanner({minute,type:"HALFTIME",description:"â˜• Descanso. La segunda parte no comienza hasta que pulses Play."});
+      setKeyEventBanner({minute,type:"HALFTIME",description:"☕ Descanso. La segunda parte no comienza hasta que pulses Play."});
       setPlaying(false);setTab("tacticas");
       return true;
     }
     if(matchPhase==="secondRegular"&&minute>=90){
       const added=calculateAddedMinutes("second");
-      const event={minute:90,type:"ADDED_TIME",description:`â±ï¸ Tiempo aÃ±adido de la segunda parte: +${added}.`};
+      const event={minute:90,type:"ADDED_TIME",description:`⏱️ Tiempo añadido de la segunda parte: +${added}.`};
       setAddedTime(current=>({...current,second:added}));
       setMatchPhase("secondAddedReady");
       setEvents(current=>current.some(item=>item.type==="ADDED_TIME"&&item.minute===90)?current:[...current,event]);
@@ -4010,17 +4010,17 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     return false;
   };
 
-  // Realizar una sustituciÃ³n: sale outId, entra inId (debe estar en el banco)
+  // Realizar una sustitución: sale outId, entra inId (debe estar en el banco)
   const doSubstitution = (outId, inId) => {
     if (subsUsed >= MAX_SUBS) return;
-    if (subbedOutIds.includes(outId)) return; // ya estaba fuera, no deberÃ­a poder "salir" otra vez
-    if (subbedOutIds.includes(inId) || sentOffIds.includes(inId)) return; // no se puede hacer entrar a alguien que ya saliÃ³ o fue expulsado
+    if (subbedOutIds.includes(outId)) return; // ya estaba fuera, no debería poder "salir" otra vez
+    if (subbedOutIds.includes(inId) || sentOffIds.includes(inId)) return; // no se puede hacer entrar a alguien que ya salió o fue expulsado
     const slotIdx = lineup.findIndex(id => id === outId);
     if (slotIdx === -1) return;
     const newLineup = [...lineup];
     newLineup[slotIdx] = inId;
     setLineup(newLineup);
-    // El jugador que entra desaparece del banco. El que sale NO vuelve al banco â€”
+    // El jugador que entra desaparece del banco. El que sale NO vuelve al banco —
     // queda registrado en subbedOutIds para impedir que se le pueda alinear de nuevo este partido.
     const benchIdx = subs.findIndex(id => id === inId);
     if (benchIdx !== -1) {
@@ -4034,7 +4034,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     const inP  = livePlayer.find(p => p.id === inId);
     setEvents(ev => [...ev, {
       minute: currentMinute, type: "SUBSTITUTION", team: "user", playerId: inId, outPlayerId: outId,
-      description: `ðŸ”„ Cambio: entra ${inP?.name ?? "jugador"} por ${outP?.name ?? "jugador"}.`,
+      description: `🔄 Cambio: entra ${inP?.name ?? "jugador"} por ${outP?.name ?? "jugador"}.`,
     }]);
     setSubbingSlot(null);
     setPendingInjury(null);
@@ -4056,7 +4056,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     setOppSubsUsed(current => current + 1);
     return {
       minute, type:"SUBSTITUTION", team:"opp", playerId:inId, outPlayerId:outId,
-      description:`ðŸ”„ Cambio rival: entra ${inP?.name ?? "jugador"} por ${outP?.name ?? "jugador"}${reason ? ` Â· ${reason}` : ""}.`,
+      description:`🔄 Cambio rival: entra ${inP?.name ?? "jugador"} por ${outP?.name ?? "jugador"}${reason ? ` · ${reason}` : ""}.`,
     };
   };
 
@@ -4093,7 +4093,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       });
     const inP = inCandidates[0];
     if (!inP) return null;
-    const reason = oppLosing ? "busca mÃ¡s ataque" : oppWinning ? "protege el resultado" : (yellowMap[outP.id] ? "evita una segunda amarilla" : "refresca piernas");
+    const reason = oppLosing ? "busca más ataque" : oppWinning ? "protege el resultado" : (yellowMap[outP.id] ? "evita una segunda amarilla" : "refresca piernas");
     return doOpponentSubstitution(outP.id, inP.id, minute, reason);
   };
 
@@ -4123,7 +4123,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     const flow=eventsUntilExtraordinary(generated);
     const newEvs=flow.events;
 
-    // Calcular posesiÃ³n del tramo segÃºn fuerza relativa, estilo tÃ¡ctico y algo de variaciÃ³n
+    // Calcular posesión del tramo según fuerza relativa, estilo táctico y algo de variación
     const strDiff = userStr - oppStr;
     let basePoss = 50 + strDiff * 1.1;
     if (tactics.estilo === "posesion") basePoss += 8;
@@ -4143,7 +4143,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       }
     });
 
-    // Expulsiones: abandonan el campo y dejan un hueco real en la alineaciÃ³n activa.
+    // Expulsiones: abandonan el campo y dejan un hueco real en la alineación activa.
     const newReds = newEvs.filter(e => e.type === "RED" && e.team === "user" && e.playerId).map(e => e.playerId);
     const newOppReds = newEvs.filter(e => e.type === "RED" && e.team === "opp" && e.playerId).map(e => e.playerId);
     if (newReds.length)setSentOffIds(prev=>[...new Set([...prev,...newReds])]);
@@ -4204,7 +4204,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       if(!flow.pauseEvent)setTimeout(() => setKeyEventBanner(b => b === keyEv ? null : b), 4000);
     }
 
-    // Si alguno de los nuestros se ha lesionado, ofrecer sustituciÃ³n forzada inmediata
+    // Si alguno de los nuestros se ha lesionado, ofrecer sustitución forzada inmediata
     const newInjury = newEvs.find(e => e.type === "INJURY" && e.playerId && onFieldIds.has(e.playerId));
     if (newInjury) {
       const injuredP = livePlayer.find(p => p.id === newInjury.playerId);
@@ -4240,7 +4240,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
       const added=addedTime.first??0;
       setPauseEvent(null);setKeyEventBanner(null);
       if(added>0){setMatchPhase("firstAdded");setPlaying(true);}
-      else{const event={minute:45,type:"HALFTIME",description:"â˜• Descanso. Revisa cambios, tÃ¡cticas y estado fÃ­sico antes de iniciar la segunda parte."};setMatchPhase("halftime");setEvents(current=>current.some(item=>item.type==="HALFTIME")?current:[...current,event]);setPauseEvent(event);setPlaying(false);}
+      else{const event={minute:45,type:"HALFTIME",description:"☕ Descanso. Revisa cambios, tácticas y estado físico antes de iniciar la segunda parte."};setMatchPhase("halftime");setEvents(current=>current.some(item=>item.type==="HALFTIME")?current:[...current,event]);setPauseEvent(event);setPlaying(false);}
       return;
     }
     if (matchPhase==="halftime") {
@@ -4279,7 +4279,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   });
 
   const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",DEFENSIVE_ACTION:"#60a5fa",INJURY:"#f97316",SUBSTITUTION:"#a855f7",ADDED_TIME:"#c9a84c",HALFTIME:"#c9a84c" };
-  const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÃ“N",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",DEFENSIVE_ACTION:"DEFENSA",INJURY:"LESIÃ“N",SUBSTITUTION:"CAMBIO",ADDED_TIME:"DESCUENTO",HALFTIME:"DESCANSO" };
+  const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÓN",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",DEFENSIVE_ACTION:"DEFENSA",INJURY:"LESIÓN",SUBSTITUTION:"CAMBIO",ADDED_TIME:"DESCUENTO",HALFTIME:"DESCANSO" };
 
   const avgFatigue = Math.round(livePlayer.filter(p=>!p.injured).reduce((s,p)=>s+p.fatigue,0) / Math.max(1,livePlayer.filter(p=>!p.injured).length));
   const fatColor   = avgFatigue <= 40 ? "#22c55e" : avgFatigue <= 65 ? "#f59e0b" : "#ef4444";
@@ -4293,21 +4293,21 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   const rightTeam  = awayTeam;   // derecha = visitante
   const leftGoals  = score.home;
   const rightGoals = score.away;
-  const leftIsUser  = isHome;    // usuario es local â†’ resaltado a la izquierda
-  const rightIsUser = !isHome;   // usuario es visitante â†’ resaltado a la derecha
+  const leftIsUser  = isHome;    // usuario es local → resaltado a la izquierda
+  const rightIsUser = !isHome;   // usuario es visitante → resaltado a la derecha
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Marcador */}
       <div style={{ background: "#1a1f2e", padding: "14px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
         <div style={{ fontSize: 11, color: "#c9a84c", fontWeight: 600, letterSpacing: ".5px", marginBottom: 6 }}>
-          J{fixture.matchday} Â· {finished ? "FINALIZADO" : currentMinute===0 ? "INICIO" : matchPhase==="halftime" ? "DESCANSO" : `MIN ${displayMinute}'${pauseEvent?" Â· PARTIDO DETENIDO":""}`}
+          J{fixture.matchday} · {finished ? "FINALIZADO" : currentMinute===0 ? "INICIO" : matchPhase==="halftime" ? "DESCANSO" : `MIN ${displayMinute}'${pauseEvent?" · PARTIDO DETENIDO":""}`}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
           <div style={{ flex: 1, textAlign: "right" }}>
             <TeamCrest team={leftTeam} size={34} style={{marginLeft:"auto",marginBottom:3}}/>
             <div style={{ fontSize: 13, fontWeight: 700, color: leftIsUser ? "#c9a84c" : "#e8eaf0" }}>{leftTeam?.short}</div>
-            <div style={{ fontSize: 10, color: "#6b7280" }}>ðŸ  Local{leftIsUser ? " â˜…" : ""}</div>
+            <div style={{ fontSize: 10, color: "#6b7280" }}>🏠 Local{leftIsUser ? " ★" : ""}</div>
           </div>
           <div style={{ background: "#0d0f14", padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(201,168,76,.25)" }}>
             <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: 4, color: "#e8eaf0" }}>{leftGoals} - {rightGoals}</div>
@@ -4315,31 +4315,31 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
           <div style={{ flex: 1, textAlign: "left" }}>
             <TeamCrest team={rightTeam} size={34} style={{marginRight:"auto",marginBottom:3}}/>
             <div style={{ fontSize: 13, fontWeight: 700, color: rightIsUser ? "#c9a84c" : "#e8eaf0" }}>{rightTeam?.short}</div>
-            <div style={{ fontSize: 10, color: "#6b7280" }}>âœˆï¸ Visitante{rightIsUser ? " â˜…" : ""}</div>
+            <div style={{ fontSize: 10, color: "#6b7280" }}>✈️ Visitante{rightIsUser ? " ★" : ""}</div>
           </div>
         </div>
-        {/* Barra de tramos + stats rÃ¡pidas */}
+        {/* Barra de tramos + stats rápidas */}
         <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 10 }}>
           {segments.map((_, i) => <div key={i} style={{ height: 3, width: 38, borderRadius: 2, background: i < segment ? "#c9a84c" : "#1e2330" }} />)}
         </div>
         <div style={{marginTop:10,background:"#0d0f14",border:"1px solid rgba(255,255,255,.06)",borderRadius:9,padding:"8px 10px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,fontWeight:800,marginBottom:6}}>
             <span style={{color:"#c9a84c"}}>{displayMinute}'</span>
-            <span style={{color:"#6b7280"}}>{matchPhase.startsWith("first")||matchPhase==="halftime"?"1Âª parte":"2Âª parte"}{matchPhase.includes("Added")?` Â· descuento +${halfLabel==="first"?addedTime.first??0:addedTime.second??0}`:""}</span>
+            <span style={{color:"#6b7280"}}>{matchPhase.startsWith("first")||matchPhase==="halftime"?"1ª parte":"2ª parte"}{matchPhase.includes("Added")?` · descuento +${halfLabel==="first"?addedTime.first??0:addedTime.second??0}`:""}</span>
           </div>
           <div style={{height:7,background:"#1e2330",borderRadius:999,overflow:"hidden"}}>
             <div style={{width:`${periodProgress}%`,height:"100%",background:"linear-gradient(90deg,#8a7330,#c9a84c)",borderRadius:999,transition:"width .25s ease"}}/>
           </div>
         </div>
 
-        {/* PosesiÃ³n del balÃ³n */}
+        {/* Posesión del balón */}
         {segment > 0 && (
           <div style={{ marginTop: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
               <span style={{ fontSize: 10, color: leftIsUser ? "#c9a84c" : "#6b7280", fontWeight: 700 }}>
                 {isHome ? possession : 100 - possession}%
               </span>
-              <span style={{ fontSize: 9, color: "#4b5563", fontWeight: 600 }}>âš½ POSESIÃ“N</span>
+              <span style={{ fontSize: 9, color: "#4b5563", fontWeight: 600 }}>⚽ POSESIÓN</span>
               <span style={{ fontSize: 10, color: rightIsUser ? "#c9a84c" : "#6b7280", fontWeight: 700 }}>
                 {isHome ? 100 - possession : possession}%
               </span>
@@ -4357,47 +4357,47 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
 
         <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 8 }}>
           <div style={{ fontSize: 11, color: "#6b7280" }}>
-            ðŸƒ Cansancio: <span style={{ color: fatColor, fontWeight: 700 }}>{avgFatigue}</span>
+            🏃 Cansancio: <span style={{ color: fatColor, fontWeight: 700 }}>{avgFatigue}</span>
           </div>
           <div style={{ fontSize: 11, color: "#6b7280" }}>
-            ðŸŽ¯ <span style={{ color: tactics.mentalidad==="ofensiva"?"#ef4444":tactics.mentalidad==="defensiva"?"#3b82f6":"#c9a84c", fontWeight: 700 }}>{tactics.mentalidad.toUpperCase()}</span>
-            {" Â· "}{tactics.presion} presiÃ³n{" Â· "}{tactics.estilo}
+            🎯 <span style={{ color: tactics.mentalidad==="ofensiva"?"#ef4444":tactics.mentalidad==="defensiva"?"#3b82f6":"#c9a84c", fontWeight: 700 }}>{tactics.mentalidad.toUpperCase()}</span>
+            {" · "}{tactics.presion} presión{" · "}{tactics.estilo}
           </div>
-          <div style={{fontSize:11,color:activeUserCount<11?"#ef4444":oppSentOffIds.length?"#22c55e":"#6b7280",fontWeight:700}}>ðŸ‘¥ {activeUserCount} vs {oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)).length}</div>
+          <div style={{fontSize:11,color:activeUserCount<11?"#ef4444":oppSentOffIds.length?"#22c55e":"#6b7280",fontWeight:700}}>👥 {activeUserCount} vs {oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)).length}</div>
         </div>
       </div>
 
-      {/* Aviso de evento clave (gol/tarjeta) del Ãºltimo tramo */}
+      {/* Aviso de evento clave (gol/tarjeta) del último tramo */}
       {keyEventBanner && !pendingInjury && (
         <div className="bounce-in" style={{
           background: keyEventBanner.type==="RED" ? "#ef444422" : keyEventBanner.type==="YELLOW" ? "#fbbf2422" : "#22c55e22",
           borderBottom: `1px solid ${keyEventBanner.type==="RED"?"#ef444455":keyEventBanner.type==="YELLOW"?"#fbbf2455":"#22c55e55"}`,
           padding: "10px 14px", flexShrink: 0, display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ fontSize: 18 }}>{keyEventBanner.type==="RED"?"ðŸŸ¥":keyEventBanner.type==="YELLOW"?"ðŸŸ¨":"âš½"}</span>
+          <span style={{ fontSize: 18 }}>{keyEventBanner.type==="RED"?"🟥":keyEventBanner.type==="YELLOW"?"🟨":"⚽"}</span>
           <div style={{ flex: 1, fontSize: 12, color: "#e8eaf0", lineHeight: 1.4 }}>{keyEventBanner.description}</div>
           <button onClick={() => setKeyEventBanner(null)}
-            style={{ background: "rgba(255,255,255,.08)", border: "none", color: "#9aa0b4", padding: "5px 9px", borderRadius: 6, fontSize: 11, cursor:"pointer" }}>âœ•</button>
+            style={{ background: "rgba(255,255,255,.08)", border: "none", color: "#9aa0b4", padding: "5px 9px", borderRadius: 6, fontSize: 11, cursor:"pointer" }}>✕</button>
         </div>
       )}
 
-      {/* Aviso de lesiÃ³n â€” sustituciÃ³n forzada */}
+      {/* Aviso de lesión — sustitución forzada */}
       {pendingInjury && (
         <div style={{ background: "#f9731622", borderBottom: "1px solid #f9731655", padding: "10px 14px", flexShrink: 0, display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ fontSize: 18 }}>ðŸš‘</span>
+          <span style={{ fontSize: 18 }}>🚑</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "#f97316" }}>{pendingInjury.name} se ha lesionado</div>
-            <div style={{ fontSize: 11, color: "#9aa0b4" }}>{pendingInjury.type ?? "LesiÃ³n muscular"}{pendingInjury.days?` Â· ${pendingInjury.days} dÃ­as estimados`:""} Â· Haz un cambio</div>
+            <div style={{ fontSize: 11, color: "#9aa0b4" }}>{pendingInjury.type ?? "Lesión muscular"}{pendingInjury.days?` · ${pendingInjury.days} días estimados`:""} · Haz un cambio</div>
           </div>
           <button onClick={() => { setSubbingSlot(lineup.findIndex(id=>id===pendingInjury.playerId)); setTab("cambios"); }}
             className="btn-gold" style={{ padding: "7px 14px", borderRadius: 7, fontSize: 12 }}>Cambiar</button>
           <button onClick={() => setPendingInjury(null)}
-            style={{ background: "rgba(255,255,255,.08)", border: "none", color: "#9aa0b4", padding: "7px 10px", borderRadius: 7, fontSize: 12, cursor:"pointer" }}>âœ•</button>
+            style={{ background: "rgba(255,255,255,.08)", border: "none", color: "#9aa0b4", padding: "7px 10px", borderRadius: 7, fontSize: 12, cursor:"pointer" }}>✕</button>
         </div>
       )}
 
-      {/* Tabs eventos / cambios / tÃ¡cticas */}
+      {/* Tabs eventos / cambios / tácticas */}
       <div style={{ display: "flex", overflowX:"auto", background: "#161a24", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
-        {[["eventos","ðŸ“‹ Eventos"],["alineaciones","ðŸ‘¥ Alineaciones"],["cambios",`ðŸ”„ Cambios (${subsUsed}/${MAX_SUBS})`],["tacticas","âš™ï¸ TÃ¡cticas"]].map(([id,label]) => (
+        {[["eventos","📋 Eventos"],["alineaciones","👥 Alineaciones"],["cambios",`🔄 Cambios (${subsUsed}/${MAX_SUBS})`],["tacticas","⚙️ Tácticas"]].map(([id,label]) => (
           <button data-swipe-ignore="true" key={id} onClick={() => setTab(id)}
             style={{ flex:"1 0 105px", whiteSpace:"nowrap", background: "transparent", border: "none", borderBottom: tab === id ? "2px solid #c9a84c" : "2px solid transparent", color: tab === id ? "#c9a84c" : "#6b7280", padding: "10px 6px", fontSize: 11, fontWeight: tab === id ? 700 : 400, cursor: "pointer" }}>
             {label}
@@ -4412,7 +4412,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
           <div style={{ padding: 12 }}>
             {events.length === 0 && !finished && (
               <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13, marginTop: 40, lineHeight: 1.7 }}>
-                Configura tus tÃ¡cticas y pulsa<br />"Play" para comenzar
+                Configura tus tácticas y pulsa<br />"Play" para comenzar
               </div>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
@@ -4423,7 +4423,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
                   <div key={i} className={isGoal ? "goal-event" : ""}
                     style={{ background:"#161a24", borderRadius:8, padding:"9px 12px", display:"flex", alignItems:"center", gap:10, borderLeft:`3px solid ${color}` }}>
                     <div style={{ fontSize: 12, color: "#6b7280", minWidth: 26, fontWeight: 700 }}>{e.minute}'</div>
-                    <div style={{ background: `${color}22`, color, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4, minWidth: 60, textAlign: "center" }}>{e.secondYellow?"DOBLE ðŸŸ¨":eventLabels[e.type] ?? e.type}</div>
+                    <div style={{ background: `${color}22`, color, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4, minWidth: 60, textAlign: "center" }}>{e.secondYellow?"DOBLE 🟨":eventLabels[e.type] ?? e.type}</div>
                     <div style={{ fontSize: 12, color: "#e8eaf0", flex: 1, lineHeight: 1.4 }}>{e.description}</div>
                   </div>
                 );
@@ -4440,27 +4440,27 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
               <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13, marginTop: 20 }}>Has usado todos tus cambios.</div>
             ) : !subbingSlot && subbingSlot !== 0 ? (
               <>
-                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>SELECCIONA QUIÃ‰N SALE</div>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>SELECCIONA QUIÉN SALE</div>
                 {lineup.map((pid, idx) => {
                   if (!pid) return null;
                   const p = livePlayer.find(pl => pl.id === pid);
                   if (!p) return null;
                   const hurt = p.injured;
-                  // Tarjetas/lesiÃ³n recibidas durante ESTE partido (eventos en vivo)
+                  // Tarjetas/lesión recibidas durante ESTE partido (eventos en vivo)
                   const yellowsInMatch = events.filter(e => e.type === "YELLOW" && e.playerId === pid).length;
                   const redInMatch     = sentOffIds.includes(pid);
                   const injuredInMatch = events.some(e => e.type === "INJURY" && e.playerId === pid);
                   if (redInMatch) {
-                    // Un jugador expulsado no puede ser "sustituido": ya estÃ¡ fuera del campo definitivamente
+                    // Un jugador expulsado no puede ser "sustituido": ya está fuera del campo definitivamente
                     return (
                       <div key={idx} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", marginBottom:6,
                         background:"rgba(239,68,68,.06)", border:"1px solid rgba(239,68,68,.2)", borderRadius:8, opacity:.6 }}>
                         <Initials name={p.name} size={30} rarity={p.rarity} borderRadius={6}/>
                         <div style={{ flex:1 }}>
                           <div style={{ fontSize:12, fontWeight:600, color:"#ef4444", display:"flex", alignItems:"center", gap:5 }}>
-                            {p.name} <span title="Expulsado">ðŸŸ¥</span>
+                            {p.name} <span title="Expulsado">🟥</span>
                           </div>
-                          <div style={{ fontSize:10, color:"#6b7280" }}>Expulsado Â· el equipo juega con uno menos</div>
+                          <div style={{ fontSize:10, color:"#6b7280" }}>Expulsado · el equipo juega con uno menos</div>
                         </div>
                       </div>
                     );
@@ -4475,12 +4475,12 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
                       <div style={{ flex:1 }}>
                         <div style={{ fontSize:12, fontWeight:600, color: hurt?"#ef4444":"#e8eaf0", display:"flex", alignItems:"center", gap:5 }}>
                           {p.name}
-                          {injuredInMatch && <span title="Lesionado">ðŸš‘</span>}
-                          {yellowsInMatch > 0 && Array(yellowsInMatch).fill(0).map((_,k) => <span key={k} title="Tarjeta amarilla">ðŸŸ¨</span>)}
+                          {injuredInMatch && <span title="Lesionado">🚑</span>}
+                          {yellowsInMatch > 0 && Array(yellowsInMatch).fill(0).map((_,k) => <span key={k} title="Tarjeta amarilla">🟨</span>)}
                         </div>
-                        <div style={{ fontSize:10, color:"#6b7280" }}>{p.pos} Â· Cansancio {p.fatigue}</div>
+                        <div style={{ fontSize:10, color:"#6b7280" }}>{p.pos} · Cansancio {p.fatigue}</div>
                       </div>
-                      <span style={{ fontSize:11, color:"#c9a84c" }}>Sacar â†’</span>
+                      <span style={{ fontSize:11, color:"#c9a84c" }}>Sacar →</span>
                     </div>
                   );
                 })}
@@ -4491,9 +4491,9 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
                   <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>
                     SALE: {livePlayer.find(p=>p.id===lineup[subbingSlot])?.name}
                   </div>
-                  <button onClick={() => setSubbingSlot(null)} style={{ background:"transparent", border:"none", color:"#6b7280", fontSize:11, cursor:"pointer" }}>â† Cambiar</button>
+                  <button onClick={() => setSubbingSlot(null)} style={{ background:"transparent", border:"none", color:"#6b7280", fontSize:11, cursor:"pointer" }}>← Cambiar</button>
                 </div>
-                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>SELECCIONA QUIÃ‰N ENTRA</div>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>SELECCIONA QUIÉN ENTRA</div>
                 {subs.filter(Boolean).length === 0 && (
                   <div style={{ textAlign:"center", color:"#6b7280", fontSize:13, marginTop:16 }}>No tienes suplentes disponibles en el banco.</div>
                 )}
@@ -4509,9 +4509,9 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
                       <Initials name={p.name} size={30} rarity={p.rarity} borderRadius={6}/>
                       <div style={{ flex:1 }}>
                         <div style={{ fontSize:12, fontWeight:600, color:"#e8eaf0" }}>{p.name}</div>
-                        <div style={{ fontSize:10, color:"#6b7280" }}>{p.pos} Â· Cansancio {p.fatigue}</div>
+                        <div style={{ fontSize:10, color:"#6b7280" }}>{p.pos} · Cansancio {p.fatigue}</div>
                       </div>
-                      <span style={{ fontSize:11, color:"#22c55e" }}>â† Entra</span>
+                      <span style={{ fontSize:11, color:"#22c55e" }}>← Entra</span>
                     </div>
                   );
                 })}
@@ -4553,14 +4553,14 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
               <div style={{ fontSize: 26, fontWeight: 700, color: "#e8eaf0" }}>{leftGoals} - {rightGoals}</div>
               <div style={{ fontSize: 13, marginTop: 4 }}>
                 {(isHome ? score.home > score.away : score.away > score.home)
-                  ? <span style={{ color: "#22c55e" }}>ðŸ† Victoria</span>
+                  ? <span style={{ color: "#22c55e" }}>🏆 Victoria</span>
                   : score.home === score.away
-                    ? <span style={{ color: "#f59e0b" }}>ðŸ¤ Empate</span>
-                    : <span style={{ color: "#ef4444" }}>âŒ Derrota</span>}
+                    ? <span style={{ color: "#f59e0b" }}>🤝 Empate</span>
+                    : <span style={{ color: "#ef4444" }}>❌ Derrota</span>}
               </div>
             </div>
             <button onClick={endMatch} style={{ width: "100%", background: "#c9a84c", color: "#1a1200", border: "none", padding: 13, borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-              Continuar a la siguiente jornada â†’
+              Continuar a la siguiente jornada →
             </button>
           </>
         )}
@@ -4569,13 +4569,13 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
   );
 }
 
-// Mini vista de tÃ¡cticas dentro del partido (sin setTactics â€” sÃ³lo lectura)
+// Mini vista de tácticas dentro del partido (sin setTactics — sólo lectura)
 function TacticsInMatch({ tactics, setTactics }) {
   const fields = [
     ["mentalidad", "Mentalidad", [["defensiva","Defensiva"],["equilibrada","Equilibrada"],["ofensiva","Ofensiva"]]],
-    ["presion",    "PresiÃ³n",    [["baja","Baja"],["media","Media"],["alta","Alta"]]],
-    ["ritmo",      "Ritmo",      [["lento","Lento"],["normal","Normal"],["rapido","RÃ¡pido"]]],
-    ["estilo",     "Estilo",     [["directo","Directo"],["posesion","PosesiÃ³n"],["bandas","Bandas"],["contraataque","Contraataque"]]],
+    ["presion",    "Presión",    [["baja","Baja"],["media","Media"],["alta","Alta"]]],
+    ["ritmo",      "Ritmo",      [["lento","Lento"],["normal","Normal"],["rapido","Rápido"]]],
+    ["estilo",     "Estilo",     [["directo","Directo"],["posesion","Posesión"],["bandas","Bandas"],["contraataque","Contraataque"]]],
     ["riesgo",     "Riesgo",     [["conservador","Conservador"],["normal","Normal"],["agresivo","Agresivo"]]],
   ];
   const mod = tacticModifiers(tactics);
@@ -4611,7 +4611,7 @@ function TacticsInMatch({ tactics, setTactics }) {
   );
 }
 
-// â”€â”€â”€ RESUMEN POST-PARTIDO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── RESUMEN POST-PARTIDO ────────────────────────────────────────────────────
 
 function MatchSummaryScreen({ summary, onContinue }) {
   const { userTeam, oppTeam, isHome, userGoals, oppGoals, matchday,
@@ -4623,7 +4623,7 @@ function MatchSummaryScreen({ summary, onContinue }) {
 
   const resultColor = won ? "#22c55e" : drew ? "#f59e0b" : "#ef4444";
   const resultText  = won ? "VICTORIA" : drew ? "EMPATE" : "DERROTA";
-  const resultEmoji = won ? "ðŸ†" : drew ? "ðŸ¤" : "âŒ";
+  const resultEmoji = won ? "🏆" : drew ? "🤝" : "❌";
 
   // Goleadores del equipo del usuario
   const userEventTeam=isHome?"home":"away";
@@ -4638,7 +4638,7 @@ function MatchSummaryScreen({ summary, onContinue }) {
     events: goalEvents.filter(e => e.playerId === id),
   })).filter(s => s.player);
 
-  // Goles del rival â€” extraer nombre del jugador desde playerId (si lo tenemos) o de la descripciÃ³n
+  // Goles del rival — extraer nombre del jugador desde playerId (si lo tenemos) o de la descripción
   const oppGoalEvents = events.filter(e => (e.type === "GOAL" || e.type === "PENALTY") && e.team === opponentEventTeam);
   const extractOppName = (e) => {
     // Buscar en el roster real del rival si tenemos playerId
@@ -4647,8 +4647,8 @@ function MatchSummaryScreen({ summary, onContinue }) {
       const found = oppSquad.find(p => p.id === e.playerId);
       if (found) return found.name;
     }
-    // Fallback: extraer nombre de la descripciÃ³n (texto entre "GOL â€” " y el verbo)
-    const m = e.description?.match(/GOL\s*(?:VISITANTE)?\s*[â€”-]\s*([A-ZÃÃ‰ÃÃ“ÃšÃ‘][\wÃÃ‰ÃÃ“ÃšÃ‘Ã¡Ã©Ã­Ã³ÃºÃ±'.]*(?:\s[A-ZÃÃ‰ÃÃ“ÃšÃ‘][\wÃÃ‰ÃÃ“ÃšÃ‘Ã¡Ã©Ã­Ã³ÃºÃ±'.]*){0,2})/);
+    // Fallback: extraer nombre de la descripción (texto entre "GOL — " y el verbo)
+    const m = e.description?.match(/GOL\s*(?:VISITANTE)?\s*[—-]\s*([A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ'.]*(?:\s[A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ'.]*){0,2})/);
     return m ? m[1] : "Jugador rival";
   };
   const oppScorerMap = {};
@@ -4665,7 +4665,7 @@ function MatchSummaryScreen({ summary, onContinue }) {
   const reds     = events.filter(e => e.type === "RED"    && e.team === "user");
   const injuries = events.filter(e => e.type === "INJURY" && e.team === "user");
 
-  // MVP global: evalÃºa a todos los participantes de ambos equipos con la misma escala.
+  // MVP global: evalúa a todos los participantes de ambos equipos con la misma escala.
   const userStarterIds=participation.starters??[];
   const opponentStarterIds=participation.opponentStarters?.length?participation.opponentStarters:buildStartingEleven(opponentPlayers,participation.opponentFormation??"4-3-3");
   const userKnown=new Set(players.map(player=>player.id));const opponentKnown=new Set(opponentPlayers.map(player=>player.id));
@@ -4677,12 +4677,12 @@ function MatchSummaryScreen({ summary, onContinue }) {
   ]});
   const mvp=matchRatings[0]??null;
 
-  // ClasificaciÃ³n nueva: posiciÃ³n del equipo
+  // Clasificación nueva: posición del equipo
   const sorted   = [...newStandings].sort((a,b) => b.points - a.points || b.goalDifference - a.goalDifference);
   const userPos  = sorted.findIndex(s => s.teamId === teamId) + 1;
   const userSt   = newStandings.find(s => s.teamId === teamId);
 
-  // Jugadores con aviso para prÃ³ximo partido
+  // Jugadores con aviso para próximo partido
   const nextWarnings = players.filter(p => p.suspended || (p.injured && p.injuryGames > 0) || p.yellowCards >= 4);
 
   // Resultados de la jornada (todos los partidos)
@@ -4694,7 +4694,7 @@ function MatchSummaryScreen({ summary, onContinue }) {
       {/* Cabecera resultado */}
       <div style={{ background:`${resultColor}18`, border:`1px solid ${resultColor}44`, borderRadius:12, padding:18, marginBottom:14, textAlign:"center" }}>
         <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:6 }}>
-          JORNADA {matchday} Â· {isHome ? "LOCAL" : "VISITANTE"}
+          JORNADA {matchday} · {isHome ? "LOCAL" : "VISITANTE"}
         </div>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:10 }}>
           <div style={{ flex:1, textAlign:"right" }}>
@@ -4714,10 +4714,10 @@ function MatchSummaryScreen({ summary, onContinue }) {
         <div style={{ fontSize:22, fontWeight:800, color:resultColor, letterSpacing:2 }}>
           {resultEmoji} {resultText}
         </div>
-        {/* PosiciÃ³n en liga */}
+        {/* Posición en liga */}
         <div style={{ marginTop:10, display:"inline-flex", alignItems:"center", gap:10, background:"rgba(0,0,0,.3)", borderRadius:8, padding:"6px 14px" }}>
-          <span style={{ fontSize:12, color:"#6b7280" }}>PosiciÃ³n en liga:</span>
-          <span style={{ fontSize:18, fontWeight:700, color:"#c9a84c" }}>{userPos}Âº</span>
+          <span style={{ fontSize:12, color:"#6b7280" }}>Posición en liga:</span>
+          <span style={{ fontSize:18, fontWeight:700, color:"#c9a84c" }}>{userPos}º</span>
           <span style={{ fontSize:11, color:"#6b7280" }}>{userSt?.points} pts</span>
         </div>
       </div>
@@ -4726,21 +4726,21 @@ function MatchSummaryScreen({ summary, onContinue }) {
       {income && (
         <div style={{ background:"#161a24", border:"1px solid rgba(34,197,94,.2)", borderRadius:10, padding:14, marginBottom:12 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-            <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px" }}>ðŸ’° INGRESOS DE LA JORNADA</div>
-            <div style={{ fontSize:18, fontWeight:800, color:"#22c55e" }}>+â‚¬{income.total}K</div>
+            <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px" }}>💰 INGRESOS DE LA JORNADA</div>
+            <div style={{ fontSize:18, fontWeight:800, color:"#22c55e" }}>+€{income.total}K</div>
           </div>
           {income.isHome ? (
             <>
               <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#9aa0b4", marginBottom:8 }}>
-                <span>ðŸ‘¥ {income.matchAttendance?.toLocaleString()} espectadores</span>
+                <span>👥 {income.matchAttendance?.toLocaleString()} espectadores</span>
                 <span>{Math.round((income.occupancy??0)*100)}% del aforo</span>
               </div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
-                {[["ðŸŽŸï¸ Taquilla", income.gateRevenue], ["ðŸŽ« Socios", income.memberIncomePerHomeMatch],
-                  ["ðŸ›ï¸ Tienda", income.shopIncome], ["ðŸ“º Publicidad", income.adIncome]].map(([l,v])=>(
+                {[["🎟️ Taquilla", income.gateRevenue], ["🎫 Socios", income.memberIncomePerHomeMatch],
+                  ["🛍️ Tienda", income.shopIncome], ["📺 Publicidad", income.adIncome]].map(([l,v])=>(
                   <div key={l} style={{ background:"#0d0f14", borderRadius:6, padding:"6px 8px", display:"flex", justifyContent:"space-between" }}>
                     <span style={{ fontSize:10, color:"#6b7280" }}>{l}</span>
-                    <span style={{ fontSize:11, fontWeight:700, color:"#e8eaf0" }}>â‚¬{v}K</span>
+                    <span style={{ fontSize:11, fontWeight:700, color:"#e8eaf0" }}>€{v}K</span>
                   </div>
                 ))}
               </div>
@@ -4748,14 +4748,14 @@ function MatchSummaryScreen({ summary, onContinue }) {
           ) : (
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
               <div style={{ background:"#0d0f14", borderRadius:6, padding:"6px 8px", display:"flex", justifyContent:"space-between" }}>
-                <span style={{ fontSize:10, color:"#6b7280" }}>ðŸ›ï¸ Tienda</span>
-                <span style={{ fontSize:11, fontWeight:700, color:"#e8eaf0" }}>â‚¬{income.shopIncome}K</span>
+                <span style={{ fontSize:10, color:"#6b7280" }}>🛍️ Tienda</span>
+                <span style={{ fontSize:11, fontWeight:700, color:"#e8eaf0" }}>€{income.shopIncome}K</span>
               </div>
               <div style={{ background:"#0d0f14", borderRadius:6, padding:"6px 8px", display:"flex", justifyContent:"space-between" }}>
-                <span style={{ fontSize:10, color:"#6b7280" }}>ðŸ“º Publicidad</span>
-                <span style={{ fontSize:11, fontWeight:700, color:"#e8eaf0" }}>â‚¬{income.adIncome}K</span>
+                <span style={{ fontSize:10, color:"#6b7280" }}>📺 Publicidad</span>
+                <span style={{ fontSize:11, fontWeight:700, color:"#e8eaf0" }}>€{income.adIncome}K</span>
               </div>
-              <div style={{ fontSize:10, color:"#4b5563", gridColumn:"1 / -1", marginTop:2 }}>Sin taquilla ni socios â€” partido a domicilio.</div>
+              <div style={{ fontSize:10, color:"#4b5563", gridColumn:"1 / -1", marginTop:2 }}>Sin taquilla ni socios — partido a domicilio.</div>
             </div>
           )}
         </div>
@@ -4773,19 +4773,19 @@ function MatchSummaryScreen({ summary, onContinue }) {
                 <div style={{ fontSize:11, color:"#6b7280" }}>{gEvs.map(e=>e.minute+"'").join(", ")}</div>
               </div>
               <div style={{ display:"flex", gap:3 }}>
-                {Array(goals).fill(0).map((_,i) => <span key={i} style={{ fontSize:16 }}>âš½</span>)}
+                {Array(goals).fill(0).map((_,i) => <span key={i} style={{ fontSize:16 }}>⚽</span>)}
               </div>
             </div>
           ))}
           {oppScorers.map(({name, goals, mins}, i) => (
             <div key={name+i} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6, opacity:.8 }}>
-              <div style={{ width:32, height:32, borderRadius:6, background:"rgba(255,255,255,.06)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>ðŸ‘¤</div>
+              <div style={{ width:32, height:32, borderRadius:6, background:"rgba(255,255,255,.06)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>👤</div>
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:13, color:"#e8eaf0", fontWeight:600 }}>{name}</div>
-                <div style={{ fontSize:11, color:"#6b7280" }}>{oppTeam?.name} Â· {mins.join(", ")}</div>
+                <div style={{ fontSize:11, color:"#6b7280" }}>{oppTeam?.name} · {mins.join(", ")}</div>
               </div>
               <div style={{ display:"flex", gap:3 }}>
-                {Array(goals).fill(0).map((_,j) => <span key={j} style={{ fontSize:16 }}>âš½</span>)}
+                {Array(goals).fill(0).map((_,j) => <span key={j} style={{ fontSize:16 }}>⚽</span>)}
               </div>
             </div>
           ))}
@@ -4795,14 +4795,14 @@ function MatchSummaryScreen({ summary, onContinue }) {
       {/* MVP */}
       {mvp && (
         <div style={{ background:"linear-gradient(135deg,#1a1700,#2a2200)", border:"1px solid #c9a84c44", borderRadius:10, padding:14, marginBottom:12 }}>
-          <div style={{ fontSize:11, color:"#c9a84c", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>â­ MEJOR JUGADOR DEL PARTIDO</div>
+          <div style={{ fontSize:11, color:"#c9a84c", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>⭐ MEJOR JUGADOR DEL PARTIDO</div>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             <Initials name={mvp.name} size={48} rarity={mvp.rarity} borderRadius={10}/>
             <div style={{flex:1}}>
               <div style={{ fontSize:15, fontWeight:700, color:"#e8eaf0" }}>{mvp.name}</div>
-              <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>{mvp.pos} Â· {mvp.teamName} Â· {mvp.minutes} min</div>
+              <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>{mvp.pos} · {mvp.teamName} · {mvp.minutes} min</div>
               <div style={{ fontSize:11, color:"#c9a84c", marginTop:4, fontWeight:600 }}>
-                {mvp.contributions.length?mvp.contributions.join(" Â· "):"Rendimiento mÃ¡s completo del encuentro"}
+                {mvp.contributions.length?mvp.contributions.join(" · "):"Rendimiento más completo del encuentro"}
               </div>
             </div>
             <div style={{textAlign:"center",background:"rgba(201,168,76,.12)",borderRadius:9,padding:"7px 10px"}}><div style={{fontSize:22,color:"#c9a84c",fontWeight:900}}>{mvp.rating}</div><div style={{fontSize:7,color:"#8a7a49"}}>NOTA</div></div>
@@ -4818,7 +4818,7 @@ function MatchSummaryScreen({ summary, onContinue }) {
             const pl = players.find(p=>p.id===e.playerId);
             return (
               <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                <span style={{ fontSize:16 }}>ðŸŸ¡</span>
+                <span style={{ fontSize:16 }}>🟡</span>
                 <span style={{ fontSize:12, color:"#e8eaf0" }}>{pl?.name ?? "Jugador"}</span>
                 <span style={{ fontSize:11, color:"#6b7280", marginLeft:"auto" }}>min {e.minute}'</span>
               </div>
@@ -4828,8 +4828,8 @@ function MatchSummaryScreen({ summary, onContinue }) {
             const pl = players.find(p=>p.id===e.playerId);
             return (
               <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                <span style={{ fontSize:16 }}>ðŸŸ¥</span>
-                <span style={{ fontSize:12, color:"#ef4444", fontWeight:600 }}>{pl?.name ?? "Jugador"} â€” Expulsado</span>
+                <span style={{ fontSize:16 }}>🟥</span>
+                <span style={{ fontSize:12, color:"#ef4444", fontWeight:600 }}>{pl?.name ?? "Jugador"} — Expulsado</span>
                 <span style={{ fontSize:11, color:"#6b7280", marginLeft:"auto" }}>min {e.minute}'</span>
               </div>
             );
@@ -4838,8 +4838,8 @@ function MatchSummaryScreen({ summary, onContinue }) {
             const pl = players.find(p=>p.id===e.playerId);
             return (
               <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                <span style={{ fontSize:16 }}>ðŸš‘</span>
-                <span style={{ fontSize:12, color:"#f97316" }}>{pl?.name ?? "Jugador"} â€” Lesionado</span>
+                <span style={{ fontSize:16 }}>🚑</span>
+                <span style={{ fontSize:12, color:"#f97316" }}>{pl?.name ?? "Jugador"} — Lesionado</span>
                 <span style={{ fontSize:11, color:"#6b7280", marginLeft:"auto" }}>min {e.minute}'</span>
               </div>
             );
@@ -4847,16 +4847,16 @@ function MatchSummaryScreen({ summary, onContinue }) {
         </div>
       )}
 
-      {/* Avisos prÃ³ximo partido */}
+      {/* Avisos próximo partido */}
       {nextWarnings.length > 0 && (
         <div style={{ background:"#1a1500", border:"1px solid #f59e0b33", borderRadius:10, padding:14, marginBottom:12 }}>
-          <div style={{ fontSize:11, color:"#f59e0b", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>âš ï¸ AVISOS PARA EL PRÃ“XIMO PARTIDO</div>
+          <div style={{ fontSize:11, color:"#f59e0b", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>⚠️ AVISOS PARA EL PRÓXIMO PARTIDO</div>
           {nextWarnings.map(p => (
             <div key={p.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
               <Initials name={p.name} size={28} rarity={p.rarity} borderRadius={5}/>
               <span style={{ fontSize:12, color:"#e8eaf0", flex:1 }}>{p.name}</span>
               {p.suspended && <span style={{ fontSize:10, color:"#f59e0b", fontWeight:700, background:"#f59e0b22", padding:"2px 6px", borderRadius:4 }}>SANCIONADO</span>}
-              {p.injured   && <span style={{ fontSize:10, color:"#ef4444", fontWeight:700, background:"#ef444422", padding:"2px 6px", borderRadius:4 }}>LESIÃ“N {p.injuryGames}J</span>}
+              {p.injured   && <span style={{ fontSize:10, color:"#ef4444", fontWeight:700, background:"#ef444422", padding:"2px 6px", borderRadius:4 }}>LESIÓN {p.injuryGames}J</span>}
               {!p.suspended && !p.injured && p.yellowCards >= 4 && <span style={{ fontSize:10, color:"#fbbf24", fontWeight:700, background:"#fbbf2422", padding:"2px 6px", borderRadius:4 }}>4 AMARILLAS</span>}
             </div>
           ))}
@@ -4888,16 +4888,16 @@ function MatchSummaryScreen({ summary, onContinue }) {
         })}
       </div>
 
-      {/* BotÃ³n continuar */}
+      {/* Botón continuar */}
       <button onClick={onContinue} className="btn-gold"
         style={{ width:"100%", padding:14, borderRadius:9, fontSize:15, marginBottom:4 }}>
-        {matchday >= 38 ? "Ver resumen de temporada â†’" : `Continuar a Jornada ${matchday + 1} â†’`}
+        {matchday >= 38 ? "Ver resumen de temporada →" : `Continuar a Jornada ${matchday + 1} →`}
       </button>
     </div>
   );
 }
 
-// â”€â”€â”€ FIN DE TEMPORADA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── FIN DE TEMPORADA ────────────────────────────────────────────────────────
 
 function SeasonEndScreen({ seasonSummary, onNewSeason }) {
   const { standings, teamId, season, history, players, legacy } = seasonSummary;
@@ -4908,7 +4908,7 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
   const getTeam  = (id) => TEAMS.find(t => t.id === id);
   const userTeam = getTeam(teamId);
 
-  // ClasificaciÃ³n final con zonas
+  // Clasificación final con zonas
   const champion  = sorted[0];
   const relegated = sorted.slice(17);
   const promoted  = []; // para futuro
@@ -4918,14 +4918,14 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
   const isChampions = userPos <= 4 && !isChampion;
 
   const resultBanner = isChampion
-    ? { text:"Â¡CAMPEÃ“N DE LIGA!", color:"#c9a84c", bg:"rgba(201,168,76,.15)", emoji:"ðŸ†" }
+    ? { text:"¡CAMPEÓN DE LIGA!", color:"#c9a84c", bg:"rgba(201,168,76,.15)", emoji:"🏆" }
     : isEurope
-    ? { text:"Clasificado para Europa", color:"#22c55e", bg:"rgba(34,197,94,.12)", emoji:"ðŸŒ" }
+    ? { text:"Clasificado para Europa", color:"#22c55e", bg:"rgba(34,197,94,.12)", emoji:"🌍" }
     : isChampions
-    ? { text:"Clasificado para Champions", color:"#c9a84c", bg:"rgba(201,168,76,.1)", emoji:"â­" }
+    ? { text:"Clasificado para Champions", color:"#c9a84c", bg:"rgba(201,168,76,.1)", emoji:"⭐" }
     : isRelegated
-    ? { text:"Descenso a Segunda DivisiÃ³n", color:"#ef4444", bg:"rgba(239,68,68,.12)", emoji:"ðŸ“‰" }
-    : { text:"Temporada completada", color:"#e8eaf0", bg:"rgba(255,255,255,.05)", emoji:"âœ…" };
+    ? { text:"Descenso a Segunda División", color:"#ef4444", bg:"rgba(239,68,68,.12)", emoji:"📉" }
+    : { text:"Temporada completada", color:"#e8eaf0", bg:"rgba(255,255,255,.05)", emoji:"✅" };
 
   // Top jugadores por morale final
   const topPlayers = [...players].sort((a,b)=>b.morale-a.morale).slice(0,3);
@@ -4937,15 +4937,15 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
       <div style={{ background:resultBanner.bg, border:`1px solid ${resultBanner.color}44`, borderRadius:14, padding:20, marginBottom:16, textAlign:"center" }}>
         <div style={{ fontSize:40, marginBottom:8 }}>{resultBanner.emoji}</div>
         <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>
-          TEMPORADA {season} â€” FINALIZADA
+          TEMPORADA {season} — FINALIZADA
         </div>
         <div style={{ fontSize:22, fontWeight:800, color:resultBanner.color, marginBottom:10 }}>
           {resultBanner.text}
         </div>
         <div style={{ display:"inline-flex", alignItems:"center", gap:16, background:"rgba(0,0,0,.3)", borderRadius:10, padding:"10px 20px" }}>
           <div style={{ textAlign:"center" }}>
-            <div style={{ fontSize:28, fontWeight:800, color:resultBanner.color }}>{userPos}Âº</div>
-            <div style={{ fontSize:10, color:"#6b7280" }}>POSICIÃ“N</div>
+            <div style={{ fontSize:28, fontWeight:800, color:resultBanner.color }}>{userPos}º</div>
+            <div style={{ fontSize:10, color:"#6b7280" }}>POSICIÓN</div>
           </div>
           <div style={{ width:1, height:32, background:"rgba(255,255,255,.1)" }}/>
           <div style={{ textAlign:"center" }}>
@@ -4964,11 +4964,11 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
         </div>
       </div>
 
-      {legacy&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}><div style={{background:"#161a24",border:"1px solid rgba(201,168,76,.2)",borderRadius:9,padding:12}}><div style={{fontSize:9,color:"#6b7280"}}>ðŸ† PRESTIGIO DEL CLUB</div><div style={{fontSize:24,color:getPrestigeLevel(legacy.clubPrestige).color,fontWeight:900,marginTop:4}}>{Math.round(legacy.clubPrestige)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:getPrestigeLevel(legacy.clubPrestige).color}}>{getPrestigeLevel(legacy.clubPrestige).label}</div></div><div style={{background:"#161a24",border:"1px solid rgba(167,139,250,.2)",borderRadius:9,padding:12}}><div style={{fontSize:9,color:"#6b7280"}}>â­ PRESTIGIO ENTRENADOR</div><div style={{fontSize:24,color:getPrestigeLevel(legacy.manager.prestige,true).color,fontWeight:900,marginTop:4}}>{Math.round(legacy.manager.prestige)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:getPrestigeLevel(legacy.manager.prestige,true).color}}>{getPrestigeLevel(legacy.manager.prestige,true).label}</div></div></div>}
+      {legacy&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}><div style={{background:"#161a24",border:"1px solid rgba(201,168,76,.2)",borderRadius:9,padding:12}}><div style={{fontSize:9,color:"#6b7280"}}>🏆 PRESTIGIO DEL CLUB</div><div style={{fontSize:24,color:getPrestigeLevel(legacy.clubPrestige).color,fontWeight:900,marginTop:4}}>{Math.round(legacy.clubPrestige)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:getPrestigeLevel(legacy.clubPrestige).color}}>{getPrestigeLevel(legacy.clubPrestige).label}</div></div><div style={{background:"#161a24",border:"1px solid rgba(167,139,250,.2)",borderRadius:9,padding:12}}><div style={{fontSize:9,color:"#6b7280"}}>⭐ PRESTIGIO ENTRENADOR</div><div style={{fontSize:24,color:getPrestigeLevel(legacy.manager.prestige,true).color,fontWeight:900,marginTop:4}}>{Math.round(legacy.manager.prestige)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:getPrestigeLevel(legacy.manager.prestige,true).color}}>{getPrestigeLevel(legacy.manager.prestige,true).label}</div></div></div>}
 
-      {/* ClasificaciÃ³n final top 5 + posiciÃ³n usuario */}
+      {/* Clasificación final top 5 + posición usuario */}
       <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:12 }}>
-        <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>CLASIFICACIÃ“N FINAL</div>
+        <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>CLASIFICACIÓN FINAL</div>
         {sorted.slice(0,5).map((s,i)=>{
           const t=getTeam(s.teamId); const isUser=s.teamId===teamId;
           const posColor=i===0?"#c9a84c":i<4?"#e8c96a":i<6?"#22c55e":"#6b7280";
@@ -4980,13 +4980,13 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
               </div>
               <div style={{ flex:1, fontSize:12, fontWeight:isUser?700:400, color:isUser?"#c9a84c":"#e8eaf0" }}>{t?.name}</div>
               <div style={{ fontSize:13, fontWeight:700, color:"#e8eaf0" }}>{s.points} pts</div>
-              {i===0 && <span style={{ fontSize:14 }}>ðŸ†</span>}
+              {i===0 && <span style={{ fontSize:14 }}>🏆</span>}
             </div>
           );
         })}
         {userPos > 5 && (
           <>
-            <div style={{ textAlign:"center", padding:"4px 0", color:"#4b5563", fontSize:11 }}>Â·Â·Â·</div>
+            <div style={{ textAlign:"center", padding:"4px 0", color:"#4b5563", fontSize:11 }}>···</div>
             {sorted.filter(s=>s.teamId===teamId).map(s=>{
               const t=getTeam(s.teamId);
               return (
@@ -4995,7 +4995,7 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
                   <div style={{ width:22,height:22,borderRadius:"50%",background:`${t?.color}22`,border:`1px solid ${t?.color}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:t?.color }}>
                     {t?.short?.slice(0,3)}
                   </div>
-                  <div style={{ flex:1, fontSize:12, fontWeight:700, color:"#c9a84c" }}>{t?.name} â˜…</div>
+                  <div style={{ flex:1, fontSize:12, fontWeight:700, color:"#c9a84c" }}>{t?.name} ★</div>
                   <div style={{ fontSize:13, fontWeight:700, color:"#e8eaf0" }}>{s.points} pts</div>
                 </div>
               );
@@ -5005,7 +5005,7 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
         {/* Descensos */}
         {relegated.length > 0 && (
           <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid rgba(239,68,68,.2)" }}>
-            <div style={{ fontSize:10, color:"#ef4444", fontWeight:600, marginBottom:6 }}>ðŸ“‰ DESCIENDEN</div>
+            <div style={{ fontSize:10, color:"#ef4444", fontWeight:600, marginBottom:6 }}>📉 DESCIENDEN</div>
             {relegated.map(s=>{
               const t=getTeam(s.teamId); const isUser=s.teamId===teamId;
               return (
@@ -5031,9 +5031,9 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
             return (
               <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0", borderBottom:"1px solid rgba(255,255,255,.04)" }}>
                 <div style={{ fontSize:11, color:"#4b5563", width:60 }}>T. {h.season}</div>
-                <div style={{ flex:1, fontSize:12, color:"#9aa0b4" }}>{h.pts} pts Â· {h.gf}-{h.ga}</div>
-                <div style={{ fontSize:13, fontWeight:700, color:col }}>{h.pos}Âº</div>
-                {h.pos===1&&<span style={{ fontSize:12 }}>ðŸ†</span>}
+                <div style={{ flex:1, fontSize:12, color:"#9aa0b4" }}>{h.pts} pts · {h.gf}-{h.ga}</div>
+                <div style={{ fontSize:13, fontWeight:700, color:col }}>{h.pos}º</div>
+                {h.pos===1&&<span style={{ fontSize:12 }}>🏆</span>}
               </div>
             );
           })}
@@ -5042,7 +5042,7 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
 
       {/* Mejores jugadores de la temporada */}
       <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:16 }}>
-        <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>PLANTILLA â€” ESTADO FINAL</div>
+        <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:10 }}>PLANTILLA — ESTADO FINAL</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
           {[
             ["Jugadores disponibles", players.filter(p=>!p.injured&&!p.suspended).length, "#22c55e"],
@@ -5060,7 +5060,7 @@ function SeasonEndScreen({ seasonSummary, onNewSeason }) {
 
       <button onClick={onNewSeason} className="btn-gold"
         style={{ width:"100%", padding:15, borderRadius:10, fontSize:16, marginBottom:4 }}>
-        ðŸš€ Iniciar Temporada {parseInt(season)+1}/{parseInt(season)+2}
+        🚀 Iniciar Temporada {parseInt(season)+1}/{parseInt(season)+2}
       </button>
     </div>
   );
@@ -5158,7 +5158,7 @@ function migrateNewDataPlayersToSave(game, dataVersion = DATA_VERSION) {
     type: "transfer",
     importance: "medium",
     title: "Nuevos jugadores se incorporan al mercado",
-    summary: `Se han aÃ±adido ${additions.length} jugador${additions.length===1?"":"es"} como agente${additions.length===1?"":"s"} libre${additions.length===1?"":"s"} en esta partida.`,
+    summary: `Se han añadido ${additions.length} jugador${additions.length===1?"":"es"} como agente${additions.length===1?"":"s"} libre${additions.length===1?"":"s"} en esta partida.`,
     season: String(game.season ?? "2025"),
     matchday: game.matchday ?? 1,
     createdAt: Date.now(),
@@ -5202,7 +5202,7 @@ export default function App({ externalData }) {
   const [formation, setFormation] = useState("4-3-3");
   const [tactics, setTactics]     = useState(DEFAULT_TACTICS);
   const [savesIndex, setSavesIndexState] = useState([]);
-  const [pendingCountry, setPendingCountry] = useState(null); // paÃ­s elegido en "Nueva partida"
+  const [pendingCountry, setPendingCountry] = useState(null); // país elegido en "Nueva partida"
   const [pendingLeague, setPendingLeague]   = useState(null); // liga elegida en "Nueva partida"
   const [pendingTeam, setPendingTeam]       = useState(null);
   const [matchSummary, setMatchSummary]     = useState(null);
@@ -5231,7 +5231,7 @@ export default function App({ externalData }) {
     return () => { mounted = false; subscription?.data?.subscription?.unsubscribe?.(); };
   }, []);
 
-  // Auto-guardar alineaciÃ³n, suplentes y formaciÃ³n cuando cambian
+  // Auto-guardar alineación, suplentes y formación cuando cambian
   useEffect(() => {
     if (!game || !activeSaveId) return;
     saveGame(game, lineup, formation, subs);
@@ -5253,7 +5253,7 @@ export default function App({ externalData }) {
         _subs: normalizeSlots(subsToSave !== undefined ? subsToSave : subs, BENCH_SLOTS),
       };
       localStorage.setItem(saveSlotKey(targetId), JSON.stringify(toSave));
-      // Actualizar el Ã­ndice con metadatos rÃ¡pidos para la lista de partidas
+      // Actualizar el índice con metadatos rápidos para la lista de partidas
       const idx = getSavesIndex();
       const teamData = TEAMS.find(t => t.id === g.teamId);
       const i = idx.findIndex(s => s.id === targetId);
@@ -5282,10 +5282,10 @@ export default function App({ externalData }) {
   const saveGameToCloud = useCallback(async (g = game, options = {}) => {
     if (!g || !cloudSession?.user?.id) return null;
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      const message = "Sin conexiÃ³n. Partida guardada localmente; la nube queda pendiente.";
+      const message = "Sin conexión. Partida guardada localmente; la nube queda pendiente.";
       setCloudStatus(message);
       setCloudSyncState(prev=>({ ...prev, state:"pending", error:null }));
-      logCloudEvent("warn", "Guardado cloud omitido por falta de conexiÃ³n", { reason:options.reason ?? "manual", localSaveId:g.id });
+      logCloudEvent("warn", "Guardado cloud omitido por falta de conexión", { reason:options.reason ?? "manual", localSaveId:g.id });
       return null;
     }
     if (cloudSavingRef.current && !options.force) {
@@ -5310,8 +5310,8 @@ export default function App({ externalData }) {
       if (e instanceof CloudSaveConflictError || e.code === "cloud_conflict") {
         const conflict = { cloudSaveId:e.details?.cloudSaveId ?? g.cloudSaveId, cloudUpdatedAt:e.details?.cloud?.updated_at, localKnownCloudUpdatedAt:e.details?.lastCloudSync ?? g.lastCloudSync ?? g.cloudUpdatedAt, localSaveId:g.id };
         setCloudConflict(conflict);
-        setCloudStatus("Conflicto detectado: la nube tiene una versiÃ³n mÃ¡s reciente.");
-        setCloudSyncState(prev=>({ ...prev, state:"conflict", error:"Conflicto de sincronizaciÃ³n" }));
+        setCloudStatus("Conflicto detectado: la nube tiene una versión más reciente.");
+        setCloudSyncState(prev=>({ ...prev, state:"conflict", error:"Conflicto de sincronización" }));
       } else {
         const message = `No se pudo guardar en la nube: ${e.message ?? "error desconocido"}`;
         setCloudStatus(message);
@@ -5375,7 +5375,7 @@ export default function App({ externalData }) {
           delete parsed._subs;
         }
         // Reaplicar fichajes pasados: quitar de REAL_SQUADS los jugadores ya comprados
-        // de su equipo de origen (REAL_SQUADS es estÃ¡tico y se resetea al recargar la pÃ¡gina)
+        // de su equipo de origen (REAL_SQUADS es estático y se resetea al recargar la página)
         (parsed.transfers ?? []).forEach(t => {
           if ((t.type === "buy"||(t.type==="loanIn"&&String(t.season)===String(parsed.season))) && t.fromTeamId && t.fromTeamId !== "agente_libre" && REAL_SQUADS[t.fromTeamId]) {
             REAL_SQUADS[t.fromTeamId] = REAL_SQUADS[t.fromTeamId].filter(p => p.id !== t.player.id);
@@ -5416,15 +5416,15 @@ export default function App({ externalData }) {
   const handleCloudSignIn = async (email, password) => {
     const data = await signInWithEmail(email, password);
     setCloudSession(data.session ?? null);
-    setCloudStatus("SesiÃ³n iniciada.");
+    setCloudStatus("Sesión iniciada.");
     setCloudSyncState(prev=>({ ...prev, state:game?.cloudSaveId ? "saved" : "local", error:null }));
-    logCloudEvent("info", "SesiÃ³n cloud iniciada", { email });
+    logCloudEvent("info", "Sesión cloud iniciada", { email });
   };
 
   const handleCloudSignUp = async (email, password, username) => {
     const data = await signUpWithEmail(email, password, username);
     setCloudSession(data.session ?? null);
-    setCloudStatus(data.session ? "Cuenta creada y sesiÃ³n iniciada." : "Cuenta creada. Revisa tu email si Supabase exige confirmaciÃ³n.");
+    setCloudStatus(data.session ? "Cuenta creada y sesión iniciada." : "Cuenta creada. Revisa tu email si Supabase exige confirmación.");
     logCloudEvent("info", "Cuenta cloud creada", { email, hasSession:Boolean(data.session) });
   };
 
@@ -5432,9 +5432,9 @@ export default function App({ externalData }) {
     await signOut();
     setCloudSession(null);
     setCloudConflict(null);
-    setCloudStatus("SesiÃ³n cerrada.");
+    setCloudStatus("Sesión cerrada.");
     setCloudSyncState({ state:"local", lastSyncAt:null, error:null });
-    logCloudEvent("info", "SesiÃ³n cloud cerrada");
+    logCloudEvent("info", "Sesión cloud cerrada");
   };
 
   const handleLoadCloudSave = async (cloudSaveId) => {
@@ -5445,7 +5445,7 @@ export default function App({ externalData }) {
       if (activeLocalSave?.cloudSaveId === cloudSaveId) {
         const snapshot = getCloudSyncSnapshot(activeLocalSave, cloud.updated_at);
         if (snapshot.localHasUnsyncedChanges && snapshot.cloudChangedAfterLastSync) {
-          const ok = window.confirm("Hay cambios locales y tambiÃ©n cambios mÃ¡s recientes en la nube. Si cargas la nube, sustituirÃ¡s la copia local vinculada. Â¿Quieres continuar?");
+          const ok = window.confirm("Hay cambios locales y también cambios más recientes en la nube. Si cargas la nube, sustituirás la copia local vinculada. ¿Quieres continuar?");
           if (!ok) {
             setCloudStatus("Carga cancelada. No se ha sobrescrito nada.");
             setCloudSyncState(prev=>({ ...prev, state:"local" }));
@@ -5507,7 +5507,7 @@ export default function App({ externalData }) {
     g=ensureFanbaseState(ensureCoachCareer({...g,coachCareer:createCoachCareer(coachData??{},team,"2025")},team,TEAMS),team,TEAMS);
     g=ensureStaffState(ensureContractState(refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS)),TEAMS);
     const firstProspect=[...g.youth.players].sort((a,b)=>b.potential-a.potential)[0];
-    if(firstProspect)g.news=generateYouthNews({items:[{title:"La cantera presenta una nueva generaciÃ³n",summary:`${firstProspect.name} encabeza la hornada con un potencial estimado de ${firstProspect.potential}.`,importance:firstProspect.potential>=86?"high":"medium",playerId:firstProspect.id,fingerprint:`academy-intake:2025`}],season:"2025",matchday:1,userTeamId:team.id});
+    if(firstProspect)g.news=generateYouthNews({items:[{title:"La cantera presenta una nueva generación",summary:`${firstProspect.name} encabeza la hornada con un potencial estimado de ${firstProspect.potential}.`,importance:firstProspect.potential>=86?"high":"medium",playerId:firstProspect.id,fingerprint:`academy-intake:2025`}],season:"2025",matchday:1,userTeamId:team.id});
     setActiveSaveId(newId);
     setLineup(emptyLineup());
     setSubs(emptyBench());
@@ -5523,41 +5523,41 @@ export default function App({ externalData }) {
     setScreen("dashboard");
   };
 
-// â”€â”€â”€ SISTEMA DE INGRESOS DEL CLUB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── SISTEMA DE INGRESOS DEL CLUB ───────────────────────────────────────────
 // Calcula los ingresos generados en una jornada concreta:
-// - Taquilla (solo si el partido es en casa): aforo Ã— ocupaciÃ³n Ã— precio entrada
+// - Taquilla (solo si el partido es en casa): aforo × ocupación × precio entrada
 // - Socios: cuota de abonado prorrateada por jornada (solo si es partido en casa)
 // - Tienda/merchandising: ligado a fanbase y racha de resultados
-// - Publicidad/patrocinio: ingreso fijo prorrateado, sube con la posiciÃ³n en liga
+// - Publicidad/patrocinio: ingreso fijo prorrateado, sube con la posición en liga
 function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, clubPrestige = 50, fanContext = null) {
   const cap = team.capacity ?? 30000;
   const fan = team.fanbase ?? 3; // 1-5
 
-  // â”€â”€ Taquilla (solo en casa) â”€â”€
-  // OcupaciÃ³n base segÃºn tamaÃ±o de aficiÃ³n + moral/cariÃ±o de la aficiÃ³n (fanLove 0-100) + si ganÃ³ el partido anterior
+  // ── Taquilla (solo en casa) ──
+  // Ocupación base según tamaño de afición + moral/cariño de la afición (fanLove 0-100) + si ganó el partido anterior
   const baseOccupancy = 0.45 + fan * 0.07; // 0.52 - 0.80
   const formBonus = won ? 0.08 : drew ? 0.02 : -0.05;
-  const loveBonus = ((fanLove ?? 70) - 70) * 0.002; // Â±0.06 aprox
+  const loveBonus = ((fanLove ?? 70) - 70) * 0.002; // ±0.06 aprox
   const occupancy = Math.max(0.25, Math.min(0.99, fanContext?.occupancy ?? (baseOccupancy + formBonus + loveBonus)));
-  const ticketPrice = 18 + fan * 7; // â‚¬25-53 aprox segÃºn el tamaÃ±o del club
+  const ticketPrice = 18 + fan * 7; // €25-53 aprox según el tamaño del club
   const matchAttendance = isHome ? Math.round(cap * occupancy) : 0;
-  const gateRevenue = isHome ? Math.round((matchAttendance * ticketPrice) / 1000) : 0; // en â‚¬K
+  const gateRevenue = isHome ? Math.round((matchAttendance * ticketPrice) / 1000) : 0; // en €K
 
-  // â”€â”€ Socios (abonados) â€” solo ingresan en partidos de casa, prorrateado â”€â”€
+  // ── Socios (abonados) — solo ingresan en partidos de casa, prorrateado ──
   // Se asume que el 55% del aforo son abonados con cuota anual ya pagada
   const seasonMembers = Math.round(cap * 0.55);
-  const memberFeeSeason = 180 + fan * 60; // â‚¬ por socio y temporada
-  const memberIncomePerHomeMatch = isHome ? Math.round((seasonMembers * memberFeeSeason) / 19 / 1000) : 0; // 19 partidos en casa, en â‚¬K
+  const memberFeeSeason = 180 + fan * 60; // € por socio y temporada
+  const memberIncomePerHomeMatch = isHome ? Math.round((seasonMembers * memberFeeSeason) / 19 / 1000) : 0; // 19 partidos en casa, en €K
 
-  // â”€â”€ Tienda / merchandising â€” todas las jornadas, sube con fanbase y resultados â”€â”€
-  const shopBase = 8 + fan * 6; // â‚¬K por jornada
+  // ── Tienda / merchandising — todas las jornadas, sube con fanbase y resultados ──
+  const shopBase = 8 + fan * 6; // €K por jornada
   const shopBonus = (won ? 1.3 : drew ? 1.0 : 0.8) * Math.max(.78,Math.min(1.28,1+((fanLove??70)-65)*.006));
   const shopIncome = Math.round(shopBase * shopBonus);
 
-  // â”€â”€ Publicidad y patrocinios â€” ingreso fijo por jornada, sube si vas arriba en la tabla â”€â”€
+  // ── Publicidad y patrocinios — ingreso fijo por jornada, sube si vas arriba en la tabla ──
   const prestigeSponsorMultiplier = Math.max(.75,Math.min(1.3,1+(clubPrestige-50)*.006));
   const adBase = (10 + fan * 5) * prestigeSponsorMultiplier;
-  const posBonus = leaguePos ? Math.max(0, (21 - leaguePos) * 0.4) : 0; // mÃ¡s arriba, mÃ¡s visibilidad
+  const posBonus = leaguePos ? Math.max(0, (21 - leaguePos) * 0.4) : 0; // más arriba, más visibilidad
   const adIncome = Math.round(adBase + posBonus);
 
   const total = gateRevenue + memberIncomePerHomeMatch + shopIncome + adIncome;
@@ -5630,12 +5630,12 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const won = userGoals > oppGoals; const drew = userGoals === oppGoals;
       const moraleDelta = won ? 7 : drew ? 1 : -6;
 
-      // â”€â”€ Calcular ingresos de esta jornada â”€â”€
+      // ── Calcular ingresos de esta jornada ──
       const userTeamData = TEAMS.find(t => t.id === prev.teamId);
       const userStPrev = newStandings.find(s => s.teamId === prev.teamId);
       const sortedForPos = [...newStandings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference);
       const leaguePos = sortedForPos.findIndex(s => s.teamId === prev.teamId) + 1;
-      const fanLove = prev.fanLove ?? 70; // cariÃ±o de la aficiÃ³n, 0-100
+      const fanLove = prev.fanLove ?? 70; // cariño de la afición, 0-100
       const fanAttendance = estimateFanAttendance({ game:{...prev,_teams:TEAMS}, team:userTeamData, fixture, won, drew, leaguePos });
       const incomeResult = calculateMatchdayIncome(userTeamData, isHome, won, drew, leaguePos, fanLove, prev.legacy?.clubPrestige ?? 50, fanAttendance);
 
@@ -5660,18 +5660,18 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         return 0;
       };
       const recoveredPlayers = playersSource.map(p => {
-        const wasSuspended = p.suspended && p.suspGames > 0; // venÃ­a sancionado de antes (ya cumpliÃ³ este partido)
+        const wasSuspended = p.suspended && p.suspGames > 0; // venía sancionado de antes (ya cumplió este partido)
         const extraYellows = yellowsInMatch.filter(id => id === p.id).length;
         const gotRed       = redsInMatch.includes(p.id);
         const newYellowCount = p.yellowCards + extraYellows;
 
-        // SanciÃ³n NUEVA originada en este partido (roja o 5Âª amarilla)
+        // Sanción NUEVA originada en este partido (roja o 5ª amarilla)
         const redSeverityRoll = Math.random();
         const newRedSusp  = gotRed ? (redSeverityRoll < 0.70 ? 1 : redSeverityRoll < 0.92 ? 2 : 3) : 0;
         const newAccSusp  = (newYellowCount >= 5 && p.yellowCards < 5) ? 1 : 0;
-        const newSuspensionGames = newRedSusp + newAccSusp; // partidos de sanciÃ³n que arrancan a partir del SIGUIENTE partido
+        const newSuspensionGames = newRedSusp + newAccSusp; // partidos de sanción que arrancan a partir del SIGUIENTE partido
 
-        // Si venÃ­a sancionado, esos partidos pendientes ya se cumplieron jugando este partido (estaba fuera del once)
+        // Si venía sancionado, esos partidos pendientes ya se cumplieron jugando este partido (estaba fuera del once)
         const remainingFromBefore = wasSuspended ? Math.max(0, p.suspGames - 1) : (p.suspended ? p.suspGames : 0);
         const finalSuspGames = remainingFromBefore + newSuspensionGames;
 
@@ -5748,7 +5748,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const youthNews=generateYouthNews({items:youthStoryItems,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
       const developmentNews=generateDevelopmentNews({report:trainingResult.report,players:newPlayers,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
       const lockerSummary=getLockerRoomSummary(newPlayers);
-      const lockerNews=lockerSummary.atmosphere==="tenso"?[{id:`news-locker-${prev.season}-${matchday}`,type:"board",importance:"high",title:"El vestuario muestra seÃ±ales de tensiÃ³n",summary:`Hay ${lockerSummary.unhappy.length} jugador${lockerSummary.unhappy.length===1?"":"es"} con preocupaciÃ³n interna. Conviene revisar moral, minutos o contratos.`,season:String(prev.season??"2025"),matchday,createdAt:Date.now(),fingerprint:`locker:tension:${prev.season}:${matchday}`,teamIds:[prev.teamId],metadata:{userClub:true,lockerRoom:true}}]:lockerSummary.atmosphere==="positivo"&&won?[{id:`news-locker-good-${prev.season}-${matchday}`,type:"board",importance:"medium",title:"El vestuario respalda al entrenador",summary:"El ambiente interno es positivo y los lÃ­deres mantienen unido al grupo.",season:String(prev.season??"2025"),matchday,createdAt:Date.now(),fingerprint:`locker:positive:${prev.season}:${matchday}`,teamIds:[prev.teamId],metadata:{userClub:true,lockerRoom:true}}]:[];
+      const lockerNews=lockerSummary.atmosphere==="tenso"?[{id:`news-locker-${prev.season}-${matchday}`,type:"board",importance:"high",title:"El vestuario muestra señales de tensión",summary:`Hay ${lockerSummary.unhappy.length} jugador${lockerSummary.unhappy.length===1?"":"es"} con preocupación interna. Conviene revisar moral, minutos o contratos.`,season:String(prev.season??"2025"),matchday,createdAt:Date.now(),fingerprint:`locker:tension:${prev.season}:${matchday}`,teamIds:[prev.teamId],metadata:{userClub:true,lockerRoom:true}}]:lockerSummary.atmosphere==="positivo"&&won?[{id:`news-locker-good-${prev.season}-${matchday}`,type:"board",importance:"medium",title:"El vestuario respalda al entrenador",summary:"El ambiente interno es positivo y los líderes mantienen unido al grupo.",season:String(prev.season??"2025"),matchday,createdAt:Date.now(),fingerprint:`locker:positive:${prev.season}:${matchday}`,teamIds:[prev.teamId],metadata:{userClub:true,lockerRoom:true}}]:[];
       const nextBudgetAdjustment = (prev.budgetAdjustment ?? 0) + incomeResult.total;
       const combinedTrainingReport={...trainingResult.report,improved:[...(trainingResult.report.improved??[]),...(youthTrainingResult.report.improved??[])]};
       const legacyEvaluation = evaluateLegacyMatchday({ ...prev, fixtures:finalFixtures, standings:newStandings, players:newPlayers, budgetAdjustment:nextBudgetAdjustment }, {
@@ -5779,25 +5779,25 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       newGame={...scoutingProgress.game,news:mergeNews(scoutingProgress.game.news??[],scoutingNews)};
       const offerStatusBefore=Object.fromEntries((newGame.transferMarket?.offers??[]).map(offer=>[offer.id,offer.status]));
       newGame=advanceTransferNegotiations(newGame);
-      const responseNews=(newGame.transferMarket?.offers??[]).filter(offer=>offerStatusBefore[offer.id]&&offerStatusBefore[offer.id]!==offer.status).map(offer=>{const club=TEAMS.find(team=>team.id===offer.fromTeamId);const message=offer.status==="clubAccepted"?[`${club?.name} acepta tu oferta por ${offer.playerName}`,"Ya puedes iniciar la negociaciÃ³n contractual con el jugador."]:offer.status==="clubCounter"?[`${club?.name} envÃ­a una contraoferta por ${offer.playerName}`,`El club solicita â‚¬${(offer.counterAmount/1000).toFixed(1)}M.`]:offer.status==="rejected"?[`${club?.name} rechaza la oferta por ${offer.playerName}`,"La propuesta no alcanza sus expectativas."]:offer.status==="playerCounter"?[`${offer.playerName} pide un salario mÃ¡s alto`,"El jugador ha respondido con nuevas condiciones."]:offer.status==="roleCounter"?[`${offer.playerName} pide mÃ¡s protagonismo`,`Quiere asumir el rol de ${offer.counterRole}.`]:offer.status==="ready"?[`${offer.playerName} acepta el contrato`,"La operaciÃ³n estÃ¡ lista para cerrarse."]:[`Otro club entra en la puja por ${offer.playerName}`,"La operaciÃ³n ya no estÃ¡ bajo tu control."];return{id:`news-response-${offer.id}-${offer.status}`,type:"transfer",importance:["ready","clubAccepted"].includes(offer.status)?"high":"medium",title:`ðŸ“¬ ${message[0]}`,summary:message[1],season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:`response:${offer.id}:${offer.status}`,metadata:{userClub:true}};});
+      const responseNews=(newGame.transferMarket?.offers??[]).filter(offer=>offerStatusBefore[offer.id]&&offerStatusBefore[offer.id]!==offer.status).map(offer=>{const club=TEAMS.find(team=>team.id===offer.fromTeamId);const message=offer.status==="clubAccepted"?[`${club?.name} acepta tu oferta por ${offer.playerName}`,"Ya puedes iniciar la negociación contractual con el jugador."]:offer.status==="clubCounter"?[`${club?.name} envía una contraoferta por ${offer.playerName}`,`El club solicita €${(offer.counterAmount/1000).toFixed(1)}M.`]:offer.status==="rejected"?[`${club?.name} rechaza la oferta por ${offer.playerName}`,"La propuesta no alcanza sus expectativas."]:offer.status==="playerCounter"?[`${offer.playerName} pide un salario más alto`,"El jugador ha respondido con nuevas condiciones."]:offer.status==="roleCounter"?[`${offer.playerName} pide más protagonismo`,`Quiere asumir el rol de ${offer.counterRole}.`]:offer.status==="ready"?[`${offer.playerName} acepta el contrato`,"La operación está lista para cerrarse."]:[`Otro club entra en la puja por ${offer.playerName}`,"La operación ya no está bajo tu control."];return{id:`news-response-${offer.id}-${offer.status}`,type:"transfer",importance:["ready","clubAccepted"].includes(offer.status)?"high":"medium",title:`📬 ${message[0]}`,summary:message[1],season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:`response:${offer.id}:${offer.status}`,metadata:{userClub:true}};});
       if(responseNews.length)newGame={...newGame,news:mergeNews(newGame.news??[],responseNews),transferMarket:{...newGame.transferMarket,notifications:[...responseNews.map(item=>({id:item.id,title:item.title,status:"unread",matchday})),...(newGame.transferMarket?.notifications??[])]}};
       newGame=ensureContractState(newGame);
       const renewalStatusBefore=Object.fromEntries((newGame.contracts?.renewals??[]).map(offer=>[offer.id,offer.status]));
       newGame=advanceRenewals(newGame);
-      const renewalNews=(newGame.contracts?.renewals??[]).filter(offer=>renewalStatusBefore[offer.id]&&renewalStatusBefore[offer.id]!==offer.status).map(offer=>{const messages={accepted:[`${offer.playerName} acepta renovar`,"La propuesta contractual ha sido aceptada y queda lista para la firma."],rejected:[`${offer.playerName} rechaza la renovaciÃ³n`,"El jugador no considera suficiente la propuesta."],salaryCounter:[`${offer.playerName} pide mÃ¡s salario`,`Solicita â‚¬${offer.counterSalary}K/semana para renovar.`],yearsCounter:[`${offer.playerName} pide mÃ¡s aÃ±os`,`Quiere ampliar la duraciÃ³n hasta ${offer.counterYears} aÃ±os.`],roleCounter:[`${offer.playerName} pide mÃ¡s protagonismo`,`Quiere renovar como ${offer.counterRole}.`]};const message=messages[offer.status]??[`${offer.playerName} responde a la renovaciÃ³n`,"La negociaciÃ³n contractual ha cambiado de estado."];return{id:`news-renewal-${offer.id}-${offer.status}`,type:"contract",importance:["accepted","rejected"].includes(offer.status)?"high":"medium",title:`ðŸ“„ ${message[0]}`,summary:message[1],season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:`renewal:${offer.id}:${offer.status}`,playerIds:[offer.playerId],teamIds:[newGame.teamId],metadata:{userClub:true,contract:true}};});
+      const renewalNews=(newGame.contracts?.renewals??[]).filter(offer=>renewalStatusBefore[offer.id]&&renewalStatusBefore[offer.id]!==offer.status).map(offer=>{const messages={accepted:[`${offer.playerName} acepta renovar`,"La propuesta contractual ha sido aceptada y queda lista para la firma."],rejected:[`${offer.playerName} rechaza la renovación`,"El jugador no considera suficiente la propuesta."],salaryCounter:[`${offer.playerName} pide más salario`,`Solicita €${offer.counterSalary}K/semana para renovar.`],yearsCounter:[`${offer.playerName} pide más años`,`Quiere ampliar la duración hasta ${offer.counterYears} años.`],roleCounter:[`${offer.playerName} pide más protagonismo`,`Quiere renovar como ${offer.counterRole}.`]};const message=messages[offer.status]??[`${offer.playerName} responde a la renovación`,"La negociación contractual ha cambiado de estado."];return{id:`news-renewal-${offer.id}-${offer.status}`,type:"contract",importance:["accepted","rejected"].includes(offer.status)?"high":"medium",title:`📄 ${message[0]}`,summary:message[1],season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:`renewal:${offer.id}:${offer.status}`,playerIds:[offer.playerId],teamIds:[newGame.teamId],metadata:{userClub:true,contract:true}};});
       if(renewalNews.length)newGame={...newGame,news:mergeNews(newGame.news??[],renewalNews),contracts:{...newGame.contracts,notifications:[...renewalNews.map(item=>({id:item.id,title:item.title,status:"unread",matchday})),...(newGame.contracts?.notifications??[])]}};
       const birthdayProgress=processBirthdays(newGame);
       newGame=birthdayProgress.news.length?{...birthdayProgress.game,news:mergeNews(birthdayProgress.game.news??[],birthdayProgress.news)}:birthdayProgress.game;
       const incomingBefore=newGame.transferMarket?.incomingOffers?.length??0;
       newGame=maybeCreateIncomingOffer(newGame,TEAMS);
-      if((newGame.transferMarket?.incomingOffers?.length??0)>incomingBefore){const offer=newGame.transferMarket.incomingOffers[0];const buyer=TEAMS.find(team=>team.id===offer.toTeamId);const item={id:`news-${offer.id}`,type:"transfer",importance:"high",title:`ðŸ“¬ Oferta del ${buyer?.name} por ${offer.playerName}`,summary:`El club ofrece â‚¬${(offer.amount/1000).toFixed(1)}M por ${offer.type==="loan"?"su cesiÃ³n":"el traspaso"}.`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:offer.id,metadata:{userClub:true}};newGame={...newGame,news:mergeNews(newGame.news??[],[item]),transferMarket:{...newGame.transferMarket,notifications:[{id:item.id,title:item.title,status:"unread",matchday},...(newGame.transferMarket.notifications??[])]}};}
+      if((newGame.transferMarket?.incomingOffers?.length??0)>incomingBefore){const offer=newGame.transferMarket.incomingOffers[0];const buyer=TEAMS.find(team=>team.id===offer.toTeamId);const item={id:`news-${offer.id}`,type:"transfer",importance:"high",title:`📬 Oferta del ${buyer?.name} por ${offer.playerName}`,summary:`El club ofrece €${(offer.amount/1000).toFixed(1)}M por ${offer.type==="loan"?"su cesión":"el traspaso"}.`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:offer.id,metadata:{userClub:true}};newGame={...newGame,news:mergeNews(newGame.news??[],[item]),transferMarket:{...newGame.transferMarket,notifications:[{id:item.id,title:item.title,status:"unread",matchday},...(newGame.transferMarket.notifications??[])]}};}
       const aiCountBefore=newGame.transferMarket?.aiTransfers?.length??0;
       newGame=maybeCreateAITransfer(newGame,TEAMS,REAL_SQUADS);
-      if((newGame.transferMarket?.aiTransfers?.length??0)>aiCountBefore){const move=newGame.transferMarket.aiTransfers[0];const from=TEAMS.find(team=>team.id===move.fromTeamId);const to=TEAMS.find(team=>team.id===move.toTeamId);const renewal=move.type==="renewal",loan=move.type==="loan",young=move.type==="youth";newGame={...newGame,news:mergeNews(newGame.news??[],[{id:`news-${move.id}`,type:"transfer",importance:young?"high":"medium",title:renewal?`${move.player.name} renueva con ${from?.name}`:loan?`${move.player.name}, cedido al ${to?.name}`:young?`${to?.name} apuesta por el joven ${move.player.name}`:`${move.player.name} ficha por ${to?.name}`,summary:renewal?`${from?.name} asegura la continuidad del jugador.`:loan?`${from?.name} busca minutos para el futbolista.`:`${from?.name} y ${to?.name} cierran la operaciÃ³n por â‚¬${(move.value/1000).toFixed(1)}M.${move.reason?` ${move.reason}.`:""}`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:move.id}])};newGame=refreshTransferListings(newGame,TEAMS,REAL_SQUADS,true);}
+      if((newGame.transferMarket?.aiTransfers?.length??0)>aiCountBefore){const move=newGame.transferMarket.aiTransfers[0];const from=TEAMS.find(team=>team.id===move.fromTeamId);const to=TEAMS.find(team=>team.id===move.toTeamId);const renewal=move.type==="renewal",loan=move.type==="loan",young=move.type==="youth";newGame={...newGame,news:mergeNews(newGame.news??[],[{id:`news-${move.id}`,type:"transfer",importance:young?"high":"medium",title:renewal?`${move.player.name} renueva con ${from?.name}`:loan?`${move.player.name}, cedido al ${to?.name}`:young?`${to?.name} apuesta por el joven ${move.player.name}`:`${move.player.name} ficha por ${to?.name}`,summary:renewal?`${from?.name} asegura la continuidad del jugador.`:loan?`${from?.name} busca minutos para el futbolista.`:`${from?.name} y ${to?.name} cierran la operación por €${(move.value/1000).toFixed(1)}M.${move.reason?` ${move.reason}.`:""}`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:move.id}])};newGame=refreshTransferListings(newGame,TEAMS,REAL_SQUADS,true);}
       saveGame(newGame);
       autosaveCloud(newGame,"match-end");
 
-      // Detectar fin de temporada (Ãºltima jornada jugada)
+      // Detectar fin de temporada (última jornada jugada)
       const allPlayed = finalFixtures.every(f => f.played);
       if (allPlayed || matchday >= 38) {
         const userSt = newStandings.find(s => s.teamId === prev.teamId);
@@ -5809,8 +5809,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         const legacyFinal = finalizeLegacySeason(newGame,{team:userTeamData,position:userPos});
         const youthAnnualReport=createYouthAnnualReport(newGame);
         const finalPlayers=newPlayers.map(player=>player.academyData?{...player,academyStats:{...(player.academyStats??{}),seasons:(player.academyStats?.seasons??0)+1,titles:(player.academyStats?.titles??0)+(userPos===1?1:0)}}:player);
-        const seasonBoardNews = generateBoardNews({items:[{title:userPos===1?`${userTeamData.name} conquista la Liga`:`${userTeamData.name} cierra la temporada en la ${userPos}.Âª posiciÃ³n`,summary:`El prestigio del club cambia ${legacyFinal.prestigeDelta>=0?"+":""}${Math.round(legacyFinal.prestigeDelta)} puntos.`,importance:userPos===1?"critical":"high",fingerprint:`season-end:${prev.season}:${userPos}`}],season:prev.season??"2025",matchday,userTeamId:prev.teamId});
-        const academyReportNews=generateYouthNews({items:[{title:"La cantera presenta su informe anual",summary:`${youthAnnualReport.promoted} promocionados Â· valor generado ${youthAnnualReport.generatedValue>=1000?`â‚¬${(youthAnnualReport.generatedValue/1000).toFixed(1)}M`:`â‚¬${youthAnnualReport.generatedValue}K`}.`,importance:youthAnnualReport.promoted>0?"high":"medium",fingerprint:`academy-annual:${prev.season}`}],season:prev.season??"2025",matchday,userTeamId:prev.teamId});
+        const seasonBoardNews = generateBoardNews({items:[{title:userPos===1?`${userTeamData.name} conquista la Liga`:`${userTeamData.name} cierra la temporada en la ${userPos}.ª posición`,summary:`El prestigio del club cambia ${legacyFinal.prestigeDelta>=0?"+":""}${Math.round(legacyFinal.prestigeDelta)} puntos.`,importance:userPos===1?"critical":"high",fingerprint:`season-end:${prev.season}:${userPos}`}],season:prev.season??"2025",matchday,userTeamId:prev.teamId});
+        const academyReportNews=generateYouthNews({items:[{title:"La cantera presenta su informe anual",summary:`${youthAnnualReport.promoted} promocionados · valor generado ${youthAnnualReport.generatedValue>=1000?`€${(youthAnnualReport.generatedValue/1000).toFixed(1)}M`:`€${youthAnnualReport.generatedValue}K`}.`,importance:youthAnnualReport.promoted>0?"high":"medium",fingerprint:`academy-annual:${prev.season}`}],season:prev.season??"2025",matchday,userTeamId:prev.teamId});
         let finalSeasonGame={...newGame,players:finalPlayers,history:newHistory,legacy:legacyFinal.legacy,budgetAdjustment:newGame.budgetAdjustment+legacyFinal.budgetReward,youth:{...newGame.youth,annualReports:[youthAnnualReport,...(newGame.youth?.annualReports??[])]},news:mergeNews(newGame.news,[...seasonBoardNews,...academyReportNews]),seasonTransition:"seasonEnd"};
         finalSeasonGame=finalizeCoachSeason(finalSeasonGame,{team:userTeamData,position:userPos,points:userSt?.points??0,title:legacyFinal.title,confidence:legacyFinal.legacy.confidence,youthReport:youthAnnualReport,legacyDelta:legacyFinal.managerDelta});
         const endData = { standings: newStandings, teamId: prev.teamId, season: prev.season??"2025", history: newHistory, players: finalPlayers, legacy:legacyFinal.legacy,game:finalSeasonGame };
@@ -5890,7 +5890,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       g=refreshTransferListings(g,TEAMS,REAL_SQUADS,true);
       const intakePlayers=g.youth.players.filter(player=>(g.youth.lastIntake??[]).includes(player.id));
       const topIntake=[...intakePlayers].sort((a,b)=>b.potential-a.potential)[0];
-      if(topIntake){const intakeNews=generateYouthNews({items:[{title:"Nueva generaciÃ³n en la cantera",summary:`${topIntake.name} destaca entre ${intakePlayers.length} incorporaciones con potencial ${topIntake.potential}.`,importance:topIntake.potential>=86?"high":"medium",playerId:topIntake.id,fingerprint:`academy-intake:${newSeason}`}],season:newSeason,matchday:1,userTeamId:prev.teamId});g={...g,news:mergeNews(g.news??[],intakeNews)};}
+      if(topIntake){const intakeNews=generateYouthNews({items:[{title:"Nueva generación en la cantera",summary:`${topIntake.name} destaca entre ${intakePlayers.length} incorporaciones con potencial ${topIntake.potential}.`,importance:topIntake.potential>=86?"high":"medium",playerId:topIntake.id,fingerprint:`academy-intake:${newSeason}`}],season:newSeason,matchday:1,userTeamId:prev.teamId});g={...g,news:mergeNews(g.news??[],intakeNews)};}
       saveGame(g);
       autosaveCloud(g,"new-season");
       return g;
@@ -5903,7 +5903,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   const handleTransfer = ({ type, player, cost, salary, value, fromTeamId, toTeamId, offerId }) => {
     setGame(prev => {
       let newPlayers = [...prev.players];
-      const prevAdjustment = prev.budgetAdjustment ?? 0; // en â‚¬K, acumulado de fichajes/ventas
+      const prevAdjustment = prev.budgetAdjustment ?? 0; // en €K, acumulado de fichajes/ventas
 
       if (type === "buy" || type === "loanIn") {
         const newPlayer = ensurePlayerMorale(normalizeMedicalPlayer(enrichPlayerProfile({ ...player, salary, fatigue:15, morale:75,
@@ -5919,7 +5919,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         if(toTeamId&&REAL_SQUADS[toTeamId]&&!REAL_SQUADS[toTeamId].some(item=>item.id===player.id))REAL_SQUADS[toTeamId]=[...REAL_SQUADS[toTeamId],player];
       }
 
-      // Ajuste acumulado: comprar resta, vender suma (en â‚¬K)
+      // Ajuste acumulado: comprar resta, vender suma (en €K)
       const newAdjustment = ["buy","loanIn"].includes(type) ? prevAdjustment - cost
                            : ["sell","loanOut"].includes(type) ? prevAdjustment + value
                            : prevAdjustment;
@@ -6001,7 +6001,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const promotion={playerId:promoted.id,name:promoted.name,season:String(prev.season),matchday:prev.matchday,potential:promoted.potential};
       const prestigeGain=category.id==="historic"?3:category.id==="elite"?2:1;
       const legacy={...prev.legacy,clubPrestige:Math.min(100,prev.legacy.clubPrestige+prestigeGain),manager:{...prev.legacy.manager,prestige:Math.min(100,prev.legacy.manager.prestige+prestigeGain*.5)}};
-      const promotionNews=generateYouthNews({items:[{title:`${promoted.name} asciende al primer equipo`,summary:`El club apuesta por el ${promoted.pos} de ${promoted.age} aÃ±os y potencial ${promoted.potential}.`,importance:category.id==="historic"||category.id==="elite"?"high":"medium",playerId:promoted.id,fingerprint:`academy-promotion:${promoted.id}`}],season:prev.season,matchday:prev.matchday,userTeamId:prev.teamId});
+      const promotionNews=generateYouthNews({items:[{title:`${promoted.name} asciende al primer equipo`,summary:`El club apuesta por el ${promoted.pos} de ${promoted.age} años y potencial ${promoted.potential}.`,importance:category.id==="historic"||category.id==="elite"?"high":"medium",playerId:promoted.id,fingerprint:`academy-promotion:${promoted.id}`}],season:prev.season,matchday:prev.matchday,userTeamId:prev.teamId});
       let updated={...prev,players:[...prev.players,promoted],youth:{...prev.youth,players:prev.youth.players.filter(player=>player.id!==playerId),promotions:[promotion,...(prev.youth.promotions??[])]},legacy,news:mergeNews(prev.news??[],promotionNews)};
       const beforeFanbase=prev.fanbase;
       updated=applyFanYouthReaction(updated,promoted);
@@ -6065,10 +6065,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   const headerTitle = {
     menu: null, saves: null, country: "Nueva partida", league: "Selecciona liga", coachCreate:"Crea tu entrenador",
     teams: "Elige tu equipo", dashboard: "Mi Club",
-    squad: "Plantilla", lineup: "AlineaciÃ³n", tactics: "TÃ¡cticas",
-    calendar: "Calendario", standings: "ClasificaciÃ³n", match: "Partido",
+    squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
+    calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", staff:"Staff TÃ©cnico", career:"Mi Carrera", cloudSaves:"Mis partidas", scouting:"Scouting", news: "Noticias", medical:"Centro MÃ©dico", lockerRoom:"Vestuario", fans:"AficiÃ³n", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de AtenciÃ³n", more:"MÃ¡s", settings:"ConfiguraciÃ³n",
+    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", staff:"Staff Técnico", career:"Mi Carrera", cloudSaves:"Mis partidas", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", fans:"Afición", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile"].includes(screen);
@@ -6085,19 +6085,19 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
               style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", cursor:"pointer", fontSize:12, padding:"5px 10px", borderRadius:7, fontWeight:600, transition:"background .15s" }}
               onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.1)"}
               onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,.06)"}>
-              â† {screen === "playerProfile" ? "Volver" : "Inicio"}
+              ← {screen === "playerProfile" ? "Volver" : "Inicio"}
             </button>
           )}
           {screen === "teams" && (
             <button onClick={() => setScreen("league")}
               style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", cursor:"pointer", fontSize:12, padding:"5px 10px", borderRadius:7, fontWeight:600 }}>
-              â† Volver
+              ← Volver
             </button>
           )}
           <div style={{ flex:1 }}>
             <div style={{ fontWeight:700, fontSize:15, color:"#e8eaf0" }}>{headerTitle[screen]}</div>
             {screen === "dashboard" && game && (
-              <div style={{ fontSize:11, color:"#4b5563", marginTop:1 }}>Jornada {game.matchday} Â· Temporada {game.season ?? "2025"}/{String(parseInt(game.season??2025)+1).slice(-2)}</div>
+              <div style={{ fontSize:11, color:"#4b5563", marginTop:1 }}>Jornada {game.matchday} · Temporada {game.season ?? "2025"}/{String(parseInt(game.season??2025)+1).slice(-2)}</div>
             )}
           </div>
           {game && <CloudSyncIndicator session={cloudSession} syncState={cloudSyncState} conflict={cloudConflict} onClick={()=>setScreen("cloudSaves")} />}
@@ -6106,9 +6106,9 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       )}
       {cloudLinkPrompt && game && (
         <div style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 12px", background:"rgba(96,165,250,.1)", borderBottom:"1px solid rgba(96,165,250,.2)", color:"#cfe3ff", fontSize:11 }}>
-          <span style={{ flex:1 }}>Esta partida todavÃ­a no estÃ¡ sincronizada con la nube.</span>
+          <span style={{ flex:1 }}>Esta partida todavía no está sincronizada con la nube.</span>
           <button onClick={()=>{setCloudLinkPrompt(null);saveGameToCloud(game,{reason:"link-local-save"});}} style={{ background:"#60a5fa", border:"none", color:"#07111f", borderRadius:8, padding:"7px 9px", fontSize:10, fontWeight:900, cursor:"pointer" }}>Sincronizar ahora</button>
-          <button onClick={()=>setCloudLinkPrompt(null)} style={{ background:"transparent", border:"none", color:"#8b92a3", fontSize:16, cursor:"pointer" }}>Ã—</button>
+          <button onClick={()=>setCloudLinkPrompt(null)} style={{ background:"transparent", border:"none", color:"#8b92a3", fontSize:16, cursor:"pointer" }}>×</button>
         </div>
       )}
 

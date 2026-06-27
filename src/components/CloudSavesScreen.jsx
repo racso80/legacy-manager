@@ -1,10 +1,10 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getCloudSyncSnapshot, isSupabaseConfigured, listCloudSaves } from "../cloud/cloudSaveService.js";
 
 const inputStyle = { width:"100%", boxSizing:"border-box", background:"#0d0f14", border:"1px solid rgba(255,255,255,.1)", color:"#fff", borderRadius:9, padding:"10px 11px", fontSize:12 };
 
 function fmtDate(iso) {
-  if (!iso) return "â€”";
+  if (!iso) return "—";
   const d = new Date(iso);
   return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
 }
@@ -39,25 +39,25 @@ export default function CloudSavesScreen({ session, localSave, status, syncState
   useEffect(()=>{ refresh(); },[session?.user?.id]);
 
   if (!isSupabaseConfigured) {
-    return <div style={{ flex:1, overflowY:"auto", padding:16 }}><div style={{ background:"#161a24", border:"1px solid rgba(245,158,11,.25)", borderRadius:14, padding:16 }}><div style={{ color:"#f59e0b", fontSize:18, fontWeight:900 }}>Supabase no estÃ¡ configurado</div><div style={{ color:"#9aa0b4", fontSize:12, lineHeight:1.5, marginTop:8 }}>Crea un archivo `.env` con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`. El guardado local sigue funcionando.</div></div></div>;
+    return <div style={{ flex:1, overflowY:"auto", padding:16 }}><div style={{ background:"#161a24", border:"1px solid rgba(245,158,11,.25)", borderRadius:14, padding:16 }}><div style={{ color:"#f59e0b", fontSize:18, fontWeight:900 }}>Supabase no está configurado</div><div style={{ color:"#9aa0b4", fontSize:12, lineHeight:1.5, marginTop:8 }}>Crea un archivo `.env` con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`. El guardado local sigue funcionando.</div></div></div>;
   }
 
   if (!session) {
     return <div style={{ flex:1, overflowY:"auto", padding:"18px 14px 24px" }}>
       <div style={{ background:"radial-gradient(circle at 86% 0%,rgba(96,165,250,.24),transparent 42%),linear-gradient(145deg,#172033,#11141b)", border:"1px solid rgba(96,165,250,.25)", borderRadius:16, padding:16, marginBottom:14 }}>
-        <div style={{ color:"#60a5fa", fontSize:10, fontWeight:950, letterSpacing:"1px" }}>â˜ï¸ SUPABASE</div>
+        <div style={{ color:"#60a5fa", fontSize:10, fontWeight:950, letterSpacing:"1px" }}>☁️ SUPABASE</div>
         <div style={{ color:"#fff", fontSize:22, fontWeight:950, marginTop:5 }}>Sincronizar partidas</div>
-        <div style={{ color:"#8b92a3", fontSize:11, lineHeight:1.5, marginTop:5 }}>Inicia sesiÃ³n para guardar tu carrera en la nube y continuar desde PC o mÃ³vil.</div>
+        <div style={{ color:"#8b92a3", fontSize:11, lineHeight:1.5, marginTop:5 }}>Inicia sesión para guardar tu carrera en la nube y continuar desde PC o móvil.</div>
       </div>
       <div style={{ background:"#161a24", borderRadius:14, padding:14, display:"flex", flexDirection:"column", gap:9 }}>
         <div style={{ display:"flex", gap:7 }}>{[["login","Entrar"],["signup","Crear cuenta"]].map(([id,label])=><button key={id} onClick={()=>setMode(id)} style={{ flex:1, border:"none", borderRadius:8, padding:9, background:mode===id?"#60a5fa":"#1e2330", color:mode===id?"#07111f":"#9aa0b4", fontWeight:900 }}>{label}</button>)}</div>
         {mode==="signup" && <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Nombre de usuario" style={inputStyle} />}
         <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" style={inputStyle} />
-        <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="ContraseÃ±a" type="password" style={inputStyle} />
+        <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="Contraseña" type="password" style={inputStyle} />
         {error && <div style={{ color:"#ef4444", fontSize:10 }}>{error}</div>}
         {status && <div style={{ color:"#60a5fa", fontSize:10 }}>{status}</div>}
-        <button onClick={async()=>{setError("");try{mode==="signup"?await onSignUp(email,password,username):await onSignIn(email,password);}catch(e){setError(e.message??"Error de autenticaciÃ³n");}}} className="btn-gold" style={{ padding:11, borderRadius:9 }}>
-          {mode==="signup" ? "Crear cuenta" : "Iniciar sesiÃ³n"}
+        <button onClick={async()=>{setError("");try{mode==="signup"?await onSignUp(email,password,username):await onSignIn(email,password);}catch(e){setError(e.message??"Error de autenticación");}}} className="btn-gold" style={{ padding:11, borderRadius:9 }}>
+          {mode==="signup" ? "Crear cuenta" : "Iniciar sesión"}
         </button>
       </div>
     </div>;
@@ -65,14 +65,14 @@ export default function CloudSavesScreen({ session, localSave, status, syncState
 
   return <div style={{ flex:1, overflowY:"auto", padding:"14px 14px 24px" }}>
     <div style={{ background:"linear-gradient(145deg,rgba(96,165,250,.14),#161a24)", border:"1px solid rgba(96,165,250,.24)", borderRadius:14, padding:14, marginBottom:12 }}>
-      <div style={{ color:"#60a5fa", fontSize:10, fontWeight:950, letterSpacing:"1px" }}>â˜ï¸ MIS PARTIDAS</div>
+      <div style={{ color:"#60a5fa", fontSize:10, fontWeight:950, letterSpacing:"1px" }}>☁️ MIS PARTIDAS</div>
       <div style={{ color:"#fff", fontSize:18, fontWeight:900, marginTop:4 }}>{session.user.email}</div>
       <div style={{ color:"#7b8293", fontSize:10, marginTop:3 }}>El guardado local sigue activo como respaldo.</div>
       <div style={{ display:"flex", gap:7, flexWrap:"wrap", marginTop:9 }}>
         <span style={{ background:`${syncColor}1f`, color:syncColor, borderRadius:999, padding:"4px 8px", fontSize:9, fontWeight:900 }}>
           {syncLabel}
         </span>
-        {syncState?.lastSyncAt && <span style={{ color:"#6b7280", fontSize:9, alignSelf:"center" }}>Ãšltima sync: {fmtDate(syncState.lastSyncAt)}</span>}
+        {syncState?.lastSyncAt && <span style={{ color:"#6b7280", fontSize:9, alignSelf:"center" }}>Última sync: {fmtDate(syncState.lastSyncAt)}</span>}
       </div>
       <div style={{ display:"flex", gap:8, marginTop:12 }}>
         <button disabled={!localSave} onClick={async()=>{await onSaveCloud(); await refresh();}} className="btn-gold" style={{ flex:1, borderRadius:9, padding:10, opacity:localSave?1:.5 }}>Sincronizar ahora</button>
@@ -84,9 +84,9 @@ export default function CloudSavesScreen({ session, localSave, status, syncState
     </div>
 
     {conflict && <div style={{ background:"rgba(245,158,11,.1)", border:"1px solid rgba(245,158,11,.28)", borderRadius:12, padding:12, marginBottom:12 }}>
-      <div style={{ color:"#f59e0b", fontSize:12, fontWeight:950 }}>Conflicto de sincronizaciÃ³n</div>
-      <div style={{ color:"#cfd4df", fontSize:10, lineHeight:1.45, marginTop:5 }}>La partida en la nube es mÃ¡s reciente que la copia local. No se ha sobrescrito nada automÃ¡ticamente.</div>
-      <div style={{ color:"#7b8293", fontSize:9, marginTop:6 }}>Nube: {fmtDate(conflict.cloudUpdatedAt)} Â· Local conocido: {fmtDate(conflict.localKnownCloudUpdatedAt)}</div>
+      <div style={{ color:"#f59e0b", fontSize:12, fontWeight:950 }}>Conflicto de sincronización</div>
+      <div style={{ color:"#cfd4df", fontSize:10, lineHeight:1.45, marginTop:5 }}>La partida en la nube es más reciente que la copia local. No se ha sobrescrito nada automáticamente.</div>
+      <div style={{ color:"#7b8293", fontSize:9, marginTop:6 }}>Nube: {fmtDate(conflict.cloudUpdatedAt)} · Local conocido: {fmtDate(conflict.localKnownCloudUpdatedAt)}</div>
       <div style={{ display:"flex", gap:7, marginTop:10 }}>
         <button onClick={()=>onLoadCloud(conflict.cloudSaveId)} className="btn-gold" style={{ flex:1, borderRadius:8, padding:8 }}>Usar nube</button>
         <button onClick={onForceSaveCloud} style={{ flex:1, background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.25)", color:"#ef4444", borderRadius:8, padding:8, fontWeight:850 }}>Sobrescribir nube</button>
@@ -97,7 +97,7 @@ export default function CloudSavesScreen({ session, localSave, status, syncState
     {localSave && <div style={{ background:"#10131a", border:"1px solid rgba(201,168,76,.16)", borderRadius:11, padding:11, marginBottom:12 }}>
       <div style={{ color:"#c9a84c", fontSize:10, fontWeight:900 }}>PARTIDA LOCAL ACTIVA</div>
       <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:850, marginTop:4 }}>{localSave.name}</div>
-      <div style={{ color:"#6b7280", fontSize:9, marginTop:3 }}>J{localSave.matchday} Â· Temp. {localSave.season} Â· {fmtDate(localSave.updatedAt)}</div>
+      <div style={{ color:"#6b7280", fontSize:9, marginTop:3 }}>J{localSave.matchday} · Temp. {localSave.season} · {fmtDate(localSave.updatedAt)}</div>
     </div>}
 
     <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
@@ -105,7 +105,7 @@ export default function CloudSavesScreen({ session, localSave, status, syncState
         <div style={{ display:"flex", justifyContent:"space-between", gap:10 }}>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ color:"#fff", fontSize:13, fontWeight:850, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{save.name}</div>
-            <div style={{ color:"#7b8293", fontSize:9, marginTop:3 }}>{save.coach_name ?? "Entrenador"} Â· {save.club_id ?? "club"} Â· Temp. {save.season}</div>
+            <div style={{ color:"#7b8293", fontSize:9, marginTop:3 }}>{save.coach_name ?? "Entrenador"} · {save.club_id ?? "club"} · Temp. {save.season}</div>
             <div style={{ color:"#4b5563", fontSize:9, marginTop:3 }}>Nube: {fmtDate(save.updated_at)}</div>
             {localSave?.cloudSaveId === save.id && <Freshness local={localSave} cloud={save.updated_at} />}
           </div>
@@ -115,7 +115,7 @@ export default function CloudSavesScreen({ session, localSave, status, syncState
           <button onClick={async()=>{await onDeleteCloud(save.id); await refresh();}} style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.22)", color:"#ef4444", borderRadius:8, padding:"0 12px" }}>Borrar</button>
         </div>
       </div>)}
-      {!saves.length && <div style={{ background:"#161a24", borderRadius:11, padding:18, color:"#7b8293", fontSize:11, textAlign:"center" }}>No hay partidas guardadas en la nube todavÃ­a.</div>}
+      {!saves.length && <div style={{ background:"#161a24", borderRadius:11, padding:18, color:"#7b8293", fontSize:11, textAlign:"center" }}>No hay partidas guardadas en la nube todavía.</div>}
     </div>
   </div>;
 }
