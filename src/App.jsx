@@ -2462,6 +2462,72 @@ function ConversationScreen({ conversation, onRespond, onBack }) {
   );
 }
 
+const STAFF_PERSONAS = {
+  "Director deportivo": { emoji:"👔", color:"#60a5fa", role:"Director deportivo", personality:"piensa en el largo plazo" },
+  "Segundo entrenador": { emoji:"👥", color:"#c9a84c", role:"Segundo entrenador", personality:"directo y práctico" },
+  "Médico": { emoji:"👨‍⚕️", color:"#22c55e", role:"Médico", personality:"prudente" },
+  "Preparador físico": { emoji:"🏋️", color:"#f59e0b", role:"Preparador físico", personality:"protector con la carga" },
+  "Capitán": { emoji:"❤️", color:"#ef4444", role:"Capitán", personality:"protege al grupo" },
+  "Presidente": { emoji:"🏛️", color:"#a78bfa", role:"Presidente", personality:"exigente" },
+  "Responsable de prensa": { emoji:"🎙️", color:"#f97316", role:"Jefa de prensa", personality:"mide cada palabra" },
+  "Psicólogo": { emoji:"🧠", color:"#38bdf8", role:"Psicólogo", personality:"lee el vestuario" },
+};
+
+function emotionMeta(state = "neutral") {
+  const key = String(state).toLowerCase();
+  if (key.includes("enfad") || key.includes("dolido") || key.includes("tenso")) return { icon:"😠", label:"Enfadado", color:"#ef4444" };
+  if (key.includes("preocup") || key.includes("serio") || key.includes("inquiet")) return { icon:"😟", label:"Preocupado", color:"#f59e0b" };
+  if (key.includes("agrade") || key.includes("positivo") || key.includes("feliz")) return { icon:"😊", label:"Contento", color:"#22c55e" };
+  if (key.includes("motivad")) return { icon:"🔥", label:"Motivado", color:"#f97316" };
+  if (key.includes("lesion")) return { icon:"🤕", label:"Tocado", color:"#ef4444" };
+  return { icon:"😐", label:"Neutral", color:"#9aa0b4" };
+}
+
+function PersonAvatar({ person, size = 42 }) {
+  const color = person?.color ?? "#c9a84c";
+  return (
+    <div style={{ width:size, height:size, borderRadius:Math.round(size*.28), overflow:"hidden", background:`linear-gradient(145deg,${color}33,#0d0f14)`, border:`1px solid ${color}55`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, boxShadow:`0 0 18px ${color}18` }}>
+      {person?.portrait ? <img src={person.portrait} alt={person.name} onError={event=>{event.currentTarget.style.display="none";}} style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center" }}/> : <span style={{ fontSize:Math.round(size*.46) }}>{person?.emoji ?? "👤"}</span>}
+    </div>
+  );
+}
+
+function attentionPersona(item) {
+  const title = `${item.title ?? ""} ${item.summary ?? ""}`.toLowerCase();
+  if (item.category === "medical" || title.includes("lesion") || title.includes("riesgo físico") || title.includes("fatiga")) {
+    return { ...STAFF_PERSONAS.Médico, name:"Médico", emotionalState:"preocupado", line:`${item.summary ?? item.title}`, action:item.actionLabel ?? "Ver informe" };
+  }
+  if (item.category === "contracts" || title.includes("contrato") || title.includes("renov")) {
+    const playerName = item.playerId ? item.title?.split(" ")[0] : null;
+    return { ...STAFF_PERSONAS["Director deportivo"], name:"Director deportivo", emotionalState:"serio", line:`He revisado este asunto contractual. ${item.summary ?? "Creo que deberíamos movernos pronto."}`, action:item.actionLabel ?? "Negociar" };
+  }
+  if (item.category === "market" || title.includes("oferta") || title.includes("mercado")) {
+    return { ...STAFF_PERSONAS["Director deportivo"], name:"Director deportivo", emotionalState:"expectante", line:item.summary ?? "Hay movimiento en el mercado y necesitamos decidir.", action:item.actionLabel ?? "Revisar" };
+  }
+  if (item.category === "match" || title.includes("alineación") || title.includes("partido") || title.includes("sancionado")) {
+    return { ...STAFF_PERSONAS["Segundo entrenador"], name:"Segundo entrenador", emotionalState:"directo", line:item.summary ?? "Míster, hay algo del próximo partido que debemos resolver.", action:item.actionLabel ?? "Preparar" };
+  }
+  if (item.category === "fans") {
+    return { ...STAFF_PERSONAS.Presidente, name:"Presidente", emotionalState:"exigente", line:item.summary ?? "La afición está hablando y conviene escucharla.", action:item.actionLabel ?? "Responder" };
+  }
+  if (item.category === "staff" || item.category === "training") {
+    return { ...STAFF_PERSONAS["Preparador físico"], name:"Preparador físico", emotionalState:"preocupado", line:item.summary ?? "Tengo una recomendación para el trabajo del equipo.", action:item.actionLabel ?? "Revisar" };
+  }
+  if (item.category === "board" || item.category === "career") {
+    return { ...STAFF_PERSONAS.Presidente, name:"Presidente", emotionalState:"serio", line:item.summary ?? "Necesito comentar contigo una cuestión importante.", action:item.actionLabel ?? "Entrar" };
+  }
+  if (item.category === "youth") {
+    return { emoji:"🌱", color:"#84cc16", role:"Responsable de cantera", personality:"protege el futuro", name:"Responsable de cantera", emotionalState:"ilusionado", line:item.summary ?? "Hay un chico que merece tu atención.", action:item.actionLabel ?? "Ver cantera" };
+  }
+  return { ...STAFF_PERSONAS["Segundo entrenador"], name:"Segundo entrenador", emotionalState:"neutral", line:item.summary ?? item.title, action:item.actionLabel ?? "Revisar" };
+}
+
+function conversationPersona(conversation) {
+  if (conversation.actorType === "player") return { name:conversation.actorName, role:conversation.role, portrait:conversation.portrait, emoji:"👤", color:"#c9a84c", emotionalState:conversation.emotionalState, line:conversation.opening, action:"Hablar" };
+  const base = STAFF_PERSONAS[conversation.actorName] ?? { emoji:"👤", color:"#c9a84c", role:conversation.role, personality:"profesional" };
+  return { ...base, name:conversation.actorName, role:conversation.role ?? base.role, emotionalState:conversation.emotionalState, line:conversation.opening, action:"Hablar" };
+}
+
 function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conversations = [], onOpenAttention, onOpenConversation }) {
   const team      = TEAMS.find(t => t.id === game.teamId);
   const standing  = game.standings.find(s => s.teamId === game.teamId);
@@ -2536,8 +2602,13 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
     { label:"Prestigio club", value:clubPrestigeLevel.label, color:clubPrestigeLevel.color },
     { label:"Entrenador", value:managerPrestigeLevel.label, color:managerPrestigeLevel.color },
   ];
-  const priorityLabel = priority => priority==="urgent" ? "Urgente" : priority==="important" ? "Importante" : "Informativa";
-  const priorityColor = priority => priority==="urgent" ? "#ef4444" : priority==="important" ? "#f59e0b" : "#22c55e";
+  const priorityLabel = priority => priority==="urgent"||priority==="critical" ? "Urgente" : priority==="important" ? "Importante" : "Informativa";
+  const priorityColor = priority => priority==="urgent"||priority==="critical" ? "#ef4444" : priority==="important" ? "#f59e0b" : "#22c55e";
+  const priorityRank = priority => priority==="urgent"||priority==="critical" ? 0 : priority==="important" ? 1 : 2;
+  const waitingPeople = [
+    ...conversations.map(conversation=>({ kind:"conversation", id:conversation.id, priority:conversation.priority, person:conversationPersona(conversation), onClick:()=>onOpenConversation?.(conversation.id) })),
+    ...urgentAttention.filter(item=>!String(item.id).startsWith("conversation:")).map(item=>({ kind:"attention", id:item.id, priority:item.priority, person:attentionPersona(item), onClick:()=>onOpenAttention?onOpenAttention(item):setScreen(item.action?.screen??"attention") })),
+  ].sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)).slice(0,3);
 
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
@@ -2569,56 +2640,32 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
         )}
       </div>
 
-      {conversations.length>0 && (
-        <div style={{ background:"linear-gradient(145deg,rgba(201,168,76,.14),#161a24 50%)", border:"1px solid rgba(201,168,76,.28)", borderRadius:14, padding:15, marginBottom:12 }}>
+      <div style={{ background:waitingPeople.length?"linear-gradient(145deg,rgba(201,168,76,.15),#161a24 50%)":"linear-gradient(145deg,rgba(34,197,94,.11),#161a24 50%)", border:`1px solid ${waitingPeople.length?"rgba(201,168,76,.30)":"rgba(34,197,94,.22)"}`, borderRadius:14, padding:15, marginBottom:12 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, marginBottom:10 }}>
             <div>
-              <div style={{ fontSize:10, color:"#6b7280", fontWeight:900, letterSpacing:".8px" }}>EL CLUB HABLA CONTIGO</div>
-              <div style={{ fontSize:17, color:"#f3f4f6", fontWeight:900, marginTop:3 }}>{conversations.length} persona{conversations.length===1?"":"s"} esperando</div>
+              <div style={{ fontSize:10, color:"#6b7280", fontWeight:900, letterSpacing:".8px" }}>REQUIERE TU ATENCIÓN</div>
+              <div style={{ fontSize:17, color:waitingPeople.length?"#f3f4f6":"#22c55e", fontWeight:900, marginTop:3 }}>{waitingPeople.length?`${waitingPeople.length} persona${waitingPeople.length===1?"":"s"} esperando fuera`:"No hay nadie esperando"}</div>
+              <div style={{ fontSize:10, color:"#8b92a3", marginTop:3 }}>{waitingPeople.length?"El club ha seguido trabajando. Ahora necesita una decisión.":"El despacho está tranquilo por ahora."}</div>
             </div>
             <span style={{ fontSize:20 }}>🚪</span>
           </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {conversations.slice(0,4).map(conversation=>(
-              <button key={conversation.id} onClick={()=>onOpenConversation?.(conversation.id)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", background:conversation.priority==="urgent"?"rgba(239,68,68,.08)":"rgba(13,15,20,.72)", border:`1px solid ${conversation.priority==="urgent"?"rgba(239,68,68,.24)":"rgba(255,255,255,.07)"}`, borderRadius:11, padding:10, cursor:"pointer" }}>
-                <div style={{ width:38, height:38, borderRadius:10, overflow:"hidden", background:"#0d0f14", border:`1px solid ${priorityColor(conversation.priority)}44`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                  {conversation.portrait?<img src={conversation.portrait} alt={conversation.actorName} onError={event=>{event.currentTarget.style.display="none";}} style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center" }}/>:<span style={{ fontSize:18 }}>{conversation.actorType==="player"?"👤":conversation.actorName==="Responsable de prensa"?"🎙️":conversation.actorName==="Director deportivo"?"👔":conversation.actorName==="Capitán"?"❤️":"🏋️"}</span>}
-                </div>
+          {waitingPeople.length>0 && <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {waitingPeople.map(item=>{const person=item.person;const mood=emotionMeta(person.emotionalState);return (
+              <button key={`${item.kind}-${item.id}`} onClick={item.onClick} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", background:item.priority==="urgent"||item.priority==="critical"?"rgba(239,68,68,.08)":"rgba(13,15,20,.72)", border:`1px solid ${item.priority==="urgent"||item.priority==="critical"?"rgba(239,68,68,.24)":"rgba(255,255,255,.07)"}`, borderRadius:12, padding:10, cursor:"pointer" }}>
+                <PersonAvatar person={person} size={42}/>
                 <span style={{ flex:1, minWidth:0 }}>
                   <span style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
-                    <strong style={{ color:"#e8eaf0", fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{conversation.actorName}</strong>
-                    <small style={{ color:priorityColor(conversation.priority), fontSize:8, fontWeight:900 }}>{priorityLabel(conversation.priority).toUpperCase()}</small>
+                    <strong style={{ color:"#e8eaf0", fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{person.name}</strong>
+                    <small style={{ color:priorityColor(item.priority), fontSize:8, fontWeight:900 }}>{priorityLabel(item.priority).toUpperCase()}</small>
+                    <small style={{ color:mood.color, fontSize:10 }}>{mood.icon}</small>
                   </span>
-                  <span style={{ display:"block", color:"#c9ced8", fontSize:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{conversation.opening}</span>
-                  <span style={{ display:"block", color:"#6b7280", fontSize:9, marginTop:3 }}>{conversation.role} · {conversation.emotionalState}</span>
+                  <span style={{ display:"block", color:"#c9ced8", fontSize:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>"{person.line}"</span>
+                  <span style={{ display:"block", color:"#6b7280", fontSize:9, marginTop:3 }}>{person.role} · {mood.label} · {person.personality ?? "necesita una decisión"}</span>
                 </span>
-                <span style={{ color:"#c9a84c", fontSize:14 }}>→</span>
+                <span style={{ color:"#c9a84c", fontSize:10, fontWeight:900, whiteSpace:"nowrap" }}>{person.action} →</span>
               </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Despacho del entrenador: decisiones primero */}
-      <div style={{ background:urgentAttention.length?"linear-gradient(145deg,rgba(201,168,76,.14),#161a24 48%)":"linear-gradient(145deg,rgba(34,197,94,.11),#161a24 48%)", border:`1px solid ${urgentAttention.length?"rgba(201,168,76,.28)":"rgba(34,197,94,.22)"}`, borderRadius:14, padding:15, marginBottom:12, boxShadow:urgentAttention.some(item=>item.priority==="critical")?"0 0 0 1px rgba(239,68,68,.16)":undefined }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, marginBottom:urgentAttention.length?11:0 }}>
-          <div>
-            <div style={{ fontSize:10, color:"#6b7280", fontWeight:900, letterSpacing:".8px" }}>DESPACHO DEL ENTRENADOR</div>
-            <div style={{ fontSize:18, color:urgentAttention.length?"#f3f4f6":"#22c55e", fontWeight:900, marginTop:3 }}>{urgentAttention.length?"Requiere tu atención":"El día empieza tranquilo"}</div>
-            <div style={{ fontSize:11, color:"#8b92a3", marginTop:3 }}>{urgentAttention.length?`${urgentAttention.length} tarea${urgentAttention.length===1?"":"s"} pendiente${urgentAttention.length===1?"":"s"} antes de seguir.`:"No hay decisiones urgentes ahora mismo."}</div>
-          </div>
-          <button onClick={()=>setScreen("attention")} className={urgentAttention.length?"btn-gold":"btn-ghost"} style={{ padding:"9px 11px", borderRadius:9, fontSize:11, whiteSpace:"nowrap" }}>{urgentAttention.length?"Resolver":"Centro"}</button>
-        </div>
-        {urgentAttention.length>0 && <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {urgentAttention.slice(0,5).map(item=><button key={item.id} onClick={()=>onOpenAttention?onOpenAttention(item):setScreen("attention")} style={{ display:"flex", alignItems:"center", gap:9, width:"100%", textAlign:"left", background:item.priority==="critical"?"rgba(239,68,68,.08)":"rgba(201,168,76,.07)", border:`1px solid ${item.priority==="critical"?"rgba(239,68,68,.22)":"rgba(201,168,76,.18)"}`, borderRadius:10, padding:10, cursor:"pointer" }}>
-            <span style={{ fontSize:14 }}>{item.priority==="critical"?"🔴":"🟠"}</span>
-            <span style={{ flex:1, minWidth:0 }}>
-              <strong style={{ display:"block", color:"#e8eaf0", fontSize:12, lineHeight:1.25, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.title}</strong>
-              <small style={{ display:"block", color:"#7b8294", fontSize:9, lineHeight:1.35, marginTop:3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.summary}</small>
-            </span>
-            <span style={{ color:"#c9a84c", fontSize:14 }}>→</span>
-          </button>)}
-        </div>}
+            )})}
+          </div>}
       </div>
 
       {agendaItems.length>0 && (
