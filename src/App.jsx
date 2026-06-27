@@ -20,6 +20,7 @@ import StaffScreen from "./components/StaffScreen.jsx";
 import CoachCreateScreen from "./components/CoachCreateScreen.jsx";
 import CoachCareerScreen from "./components/CoachCareerScreen.jsx";
 import FanbaseScreen from "./components/FanbaseScreen.jsx";
+import CloudSavesScreen from "./components/CloudSavesScreen.jsx";
 import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
@@ -37,6 +38,7 @@ import { ensurePlayerMorale, ensureSquadMorale, getLockerRoomSummary, getMoraleL
 import { ensureStaffState } from "./staff/staffEngine.js";
 import { createCoachCareer, ensureCoachCareer, finalizeCoachSeason, recordCoachMatch } from "./coach/coachCareerEngine.js";
 import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, applyFanYouthReaction, ensureFanbaseState, estimateFanAttendance, generateFanNews } from "./fans/fanEngine.js";
+import { deleteCloudSave, getCurrentSession, loadCloudSave, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
 
 const STARTERS_SLOTS = 11;
 const BENCH_SLOTS = 12;
@@ -1824,7 +1826,7 @@ function ScreenWrapper({ children, animKey }) {
   );
 }
 
-function MainMenu({ onNew, onSaves, savesCount }) {
+function MainMenu({ onNew, onSaves, onCloud, savesCount }) {
   const [hovNew, setHovNew] = useState(false);
   const [hovCont, setHovCont] = useState(false);
 
@@ -1864,6 +1866,10 @@ function MainMenu({ onNew, onSaves, savesCount }) {
               Continuar partida{savesCount > 1 ? ` (${savesCount})` : ""}
             </button>
           )}
+          <button onClick={onCloud}
+            style={{ width:"100%", background:"rgba(96,165,250,.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,.22)", padding:"13px 24px", borderRadius:10, fontSize:13, fontWeight:800, cursor:"pointer", transition:"all .2s" }}>
+            ☁️ Cargar desde la nube
+          </button>
         </div>
         <div style={{ marginTop:40, fontSize:11, color:"#374151", letterSpacing:1.5, textTransform:"uppercase" }}>LaLiga EA Sports · 2025/26</div>
       </div>
@@ -5186,15 +5192,25 @@ export default function App({ externalData }) {
   const [selectedPlayerTeamId, setSelectedPlayerTeamId] = useState(null);
   const [profileReturnScreen, setProfileReturnScreen] = useState("dashboard");
   const [scoutingFocusId, setScoutingFocusId] = useState(null);
+  const [cloudSession, setCloudSession] = useState(null);
+  const [cloudStatus, setCloudStatus] = useState("");
 
   useEffect(() => {
     setSavesIndexState(getSavesIndex());
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    getCurrentSession().then(session => { if (mounted) setCloudSession(session); }).catch(() => {});
+    const subscription = onAuthStateChange(session => setCloudSession(session));
+    return () => { mounted = false; subscription?.data?.subscription?.unsubscribe?.(); };
   }, []);
 
   // Auto-guardar alineación, suplentes y formación cuando cambian
   useEffect(() => {
     if (!game || !activeSaveId) return;
     saveGame(game, lineup, formation, subs);
+    autosaveCloud(game, "lineup", { lineup, formation, subs });
   }, [lineup, formation, subs]);
 
   const saveGame = useCallback((g, lineupToSave, formationToSave, subsToSave, saveIdOverride) => {
@@ -5221,6 +5237,8 @@ export default function App({ externalData }) {
         matchday: g.matchday,
         season: g.season ?? "2025",
         updatedAt: new Date().toISOString(),
+        cloudSaveId: g.cloudSaveId ?? toSave.cloudSaveId ?? null,
+        cloudUpdatedAt: g.cloudUpdatedAt ?? null,
         createdAt: i !== -1 ? idx[i].createdAt : new Date().toISOString(),
       };
       if (i !== -1) idx[i] = entry; else idx.push(entry);
@@ -5228,6 +5246,28 @@ export default function App({ externalData }) {
       setSavesIndexState(idx);
     } catch (e) {}
   }, [lineup, formation, subs, activeSaveId]);
+
+  const saveGameToCloud = useCallback(async (g = game, options = {}) => {
+    if (!g || !cloudSession?.user?.id) return null;
+    try {
+      setCloudStatus(options.silent ? "" : "Guardando en la nube...");
+      const payload = serializeSavePayload(g, options.lineup ?? lineup, options.formation ?? formation, options.subs ?? subs, { starters:STARTERS_SLOTS, bench:BENCH_SLOTS });
+      const saved = await upsertCloudSave({ userId:cloudSession.user.id, cloudSaveId:g.cloudSaveId ?? null, game:g, payload });
+      const updatedGame = { ...g, cloudSaveId:saved.id, cloudUpdatedAt:saved.updated_at };
+      if (!options.skipState) setGame(current => current?.id === g.id ? updatedGame : current);
+      saveGame(updatedGame, options.lineup ?? lineup, options.formation ?? formation, options.subs ?? subs, options.saveIdOverride);
+      setCloudStatus(`Partida guardada en la nube: ${new Date(saved.updated_at).toLocaleString("es-ES")}`);
+      return saved;
+    } catch (e) {
+      setCloudStatus(`No se pudo guardar en la nube: ${e.message ?? "error desconocido"}`);
+      return null;
+    }
+  }, [game, cloudSession?.user?.id, lineup, formation, subs, saveGame]);
+
+  const autosaveCloud = useCallback((g, reason = "autosave", extra = {}) => {
+    if (!cloudSession?.user?.id || !g?.cloudSaveId) return;
+    saveGameToCloud(g, { ...extra, silent:true, skipState:true }).catch(() => {});
+  }, [cloudSession?.user?.id, saveGameToCloud]);
 
   const loadGame = (saveId) => {
     try {
@@ -5289,6 +5329,67 @@ export default function App({ externalData }) {
         setGame(null);
       }
     } catch (e) {}
+  };
+
+  const activeLocalSave = activeSaveId ? getSavesIndex().find(item=>item.id===activeSaveId) : null;
+
+  const handleCloudSignIn = async (email, password) => {
+    const data = await signInWithEmail(email, password);
+    setCloudSession(data.session ?? null);
+    setCloudStatus("Sesión iniciada.");
+  };
+
+  const handleCloudSignUp = async (email, password, username) => {
+    const data = await signUpWithEmail(email, password, username);
+    setCloudSession(data.session ?? null);
+    setCloudStatus(data.session ? "Cuenta creada y sesión iniciada." : "Cuenta creada. Revisa tu email si Supabase exige confirmación.");
+  };
+
+  const handleCloudSignOut = async () => {
+    await signOut();
+    setCloudSession(null);
+    setCloudStatus("Sesión cerrada.");
+  };
+
+  const handleLoadCloudSave = async (cloudSaveId) => {
+    try {
+      setCloudStatus("Cargando partida desde la nube...");
+      const cloud = await loadCloudSave(cloudSaveId);
+      const payload = { ...(cloud.data ?? {}) };
+      const localId = payload.id ?? `save_cloud_${cloud.id}`;
+      const localPayload = { ...payload, id:localId, cloudSaveId:cloud.id, cloudUpdatedAt:cloud.updated_at, updatedAt:cloud.updated_at };
+      localStorage.setItem(saveSlotKey(localId), JSON.stringify(localPayload));
+      const idx = getSavesIndex();
+      const teamData = TEAMS.find(team=>team.id===localPayload.teamId);
+      const entry = {
+        id:localId,
+        name:localPayload.name ?? cloud.name ?? teamData?.name ?? "Partida cloud",
+        teamId:localPayload.teamId ?? cloud.club_id,
+        matchday:localPayload.matchday ?? 1,
+        season:localPayload.season ?? cloud.season ?? "2025",
+        updatedAt:cloud.updated_at,
+        cloudSaveId:cloud.id,
+        cloudUpdatedAt:cloud.updated_at,
+        createdAt:localPayload.createdAt ?? cloud.created_at ?? new Date().toISOString(),
+      };
+      const pos=idx.findIndex(item=>item.id===localId);
+      if(pos>=0)idx[pos]=entry;else idx.push(entry);
+      setSavesIndex(idx);
+      setSavesIndexState(idx);
+      loadGame(localId);
+      setCloudStatus("Partida cargada desde la nube.");
+    } catch (e) {
+      setCloudStatus(`No se pudo cargar desde la nube: ${e.message ?? "error desconocido"}`);
+    }
+  };
+
+  const handleDeleteCloudSave = async (cloudSaveId) => {
+    try {
+      await deleteCloudSave(cloudSaveId);
+      setCloudStatus("Partida eliminada de la nube.");
+    } catch (e) {
+      setCloudStatus(`No se pudo borrar: ${e.message ?? "error desconocido"}`);
+    }
   };
 
   const startNewGame = (team, coachData = null) => {
@@ -5585,6 +5686,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       newGame=maybeCreateAITransfer(newGame,TEAMS,REAL_SQUADS);
       if((newGame.transferMarket?.aiTransfers?.length??0)>aiCountBefore){const move=newGame.transferMarket.aiTransfers[0];const from=TEAMS.find(team=>team.id===move.fromTeamId);const to=TEAMS.find(team=>team.id===move.toTeamId);const renewal=move.type==="renewal",loan=move.type==="loan",young=move.type==="youth";newGame={...newGame,news:mergeNews(newGame.news??[],[{id:`news-${move.id}`,type:"transfer",importance:young?"high":"medium",title:renewal?`${move.player.name} renueva con ${from?.name}`:loan?`${move.player.name}, cedido al ${to?.name}`:young?`${to?.name} apuesta por el joven ${move.player.name}`:`${move.player.name} ficha por ${to?.name}`,summary:renewal?`${from?.name} asegura la continuidad del jugador.`:loan?`${from?.name} busca minutos para el futbolista.`:`${from?.name} y ${to?.name} cierran la operación por €${(move.value/1000).toFixed(1)}M.${move.reason?` ${move.reason}.`:""}`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:move.id}])};newGame=refreshTransferListings(newGame,TEAMS,REAL_SQUADS,true);}
       saveGame(newGame);
+      autosaveCloud(newGame,"match-end");
 
       // Detectar fin de temporada (última jornada jugada)
       const allPlayed = finalFixtures.every(f => f.played);
@@ -5605,6 +5707,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         const endData = { standings: newStandings, teamId: prev.teamId, season: prev.season??"2025", history: newHistory, players: finalPlayers, legacy:legacyFinal.legacy,game:finalSeasonGame };
         setTimeout(() => { setSeasonSummary(endData); setScreen("seasonEnd"); }, 0);
         saveGame(finalSeasonGame);
+        autosaveCloud(finalSeasonGame,"season-end");
         return finalSeasonGame;
       }
 
@@ -5680,6 +5783,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const topIntake=[...intakePlayers].sort((a,b)=>b.potential-a.potential)[0];
       if(topIntake){const intakeNews=generateYouthNews({items:[{title:"Nueva generación en la cantera",summary:`${topIntake.name} destaca entre ${intakePlayers.length} incorporaciones con potencial ${topIntake.potential}.`,importance:topIntake.potential>=86?"high":"medium",playerId:topIntake.id,fingerprint:`academy-intake:${newSeason}`}],season:newSeason,matchday:1,userTeamId:prev.teamId});g={...g,news:mergeNews(g.news??[],intakeNews)};}
       saveGame(g);
+      autosaveCloud(g,"new-season");
       return g;
     });
     setLineup(emptyLineup());
@@ -5735,12 +5839,13 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       if(type==="buy")newGame=registerScoutingSigning(newGame,player.id);
       if(offerId)newGame=completeOffer(newGame,offerId);
       saveGame(newGame, lineup);
+      autosaveCloud(newGame,"transfer",{lineup});
       return newGame;
     });
   };
 
-  const updateTransferMarket=updater=>setGame(prev=>{const updated=updater(prev);saveGame(updated,lineup,formation,subs);return updated;});
-  const updateContracts=updater=>setGame(prev=>{const updated=updater(ensureContractState(prev));saveGame(updated,lineup,formation,subs);return updated;});
+  const updateTransferMarket=updater=>setGame(prev=>{const updated=updater(prev);saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"market",{lineup,formation,subs});return updated;});
+  const updateContracts=updater=>setGame(prev=>{const updated=updater(ensureContractState(prev));saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"contracts",{lineup,formation,subs});return updated;});
   const handleClubOffer=(player,amount,marketValue,expectedSalary,listing)=>updateTransferMarket(prev=>createClubOffer(prev,{player:{...player,marketValue,expectedSalary},fromTeamId:player._teamId,amount,dealType:listing?.type??"transfer",listingId:listing?.id}));
   const handleFreeAgentOffer=(player,salary,years,role)=>updateTransferMarket(prev=>createFreeAgentOffer(prev,{player:{...player,marketValue:0,expectedSalary:player.salary??salary},salary,years,role}));
   const handleAcceptClubCounter=offerId=>updateTransferMarket(prev=>acceptClubCounter(prev,offerId));
@@ -5761,20 +5866,21 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       if (!prev) return prev;
       const updated = { ...prev, trainingPlan:normalizeTrainingPlan(trainingPlan) };
       saveGame(updated, lineup, formation, subs);
+      autosaveCloud(updated,"training",{lineup,formation,subs});
       return updated;
     });
   };
 
   const handleScoutingMission = (mission) => {
-    setGame(prev=>{const updated=createScoutingMission(prev,mission);saveGame(updated,lineup,formation,subs);return updated;});
+    setGame(prev=>{const updated=createScoutingMission(prev,mission);saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"scouting",{lineup,formation,subs});return updated;});
   };
 
   const handleScoutingWatch = (reportId) => {
-    setGame(prev=>{const updated=toggleScoutingWatch(prev,reportId);saveGame(updated,lineup,formation,subs);return updated;});
+    setGame(prev=>{const updated=toggleScoutingWatch(prev,reportId);saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"scouting",{lineup,formation,subs});return updated;});
   };
 
   const handleScoutingCancel = (missionId) => {
-    setGame(prev=>{const updated=cancelScoutingMission(prev,missionId);saveGame(updated,lineup,formation,subs);return updated;});
+    setGame(prev=>{const updated=cancelScoutingMission(prev,missionId);saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"scouting",{lineup,formation,subs});return updated;});
   };
 
   const handleYouthPromotion = (playerId) => {
@@ -5793,6 +5899,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const fanNews=generateFanNews({game:updated,before:beforeFanbase,matchday:prev.matchday});
       if(fanNews.length)updated={...updated,news:mergeNews(updated.news??[],fanNews)};
       saveGame(updated,lineup,formation,subs);
+      autosaveCloud(updated,"youth",{lineup,formation,subs});
       return updated;
     });
   };
@@ -5827,6 +5934,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       if (!prev) return prev;
       const updated = markAttentionItem(prev, itemId, status);
       saveGame(updated, lineup, formation, subs);
+      autosaveCloud(updated,"attention",{lineup,formation,subs});
       return updated;
     });
   };
@@ -5851,7 +5959,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", staff:"Staff Técnico", career:"Mi Carrera", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", fans:"Afición", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
+    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", staff:"Staff Técnico", career:"Mi Carrera", cloudSaves:"Mis partidas", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", fans:"Afición", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile"].includes(screen);
@@ -5889,7 +5997,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
         <ScreenWrapper animKey={screen}>
-          {screen === "menu"      && <MainMenu onNew={() => setScreen("country")} onSaves={() => setScreen("saves")} savesCount={savesIndex.length} />}
+          {screen === "menu"      && <MainMenu onNew={() => setScreen("country")} onSaves={() => setScreen("saves")} onCloud={() => setScreen("cloudSaves")} savesCount={savesIndex.length} />}
           {screen === "saves"     && <SavesScreen saves={savesIndex} onLoad={loadGame} onDelete={deleteSave} onNew={() => setScreen("country")} onBack={() => setScreen("menu")} />}
           {screen === "country"   && <CountryScreen onSelect={c => { setPendingCountry(c); setScreen("league"); }} onBack={() => setScreen("menu")} />}
           {screen === "league"    && <LeagueScreen country={pendingCountry} onSelect={l => { setPendingLeague(l); setScreen("teams"); }} onBack={() => setScreen("country")} />}
@@ -5897,9 +6005,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
           {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} />}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
+          {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} />}
           {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
           {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />}
-          {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); }} />}
+          {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} />}
@@ -5922,7 +6031,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
-          {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}
+          {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"preseason-start",{lineup,formation,subs});return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}
         </ScreenWrapper>
       </div>
 
