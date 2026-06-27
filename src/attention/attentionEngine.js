@@ -1,9 +1,10 @@
 import { calculateInjuryRisk, formatMedicalDuration } from "../medical/medicalEngine.js";
 import { ensurePlayerMorale } from "../morale/moraleEngine.js";
 import { buildStaffRecommendations, ensureStaffState, getStaffMember } from "../staff/staffEngine.js";
+import { getCoachPrestigeLevel } from "../coach/coachCareerEngine.js";
 
 const PRIORITY_ORDER = { critical: 0, important: 1, info: 2 };
-const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "staff", "youth", "scouting", "training"];
+const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "career", "staff", "youth", "scouting", "training"];
 
 export const ATTENTION_CATEGORIES = {
   medical: { label: "Médico", icon: "🏥", accent: "#ef4444" },
@@ -11,6 +12,7 @@ export const ATTENTION_CATEGORIES = {
   contracts: { label: "Contratos", icon: "📄", accent: "#f59e0b" },
   finance: { label: "Finanzas", icon: "💵", accent: "#10b981" },
   board: { label: "Directiva", icon: "🏛", accent: "#a78bfa" },
+  career: { label: "Carrera", icon: "🧑‍💼", accent: "#c9a84c" },
   staff: { label: "Staff", icon: "🏢", accent: "#c9a84c" },
   youth: { label: "Cantera", icon: "🌱", accent: "#84cc16" },
   scouting: { label: "Scouting", icon: "👁", accent: "#38bdf8" },
@@ -329,6 +331,46 @@ export function getAttentionItems(game, context = {}) {
       action: { screen: "board" },
       actionLabel: "Ver directiva",
     }));
+  }
+
+  const coach = game.coachCareer;
+  if (coach) {
+    const prestige = Math.round(coach.prestige ?? 10);
+    const prestigeBand = Math.floor(prestige / 20);
+    const level = getCoachPrestigeLevel(prestige);
+    if (prestige >= 20) {
+      items.push(createItem(game, {
+        id: `coach-prestige:${prestigeBand}`,
+        category: "career",
+        priority: prestige >= 60 ? "important" : "info",
+        title: `Tu prestigio alcanza nivel ${level.label}`,
+        summary: `Prestigio actual del entrenador: ${prestige}/100. Tu carrera empieza a ganar reputación.`,
+        action: { screen: "career" },
+        actionLabel: "Ver mi carrera",
+      }));
+    }
+    if ((coach.stats?.currentWinStreak ?? 0) >= 4) {
+      items.push(createItem(game, {
+        id: `coach-streak:${game.season}:${coach.stats.currentWinStreak}`,
+        category: "career",
+        priority: "info",
+        title: "Racha destacada del entrenador",
+        summary: `Has encadenado ${coach.stats.currentWinStreak} victorias. La reputación del míster crece.`,
+        action: { screen: "career" },
+        actionLabel: "Ver carrera",
+      }));
+    }
+    if (confidence < 35) {
+      items.push(createItem(game, {
+        id: `coach-board-meeting:${game.season}:${Math.floor(confidence / 10)}`,
+        category: "career",
+        priority: "critical",
+        title: "La directiva quiere reunirse contigo",
+        summary: "Tu continuidad empieza a ser tema de conversación. Conviene revisar objetivos y resultados.",
+        action: { screen: "board" },
+        actionLabel: "Ver directiva",
+      }));
+    }
   }
 
   const objectivesAtRisk = (game.legacy?.objectives ?? []).filter(item => item.progress < 35 && game.matchday >= 12);
