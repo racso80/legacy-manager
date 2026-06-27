@@ -4,6 +4,7 @@ import { calculateInjuryRisk, formatMedicalDuration, getAccumulatedLoad, getLoad
 import { ATTRIBUTE_LABELS } from "../training/trainingEngine.js";
 import { SwipeTabs } from "./SwipeNavigation.jsx";
 import { CONTRACT_ROLES, suggestedRenewalSalary } from "../contracts/contractEngine.js";
+import { ensurePlayerMorale, getMoraleLevel } from "../morale/moraleEngine.js";
 
 const COUNTRY_NAMES = { ES:"España", FR:"Francia", GH:"Ghana", BR:"Brasil", AR:"Argentina", PT:"Portugal", DE:"Alemania", ENG:"Inglaterra", UY:"Uruguay", HR:"Croacia", MA:"Marruecos", SN:"Senegal", BE:"Bélgica", IT:"Italia", NL:"Países Bajos" };
 const FLAGS = { ES:"🇪🇸", FR:"🇫🇷", GH:"🇬🇭", BR:"🇧🇷", AR:"🇦🇷", PT:"🇵🇹", DE:"🇩🇪", ENG:"🏴", UY:"🇺🇾", HR:"🇭🇷", MA:"🇲🇦", SN:"🇸🇳", BE:"🇧🇪", IT:"🇮🇹", NL:"🇳🇱" };
@@ -19,6 +20,7 @@ function StatBar({ label, value }) {
 }
 
 export default function PlayerProfileScreen({ player, game, team, onGoLineup, onGoTraining, onMarketStatus, onRenewalOffer, onGoContracts }) {
+  player = ensurePlayerMorale(player, game.season);
   const [tab, setTab] = useState("general");
   const [statsSeason,setStatsSeason]=useState(String(game.season));
   const [renewSalary,setRenewSalary]=useState(suggestedRenewalSalary(player));
@@ -37,6 +39,7 @@ export default function PlayerProfileScreen({ player, game, team, onGoLineup, on
   const energy = Math.max(0, Math.round(100 - (player.fatigue ?? 0)));
   const accumulatedLoad = getAccumulatedLoad(player);
   const loadLevel = getLoadLevel(accumulatedLoad);
+  const moraleLevel = getMoraleLevel(player.morale);
   const physicalStatus = getPhysicalStatus(player);
   const injuryRisk = calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:team?.id});
   const injuryRiskLevel = getRiskLevel(injuryRisk);
@@ -69,6 +72,8 @@ export default function PlayerProfileScreen({ player, game, team, onGoLineup, on
         {player.academyData&&<div style={{background:"rgba(34,197,94,.08)",border:"1px solid rgba(34,197,94,.2)",borderRadius:9,padding:11,marginBottom:12}}><div style={{color:"#22c55e",fontSize:10,fontWeight:800}}>🌱 FORMADO EN LA CANTERA</div><div style={{color:"#9aa0b4",fontSize:10,lineHeight:1.5,marginTop:4}}>Ingreso: T. {player.academyData.joinedSeason}/{String(Number(player.academyData.joinedSeason)+1).slice(-2)} · {player.academyData.region}<br/>Debut: {player.academyData.debutSeason?`T. ${player.academyData.debutSeason} · J${player.academyData.debutMatchday}`:"Pendiente"}</div></div>}
         <div style={{ fontSize:10, color:"#6b7280", fontWeight:800, letterSpacing:".6px", marginBottom:8 }}>ESTADO ACTUAL</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:7, marginBottom:16 }}><Metric label="ENERGÍA" value={`${energy}%`} color={energy>=70?"#22c55e":energy>=45?"#f59e0b":"#ef4444"} helper="estado inmediato"/><Metric label="CARGA ACUMULADA" value={`${loadLevel.icon} ${loadLevel.label}`} color={loadLevel.color} helper={`${accumulatedLoad}% · últimas semanas`}/><Metric label="MORAL" value={player.morale ?? 75} color={(player.morale??75)>=70?"#22c55e":"#f59e0b"}/><Metric label="FORMA" value={form.label} color={form.color}/></div>
+        <div style={{ fontSize:10, color:"#6b7280", fontWeight:800, letterSpacing:".6px", marginBottom:8 }}>VESTUARIO</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:7,marginBottom:16}}><Metric label="PERSONALIDAD" value={player.personality?.profileLabel??"Equilibrado"} color="#c9a84c"/><Metric label="MORAL" value={`${moraleLevel.icon} ${moraleLevel.label}`} color={moraleLevel.color}/><Metric label="FELICIDAD" value={player.happiness??70} color={(player.happiness??70)>=55?"#22c55e":"#f97316"} helper="tendencia lenta"/><Metric label="CONFIANZA" value={player.managerTrust??70} color={(player.managerTrust??70)>=55?"#60a5fa":"#ef4444"} helper="relación con manager"/></div>
         <div style={{ fontSize:10, color:"#6b7280", fontWeight:800, letterSpacing:".6px", marginBottom:8 }}>CICLO DE VIDA</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:7, marginBottom:16 }}><Metric label="NACIMIENTO" value={player.birthDate??"—"} helper="fecha base"/><Metric label="ETAPA" value={player.lifecycle?.developmentStage??"Pico"} color={(player.age??25)>=34?"#f97316":(player.age??25)<=23?"#22c55e":"#c9a84c"}/>{player.lifecycle?.retirementPlan&&<Metric label="RETIRADA" value="Última temporada" color="#ef4444"/>}</div>
         <div style={{ fontSize:10, color:"#6b7280", fontWeight:800, letterSpacing:".6px", marginBottom:8 }}>ESTADO MÉDICO</div>

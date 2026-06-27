@@ -29,6 +29,7 @@ import { PRIMARY_NAV, SECONDARY_SCREEN_IDS } from "./navigation/navigationConfig
 import { acceptClubCounter, acceptPlayerCounter, acceptRoleCounter, advanceTransferNegotiations, completeOffer, createClubOffer, createContractOffer, createFreeAgentOffer, ensureTransferState, maybeCreateAITransfer, maybeCreateIncomingOffer, refreshTransferListings, resolveIncomingOffer, setUserMarketStatus, withdrawOffer } from "./transfers/transferEngine.js";
 import { getAttentionCount, getAttentionItems, markAttentionItem } from "./attention/attentionEngine.js";
 import { acceptRenewalCounter, advanceRenewals, completeRenewal, createRenewalOffer, ensureContractState, withdrawRenewalOffer } from "./contracts/contractEngine.js";
+import { ensurePlayerMorale, ensureSquadMorale, getLockerRoomSummary, getMoraleLevel, updatePlayerHumanState } from "./morale/moraleEngine.js";
 
 const STARTERS_SLOTS = 11;
 const BENCH_SLOTS = 12;
@@ -2519,6 +2520,28 @@ function SquadScreen({ game, players, onOpenPlayer }) {
 }
 
 // ─── Helpers de energía/cansancio (documento UX) ─────────────────────────────
+function LockerRoomScreen({ game, onOpenPlayer, onGoContracts, onGoLineup, onGoTraining }) {
+  const [filter,setFilter]=useState("all");
+  const squad=ensureSquadMorale(game.players??[],game.season);
+  const summary=getLockerRoomSummary(squad);
+  const filtered=squad.filter(player=>{
+    if(filter==="leaders")return summary.leaders.some(item=>item.id===player.id);
+    if(filter==="concerns")return (player.morale??70)<45||(player.happiness??70)<45||(player.managerTrust??70)<45;
+    if(filter==="young")return (player.age??25)<=23;
+    return true;
+  }).sort((a,b)=>(a.morale??70)-(b.morale??70));
+  const atmosphereColor=summary.atmosphere==="positivo"?"#22c55e":summary.atmosphere==="tenso"?"#ef4444":"#c9a84c";
+  const roleColor=role=>({Estrella:"#c9a84c",Titular:"#22c55e",Rotación:"#60a5fa",Promesa:"#84cc16",Suplente:"#9ca3af",Emergencia:"#6b7280"}[role]??"#9ca3af");
+  return <div style={{flex:1,overflowY:"auto",padding:14}}>
+    <div style={{background:"linear-gradient(135deg,rgba(201,168,76,.16),#161a24)",border:"1px solid rgba(201,168,76,.25)",borderRadius:13,padding:15,marginBottom:13}}><div style={{fontSize:10,color:"#c9a84c",fontWeight:900,letterSpacing:".8px"}}>VESTUARIO</div><div style={{fontSize:22,color:"#fff",fontWeight:900,marginTop:5,textTransform:"capitalize"}}>Ambiente {summary.atmosphere}</div><div style={{height:6,background:"#252a36",borderRadius:999,overflow:"hidden",marginTop:11}}><div style={{width:`${summary.avgMorale}%`,height:"100%",background:atmosphereColor}}/></div></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:13}}>{[["MORAL",summary.avgMorale,"#22c55e"],["FELICIDAD",summary.avgHappiness,"#c9a84c"],["CONFIANZA",summary.avgTrust,"#60a5fa"]].map(([label,value,color])=><div key={label} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:10,padding:10}}><div style={{fontSize:8,color:"#6b7280",fontWeight:800}}>{label}</div><div style={{fontSize:21,color,fontWeight:900,marginTop:4}}>{value}</div></div>)}</div>
+    <div style={{fontSize:10,color:"#6b7280",fontWeight:900,letterSpacing:".6px",marginBottom:8}}>LÍDERES DEL GRUPO</div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:14}}>{summary.leaders.map(player=><button key={player.id} onClick={()=>onOpenPlayer(player,game.teamId)} style={{background:"#161a24",border:"1px solid rgba(201,168,76,.18)",borderRadius:10,padding:10,textAlign:"left",cursor:"pointer"}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>⭐ {player.name}</div><div style={{fontSize:9,color:"#6b7280",marginTop:3}}>{player.personality?.profileLabel} · Liderazgo {player.personality?.traits?.leadership}</div></button>)}</div>
+    <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:10}}>{[["all","Todos"],["concerns",`Preocupados (${summary.unhappy.length})`],["leaders","Líderes"],["young","Jóvenes"]].map(([id,label])=><button key={id} onClick={()=>setFilter(id)} style={{flex:"0 0 auto",background:filter===id?"#c9a84c":"#1e2330",color:filter===id?"#1a1200":"#8b92a3",border:"none",borderRadius:15,padding:"7px 10px",fontSize:10,fontWeight:900}}>{label}</button>)}</div>
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>{filtered.map(player=>{const morale=getMoraleLevel(player.morale);const concern=(player.morale??70)<45||(player.happiness??70)<45||(player.managerTrust??70)<45;return <div key={player.id} style={{background:"#161a24",border:`1px solid ${concern?"rgba(249,115,22,.3)":"rgba(255,255,255,.06)"}`,borderRadius:11,padding:11}}><div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:36,height:36,borderRadius:9,background:`${morale.color}18`,color:morale.color,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900}}>{player.overall}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,color:"#e8eaf0",fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</div><div style={{fontSize:9,color:"#6b7280",marginTop:2}}>{player.personality?.profileLabel} · <span style={{color:roleColor(player.squadRole)}}>{player.squadRole}</span></div></div><button onClick={()=>onOpenPlayer(player,game.teamId)} style={{background:"rgba(201,168,76,.1)",border:"1px solid rgba(201,168,76,.2)",color:"#c9a84c",borderRadius:7,padding:"6px 8px",fontSize:10,fontWeight:800}}>Perfil</button></div><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,marginTop:9}}>{[["Moral",player.morale,morale.color],["Felicidad",player.happiness,(player.happiness??70)>=55?"#22c55e":"#f97316"],["Confianza",player.managerTrust,(player.managerTrust??70)>=55?"#60a5fa":"#ef4444"]].map(([label,value,color])=><div key={label} style={{background:"#0d0f14",borderRadius:7,padding:"6px 5px"}}><div style={{fontSize:7,color:"#6b7280",fontWeight:800}}>{label.toUpperCase()}</div><div style={{fontSize:13,color,fontWeight:900}}>{value}</div></div>)}</div>{player.moraleEvents?.[0]&&<div style={{fontSize:9,color:"#f59e0b",marginTop:8}}>Último acontecimiento: {player.moraleEvents[0].label}</div>}{concern&&<div style={{display:"flex",gap:6,marginTop:9}}><button onClick={onGoLineup} className="btn-gold" style={{flex:1,padding:8,fontSize:10}}>Dar minutos</button><button onClick={onGoContracts} style={{flex:1,background:"#1e2330",border:"1px solid rgba(255,255,255,.1)",color:"#e8eaf0",borderRadius:7,fontSize:10}}>Contrato</button><button onClick={onGoTraining} style={{flex:1,background:"#1e2330",border:"1px solid rgba(255,255,255,.1)",color:"#e8eaf0",borderRadius:7,fontSize:10}}>Carga</button></div>}</div>})}</div>
+  </div>;
+}
+
 function energyLevel(fatigue) {
   const energy = Math.round(100 - (fatigue ?? 0)); // energía = inverso del cansancio
   if (energy >= 80) return { energy, color: "#22c55e", emoji: "🟢", label: "Fresco" };
@@ -5203,7 +5226,7 @@ export default function App({ externalData }) {
       const saved = localStorage.getItem(saveSlotKey(saveId));
       if (saved) {
         const parsed = JSON.parse(saved);
-        parsed.players = (parsed.players ?? []).map(player => normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player, parsed.season ?? "2025", parsed.matchday ?? 1), parsed.season ?? "2025")));
+        parsed.players = (parsed.players ?? []).map(player => ensurePlayerMorale(normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player, parsed.season ?? "2025", parsed.matchday ?? 1), parsed.season ?? "2025")), parsed.season ?? "2025"));
         parsed.trainingPlan = normalizeTrainingPlan(parsed.trainingPlan);
         let loadedLineup = emptyLineup();
         let loadedFormation = "4-3-3";
@@ -5261,7 +5284,7 @@ export default function App({ externalData }) {
   };
 
   const startNewGame = (team) => {
-    const players  = generatePlayers(team.id).map(player => normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player, "2025", 1), "2025")));
+    const players  = generatePlayers(team.id).map(player => ensurePlayerMorale(normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player, "2025", 1), "2025")), "2025"));
     const fixtures = generateFixtures();
     const standings = initStandings();
     const newId = `save_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
@@ -5339,7 +5362,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     const previousLoad = getAccumulatedLoad(player);
     const loadGain = starts ? Math.round((player.group==="POR"?1:4) * ageFactor * positionLoad) : -3;
     const accumulatedFatigue = Math.max(0,Math.min(100,previousLoad+loadGain));
-    return { ...player, fatigue:Math.max(0,Math.min(100,Math.round((player.fatigue??18)+matchFatigue))), accumulatedFatigue, medical:{...(player.medical??{}),accumulatedFatigue} };
+    const updated = { ...ensurePlayerMorale(player), fatigue:Math.max(0,Math.min(100,Math.round((player.fatigue??18)+matchFatigue))), accumulatedFatigue, medical:{...(player.medical??{}),accumulatedFatigue} };
+    return updatePlayerHumanState(updated,{season:"2025",matchday:1,teamId,fixtures:[],players:squad,trainingPlan:{load:"medium"}},{result:null,started:starts,played:starts});
   });
 }
 
@@ -5455,7 +5479,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           suspGames:   finalSuspGames,
         };
       });
-      const trainingResult = applyWeeklyTraining(recoveredPlayers, { ...prev, fixtures:finalFixtures, players:recoveredPlayers, matchday }, prev.trainingPlan ?? DEFAULT_TRAINING_PLAN);
+      const humanPlayers = recoveredPlayers.map(player=>updatePlayerHumanState(player,{...prev,fixtures:finalFixtures,players:recoveredPlayers,matchday},{result:won?"win":drew?"draw":"loss",started:(participation?.starters??[]).includes(player.id),played:[...(participation?.starters??[]),...(participation?.finishers??[])].includes(player.id)}));
+      const trainingResult = applyWeeklyTraining(humanPlayers, { ...prev, fixtures:finalFixtures, players:humanPlayers, matchday }, prev.trainingPlan ?? DEFAULT_TRAINING_PLAN);
       const academyParticipants=new Set([...(participation?.starters??[]),...(participation?.finishers??[])]);
       const youthStoryItems=[];
       let newPlayers = trainingResult.players.map(player=>{
@@ -5503,13 +5528,15 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       });
       const youthNews=generateYouthNews({items:youthStoryItems,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
       const developmentNews=generateDevelopmentNews({report:trainingResult.report,players:newPlayers,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
+      const lockerSummary=getLockerRoomSummary(newPlayers);
+      const lockerNews=lockerSummary.atmosphere==="tenso"?[{id:`news-locker-${prev.season}-${matchday}`,type:"board",importance:"high",title:"El vestuario muestra señales de tensión",summary:`Hay ${lockerSummary.unhappy.length} jugador${lockerSummary.unhappy.length===1?"":"es"} con preocupación interna. Conviene revisar moral, minutos o contratos.`,season:String(prev.season??"2025"),matchday,createdAt:Date.now(),fingerprint:`locker:tension:${prev.season}:${matchday}`,teamIds:[prev.teamId],metadata:{userClub:true,lockerRoom:true}}]:lockerSummary.atmosphere==="positivo"&&won?[{id:`news-locker-good-${prev.season}-${matchday}`,type:"board",importance:"medium",title:"El vestuario respalda al entrenador",summary:"El ambiente interno es positivo y los líderes mantienen unido al grupo.",season:String(prev.season??"2025"),matchday,createdAt:Date.now(),fingerprint:`locker:positive:${prev.season}:${matchday}`,teamIds:[prev.teamId],metadata:{userClub:true,lockerRoom:true}}]:[];
       const nextBudgetAdjustment = (prev.budgetAdjustment ?? 0) + incomeResult.total;
       const combinedTrainingReport={...trainingResult.report,improved:[...(trainingResult.report.improved??[]),...(youthTrainingResult.report.improved??[])]};
       const legacyEvaluation = evaluateLegacyMatchday({ ...prev, fixtures:finalFixtures, standings:newStandings, players:newPlayers, budgetAdjustment:nextBudgetAdjustment }, {
         team:userTeamData,result:won?"win":drew?"draw":"loss",income:incomeResult,trainingReport:combinedTrainingReport,matchday,
       });
       const boardNews = generateBoardNews({items:legacyEvaluation.news,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
-      const updatedNews = mergeNews(prev.news ?? [], [...matchdayNews, ...medicalNews, ...youthNews, ...developmentNews, ...boardNews]);
+      const updatedNews = mergeNews(prev.news ?? [], [...matchdayNews, ...medicalNews, ...youthNews, ...developmentNews, ...boardNews, ...lockerNews]);
       let newGame = { ...prev, fixtures: finalFixtures, standings: newStandings, players: newPlayers,
         matchday: matchday + 1, season: prev.season ?? "2025", history: prev.history ?? [],
         budgetAdjustment: nextBudgetAdjustment,
@@ -5648,8 +5675,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const prevAdjustment = prev.budgetAdjustment ?? 0; // en €K, acumulado de fichajes/ventas
 
       if (type === "buy" || type === "loanIn") {
-        const newPlayer = normalizeMedicalPlayer(enrichPlayerProfile({ ...player, salary, fatigue:15, morale:75,
-          injured:false, injuryGames:0, suspended:false, suspGames:0, yellowCards:0 }, prev.season ?? "2025"));
+        const newPlayer = ensurePlayerMorale(normalizeMedicalPlayer(enrichPlayerProfile({ ...player, salary, fatigue:15, morale:75,
+          injured:false, injuryGames:0, suspended:false, suspGames:0, yellowCards:0 }, prev.season ?? "2025")), prev.season ?? "2025");
         newPlayers = [...newPlayers, newPlayer];
         // IMPORTANTE: quitar al jugador de la plantilla real de su equipo de origen,
         // para que deje de aparecer marcando goles o disponible para esa IA.
@@ -5798,7 +5825,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
+    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile"].includes(screen);
@@ -5851,6 +5878,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} />}
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
           {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
+          {screen === "lockerRoom" && game && <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} />}
           {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
           {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}
           {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}

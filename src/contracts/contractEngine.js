@@ -12,7 +12,8 @@ export function suggestedRenewalSalary(player){
   const base=player.overall>=88?260:player.overall>=84?170:player.overall>=80?105:player.overall>=76?65:player.overall>=72?38:player.overall>=68?20:10;
   const ageMod=player.age<=22?1.08:player.age>=32?.78:1;
   const roleMod={Estrella:1.28,Titular:1.08,Rotación:.92,Promesa:.72,Suplente:.62}[player.squadRole??"Rotación"]??1;
-  return Math.max(current,Math.round(base*ageMod*roleMod));
+  const moodMod=((player.happiness??70)<45||(player.managerTrust??70)<45)?1.12:((player.morale??70)>=80?.96:1);
+  return Math.max(current,Math.round(base*ageMod*roleMod*moodMod));
 }
 
 export function getActiveRenewal(game,playerId){
@@ -75,7 +76,8 @@ export function advanceRenewals(game){
     const yearsWanted=player.age>=31?2:player.age<=23?4:3;
     const roleRank=ROLE_RANK[item.role]??2;
     const desiredRole=player.overall>=84?"Estrella":player.overall>=78?"Titular":player.age<=21?"Promesa":"Rotación";
-    if(salaryRatio>=.98&&item.years>=Math.min(yearsWanted,3)&&roleRank>=(ROLE_RANK[desiredRole]??2))return {...item,status:"accepted"};
+    const moodPenalty=((player.happiness??70)<40||(player.managerTrust??70)<38)?.06:0;
+    if(salaryRatio>=.98+moodPenalty&&item.years>=Math.min(yearsWanted,3)&&roleRank>=(ROLE_RANK[desiredRole]??2))return {...item,status:"accepted"};
     if(salaryRatio<.78)return {...item,status:"rejected"};
     if(salaryRatio<.96)return {...item,status:"salaryCounter",counterSalary:Math.round(expected*(1+Math.random()*.08))};
     if(item.years<yearsWanted&&player.age<30)return {...item,status:"yearsCounter",counterYears:yearsWanted};

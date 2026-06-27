@@ -1,4 +1,5 @@
 import { calculateInjuryRisk, formatMedicalDuration } from "../medical/medicalEngine.js";
+import { ensurePlayerMorale } from "../morale/moraleEngine.js";
 
 const PRIORITY_ORDER = { critical: 0, important: 1, info: 2 };
 const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "youth", "scouting", "training"];
@@ -90,7 +91,8 @@ export function getAttentionItems(game, context = {}) {
 
   const selectedIds = new Set((context.lineup ?? game._lineup ?? []).filter(Boolean).map(player => typeof player === "string" ? player : player.id));
 
-  for (const player of game.players ?? []) {
+  for (const rawPlayer of game.players ?? []) {
+    const player = ensurePlayerMorale(rawPlayer, game.season);
     if (selectedIds.has(player.id) && (player.injured || player.suspended || player.medical?.phase === "injured")) {
       items.push(createItem(game, {
         id: `lineup-unavailable:${player.id}:${game.season}:${game.matchday}`,
@@ -169,6 +171,32 @@ export function getAttentionItems(game, context = {}) {
         playerId: player.id,
         action: { screen: "playerProfile", playerId: player.id },
         actionLabel: "Hablar con jugador",
+      }));
+    }
+
+    if (!player.injured && (player.happiness ?? 70) <= 38) {
+      items.push(createItem(game, {
+        id: `locker-happiness:${player.id}:${Math.floor((player.happiness ?? 0) / 10)}`,
+        category: "training",
+        priority: (player.happiness ?? 70) <= 25 ? "critical" : "important",
+        title: `${player.name} no está cómodo en el vestuario`,
+        summary: `Felicidad ${player.happiness ?? 0}/100. Revisa rol, minutos, contrato o relación con el entrenador.`,
+        playerId: player.id,
+        action: { screen: "lockerRoom", playerId: player.id },
+        actionLabel: "Abrir vestuario",
+      }));
+    }
+
+    if (!player.injured && (player.managerTrust ?? 70) <= 35) {
+      items.push(createItem(game, {
+        id: `locker-trust:${player.id}:${Math.floor((player.managerTrust ?? 0) / 10)}`,
+        category: "training",
+        priority: "important",
+        title: `${player.name} pierde confianza en el entrenador`,
+        summary: "La relación necesita atención antes de convertirse en conflicto.",
+        playerId: player.id,
+        action: { screen: "lockerRoom", playerId: player.id },
+        actionLabel: "Abrir vestuario",
       }));
     }
 
