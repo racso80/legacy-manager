@@ -14,7 +14,7 @@ create table if not exists public.profiles (
 
 create table if not exists public.savegames (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   name text not null,
   coach_name text,
   club_id text,
@@ -29,6 +29,10 @@ create table if not exists public.savegames (
 
 create index if not exists savegames_user_updated_idx
   on public.savegames(user_id, updated_at desc);
+
+-- Si ya creaste la tabla usando la versión anterior del esquema,
+-- renombra manualmente la columna antigua de fecha de partida a current_game_date.
+-- alter table public.savegames alter column user_id set default auth.uid();
 
 create or replace function public.set_updated_at()
 returns trigger

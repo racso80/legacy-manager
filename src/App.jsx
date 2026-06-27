@@ -38,7 +38,7 @@ import { ensurePlayerMorale, ensureSquadMorale, getLockerRoomSummary, getMoraleL
 import { ensureStaffState } from "./staff/staffEngine.js";
 import { createCoachCareer, ensureCoachCareer, finalizeCoachSeason, recordCoachMatch } from "./coach/coachCareerEngine.js";
 import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, applyFanYouthReaction, ensureFanbaseState, estimateFanAttendance, generateFanNews } from "./fans/fanEngine.js";
-import { deleteCloudSave, getCurrentSession, loadCloudSave, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
+import { CloudSaveConflictError, deleteCloudSave, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
 
 const STARTERS_SLOTS = 11;
 const BENCH_SLOTS = 12;
@@ -5194,6 +5194,11 @@ export default function App({ externalData }) {
   const [scoutingFocusId, setScoutingFocusId] = useState(null);
   const [cloudSession, setCloudSession] = useState(null);
   const [cloudStatus, setCloudStatus] = useState("");
+  const [cloudSyncState, setCloudSyncState] = useState({ state:"idle", lastSyncAt:null, error:null });
+  const [cloudConflict, setCloudConflict] = useState(null);
+  const cloudSaveTimerRef = useRef(null);
+  const cloudSavingRef = useRef(false);
+  const pendingCloudSaveRef = useRef(null);
 
   useEffect(() => {
     setSavesIndexState(getSavesIndex());
@@ -5249,24 +5254,59 @@ export default function App({ externalData }) {
 
   const saveGameToCloud = useCallback(async (g = game, options = {}) => {
     if (!g || !cloudSession?.user?.id) return null;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      const message = "Sin conexión. Partida guardada localmente; la nube queda pendiente.";
+      setCloudStatus(message);
+      setCloudSyncState(prev=>({ ...prev, state:"error", error:message }));
+      logCloudEvent("warn", "Guardado cloud omitido por falta de conexión", { reason:options.reason ?? "manual", localSaveId:g.id });
+      return null;
+    }
+    if (cloudSavingRef.current && !options.force) {
+      pendingCloudSaveRef.current = { g, options };
+      return null;
+    }
+    cloudSavingRef.current = true;
     try {
       setCloudStatus(options.silent ? "" : "Guardando en la nube...");
+      setCloudSyncState(prev=>({ ...prev, state:"saving", error:null }));
       const payload = serializeSavePayload(g, options.lineup ?? lineup, options.formation ?? formation, options.subs ?? subs, { starters:STARTERS_SLOTS, bench:BENCH_SLOTS });
-      const saved = await upsertCloudSave({ userId:cloudSession.user.id, cloudSaveId:g.cloudSaveId ?? null, game:g, payload });
+      const saved = await upsertCloudSave({ userId:cloudSession.user.id, cloudSaveId:g.cloudSaveId ?? null, game:g, payload, expectedCloudUpdatedAt:g.cloudUpdatedAt ?? null, force:Boolean(options.force) });
       const updatedGame = { ...g, cloudSaveId:saved.id, cloudUpdatedAt:saved.updated_at };
       if (!options.skipState) setGame(current => current?.id === g.id ? updatedGame : current);
       saveGame(updatedGame, options.lineup ?? lineup, options.formation ?? formation, options.subs ?? subs, options.saveIdOverride);
+      setCloudConflict(null);
       setCloudStatus(`Partida guardada en la nube: ${new Date(saved.updated_at).toLocaleString("es-ES")}`);
+      setCloudSyncState({ state:"saved", lastSyncAt:saved.updated_at, error:null });
       return saved;
     } catch (e) {
-      setCloudStatus(`No se pudo guardar en la nube: ${e.message ?? "error desconocido"}`);
+      if (e instanceof CloudSaveConflictError || e.code === "cloud_conflict") {
+        const conflict = { cloudSaveId:e.details?.cloudSaveId ?? g.cloudSaveId, cloudUpdatedAt:e.details?.cloud?.updated_at, localKnownCloudUpdatedAt:e.details?.localKnownCloudUpdatedAt ?? g.cloudUpdatedAt, localSaveId:g.id };
+        setCloudConflict(conflict);
+        setCloudStatus("Conflicto detectado: la nube tiene una versión más reciente.");
+        setCloudSyncState(prev=>({ ...prev, state:"error", error:"Conflicto de sincronización" }));
+      } else {
+        const message = `No se pudo guardar en la nube: ${e.message ?? "error desconocido"}`;
+        setCloudStatus(message);
+        setCloudSyncState(prev=>({ ...prev, state:"error", error:message }));
+        logCloudEvent("error", "Error guardando en Supabase", { message:e.message, reason:options.reason ?? "manual", localSaveId:g.id });
+      }
       return null;
+    } finally {
+      cloudSavingRef.current = false;
+      const pending = pendingCloudSaveRef.current;
+      pendingCloudSaveRef.current = null;
+      if (pending && !options.force) {
+        setTimeout(()=>saveGameToCloud(pending.g, { ...pending.options, silent:true, skipState:true }), 350);
+      }
     }
   }, [game, cloudSession?.user?.id, lineup, formation, subs, saveGame]);
 
   const autosaveCloud = useCallback((g, reason = "autosave", extra = {}) => {
     if (!cloudSession?.user?.id || !g?.cloudSaveId) return;
-    saveGameToCloud(g, { ...extra, silent:true, skipState:true }).catch(() => {});
+    if (cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
+    cloudSaveTimerRef.current = setTimeout(() => {
+      saveGameToCloud(g, { ...extra, reason, silent:true, skipState:true }).catch(() => {});
+    }, 1200);
   }, [cloudSession?.user?.id, saveGameToCloud]);
 
   const loadGame = (saveId) => {
@@ -5337,24 +5377,43 @@ export default function App({ externalData }) {
     const data = await signInWithEmail(email, password);
     setCloudSession(data.session ?? null);
     setCloudStatus("Sesión iniciada.");
+    setCloudSyncState(prev=>({ ...prev, state:"idle", error:null }));
+    logCloudEvent("info", "Sesión cloud iniciada", { email });
   };
 
   const handleCloudSignUp = async (email, password, username) => {
     const data = await signUpWithEmail(email, password, username);
     setCloudSession(data.session ?? null);
     setCloudStatus(data.session ? "Cuenta creada y sesión iniciada." : "Cuenta creada. Revisa tu email si Supabase exige confirmación.");
+    logCloudEvent("info", "Cuenta cloud creada", { email, hasSession:Boolean(data.session) });
   };
 
   const handleCloudSignOut = async () => {
     await signOut();
     setCloudSession(null);
+    setCloudConflict(null);
     setCloudStatus("Sesión cerrada.");
+    setCloudSyncState({ state:"idle", lastSyncAt:null, error:null });
+    logCloudEvent("info", "Sesión cloud cerrada");
   };
 
   const handleLoadCloudSave = async (cloudSaveId) => {
     try {
       setCloudStatus("Cargando partida desde la nube...");
+      setCloudSyncState(prev=>({ ...prev, state:"saving", error:null }));
       const cloud = await loadCloudSave(cloudSaveId);
+      if (activeLocalSave?.cloudSaveId === cloudSaveId) {
+        const localTime = activeLocalSave.updatedAt ? new Date(activeLocalSave.updatedAt).getTime() : 0;
+        const cloudTime = cloud.updated_at ? new Date(cloud.updated_at).getTime() : 0;
+        if (localTime > cloudTime + 1000) {
+          const ok = window.confirm("Tu partida local parece más reciente que la nube. Si cargas la nube, sustituirás la copia local vinculada. ¿Quieres continuar?");
+          if (!ok) {
+            setCloudStatus("Carga cancelada. No se ha sobrescrito nada.");
+            setCloudSyncState(prev=>({ ...prev, state:"idle" }));
+            return;
+          }
+        }
+      }
       const payload = { ...(cloud.data ?? {}) };
       const localId = payload.id ?? `save_cloud_${cloud.id}`;
       const localPayload = { ...payload, id:localId, cloudSaveId:cloud.id, cloudUpdatedAt:cloud.updated_at, updatedAt:cloud.updated_at };
@@ -5378,8 +5437,13 @@ export default function App({ externalData }) {
       setSavesIndexState(idx);
       loadGame(localId);
       setCloudStatus("Partida cargada desde la nube.");
+      setCloudSyncState({ state:"saved", lastSyncAt:cloud.updated_at, error:null });
+      setCloudConflict(null);
+      logCloudEvent("info", "Partida cargada desde Supabase", { cloudSaveId, localId });
     } catch (e) {
       setCloudStatus(`No se pudo cargar desde la nube: ${e.message ?? "error desconocido"}`);
+      setCloudSyncState(prev=>({ ...prev, state:"error", error:e.message ?? "Error cargando nube" }));
+      logCloudEvent("error", "Error cargando partida desde Supabase", { cloudSaveId, message:e.message });
     }
   };
 
@@ -6005,7 +6069,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
           {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} />}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
-          {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} />}
+          {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />}
           {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
           {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />}
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} />}

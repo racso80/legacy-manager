@@ -16,7 +16,7 @@ function Freshness({ local, cloud }) {
   return <span style={{ color, fontSize:9, fontWeight:900 }}>{text}</span>;
 }
 
-export default function CloudSavesScreen({ session, localSave, status, onSignIn, onSignUp, onSignOut, onRefresh, onSaveCloud, onLoadCloud, onDeleteCloud }) {
+export default function CloudSavesScreen({ session, localSave, status, syncState, conflict, onSignIn, onSignUp, onSignOut, onRefresh, onSaveCloud, onForceSaveCloud, onLoadCloud, onDeleteCloud, onClearConflict }) {
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
   const [username,setUsername]=useState("");
@@ -65,6 +65,12 @@ export default function CloudSavesScreen({ session, localSave, status, onSignIn,
       <div style={{ color:"#60a5fa", fontSize:10, fontWeight:950, letterSpacing:"1px" }}>☁️ MIS PARTIDAS</div>
       <div style={{ color:"#fff", fontSize:18, fontWeight:900, marginTop:4 }}>{session.user.email}</div>
       <div style={{ color:"#7b8293", fontSize:10, marginTop:3 }}>El guardado local sigue activo como respaldo.</div>
+      <div style={{ display:"flex", gap:7, flexWrap:"wrap", marginTop:9 }}>
+        <span style={{ background:syncState?.state==="error"?"rgba(239,68,68,.12)":syncState?.state==="saving"?"rgba(245,158,11,.12)":"rgba(34,197,94,.12)", color:syncState?.state==="error"?"#ef4444":syncState?.state==="saving"?"#f59e0b":"#22c55e", borderRadius:999, padding:"4px 8px", fontSize:9, fontWeight:900 }}>
+          {syncState?.state==="saving"?"Guardando...":syncState?.state==="error"?"Error al guardar":"Guardado correctamente"}
+        </span>
+        {syncState?.lastSyncAt && <span style={{ color:"#6b7280", fontSize:9, alignSelf:"center" }}>Última sync: {fmtDate(syncState.lastSyncAt)}</span>}
+      </div>
       <div style={{ display:"flex", gap:8, marginTop:12 }}>
         <button disabled={!localSave} onClick={async()=>{await onSaveCloud(); await refresh();}} className="btn-gold" style={{ flex:1, borderRadius:9, padding:10, opacity:localSave?1:.5 }}>Guardar en la nube</button>
         <button onClick={refresh} className="btn-ghost" style={{ flex:.65, borderRadius:9, padding:10 }}>{loading ? "..." : "Actualizar"}</button>
@@ -73,6 +79,17 @@ export default function CloudSavesScreen({ session, localSave, status, onSignIn,
       {status && <div style={{ color:"#60a5fa", fontSize:10, marginTop:8 }}>{status}</div>}
       {error && <div style={{ color:"#ef4444", fontSize:10, marginTop:8 }}>{error}</div>}
     </div>
+
+    {conflict && <div style={{ background:"rgba(245,158,11,.1)", border:"1px solid rgba(245,158,11,.28)", borderRadius:12, padding:12, marginBottom:12 }}>
+      <div style={{ color:"#f59e0b", fontSize:12, fontWeight:950 }}>Conflicto de sincronización</div>
+      <div style={{ color:"#cfd4df", fontSize:10, lineHeight:1.45, marginTop:5 }}>La partida en la nube es más reciente que la copia local. No se ha sobrescrito nada automáticamente.</div>
+      <div style={{ color:"#7b8293", fontSize:9, marginTop:6 }}>Nube: {fmtDate(conflict.cloudUpdatedAt)} · Local conocido: {fmtDate(conflict.localKnownCloudUpdatedAt)}</div>
+      <div style={{ display:"flex", gap:7, marginTop:10 }}>
+        <button onClick={()=>onLoadCloud(conflict.cloudSaveId)} className="btn-gold" style={{ flex:1, borderRadius:8, padding:8 }}>Usar nube</button>
+        <button onClick={onForceSaveCloud} style={{ flex:1, background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.25)", color:"#ef4444", borderRadius:8, padding:8, fontWeight:850 }}>Sobrescribir nube</button>
+        <button onClick={onClearConflict} className="btn-ghost" style={{ flex:.7, borderRadius:8, padding:8 }}>Decidir luego</button>
+      </div>
+    </div>}
 
     {localSave && <div style={{ background:"#10131a", border:"1px solid rgba(201,168,76,.16)", borderRadius:11, padding:11, marginBottom:12 }}>
       <div style={{ color:"#c9a84c", fontSize:10, fontWeight:900 }}>PARTIDA LOCAL ACTIVA</div>
@@ -99,4 +116,3 @@ export default function CloudSavesScreen({ session, localSave, status, onSignIn,
     </div>
   </div>;
 }
-
