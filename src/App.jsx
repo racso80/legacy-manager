@@ -6062,6 +6062,22 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     updateAttentionStatus(item.id, "dismissed");
   };
 
+  const handleExitToMenu = () => {
+    if (game && activeSaveId) {
+      saveGame(game, lineup, formation, subs);
+      if (game.cloudSaveId) saveGameToCloud(game, { reason:"exit-to-menu", silent:true }).catch(() => {});
+    }
+    setGame(null);
+    setActiveSaveId(null);
+    setMatchSummary(null);
+    setSeasonSummary(null);
+    setSelectedPlayer(null);
+    setSelectedPlayerTeamId(null);
+    setCloudLinkPrompt(null);
+    setCloudConflict(null);
+    setScreen("menu");
+  };
+
   const headerTitle = {
     menu: null, saves: null, country: "Nueva partida", league: "Selecciona liga", coachCreate:"Crea tu entrenador",
     teams: "Elige tu equipo", dashboard: "Mi Club",
@@ -6071,21 +6087,40 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", staff:"Staff Técnico", career:"Mi Carrera", cloudSaves:"Mis partidas", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", fans:"Afición", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
-  const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile"].includes(screen);
-  const inGame  = !["menu","teams"].includes(screen);
+  const showNav = Boolean(game) && !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile"].includes(screen);
+  const inGame  = Boolean(game) && !["menu","saves","country","league","teams","coachCreate"].includes(screen);
   const edgeSwipe=useEdgeSwipeBack(()=>setScreen(screen==="playerProfile"?profileReturnScreen:"dashboard"),{enabled:screen!=="dashboard"&&(showNav||screen==="playerProfile")});
+
+  useEffect(() => {
+    const canOpenWithoutGame = ["menu","saves","country","league","teams","coachCreate","cloudSaves"].includes(screen);
+    if (!game && !canOpenWithoutGame) setScreen("menu");
+  }, [screen, game]);
 
   return (
     <div {...edgeSwipe.handlers} style={{ background:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:540, margin:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y" }}>
       {edgeSwipe.indicator}
       {screen !== "menu" && (
         <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"11px 14px", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
+          {screen === "dashboard" && game && (
+            <button onClick={handleExitToMenu}
+              style={{ background:"rgba(239,68,68,.08)", border:"1px solid rgba(239,68,68,.2)", color:"#ef4444", cursor:"pointer", fontSize:12, padding:"5px 10px", borderRadius:7, fontWeight:700, transition:"background .15s" }}
+              onMouseEnter={e=>e.currentTarget.style.background="rgba(239,68,68,.14)"}
+              onMouseLeave={e=>e.currentTarget.style.background="rgba(239,68,68,.08)"}>
+              Salir
+            </button>
+          )}
           {(inGame && screen !== "dashboard") && (
             <button onClick={() => setScreen(screen === "playerProfile" ? profileReturnScreen : "dashboard")}
               style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", cursor:"pointer", fontSize:12, padding:"5px 10px", borderRadius:7, fontWeight:600, transition:"background .15s" }}
               onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.1)"}
               onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,.06)"}>
               ← {screen === "playerProfile" ? "Volver" : "Inicio"}
+            </button>
+          )}
+          {!inGame && screen === "cloudSaves" && (
+            <button onClick={() => setScreen("menu")}
+              style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", cursor:"pointer", fontSize:12, padding:"5px 10px", borderRadius:7, fontWeight:600 }}>
+              ← Volver
             </button>
           )}
           {screen === "teams" && (
