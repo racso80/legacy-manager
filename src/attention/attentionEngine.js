@@ -2,9 +2,10 @@ import { calculateInjuryRisk, formatMedicalDuration } from "../medical/medicalEn
 import { ensurePlayerMorale } from "../morale/moraleEngine.js";
 import { buildStaffRecommendations, ensureStaffState, getStaffMember } from "../staff/staffEngine.js";
 import { getCoachPrestigeLevel } from "../coach/coachCareerEngine.js";
+import { getFanPressureItems } from "../fans/fanEngine.js";
 
 const PRIORITY_ORDER = { critical: 0, important: 1, info: 2 };
-const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "career", "staff", "youth", "scouting", "training"];
+const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "career", "fans", "staff", "youth", "scouting", "training"];
 
 export const ATTENTION_CATEGORIES = {
   medical: { label: "Médico", icon: "🏥", accent: "#ef4444" },
@@ -13,6 +14,7 @@ export const ATTENTION_CATEGORIES = {
   finance: { label: "Finanzas", icon: "💵", accent: "#10b981" },
   board: { label: "Directiva", icon: "🏛", accent: "#a78bfa" },
   career: { label: "Carrera", icon: "🧑‍💼", accent: "#c9a84c" },
+  fans: { label: "Afición", icon: "📣", accent: "#c9a84c" },
   staff: { label: "Staff", icon: "🏢", accent: "#c9a84c" },
   youth: { label: "Cantera", icon: "🌱", accent: "#84cc16" },
   scouting: { label: "Scouting", icon: "👁", accent: "#38bdf8" },
@@ -483,6 +485,18 @@ export function getAttentionItems(game, context = {}) {
       staff: { name: member.name, role: member.roleTitle, icon: member.icon },
       action: rec.action,
       actionLabel: rec.actionLabel,
+    }));
+  }
+
+  for (const fanItem of getFanPressureItems(game)) {
+    items.push(createItem(game, {
+      id: fanItem.id,
+      category: "fans",
+      priority: fanItem.priority,
+      title: fanItem.title,
+      summary: fanItem.summary,
+      action: fanItem.action,
+      actionLabel: fanItem.actionLabel,
     }));
   }
 

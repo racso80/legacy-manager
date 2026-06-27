@@ -19,6 +19,7 @@ import ContractsScreen from "./components/ContractsScreen.jsx";
 import StaffScreen from "./components/StaffScreen.jsx";
 import CoachCreateScreen from "./components/CoachCreateScreen.jsx";
 import CoachCareerScreen from "./components/CoachCareerScreen.jsx";
+import FanbaseScreen from "./components/FanbaseScreen.jsx";
 import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
@@ -35,6 +36,7 @@ import { acceptRenewalCounter, advanceRenewals, completeRenewal, createRenewalOf
 import { ensurePlayerMorale, ensureSquadMorale, getLockerRoomSummary, getMoraleLevel, updatePlayerHumanState } from "./morale/moraleEngine.js";
 import { ensureStaffState } from "./staff/staffEngine.js";
 import { createCoachCareer, ensureCoachCareer, finalizeCoachSeason, recordCoachMatch } from "./coach/coachCareerEngine.js";
+import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, applyFanYouthReaction, ensureFanbaseState, estimateFanAttendance, generateFanNews } from "./fans/fanEngine.js";
 
 const STARTERS_SLOTS = 11;
 const BENCH_SLOTS = 12;
@@ -5263,7 +5265,7 @@ export default function App({ externalData }) {
         });
         setActiveSaveId(saveId);
         const loadedTeam=TEAMS.find(team=>team.id===parsed.teamId);
-        let migrated=ensureCoachCareer(ensureStaffState(ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam))),TEAMS),loadedTeam,TEAMS);
+        let migrated=ensureFanbaseState(ensureCoachCareer(ensureStaffState(ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam))),TEAMS),loadedTeam,TEAMS),loadedTeam,TEAMS);
         migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,parsed.season??"2025",parsed.matchday??1),parsed.season??"2025")))};
         migrated=migrateNewDataPlayersToSave(migrated,currentDataVersion);
         detachFreeAgentsFromRealSquads(migrated);
@@ -5297,7 +5299,7 @@ export default function App({ externalData }) {
     const seeded = ensureYouthState(ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", dataVersion:currentDataVersion, saveDataVersion:currentDataVersion, dataPlayerIds:collectDataPlayers().map(({player})=>player.id).filter(Boolean), freeAgents:[], dataMigrations:[], history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
       country: pendingCountry?.id, league: pendingLeague?.id },team),team);
     let g={...seeded,youth:{...seeded.youth,players:seeded.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,"2025",1),"2025")))}};
-    g=ensureCoachCareer({...g,coachCareer:createCoachCareer(coachData??{},team,"2025")},team,TEAMS);
+    g=ensureFanbaseState(ensureCoachCareer({...g,coachCareer:createCoachCareer(coachData??{},team,"2025")},team,TEAMS),team,TEAMS);
     g=ensureStaffState(ensureContractState(refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS)),TEAMS);
     const firstProspect=[...g.youth.players].sort((a,b)=>b.potential-a.potential)[0];
     if(firstProspect)g.news=generateYouthNews({items:[{title:"La cantera presenta una nueva generación",summary:`${firstProspect.name} encabeza la hornada con un potencial estimado de ${firstProspect.potential}.`,importance:firstProspect.potential>=86?"high":"medium",playerId:firstProspect.id,fingerprint:`academy-intake:2025`}],season:"2025",matchday:1,userTeamId:team.id});
@@ -5317,7 +5319,7 @@ export default function App({ externalData }) {
 // - Socios: cuota de abonado prorrateada por jornada (solo si es partido en casa)
 // - Tienda/merchandising: ligado a fanbase y racha de resultados
 // - Publicidad/patrocinio: ingreso fijo prorrateado, sube con la posición en liga
-function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, clubPrestige = 50) {
+function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, clubPrestige = 50, fanContext = null) {
   const cap = team.capacity ?? 30000;
   const fan = team.fanbase ?? 3; // 1-5
 
@@ -5326,7 +5328,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
   const baseOccupancy = 0.45 + fan * 0.07; // 0.52 - 0.80
   const formBonus = won ? 0.08 : drew ? 0.02 : -0.05;
   const loveBonus = ((fanLove ?? 70) - 70) * 0.002; // ±0.06 aprox
-  const occupancy = Math.max(0.25, Math.min(0.99, baseOccupancy + formBonus + loveBonus));
+  const occupancy = Math.max(0.25, Math.min(0.99, fanContext?.occupancy ?? (baseOccupancy + formBonus + loveBonus)));
   const ticketPrice = 18 + fan * 7; // €25-53 aprox según el tamaño del club
   const matchAttendance = isHome ? Math.round(cap * occupancy) : 0;
   const gateRevenue = isHome ? Math.round((matchAttendance * ticketPrice) / 1000) : 0; // en €K
@@ -5339,7 +5341,7 @@ function calculateMatchdayIncome(team, isHome, won, drew, leaguePos, fanLove, cl
 
   // ── Tienda / merchandising — todas las jornadas, sube con fanbase y resultados ──
   const shopBase = 8 + fan * 6; // €K por jornada
-  const shopBonus = won ? 1.3 : drew ? 1.0 : 0.8;
+  const shopBonus = (won ? 1.3 : drew ? 1.0 : 0.8) * Math.max(.78,Math.min(1.28,1+((fanLove??70)-65)*.006));
   const shopIncome = Math.round(shopBase * shopBonus);
 
   // ── Publicidad y patrocinios — ingreso fijo por jornada, sube si vas arriba en la tabla ──
@@ -5424,8 +5426,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const sortedForPos = [...newStandings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference);
       const leaguePos = sortedForPos.findIndex(s => s.teamId === prev.teamId) + 1;
       const fanLove = prev.fanLove ?? 70; // cariño de la afición, 0-100
-      const incomeResult = calculateMatchdayIncome(userTeamData, isHome, won, drew, leaguePos, fanLove, prev.legacy?.clubPrestige ?? 50);
-      const newFanLove = Math.max(0, Math.min(100, fanLove + (won?3:drew?0:-4)));
+      const fanAttendance = estimateFanAttendance({ game:{...prev,_teams:TEAMS}, team:userTeamData, fixture, won, drew, leaguePos });
+      const incomeResult = calculateMatchdayIncome(userTeamData, isHome, won, drew, leaguePos, fanLove, prev.legacy?.clubPrestige ?? 50, fanAttendance);
 
       // Las tarjetas usan team:"user"/"opp" (no se normalizan a home/away como los goles)
       const yellowsInMatch = events.filter(e => e.type === "YELLOW" && e.team === "user").map(e => e.playerId);
@@ -5548,7 +5550,6 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         matchday: matchday + 1, season: prev.season ?? "2025", history: prev.history ?? [],
         budgetAdjustment: nextBudgetAdjustment,
         incomeLog: newIncomeLog,
-        fanLove: newFanLove,
         news: updatedNews,
         trainingPlan:normalizeTrainingPlan(prev.trainingPlan),
         lastTrainingReport:trainingResult.report,
@@ -5556,6 +5557,12 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         trainingTacticalBonus:trainingResult.tacticalBonus,
         legacy:legacyEvaluation.legacy,
         youth:{...(prev.youth??{}),players:youthTrainingResult.players},standingsMovement };
+      const beforeFanbase=prev.fanbase;
+      newGame=applyFanMatchReaction(newGame,{team:userTeamData,fixture,won,drew,goalsFor:userGoals,goalsAgainst:oppGoals,income:incomeResult,position:leaguePos});
+      newGame=advanceAiFanbases(newGame,TEAMS,matchday);
+      const fanNews=generateFanNews({game:newGame,before:beforeFanbase,matchday});
+      if(fanNews.length)newGame={...newGame,news:mergeNews(newGame.news??[],fanNews)};
+      if((newGame.fanbase?.support??65)<38)newGame={...newGame,legacy:{...newGame.legacy,confidence:Math.max(0,(newGame.legacy?.confidence??65)-1.2)}};
       newGame=recordCoachMatch(newGame,{result:won?"win":drew?"draw":"loss",goalsFor:userGoals,goalsAgainst:oppGoals,fixture,lockerSummary,trainingReport:trainingResult.report});
       const scoutingProgress=advanceScouting(newGame,getScoutingPool(newGame),matchday+1);
       const scoutingNews=generateScoutingNews({items:scoutingProgress.news,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
@@ -5667,6 +5674,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       g={...g,youth:{...g.youth,players:g.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,newSeason,1),newSeason)))}};
       g=refreshScoutingRecommendations(g,getScoutingPool(g));
       g=ensureCoachCareer(g,teamData,TEAMS);
+      g=ensureFanbaseState(g,teamData,TEAMS);
       g=refreshTransferListings(g,TEAMS,REAL_SQUADS,true);
       const intakePlayers=g.youth.players.filter(player=>(g.youth.lastIntake??[]).includes(player.id));
       const topIntake=[...intakePlayers].sort((a,b)=>b.potential-a.potential)[0];
@@ -5720,6 +5728,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         transfers: [...(prev.transfers ?? []), newTransfer],
         news: mergeNews(prev.news ?? [], transferNews),youth:nextYouth,
         freeAgents: ["buy","loanIn"].includes(type) ? (prev.freeAgents ?? []).filter(item=>item.id!==player.id) : (prev.freeAgents ?? []) };
+      const beforeFanbase=prev.fanbase;
+      newGame=applyFanTransferReaction(newGame,{type,player,value:value??cost??0});
+      const fanNews=generateFanNews({game:newGame,before:beforeFanbase,matchday:prev.matchday});
+      if(fanNews.length)newGame={...newGame,news:mergeNews(newGame.news??[],fanNews)};
       if(type==="buy")newGame=registerScoutingSigning(newGame,player.id);
       if(offerId)newGame=completeOffer(newGame,offerId);
       saveGame(newGame, lineup);
@@ -5775,7 +5787,11 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const prestigeGain=category.id==="historic"?3:category.id==="elite"?2:1;
       const legacy={...prev.legacy,clubPrestige:Math.min(100,prev.legacy.clubPrestige+prestigeGain),manager:{...prev.legacy.manager,prestige:Math.min(100,prev.legacy.manager.prestige+prestigeGain*.5)}};
       const promotionNews=generateYouthNews({items:[{title:`${promoted.name} asciende al primer equipo`,summary:`El club apuesta por el ${promoted.pos} de ${promoted.age} años y potencial ${promoted.potential}.`,importance:category.id==="historic"||category.id==="elite"?"high":"medium",playerId:promoted.id,fingerprint:`academy-promotion:${promoted.id}`}],season:prev.season,matchday:prev.matchday,userTeamId:prev.teamId});
-      const updated={...prev,players:[...prev.players,promoted],youth:{...prev.youth,players:prev.youth.players.filter(player=>player.id!==playerId),promotions:[promotion,...(prev.youth.promotions??[])]},legacy,news:mergeNews(prev.news??[],promotionNews)};
+      let updated={...prev,players:[...prev.players,promoted],youth:{...prev.youth,players:prev.youth.players.filter(player=>player.id!==playerId),promotions:[promotion,...(prev.youth.promotions??[])]},legacy,news:mergeNews(prev.news??[],promotionNews)};
+      const beforeFanbase=prev.fanbase;
+      updated=applyFanYouthReaction(updated,promoted);
+      const fanNews=generateFanNews({game:updated,before:beforeFanbase,matchday:prev.matchday});
+      if(fanNews.length)updated={...updated,news:mergeNews(updated.news??[],fanNews)};
       saveGame(updated,lineup,formation,subs);
       return updated;
     });
@@ -5835,7 +5851,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", staff:"Staff Técnico", career:"Mi Carrera", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
+    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", staff:"Staff Técnico", career:"Mi Carrera", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", fans:"Afición", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile"].includes(screen);
@@ -5890,6 +5906,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
           {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
           {screen === "lockerRoom" && game && <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} />}
+          {screen === "fans" && game && <FanbaseScreen game={ensureFanbaseState(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} />}
           {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
           {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}
           {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}

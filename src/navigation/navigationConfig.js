@@ -18,6 +18,7 @@ export const MORE_SECTIONS = [
   { id:"finances", icon:"💵", label:"Finanzas", description:"Ingresos y presupuesto", group:"Club", accent:"#10b981" },
   { id:"tactics", icon:"⚙️", label:"Tácticas", description:"Identidad de juego", group:"Gestión", accent:"#64748b" },
   { id:"lockerRoom", icon:"🗣️", label:"Vestuario", description:"Moral, líderes y conflictos", group:"Gestión", accent:"#f97316" },
+  { id:"fans", icon:"📣", label:"Afición", description:"Masa social y ambiente", group:"Gestión", accent:"#c9a84c" },
   { id:"training", icon:"🏋", label:"Entrenamientos", description:"Plan y desarrollo", group:"Gestión", accent:"#f59e0b" },
   { id:"youth", icon:"🌱", label:"Cantera", description:"Juveniles y promoción", group:"Gestión", accent:"#84cc16" },
   { id:"medical", icon:"🏥", label:"Centro médico", description:"Lesiones y riesgos", group:"Gestión", accent:"#ef4444" },
