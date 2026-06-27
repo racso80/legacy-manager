@@ -23,6 +23,7 @@ function ItemCard({ item, onOpen, onDismiss }) {
             <span style={{ color:priority.color, fontSize:9, fontWeight:900 }}>{priority.icon} {priority.label.toUpperCase()}</span>
             {fresh && <span style={{ color:"#1a1200", background:"#c9a84c", borderRadius:99, padding:"2px 6px", fontSize:8, fontWeight:900 }}>NUEVO</span>}
           </div>
+          {item.staff && <div style={{ color:category.accent, fontSize:9, fontWeight:850, marginBottom:4 }}>{item.staff.icon} {item.staff.role} · {item.staff.name}</div>}
           <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:800, lineHeight:1.35 }}>{item.title}</div>
           {item.summary && <div style={{ color:"#7b8293", fontSize:10, lineHeight:1.45, marginTop:4 }}>{item.summary}</div>}
         </div>

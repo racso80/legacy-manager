@@ -1,8 +1,9 @@
 import { calculateInjuryRisk, formatMedicalDuration } from "../medical/medicalEngine.js";
 import { ensurePlayerMorale } from "../morale/moraleEngine.js";
+import { buildStaffRecommendations, ensureStaffState, getStaffMember } from "../staff/staffEngine.js";
 
 const PRIORITY_ORDER = { critical: 0, important: 1, info: 2 };
-const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "youth", "scouting", "training"];
+const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "staff", "youth", "scouting", "training"];
 
 export const ATTENTION_CATEGORIES = {
   medical: { label: "Médico", icon: "🏥", accent: "#ef4444" },
@@ -10,6 +11,7 @@ export const ATTENTION_CATEGORIES = {
   contracts: { label: "Contratos", icon: "📄", accent: "#f59e0b" },
   finance: { label: "Finanzas", icon: "💵", accent: "#10b981" },
   board: { label: "Directiva", icon: "🏛", accent: "#a78bfa" },
+  staff: { label: "Staff", icon: "🏢", accent: "#c9a84c" },
   youth: { label: "Cantera", icon: "🌱", accent: "#84cc16" },
   scouting: { label: "Scouting", icon: "👁", accent: "#38bdf8" },
   training: { label: "Entrenamiento", icon: "🏋", accent: "#60a5fa" },
@@ -73,6 +75,7 @@ function expiringContractLabel(player, game) {
 
 export function getAttentionItems(game, context = {}) {
   if (!game) return [];
+  game = ensureStaffState(game, []);
   const items = [];
   const fixture = nextFixture(game);
   const availableStarters = (context.lineup ?? game._lineup ?? []).filter(Boolean).length;
@@ -133,7 +136,7 @@ export function getAttentionItems(game, context = {}) {
       }));
     }
 
-    const risk = calculateInjuryRisk(player, { fixtures: game.fixtures, teamId: game.teamId });
+    const risk = calculateInjuryRisk(player, { fixtures: game.fixtures, teamId: game.teamId, game });
     if (!player.injured && risk >= 76) {
       items.push(createItem(game, {
         id: `training-risk:${player.id}:${game.season}:${game.matchday}`,
@@ -423,6 +426,21 @@ export function getAttentionItems(game, context = {}) {
       playerId: report.playerId,
       action: { screen: "scouting", reportId: report.id },
       actionLabel: "Ver informe",
+    }));
+  }
+
+  for (const rec of buildStaffRecommendations(game)) {
+    if (rec.priority === "info") continue;
+    const member = getStaffMember(game, rec.roleId);
+    items.push(createItem(game, {
+      id: rec.id,
+      category: "staff",
+      priority: rec.priority,
+      title: rec.title,
+      summary: rec.quote,
+      staff: { name: member.name, role: member.roleTitle, icon: member.icon },
+      action: rec.action,
+      actionLabel: rec.actionLabel,
     }));
   }
 

@@ -1,5 +1,6 @@
 import { getPlayerSeasonStats } from "../players/playerProfile.js";
 import { getAccumulatedLoad } from "../medical/medicalEngine.js";
+import { staffModifier } from "../staff/staffEngine.js";
 
 export const TRAINING_TYPES = {
   recovery:{ id:"recovery", icon:"💆", name:"Recuperación", description:"Reduce fatiga y riesgo, sin mejora deportiva.", fatigue:-5, attrs:{} },
@@ -48,6 +49,9 @@ function clamp(value,min,max){ return Math.max(min,Math.min(max,value)); }
 export function applyWeeklyTraining(players, game, rawPlan) {
   const plan = normalizeTrainingPlan(rawPlan);
   const load = TRAINING_LOADS[plan.load];
+  const fitnessDevelopmentBoost = 1 + Math.max(-.08, staffModifier(game, "fitnessCoach", "fitness", .1));
+  const loadManagementBoost = staffModifier(game, "fitnessCoach", "loadManagement", .16);
+  const recoveryBoost = staffModifier(game, "fitnessCoach", "recovery", .14);
   const sessions = plan.days.map(id=>TRAINING_TYPES[id]);
   const result = [];
   const changes = [];
@@ -55,11 +59,13 @@ export function applyWeeklyTraining(players, game, rawPlan) {
   players.forEach(original => {
     const stats = getPlayerSeasonStats(original, game, game.teamId);
     const isUnavailable = original.injured || ["injured","recovery"].includes(original.medical?.phase);
-    const factor = developmentFactor(original,stats) * load.development;
+    const factor = developmentFactor(original,stats) * load.development * fitnessDevelopmentBoost;
     const xp = { ...(original.developmentXP ?? {}) };
     const attrs = { ...(original.attrs ?? {}) };
     const playerChanges = [];
     let fatigueDelta = sessions.reduce((sum,session)=>sum+session.fatigue,0) * load.fatigue;
+    if (fatigueDelta > 0) fatigueDelta *= Math.max(.82, 1 - loadManagementBoost);
+    if (fatigueDelta < 0) fatigueDelta *= Math.max(.9, 1 + recoveryBoost);
     if (isUnavailable) fatigueDelta = Math.min(-8, fatigueDelta - 10);
 
     if (!isUnavailable) {
@@ -104,9 +110,9 @@ export function applyWeeklyTraining(players, game, rawPlan) {
     const tacticalSharpness = clamp((original.tacticalSharpness ?? 0)*.8 + tacticalGain*.8 + sessions.filter(s=>s.id==="tactical").length*.18,0,5);
     const recoveryCount = sessions.filter(session=>session.id==="recovery").length;
     const highIntensityCount = sessions.filter(session=>["physical","technical"].includes(session.id)).length;
-    const trainingRiskModifier = clamp(load.risk + Math.max(0,fatigueDelta)*.45 - recoveryCount*3,0,25);
+    const trainingRiskModifier = clamp(load.risk + Math.max(0,fatigueDelta)*.45 - recoveryCount*3 - Math.max(0, loadManagementBoost) * 12,0,25);
     const accumulatedBefore = getAccumulatedLoad(original);
-    const loadDelta = Math.round((load.id==="veryHigh"?7:load.id==="high"?4:load.id==="medium"?1:-2) + highIntensityCount*1.2 - recoveryCount*3 + Math.max(0,fatigueDelta)*.18);
+    const loadDelta = Math.round(((load.id==="veryHigh"?7:load.id==="high"?4:load.id==="medium"?1:-2) + highIntensityCount*1.2 - recoveryCount*3 + Math.max(0,fatigueDelta)*.18) * Math.max(.82, 1 - loadManagementBoost));
     const accumulatedFatigue = clamp(accumulatedBefore + loadDelta,0,100);
     const playedLast = game.fixtures?.filter(f=>f.played).slice(-1)[0]?.participation?.starters?.includes(original.id);
     let morale = original.morale ?? 70;

@@ -1,3 +1,5 @@
+import { staffModifier } from "../staff/staffEngine.js";
+
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 
 export function ensureTransferState(game){
@@ -135,12 +137,13 @@ export function completeOffer(game,offerId){
 
 export function advanceTransferNegotiations(game){
   const current=ensureTransferState(game);const matchday=current.matchday??1;
+  const negotiationBoost=Math.max(0,staffModifier(current,"sportingDirector","negotiation",.08));
   const offers=current.transferMarket.offers.map(item=>{
     if(item.resolveMatchday>matchday)return item;
     if(item.status==="pendingClub"){
       const competitionChance = clamp(.07 + (item.marketValue >= 30000 ? .08 : 0) + (item.marketValue >= 50000 ? .08 : 0) + (item.dealType === "loan" ? .03 : 0), .05, .28);
       if(Math.random()<competitionChance)return {...item,status:"outbid",outbidAmount:Math.round(item.amount*(1.05+Math.random()*.16))};
-      const ratio=item.amount/Math.max(1,item.marketValue);
+      const ratio=item.amount/Math.max(1,item.marketValue)+negotiationBoost;
       if(item.dealType==="loan"&&ratio>=.05)return {...item,status:"clubAccepted"};
       if(ratio>=.98)return {...item,status:"clubAccepted"};
       if(ratio>=.78)return {...item,status:"clubCounter",counterAmount:Math.round(item.marketValue*(1.02+Math.random()*.1))};
@@ -148,7 +151,7 @@ export function advanceTransferNegotiations(game){
     }
     if(item.status==="pendingPlayer"){
       const expected=Math.max(8,item.salary??8);const baseline=Math.max(8,item.expectedSalary??expected);
-      const ratio=expected/baseline;
+      const ratio=expected/baseline+negotiationBoost;
       if(ratio>=.96&&["Estrella","Titular","Rotación"].includes(item.role))return {...item,status:"ready"};
       if(ratio>=.78)return Math.random()<.35?{...item,status:"roleCounter",counterRole:item.role==="Promesa"?"Rotación":"Titular"}:{...item,status:"playerCounter",counterSalary:Math.round(baseline*(1+Math.random()*.08))};
       return {...item,status:"playerRejected"};

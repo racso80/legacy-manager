@@ -1,4 +1,5 @@
 import { getMarketValue, getPotential } from "../players/playerProfile.js";
+import { staffModifier } from "../staff/staffEngine.js";
 
 const clamp=(value,min=0,max=100)=>Math.max(min,Math.min(max,value));
 const hash=value=>{let result=0;for(const char of String(value))result=(Math.imul(result,31)+char.charCodeAt(0))|0;return Math.abs(result)};
@@ -43,10 +44,10 @@ function matchesMission(player,mission){
   return true;
 }
 
-function reportFor(player,mission,scout,season,matchday,source="mission"){
+function reportFor(player,mission,scout,season,matchday,source="mission",chiefBonus=0){
   const duration=mission.durationDays??7;
   const specialtyBonus=(scout?.specialty==="youth"&&player.age<=21)||(scout?.specialty==="value"&&getMarketValue(player)<=12000)?7:0;
-  const confidence=clamp(38+duration*1.7+(scout?.level??2)*5+specialtyBonus+(hash(`${player.id}:${mission.id}`)%7),42,96);
+  const confidence=clamp(38+duration*1.7+(scout?.level??2)*5+specialtyBonus+chiefBonus+(hash(`${player.id}:${mission.id}`)%7),42,98);
   const width=Math.max(1,Math.ceil((100-confidence)/12));
   const potential=getPotential(player);const value=getMarketValue(player);
   const opportunity=player.contractEnd&&Number(player.contractEnd)<=Number(season)+1?"Contrato próximo a finalizar":value<=8000&&player.overall>=72?"Valor atractivo":player._teamId==="agente_libre"?"Agente libre":null;
@@ -86,6 +87,7 @@ export function cancelScoutingMission(game,missionId){
 
 export function advanceScouting(game,candidates,nextMatchday){
   const seeded=ensureScoutingState(game);const scouting=seeded.scouting;if(nextMatchday<=scouting.lastProcessedMatchday)return{game:seeded,news:[]};
+  const chiefBonus=Math.round(Math.max(-4,staffModifier(seeded,"scoutingChief","reportQuality",7)));
   const completed=[];const reports=[...scouting.reports];
   const missions=scouting.missions.map(mission=>{
     if(mission.status!=="active")return mission;
@@ -93,7 +95,7 @@ export function advanceScouting(game,candidates,nextMatchday){
     const progress=clamp(Math.round(elapsed/required*100));
     if(nextMatchday<mission.completeMatchday)return{...mission,progress};
     const scout=scouting.scouts.find(item=>item.id===mission.scoutId);const found=pickCandidates(candidates,mission,4);
-    found.forEach(player=>{const fresh=reportFor(player,mission,scout,seeded.season,nextMatchday);const index=reports.findIndex(item=>item.playerId===player.id);if(index>=0){if(fresh.confidence>reports[index].confidence)reports[index]=fresh;}else reports.unshift(fresh);});
+    found.forEach(player=>{const fresh=reportFor(player,mission,scout,seeded.season,nextMatchday,"mission",chiefBonus);const index=reports.findIndex(item=>item.playerId===player.id);if(index>=0){if(fresh.confidence>reports[index].confidence)reports[index]=fresh;}else reports.unshift(fresh);});
     completed.push({mission,found});return{...mission,status:"completed",progress:100,completedMatchday:nextMatchday,results:found.map(item=>item.id)};
   });
   const news=completed.map(({mission,found})=>({title:`El scouting completa la misión “${mission.label}”`,summary:`${found.length} jugadores interesantes encontrados${found.filter(item=>getPotential(item)>=85).length?` · ${found.filter(item=>getPotential(item)>=85).length} grandes promesas`:""}.`,importance:found.some(item=>getPotential(item)>=90)?"high":"medium",fingerprint:`scouting-complete:${mission.id}`}));

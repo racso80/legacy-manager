@@ -11,7 +11,7 @@ export default function MedicalCenterScreen({ game, onOpenPlayer }) {
   const [tab,setTab]=useState("patients");
   const assessed = game.players.map(player => {
     const load = getAccumulatedLoad(player);
-    return { player, load, loadLevel:getLoadLevel(load), energy:Math.max(0,Math.round(100-(player.fatigue??0))), risk:calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId}), status:getPhysicalStatus(player) };
+    return { player, load, loadLevel:getLoadLevel(load), energy:Math.max(0,Math.round(100-(player.fatigue??0))), risk:calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId,game}), status:getPhysicalStatus(player) };
   }).sort((a,b)=>b.risk-a.risk||b.load-a.load);
   const patients = assessed.filter(item => ["injured","recovery","limited"].includes(item.status.id));
   const warnings = assessed.filter(item => !["injured","recovery","limited"].includes(item.status.id) && item.risk > 35).slice(0,5);

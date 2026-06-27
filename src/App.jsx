@@ -16,6 +16,7 @@ import SeasonTransitionScreen from "./components/SeasonTransitionScreen.jsx";
 import PreseasonScreen from "./components/PreseasonScreen.jsx";
 import AttentionCenterScreen from "./components/AttentionCenterScreen.jsx";
 import ContractsScreen from "./components/ContractsScreen.jsx";
+import StaffScreen from "./components/StaffScreen.jsx";
 import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
@@ -30,6 +31,7 @@ import { acceptClubCounter, acceptPlayerCounter, acceptRoleCounter, advanceTrans
 import { getAttentionCount, getAttentionItems, markAttentionItem } from "./attention/attentionEngine.js";
 import { acceptRenewalCounter, advanceRenewals, completeRenewal, createRenewalOffer, ensureContractState, withdrawRenewalOffer } from "./contracts/contractEngine.js";
 import { ensurePlayerMorale, ensureSquadMorale, getLockerRoomSummary, getMoraleLevel, updatePlayerHumanState } from "./morale/moraleEngine.js";
+import { ensureStaffState } from "./staff/staffEngine.js";
 
 const STARTERS_SLOTS = 11;
 const BENCH_SLOTS = 12;
@@ -2327,7 +2329,7 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
   const latestNews = getDashboardNews(game.news??[],game,3);
   const urgentAttention = attentionItems.filter(item=>item.priority!=="info");
   const topAttention = urgentAttention.slice(0,3);
-  const medicalAlerts = players.map(player=>({player,risk:calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId}),status:getPhysicalStatus(player)})).filter(item=>item.player.injured||item.risk>50).sort((a,b)=>b.risk-a.risk).slice(0,3);
+  const medicalAlerts = players.map(player=>({player,risk:calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId,game}),status:getPhysicalStatus(player)})).filter(item=>item.player.injured||item.risk>50).sort((a,b)=>b.risk-a.risk).slice(0,3);
   const clubPrestigeLevel = getPrestigeLevel(game.legacy?.clubPrestige??30);
   const managerPrestigeLevel = getPrestigeLevel(game.legacy?.manager?.prestige??10,true);
 
@@ -2710,7 +2712,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
 
   // ── 6. Recomendaciones de descanso ──
   const restRisk = (p) => {
-    const risk = calculateInjuryRisk(p,{fixtures:game.fixtures,teamId:game.teamId});
+    const risk = calculateInjuryRisk(p,{fixtures:game.fixtures,teamId:game.teamId,game});
     const level = getRiskLevel(risk);
     if (risk > 75) return { level:"high", label:`🔴 Riesgo crítico ${risk}%`, risk, color:level.color };
     if (risk > 50) return { level:"high", label:`🟠 Riesgo alto ${risk}%`, risk, color:level.color };
@@ -4085,7 +4087,7 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     const yellowCounts={user:{},opp:{}};
     events.filter(event=>event.type==="YELLOW").forEach(event=>{const side=event.team==="user"||event.team==="opp"?event.team:null;if(side&&event.playerId)yellowCounts[side][event.playerId]=(yellowCounts[side][event.playerId]??0)+1;});
     const generated=generateSegmentEvents(currentSegment,starterPlayers,userStr,oppStr,score,tactics,isHome,oppSquad,{
-      fixtures:game.fixtures,teamId:game.teamId,matchday:fixture.matchday,
+      fixtures:game.fixtures,teamId:game.teamId,matchday:fixture.matchday,game,
       minuteStart:intervalEnd,minuteEnd:intervalEnd,yellowCounts,
     }).filter(event=>(event.minute??intervalEnd)<=intervalEnd);
     const flow=eventsUntilExtraordinary(generated);
@@ -5257,7 +5259,7 @@ export default function App({ externalData }) {
         });
         setActiveSaveId(saveId);
         const loadedTeam=TEAMS.find(team=>team.id===parsed.teamId);
-        let migrated=ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam)));
+        let migrated=ensureStaffState(ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam))),TEAMS);
         migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,parsed.season??"2025",parsed.matchday??1),parsed.season??"2025")))};
         migrated=migrateNewDataPlayersToSave(migrated,currentDataVersion);
         detachFreeAgentsFromRealSquads(migrated);
@@ -5291,7 +5293,7 @@ export default function App({ externalData }) {
     const seeded = ensureYouthState(ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", dataVersion:currentDataVersion, saveDataVersion:currentDataVersion, dataPlayerIds:collectDataPlayers().map(({player})=>player.id).filter(Boolean), freeAgents:[], dataMigrations:[], history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
       country: pendingCountry?.id, league: pendingLeague?.id },team),team);
     let g={...seeded,youth:{...seeded.youth,players:seeded.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,"2025",1),"2025")))}};
-    g=ensureContractState(refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS));
+    g=ensureStaffState(ensureContractState(refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS)),TEAMS);
     const firstProspect=[...g.youth.players].sort((a,b)=>b.potential-a.potential)[0];
     if(firstProspect)g.news=generateYouthNews({items:[{title:"La cantera presenta una nueva generación",summary:`${firstProspect.name} encabeza la hornada con un potencial estimado de ${firstProspect.potential}.`,importance:firstProspect.potential>=86?"high":"medium",playerId:firstProspect.id,fingerprint:`academy-intake:2025`}],season:"2025",matchday:1,userTeamId:team.id});
     setActiveSaveId(newId);
@@ -5456,7 +5458,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         const remainingFromBefore = wasSuspended ? Math.max(0, p.suspGames - 1) : (p.suspended ? p.suspGames : 0);
         const finalSuspGames = remainingFromBefore + newSuspensionGames;
 
-        const medicalPlayer = newlyInjuredIds.has(p.id) ? p : advanceMedicalRecovery(normalizeMedicalPlayer(p), 7);
+        const medicalPlayer = newlyInjuredIds.has(p.id) ? p : advanceMedicalRecovery(normalizeMedicalPlayer(p), 7, prev);
         const resistance = medicalPlayer.attrs?.fisico ?? 70;
         const agePenalty = medicalPlayer.age >= 34 ? 5 : medicalPlayer.age >= 31 ? 3 : medicalPlayer.age <= 22 ? -2 : 0;
         const resistanceBonus = Math.round((resistance - 70) / 8);
@@ -5825,7 +5827,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
+    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", staff:"Staff Técnico", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador",
   };
   const showNav = !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile"].includes(screen);
@@ -5883,6 +5885,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}
           {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}
           {screen === "legacyMuseum" && game && <LegacyMuseumScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
+          {screen === "staff" && game && <StaffScreen game={ensureStaffState(game,TEAMS)} onNavigate={setScreen} />}
           {screen === "scouting" && game && <ScoutingScreen game={game} candidates={getScoutingPool(game)} focusReportId={scoutingFocusId} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} onOpenPlayer={openPlayerProfile} onGoMarket={()=>setScreen("transfers")} />}
           {screen === "settings"  && game && <SettingsScreen game={game} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}

@@ -1,3 +1,5 @@
+import { staffModifier } from "../staff/staffEngine.js";
+
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 
 export const CONTRACT_ROLES=["Estrella","Titular","Rotación","Promesa","Suplente"];
@@ -7,13 +9,14 @@ export function ensureContractState(game){
   return {...game,contracts:{renewals:[],notifications:[],...(game.contracts??{})}};
 }
 
-export function suggestedRenewalSalary(player){
+export function suggestedRenewalSalary(player, game = null){
   const current=player.salary??16;
   const base=player.overall>=88?260:player.overall>=84?170:player.overall>=80?105:player.overall>=76?65:player.overall>=72?38:player.overall>=68?20:10;
   const ageMod=player.age<=22?1.08:player.age>=32?.78:1;
   const roleMod={Estrella:1.28,Titular:1.08,Rotación:.92,Promesa:.72,Suplente:.62}[player.squadRole??"Rotación"]??1;
   const moodMod=((player.happiness??70)<45||(player.managerTrust??70)<45)?1.12:((player.morale??70)>=80?.96:1);
-  return Math.max(current,Math.round(base*ageMod*roleMod*moodMod));
+  const negotiationMod=Math.max(.94,1-Math.max(0,staffModifier(game,"sportingDirector","negotiation",.08)));
+  return Math.max(current,Math.round(base*ageMod*roleMod*moodMod*negotiationMod));
 }
 
 export function getActiveRenewal(game,playerId){
@@ -71,8 +74,9 @@ export function advanceRenewals(game){
     if(item.status!=="pending"||item.resolveMatchday>matchday)return item;
     const player=current.players.find(p=>p.id===item.playerId);
     if(!player)return {...item,status:"rejected"};
-    const expected= suggestedRenewalSalary(player);
-    const salaryRatio=(item.salary??0)/Math.max(1,expected);
+    const expected= suggestedRenewalSalary(player,current);
+    const negotiationBoost=Math.max(0,staffModifier(current,"sportingDirector","negotiation",.08));
+    const salaryRatio=((item.salary??0)/Math.max(1,expected))+negotiationBoost;
     const yearsWanted=player.age>=31?2:player.age<=23?4:3;
     const roleRank=ROLE_RANK[item.role]??2;
     const desiredRole=player.overall>=84?"Estrella":player.overall>=78?"Titular":player.age<=21?"Promesa":"Rotación";

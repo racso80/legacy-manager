@@ -41,7 +41,7 @@ export default function PlayerProfileScreen({ player, game, team, onGoLineup, on
   const loadLevel = getLoadLevel(accumulatedLoad);
   const moraleLevel = getMoraleLevel(player.morale);
   const physicalStatus = getPhysicalStatus(player);
-  const injuryRisk = calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:team?.id});
+  const injuryRisk = calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:team?.id,game});
   const injuryRiskLevel = getRiskLevel(injuryRisk);
   const isOwnPlayer = game.players.some(item => item.id === player.id);
   const activeRenewal=(game.contracts?.renewals??[]).find(item=>item.playerId===player.id&&!["completed","withdrawn"].includes(item.status));

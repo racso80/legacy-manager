@@ -8,7 +8,7 @@ export default function TrainingCenterScreen({ game, onPlanChange, onOpenPlayer 
   const report=game.lastTrainingReport;
   const avgEnergy=Math.round(game.players.reduce((sum,p)=>sum+100-(p.fatigue??0),0)/Math.max(1,game.players.length));
   const avgLoad=Math.round(game.players.reduce((sum,p)=>sum+getAccumulatedLoad(p),0)/Math.max(1,game.players.length));
-  const avgRisk=Math.round(game.players.reduce((sum,p)=>sum+calculateInjuryRisk(p,{fixtures:game.fixtures,teamId:game.teamId}),0)/Math.max(1,game.players.length));
+  const avgRisk=Math.round(game.players.reduce((sum,p)=>sum+calculateInjuryRisk(p,{fixtures:game.fixtures,teamId:game.teamId,game}),0)/Math.max(1,game.players.length));
   const loadLevel=getLoadLevel(avgLoad);
   const riskLevel=getRiskLevel(avgRisk);
   const selectedPlayer=game.players.find(p=>p.id===selectedPlayerId);

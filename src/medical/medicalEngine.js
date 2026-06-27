@@ -1,3 +1,5 @@
+import { staffModifier } from "../staff/staffEngine.js";
+
 const hashNumber = value => {
   let hash = 0;
   for (const char of String(value)) hash = (Math.imul(hash, 33) + char.charCodeAt(0)) | 0;
@@ -53,7 +55,7 @@ function workload(playerId, fixtures = [], teamId) {
   return { consecutiveStarts, seasonMinutes };
 }
 
-export function calculateInjuryRisk(player, { fixtures = [], teamId, tactics, currentMatchMinutes = 0 } = {}) {
+export function calculateInjuryRisk(player, { fixtures = [], teamId, tactics, currentMatchMinutes = 0, game = null } = {}) {
   if (player.medical?.phase === "injured" || player.medical?.phase === "recovery") return 100;
   const load = workload(player.id, fixtures, teamId);
   const fatigue = Math.max(0, Math.min(100, player.fatigue ?? 20));
@@ -68,7 +70,8 @@ export function calculateInjuryRisk(player, { fixtures = [], teamId, tactics, cu
   const limitationRisk = player.medical?.phase === "limited" ? 24 : 0;
   const trainingRisk = Math.max(0, Math.min(25, player.trainingRiskModifier ?? 0));
   const tacticalRisk = (tactics?.presion === "alta" ? 5 : 0) + (tactics?.ritmo === "rapido" ? 4 : 0);
-  return Math.round(Math.max(2, Math.min(98, 3 + fatigueRisk + accumulatedRisk + ageRisk + streakRisk + minutesRisk + inMatchRisk + historyRisk + limitationRisk + trainingRisk + tacticalRisk)));
+  const staffPrevention = Math.max(0, staffModifier(game, "medicalDirector", "prevention", .1) + staffModifier(game, "fitnessCoach", "prevention", .08));
+  return Math.round(Math.max(2, Math.min(98, (3 + fatigueRisk + accumulatedRisk + ageRisk + streakRisk + minutesRisk + inMatchRisk + historyRisk + limitationRisk + trainingRisk + tacticalRisk) * Math.max(.86, 1 - staffPrevention))));
 }
 
 function chooseInjuryType(risk, playerId, matchday) {
@@ -121,10 +124,11 @@ export function applyInjury(player, event, season, matchday) {
   };
 }
 
-export function advanceMedicalRecovery(player, days = 7) {
+export function advanceMedicalRecovery(player, days = 7, game = null) {
   if (!player.medical || player.medical.phase === "available") return { ...player, injured:false, injuryGames:0, medical:player.medical ?? { phase:"available" } };
   const loadModifier = 1 + Math.max(0, getAccumulatedLoad(player) - 50) * .006;
-  const effectiveDays = Math.max(1, Math.round(days / Math.max(.75, (player.recoveryModifier ?? 1) * loadModifier)));
+  const staffRecovery = Math.max(0, staffModifier(game, "medicalDirector", "recovery", .12) + staffModifier(game, "fitnessCoach", "recovery", .08));
+  const effectiveDays = Math.max(1, Math.round((days * (1 + staffRecovery)) / Math.max(.75, (player.recoveryModifier ?? 1) * loadModifier)));
   const remainingDays = Math.max(0, (player.medical.remainingDays ?? 0) - effectiveDays);
   const totalDays = Math.max(1, player.medical.totalDays ?? remainingDays);
   const recovery = Math.min(100, Math.round((1 - remainingDays / totalDays) * 100));
