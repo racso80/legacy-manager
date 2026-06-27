@@ -22,7 +22,7 @@ export function cloudMetadataFromGame(game, payload = game) {
     coach_name: game?.coachCareer?.name ?? game?.legacy?.manager?.name ?? null,
     club_id: game?.teamId ?? null,
     season: String(game?.season ?? "2025"),
-    current_date: `T${game?.season ?? "2025"}-J${game?.matchday ?? 1}`,
+    current_game_date: `T${game?.season ?? "2025"}-J${game?.matchday ?? 1}`,
     data_version: String(game?.dataVersion ?? game?.saveDataVersion ?? "1.0.0"),
     app_version: APP_VERSION,
   };
@@ -69,7 +69,7 @@ export async function listCloudSaves() {
   const client = requireSupabase();
   const { data, error } = await client
     .from("savegames")
-    .select("id,name,coach_name,club_id,season,current_date,data_version,app_version,created_at,updated_at")
+    .select("id,name,coach_name,club_id,season,current_game_date,data_version,app_version,created_at,updated_at")
     .order("updated_at", { ascending: false });
   if (error) throw error;
   return data ?? [];
@@ -98,7 +98,7 @@ export async function upsertCloudSave({ userId, cloudSaveId = null, game, payloa
   const { data, error } = await client
     .from("savegames")
     .upsert(row, { onConflict: "id" })
-    .select("id,name,coach_name,club_id,season,current_date,data_version,app_version,created_at,updated_at")
+    .select("id,name,coach_name,club_id,season,current_game_date,data_version,app_version,created_at,updated_at")
     .single();
   if (error) throw error;
   return data;

@@ -19,7 +19,7 @@ create table if not exists public.savegames (
   coach_name text,
   club_id text,
   season text,
-  current_date text,
+  current_game_date text,
   data jsonb not null,
   data_version text,
   app_version text,
@@ -109,4 +109,3 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
-
