@@ -40,7 +40,7 @@ import { createCoachCareer, ensureCoachCareer, finalizeCoachSeason, recordCoachM
 import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, applyFanYouthReaction, ensureFanbaseState, estimateFanAttendance, generateFanNews } from "./fans/fanEngine.js";
 import { advanceConversationMemory, ensureConversationState, getActiveConversations, respondToConversation } from "./conversations/conversationEngine.js";
 import { advanceClubLife, ensureClubLifeState, getClubLifeIssues, resolveClubLifeIssue } from "./clubLife/clubLifeEngine.js";
-import { ensureLegacyDirectorState, getLegacyDirectorSelection, markLegacyDirectorItem } from "./legacyDirector/legacyDirectorEngine.js";
+import { ensureLegacyDirectorState, getLegacyDirectorSelection, markLegacyDirectorItem, rememberLegacyDirectorSelection } from "./legacyDirector/legacyDirectorEngine.js";
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
 
 const STARTERS_SLOTS = 11;
@@ -2632,11 +2632,10 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
   ];
   const priorityLabel = priority => priority==="urgent"||priority==="critical" ? "Urgente" : priority==="important" ? "Importante" : "Informativa";
   const priorityColor = priority => priority==="urgent"||priority==="critical" ? "#ef4444" : priority==="important" ? "#f59e0b" : "#22c55e";
-  const priorityRank = priority => priority==="urgent"||priority==="critical" ? 0 : priority==="important" ? 1 : 2;
   const waitingPeople = directorItems.length ? directorItems.map(item=>{
-    if(item.source==="clubLife")return{kind:"clubLife",id:item.rawId,priority:item.priority,person:clubLifePersona(item.issue),onClick:()=>onOpenClubLifeIssue?.(item.issue)};
-    if(item.source==="conversation")return{kind:"conversation",id:item.rawId,priority:item.priority,person:conversationPersona(item.conversation),onClick:()=>onOpenConversation?.(item.rawId)};
-    return{kind:"attention",id:item.rawId,priority:item.priority,person:attentionPersona(item.attention),onClick:()=>onOpenAttention?onOpenAttention(item.attention):setScreen(item.attention?.action?.screen??"attention")};
+    if(item.source==="clubLife")return{kind:"clubLife",id:item.rawId,priority:item.priority,person:{...clubLifePersona(item.issue),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenClubLifeIssue?.(item.issue)};
+    if(item.source==="conversation")return{kind:"conversation",id:item.rawId,priority:item.priority,person:{...conversationPersona(item.conversation),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenConversation?.(item.rawId)};
+    return{kind:"attention",id:item.rawId,priority:item.priority,person:{...attentionPersona(item.attention),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenAttention?onOpenAttention(item.attention):setScreen(item.attention?.action?.screen??"attention")};
   }) : [
     ...clubLifeIssues.map(issue=>({ kind:"clubLife", id:issue.id, priority:issue.priority, person:clubLifePersona(issue), onClick:()=>onOpenClubLifeIssue?.(issue) })),
     ...conversations.map(conversation=>({ kind:"conversation", id:conversation.id, priority:conversation.priority, person:conversationPersona(conversation), onClick:()=>onOpenConversation?.(conversation.id) })),
@@ -2692,9 +2691,11 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
                     <small style={{ color:priorityColor(item.priority), fontSize:8, fontWeight:900 }}>{priorityLabel(item.priority).toUpperCase()}</small>
                     <small style={{ color:mood.color, fontSize:10 }}>{mood.icon}</small>
                   </span>
-                  <span style={{ display:"block", color:"#c9ced8", fontSize:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>"{person.line}"</span>
-                  <span style={{ display:"block", color:"#6b7280", fontSize:9, marginTop:3 }}>{person.role} · {mood.label} · {person.personality ?? "necesita una decisión"}</span>
-                  {person.consequence && <span style={{ display:"block", color:"#a16207", fontSize:8, marginTop:3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>Si se ignora: {person.consequence}</span>}
+                  <span style={{ display:"block", color:"#c9ced8", fontSize:11, lineHeight:1.42 }}>"{person.line}"</span>
+                  <span style={{ display:"block", color:"#6b7280", fontSize:9, marginTop:4, lineHeight:1.35 }}>{person.role} · {mood.label} · {person.personality ?? "necesita una decisión"}</span>
+                  {person.mergedCount>1 && <span style={{ display:"block", color:"#c9a84c", fontSize:8, marginTop:4, lineHeight:1.35 }}>Legacy Director ha agrupado {person.mergedCount} asuntos relacionados en una sola decisión.</span>}
+                  {person.protagonistOfDay && <span style={{ display:"block", color:"#38bdf8", fontSize:8, marginTop:4, lineHeight:1.35 }}>Protagonista del día.</span>}
+                  {person.consequence && <span style={{ display:"block", color:"#a16207", fontSize:8, marginTop:4, lineHeight:1.35 }}>Si se ignora: {person.consequence}</span>}
                 </span>
                 <span style={{ color:"#c9a84c", fontSize:10, fontWeight:900, whiteSpace:"nowrap" }}>{person.action} →</span>
               </button>
@@ -6589,6 +6590,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       source:"clubLife",
       actorId:issue.actorId,
       origin:issue.origin,
+      topicKey: issue.origin==="lineup"?"match-preparation":issue.origin==="contracts"?"contract-planning":issue.origin==="medical"?"physical-management":issue.origin==="lockerRoom"?"locker-room":issue.origin==="market"?"market-decision":issue.origin==="press"?"press-message":issue.origin==="fans"?"club-pressure":issue.origin==="youth"?"academy-pathway":issue.origin,
       priority:issue.priority,
       status:issue.status,
       date:issue.date,
@@ -6603,7 +6605,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       actorId:conversation.actorType==="player"?"player":conversation.actorName,
       actorType:conversation.actorType,
       origin:conversation.context,
-      groupKey:conversation.actorType==="player"?`player:${conversation.actorId}`:conversation.context,
+      topicKey:conversation.actorType==="player"?`player:${conversation.actorId}`:conversation.context==="Plantilla"?"locker-room":conversation.context==="Mercado"?"market-decision":conversation.context==="Cuerpo técnico"?"match-preparation":conversation.context,
       priority:conversation.priority,
       status:conversation.status,
       requiresDecision:true,
@@ -6615,6 +6617,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       source:"attention",
       actorId:"assistantCoach",
       origin:"match",
+      topicKey:"match-recovery",
       priority:item.priority,
       status:item.status,
       requiresDecision:true,
@@ -6627,6 +6630,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       source:"attention",
       actorId:item.category==="medical"?"doctor":item.category==="market"||item.category==="contracts"?"sportingDirector":item.category==="fans"||item.category==="board"?"president":item.category==="youth"?"academyChief":item.category==="training"?"fitnessCoach":"assistantCoach",
       origin:item.category,
+      topicKey:item.category==="match"?"match-preparation":item.category==="contracts"?"contract-planning":item.category==="medical"||item.category==="training"?"physical-management":item.category==="market"?"market-decision":item.category==="fans"||item.category==="board"?"club-pressure":item.category==="youth"?"academy-pathway":item.category,
       priority:item.priority,
       status:item.status,
       requiresDecision:item.priority!=="info",
@@ -6674,6 +6678,22 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   const handleAttentionDismiss = (item) => {
     updateAttentionStatus(item.id, "dismissed");
   };
+
+  useEffect(() => {
+    if (!game || screen !== "dashboard" || !legacyDirectorItems.length) return;
+    const selectionIds = legacyDirectorItems.map(item=>item.id).join("|");
+    const previousIds = (game.legacyDirector?.lastSelection ?? []).join("|");
+    const previousDay = game.legacyDirector?.dayHistory?.[0];
+    const sameDay = previousDay?.season === String(game.season ?? "2025") && previousDay?.matchday === (game.matchday ?? 1);
+    if (sameDay && selectionIds === previousIds) return;
+    setGame(prev => {
+      if (!prev) return prev;
+      const updated = rememberLegacyDirectorSelection(prev, legacyDirectorItems);
+      saveGame(updated, lineup, formation, subs);
+      autosaveCloud(updated, "legacy-director", { lineup, formation, subs });
+      return updated;
+    });
+  }, [screen, game?.id, game?.season, game?.matchday, legacyDirectorItems.map(item=>item.id).join("|")]);
 
   const handleExitToMenu = () => {
     if (game && activeSaveId) {
