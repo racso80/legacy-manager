@@ -41,6 +41,7 @@ import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, app
 import { advanceConversationMemory, ensureConversationState, getActiveConversations, respondToConversation } from "./conversations/conversationEngine.js";
 import { advanceClubLife, ensureClubLifeState, getClubLifeIssues, resolveClubLifeIssue } from "./clubLife/clubLifeEngine.js";
 import { ensureLegacyDirectorState, getLegacyDirectorSelection, markLegacyDirectorItem, rememberLegacyDirectorSelection } from "./legacyDirector/legacyDirectorEngine.js";
+import { buildSceneFromDirectorItem, ensureSceneState, recordSceneDecision } from "./scenes/sceneEngine.js";
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
 
 const STARTERS_SLOTS = 11;
@@ -2494,6 +2495,57 @@ function PersonAvatar({ person, size = 42 }) {
   );
 }
 
+function InteractiveSceneScreen({ scene, onChoose, onBack }) {
+  if (!scene) return <div style={{ flex:1, padding:18, color:"#9aa0b4" }}>No hay escena disponible.</div>;
+  const actor = scene.actor ?? {};
+  const emotion = emotionMeta(scene.emotionalState);
+  return (
+    <div style={{ flex:1, overflowY:"auto", padding:14, background:"radial-gradient(circle at top,rgba(201,168,76,.08),transparent 38%)" }}>
+      <div className="bounce-in" style={{ background:"linear-gradient(145deg,#1a1f2e,#11141c)", border:`1px solid ${(actor.color??"#c9a84c")}44`, borderRadius:18, padding:18, marginBottom:13, boxShadow:"0 18px 45px rgba(0,0,0,.32)" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:15 }}>
+          <PersonAvatar person={actor} size={74}/>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:9, color:"#6b7280", fontWeight:900, letterSpacing:".9px" }}>{scene.location} · {scene.time}</div>
+            <div style={{ fontSize:22, color:"#f3f4f6", fontWeight:950, marginTop:4, lineHeight:1.1 }}>{actor.name}</div>
+            <div style={{ fontSize:11, color:actor.color??"#c9a84c", fontWeight:800, marginTop:4 }}>{actor.role}</div>
+            <div style={{ fontSize:10, color:emotion.color, marginTop:5 }}>{emotion.icon} {scene.emotionalState}</div>
+          </div>
+        </div>
+        <div style={{ background:"#0d0f14", border:"1px solid rgba(255,255,255,.07)", borderRadius:14, padding:14, marginBottom:12 }}>
+          <div style={{ fontSize:11, color:"#c9a84c", fontWeight:900, letterSpacing:".5px", marginBottom:9 }}>{scene.title}</div>
+          <div style={{ whiteSpace:"pre-line", fontSize:15, color:"#e8eaf0", lineHeight:1.55, fontWeight:650 }}>
+            {scene.message}
+          </div>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+          <div style={{ background:"rgba(255,255,255,.035)", borderRadius:10, padding:10 }}>
+            <div style={{ fontSize:8, color:"#6b7280", fontWeight:900 }}>PUEDE PASAR</div>
+            <div style={{ fontSize:10, color:"#b45309", lineHeight:1.45, marginTop:4 }}>{scene.consequenceIfIgnored ?? "La situación puede volver más adelante con otro tono."}</div>
+          </div>
+          <div style={{ background:"rgba(255,255,255,.035)", borderRadius:10, padding:10 }}>
+            <div style={{ fontSize:8, color:"#6b7280", fontWeight:900 }}>OBJETIVO</div>
+            <div style={{ fontSize:10, color:"#9aa0b4", lineHeight:1.45, marginTop:4 }}>{scene.expectedOutcome}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ fontSize:11, color:"#c9a84c", fontWeight:900, letterSpacing:".6px", margin:"0 0 9px 2px" }}>DECISIÓN DEL ENTRENADOR</div>
+      <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+        {(scene.options ?? []).map((option,index)=>(
+          <button key={option.id} onClick={()=>onChoose(option)} style={{ display:"flex", gap:10, alignItems:"flex-start", width:"100%", textAlign:"left", background:"#161a24", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, padding:12, cursor:"pointer" }}>
+            <span style={{ width:25, height:25, borderRadius:8, background:"rgba(201,168,76,.12)", color:"#c9a84c", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:900, flexShrink:0 }}>{index+1}</span>
+            <span style={{ flex:1 }}>
+              <strong style={{ display:"block", color:"#e8eaf0", fontSize:13, lineHeight:1.35 }}>{option.label}</strong>
+              <small style={{ display:"block", color:"#6b7280", fontSize:9, marginTop:4, lineHeight:1.35 }}>Tono: {option.tone} · {option.consequence}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+      <button onClick={onBack} className="btn-ghost" style={{ width:"100%", marginTop:12, padding:12, borderRadius:10, fontSize:12 }}>Cerrar la puerta por ahora</button>
+    </div>
+  );
+}
+
 function attentionPersona(item) {
   const title = `${item.title ?? ""} ${item.summary ?? ""}`.toLowerCase();
   if (item.category === "medical" || title.includes("lesion") || title.includes("riesgo físico") || title.includes("fatiga")) {
@@ -2556,7 +2608,7 @@ function conversationPersona(conversation) {
   return { ...base, name:conversation.actorName, role:conversation.role ?? base.role, emotionalState:conversation.emotionalState, line:conversation.opening, action:"Hablar" };
 }
 
-function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conversations = [], clubLifeIssues = [], directorItems = [], onOpenAttention, onOpenConversation, onOpenClubLifeIssue }) {
+function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conversations = [], clubLifeIssues = [], directorItems = [], onOpenAttention, onOpenConversation, onOpenClubLifeIssue, onOpenScene }) {
   const team      = TEAMS.find(t => t.id === game.teamId);
   const standing  = game.standings.find(s => s.teamId === game.teamId);
   const pos       = [...game.standings].sort((a,b) => b.points-a.points || b.goalDifference-a.goalDifference).findIndex(s => s.teamId===game.teamId) + 1;
@@ -2633,9 +2685,9 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
   const priorityLabel = priority => priority==="urgent"||priority==="critical" ? "Urgente" : priority==="important" ? "Importante" : "Informativa";
   const priorityColor = priority => priority==="urgent"||priority==="critical" ? "#ef4444" : priority==="important" ? "#f59e0b" : "#22c55e";
   const waitingPeople = directorItems.length ? directorItems.map(item=>{
-    if(item.source==="clubLife")return{kind:"clubLife",id:item.rawId,priority:item.priority,person:{...clubLifePersona(item.issue),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenClubLifeIssue?.(item.issue)};
-    if(item.source==="conversation")return{kind:"conversation",id:item.rawId,priority:item.priority,person:{...conversationPersona(item.conversation),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenConversation?.(item.rawId)};
-    return{kind:"attention",id:item.rawId,priority:item.priority,person:{...attentionPersona(item.attention),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenAttention?onOpenAttention(item.attention):setScreen(item.attention?.action?.screen??"attention")};
+    if(item.source==="clubLife")return{kind:"clubLife",id:item.rawId,priority:item.priority,person:{...clubLifePersona(item.issue),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
+    if(item.source==="conversation")return{kind:"conversation",id:item.rawId,priority:item.priority,person:{...conversationPersona(item.conversation),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
+    return{kind:"attention",id:item.rawId,priority:item.priority,person:{...attentionPersona(item.attention),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
   }) : [
     ...clubLifeIssues.map(issue=>({ kind:"clubLife", id:issue.id, priority:issue.priority, person:clubLifePersona(issue), onClick:()=>onOpenClubLifeIssue?.(issue) })),
     ...conversations.map(conversation=>({ kind:"conversation", id:conversation.id, priority:conversation.priority, person:conversationPersona(conversation), onClick:()=>onOpenConversation?.(conversation.id) })),
@@ -5662,6 +5714,7 @@ export default function App({ externalData }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [selectedPlayerTeamId, setSelectedPlayerTeamId] = useState(null);
   const [selectedConversationId, setSelectedConversationId] = useState(null);
+  const [selectedScene, setSelectedScene] = useState(null);
   const [profileReturnScreen, setProfileReturnScreen] = useState("dashboard");
   const [scoutingFocusId, setScoutingFocusId] = useState(null);
   const [cloudSession, setCloudSession] = useState(null);
@@ -5840,11 +5893,11 @@ export default function App({ externalData }) {
         });
         setActiveSaveId(saveId);
         const loadedTeam=TEAMS.find(team=>team.id===parsed.teamId);
-        let migrated=ensureLegacyDirectorState(ensureClubLifeState(ensureConversationState(ensureFanbaseState(ensureCoachCareer(ensureStaffState(ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam))),TEAMS),loadedTeam,TEAMS),loadedTeam,TEAMS))));
+        let migrated=ensureSceneState(ensureLegacyDirectorState(ensureClubLifeState(ensureConversationState(ensureFanbaseState(ensureCoachCareer(ensureStaffState(ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam))),TEAMS),loadedTeam,TEAMS),loadedTeam,TEAMS)))));
         migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,parsed.season??"2025",parsed.matchday??1),parsed.season??"2025")))};
         migrated=migrateNewDataPlayersToSave(migrated,currentDataVersion);
         detachFreeAgentsFromRealSquads(migrated);
-        migrated=ensureLegacyDirectorState(advanceClubLife(advanceConversationMemory(refreshTransferListings(ensureTransferState(bootstrapScouting(migrated,getScoutingPool(migrated))),TEAMS,REAL_SQUADS)),{lineup:loadedLineup}));
+        migrated=ensureSceneState(ensureLegacyDirectorState(advanceClubLife(advanceConversationMemory(refreshTransferListings(ensureTransferState(bootstrapScouting(migrated,getScoutingPool(migrated))),TEAMS,REAL_SQUADS)),{lineup:loadedLineup})));
         saveGame(migrated, loadedLineup, loadedFormation, loadedSubs, saveId);
         setGame(migrated);
         if(options.targetScreen){setScreen(options.targetScreen);}
@@ -5982,7 +6035,7 @@ export default function App({ externalData }) {
       country: pendingCountry?.id, league: pendingLeague?.id },team),team);
     let g={...seeded,youth:{...seeded.youth,players:seeded.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,"2025",1),"2025")))}};
     g=ensureFanbaseState(ensureCoachCareer({...g,coachCareer:createCoachCareer(coachData??{},team,"2025")},team,TEAMS),team,TEAMS);
-    g=ensureLegacyDirectorState(advanceClubLife(ensureClubLifeState(ensureConversationState(ensureStaffState(ensureContractState(refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS)),TEAMS))),{lineup:emptyLineup()}));
+    g=ensureSceneState(ensureLegacyDirectorState(advanceClubLife(ensureClubLifeState(ensureConversationState(ensureStaffState(ensureContractState(refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS)),TEAMS))),{lineup:emptyLineup()})));
     const firstProspect=[...g.youth.players].sort((a,b)=>b.potential-a.potential)[0];
     if(firstProspect)g.news=generateYouthNews({items:[{title:"La cantera presenta una nueva generación",summary:`${firstProspect.name} encabeza la hornada con un potencial estimado de ${firstProspect.potential}.`,importance:firstProspect.potential>=86?"high":"medium",playerId:firstProspect.id,fingerprint:`academy-intake:2025`}],season:"2025",matchday:1,userTeamId:team.id});
     setActiveSaveId(newId);
@@ -6274,7 +6327,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const aiCountBefore=newGame.transferMarket?.aiTransfers?.length??0;
       newGame=maybeCreateAITransfer(newGame,TEAMS,REAL_SQUADS);
       if((newGame.transferMarket?.aiTransfers?.length??0)>aiCountBefore){const move=newGame.transferMarket.aiTransfers[0];const from=TEAMS.find(team=>team.id===move.fromTeamId);const to=TEAMS.find(team=>team.id===move.toTeamId);const renewal=move.type==="renewal",loan=move.type==="loan",young=move.type==="youth";newGame={...newGame,news:mergeNews(newGame.news??[],[{id:`news-${move.id}`,type:"transfer",importance:young?"high":"medium",title:renewal?`${move.player.name} renueva con ${from?.name}`:loan?`${move.player.name}, cedido al ${to?.name}`:young?`${to?.name} apuesta por el joven ${move.player.name}`:`${move.player.name} ficha por ${to?.name}`,summary:renewal?`${from?.name} asegura la continuidad del jugador.`:loan?`${from?.name} busca minutos para el futbolista.`:`${from?.name} y ${to?.name} cierran la operación por €${(move.value/1000).toFixed(1)}M.${move.reason?` ${move.reason}.`:""}`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:move.id}])};newGame=refreshTransferListings(newGame,TEAMS,REAL_SQUADS,true);}
-      newGame=ensureLegacyDirectorState(advanceClubLife(advanceConversationMemory(ensureConversationState(ensureClubLifeState(newGame))),{lineup}));
+      newGame=ensureSceneState(ensureLegacyDirectorState(advanceClubLife(advanceConversationMemory(ensureConversationState(ensureClubLifeState(newGame))),{lineup})));
       saveGame(newGame);
       autosaveCloud(newGame,"match-end");
 
@@ -6367,7 +6420,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       g={...g,youth:{...g.youth,players:g.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,newSeason,1),newSeason)))}};
       g=refreshScoutingRecommendations(g,getScoutingPool(g));
       g=ensureCoachCareer(g,teamData,TEAMS);
-      g=ensureLegacyDirectorState(advanceClubLife(ensureClubLifeState(ensureConversationState(ensureFanbaseState(g,teamData,TEAMS))),{lineup:emptyLineup()}));
+      g=ensureSceneState(ensureLegacyDirectorState(advanceClubLife(ensureClubLifeState(ensureConversationState(ensureFanbaseState(g,teamData,TEAMS))),{lineup:emptyLineup()})));
       g=refreshTransferListings(g,TEAMS,REAL_SQUADS,true);
       const intakePlayers=g.youth.players.filter(player=>(g.youth.lastIntake??[]).includes(player.id));
       const topIntake=[...intakePlayers].sort((a,b)=>b.potential-a.potential)[0];
@@ -6548,6 +6601,60 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     setScreen(issue.action?.screen ?? "dashboard");
   };
 
+  const handleOpenScene = (directorItem) => {
+    const scene = buildSceneFromDirectorItem(directorItem, game);
+    setSelectedScene(scene);
+    setScreen("scene");
+  };
+
+  const handleSceneDecision = (decision) => {
+    if (!selectedScene || !decision) return;
+    if (decision.type === "conversation_response") {
+      const conversationId = selectedScene.rawId;
+      setGame(prev => {
+        if (!prev) return prev;
+        const result = respondToConversation(recordSceneDecision(prev, selectedScene, decision), conversationId, decision.responseId, { lineup });
+        const updated = markLegacyDirectorItem(result.game, `conversation:${conversationId}`, "resolved");
+        saveGame(updated, lineup, formation, subs);
+        autosaveCloud(updated, "scene", { lineup, formation, subs });
+        return updated;
+      });
+      setSelectedScene(null);
+      setScreen("dashboard");
+      return;
+    }
+    if (selectedScene.source === "clubLife") {
+      const issue = selectedScene.original?.issue;
+      setGame(prev => {
+        if (!prev || !issue) return prev;
+        const withScene = recordSceneDecision(prev, selectedScene, decision);
+        const resolved = decision.type === "postpone" ? markLegacyDirectorItem(withScene, `clubLife:${issue.id}`, "ignored") : markLegacyDirectorItem(resolveClubLifeIssue(withScene, issue.id, decision.type === "delegate" ? "delegated" : "resolved"), `clubLife:${issue.id}`, decision.type === "postpone" ? "ignored" : "resolved");
+        saveGame(resolved, lineup, formation, subs);
+        autosaveCloud(resolved, "scene", { lineup, formation, subs });
+        return resolved;
+      });
+      setSelectedScene(null);
+      setScreen(decision.type === "act" ? (decision.navigateTo ?? "dashboard") : "dashboard");
+      return;
+    }
+    const attention = selectedScene.original?.attention;
+    if (attention) {
+      setGame(prev => {
+        if (!prev) return prev;
+        const withScene = recordSceneDecision(prev, selectedScene, decision);
+        const updated = decision.type === "postpone" ? markLegacyDirectorItem(withScene, selectedScene.sourceItemId, "ignored") : markLegacyDirectorItem(withScene, selectedScene.sourceItemId, "resolved");
+        saveGame(updated, lineup, formation, subs);
+        autosaveCloud(updated, "scene", { lineup, formation, subs });
+        return updated;
+      });
+      setSelectedScene(null);
+      setScreen(decision.type === "act" ? (decision.navigateTo ?? attention.action?.screen ?? "dashboard") : "dashboard");
+      return;
+    }
+    setSelectedScene(null);
+    setScreen("dashboard");
+  };
+
   const activeMatchForGame = game ? getRecoverableMatchForGame(game) : null;
   const clubLifeIssues = game ? getClubLifeIssues(game, { lineup }) : [];
   const clubLifeAttention = clubLifeIssues.map(issue=>({
@@ -6720,11 +6827,11 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
     seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", staff:"Staff Técnico", career:"Mi Carrera", cloudSaves:"Mis partidas", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", fans:"Afición", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
-    playerProfile: selectedPlayer?.name ?? "Perfil de jugador", conversation: selectedConversation?.actorName ?? "Conversación",
+    playerProfile: selectedPlayer?.name ?? "Perfil de jugador", conversation: selectedConversation?.actorName ?? "Conversación", scene: selectedScene?.actor?.name ?? "Escena",
   };
-  const showNav = Boolean(game) && !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile","conversation"].includes(screen);
+  const showNav = Boolean(game) && !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile","conversation","scene"].includes(screen);
   const inGame  = Boolean(game) && !["menu","saves","country","league","teams","coachCreate"].includes(screen);
-  const edgeSwipe=useEdgeSwipeBack(()=>setScreen(screen==="playerProfile"?profileReturnScreen:"dashboard"),{enabled:screen!=="dashboard"&&(showNav||screen==="playerProfile"||screen==="conversation")});
+  const edgeSwipe=useEdgeSwipeBack(()=>setScreen(screen==="playerProfile"?profileReturnScreen:"dashboard"),{enabled:screen!=="dashboard"&&(showNav||screen==="playerProfile"||screen==="conversation"||screen==="scene")});
 
   useEffect(() => {
     const canOpenWithoutGame = ["menu","saves","country","league","teams","coachCreate","cloudSaves"].includes(screen);
@@ -6808,7 +6915,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "league"    && <LeagueScreen country={pendingCountry} onSelect={l => { setPendingLeague(l); setScreen("teams"); }} onBack={() => setScreen("country")} />}
           {screen === "teams"     && <TeamSelection onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
           {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
-          {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} conversations={activeConversations} clubLifeIssues={clubLifeIssues} directorItems={legacyDirectorItems} onOpenAttention={handleAttentionOpen} onOpenConversation={openConversation} onOpenClubLifeIssue={handleClubLifeIssueOpen} />}
+          {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} conversations={activeConversations} clubLifeIssues={clubLifeIssues} directorItems={legacyDirectorItems} onOpenAttention={handleAttentionOpen} onOpenConversation={openConversation} onOpenClubLifeIssue={handleClubLifeIssueOpen} onOpenScene={handleOpenScene} />}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
           {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />}
           {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
@@ -6834,6 +6941,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} />}
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} />}
           {screen === "conversation" && game && <ConversationScreen conversation={selectedConversation} onRespond={handleConversationResponse} onBack={()=>setScreen("dashboard")} />}
+          {screen === "scene" && game && <InteractiveSceneScreen scene={selectedScene} onChoose={handleSceneDecision} onBack={()=>setScreen("dashboard")} />}
           {screen === "match"     && game && <MatchScreen game={game} saveId={activeSaveId} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} onAbandonMatch={()=>{setRecoverableMatch(null);setScreen("dashboard");}} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
