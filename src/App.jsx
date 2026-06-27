@@ -2496,6 +2496,8 @@ function PersonAvatar({ person, size = 42 }) {
 }
 
 function InteractiveSceneScreen({ scene, onChoose, onBack }) {
+  const [chosenOption, setChosenOption] = useState(null);
+  useEffect(() => setChosenOption(null), [scene?.id]);
   if (!scene) return <div style={{ flex:1, padding:18, color:"#9aa0b4" }}>No hay escena disponible.</div>;
   const actor = scene.actor ?? {};
   const emotion = emotionMeta(scene.emotionalState);
@@ -2513,35 +2515,52 @@ function InteractiveSceneScreen({ scene, onChoose, onBack }) {
         </div>
         <div style={{ background:"#0d0f14", border:"1px solid rgba(255,255,255,.07)", borderRadius:14, padding:14, marginBottom:12 }}>
           <div style={{ fontSize:11, color:"#c9a84c", fontWeight:900, letterSpacing:".5px", marginBottom:9 }}>{scene.title}</div>
+          {scene.officeDetail && (
+            <div style={{ fontSize:12, color:"#9aa0b4", lineHeight:1.45, marginBottom:11, fontStyle:"italic" }}>
+              {scene.officeDetail}
+            </div>
+          )}
           <div style={{ whiteSpace:"pre-line", fontSize:15, color:"#e8eaf0", lineHeight:1.55, fontWeight:650 }}>
             {scene.message}
           </div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
           <div style={{ background:"rgba(255,255,255,.035)", borderRadius:10, padding:10 }}>
-            <div style={{ fontSize:8, color:"#6b7280", fontWeight:900 }}>PUEDE PASAR</div>
+            <div style={{ fontSize:8, color:"#6b7280", fontWeight:900 }}>SI LO DEJAMOS PASAR</div>
             <div style={{ fontSize:10, color:"#b45309", lineHeight:1.45, marginTop:4 }}>{scene.consequenceIfIgnored ?? "La situación puede volver más adelante con otro tono."}</div>
           </div>
           <div style={{ background:"rgba(255,255,255,.035)", borderRadius:10, padding:10 }}>
-            <div style={{ fontSize:8, color:"#6b7280", fontWeight:900 }}>OBJETIVO</div>
+            <div style={{ fontSize:8, color:"#6b7280", fontWeight:900 }}>LO QUE BUSCA</div>
             <div style={{ fontSize:10, color:"#9aa0b4", lineHeight:1.45, marginTop:4 }}>{scene.expectedOutcome}</div>
           </div>
         </div>
       </div>
 
-      <div style={{ fontSize:11, color:"#c9a84c", fontWeight:900, letterSpacing:".6px", margin:"0 0 9px 2px" }}>DECISIÓN DEL ENTRENADOR</div>
-      <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
-        {(scene.options ?? []).map((option,index)=>(
-          <button key={option.id} onClick={()=>onChoose(option)} style={{ display:"flex", gap:10, alignItems:"flex-start", width:"100%", textAlign:"left", background:"#161a24", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, padding:12, cursor:"pointer" }}>
-            <span style={{ width:25, height:25, borderRadius:8, background:"rgba(201,168,76,.12)", color:"#c9a84c", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:900, flexShrink:0 }}>{index+1}</span>
-            <span style={{ flex:1 }}>
-              <strong style={{ display:"block", color:"#e8eaf0", fontSize:13, lineHeight:1.35 }}>{option.label}</strong>
-              <small style={{ display:"block", color:"#6b7280", fontSize:9, marginTop:4, lineHeight:1.35 }}>Tono: {option.tone} · {option.consequence}</small>
-            </span>
-          </button>
-        ))}
-      </div>
-      <button onClick={onBack} className="btn-ghost" style={{ width:"100%", marginTop:12, padding:12, borderRadius:10, fontSize:12 }}>Cerrar la puerta por ahora</button>
+      {!chosenOption ? (
+        <>
+          <div style={{ fontSize:11, color:"#c9a84c", fontWeight:900, letterSpacing:".6px", margin:"0 0 9px 2px" }}>¿QUÉ LE DICES?</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+            {(scene.options ?? []).map((option,index)=>(
+              <button key={option.id} onClick={()=>setChosenOption(option)} style={{ display:"flex", gap:10, alignItems:"flex-start", width:"100%", textAlign:"left", background:"#161a24", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, padding:12, cursor:"pointer" }}>
+                <span style={{ width:25, height:25, borderRadius:8, background:"rgba(201,168,76,.12)", color:"#c9a84c", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:900, flexShrink:0 }}>{index+1}</span>
+                <span style={{ flex:1 }}>
+                  <strong style={{ display:"block", color:"#e8eaf0", fontSize:13, lineHeight:1.35 }}>{option.label}</strong>
+                  <small style={{ display:"block", color:"#8f96a8", fontSize:9, marginTop:4, lineHeight:1.35 }}>Transmite: {option.tone} · {option.consequence}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+          <button onClick={onBack} className="btn-ghost" style={{ width:"100%", marginTop:12, padding:12, borderRadius:10, fontSize:12 }}>Cerrar la puerta por ahora</button>
+        </>
+      ) : (
+        <div className="fade-in" style={{ background:"linear-gradient(145deg,rgba(201,168,76,.12),rgba(255,255,255,.04))", border:"1px solid rgba(201,168,76,.24)", borderRadius:16, padding:14 }}>
+          <div style={{ fontSize:10, color:"#c9a84c", fontWeight:950, letterSpacing:".7px", marginBottom:8 }}>SU REACCIÓN</div>
+          <div style={{ fontSize:15, color:"#f3f4f6", lineHeight:1.5, fontWeight:700, marginBottom:10 }}>
+            {chosenOption.reaction ?? `${actor.name ?? "La persona"} asiente. La conversación no cierra todas las dudas, pero deja una decisión sobre la mesa.`}
+          </div>
+          <button onClick={()=>onChoose(chosenOption)} className="btn-primary" style={{ width:"100%", padding:12, borderRadius:12, fontSize:13 }}>Continuar</button>
+        </div>
+      )}
     </div>
   );
 }
