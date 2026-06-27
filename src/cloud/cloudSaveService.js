@@ -1,4 +1,4 @@
-import { isSupabaseConfigured, supabase } from "./supabaseClient.js";
+﻿import { isSupabaseConfigured, supabase } from "./supabaseClient.js";
 
 export { isSupabaseConfigured };
 
@@ -56,13 +56,13 @@ export function cloudMetadataFromGame(game, payload = game) {
 }
 
 function requireSupabase() {
-  if (!isSupabaseConfigured || !supabase) throw new Error("Supabase no está configurado. Revisa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.");
+  if (!isSupabaseConfigured || !supabase) throw new Error("Supabase no estÃ¡ configurado. Revisa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.");
   return supabase;
 }
 
 function requireOnline() {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
-    throw new Error("Sin conexión. Se mantiene el guardado local y se reintentará la nube más adelante.");
+    throw new Error("Sin conexiÃ³n. Se mantiene el guardado local y se reintentarÃ¡ la nube mÃ¡s adelante.");
   }
 }
 
@@ -134,16 +134,17 @@ export async function getCloudSaveMetadata(saveId) {
   return data ?? null;
 }
 
-export async function upsertCloudSave({ userId, cloudSaveId = null, game, payload, expectedCloudUpdatedAt = null, force = false }) {
+export async function upsertCloudSave({ userId, cloudSaveId = null, game, payload, expectedCloudUpdatedAt = null, expectedLastCloudSync = null, localHasUnsyncedChanges = true, force = false }) {
   requireOnline();
   const client = requireSupabase();
   if (cloudSaveId && !force) {
     const current = await getCloudSaveMetadata(cloudSaveId);
     const cloudTime = current?.updated_at ? new Date(current.updated_at).getTime() : 0;
-    const expectedTime = expectedCloudUpdatedAt ? new Date(expectedCloudUpdatedAt).getTime() : 0;
-    if (current && expectedTime && cloudTime > expectedTime + 1000) {
-      logCloudEvent("warn", "Conflicto de sincronización detectado", { cloudSaveId, cloudUpdatedAt:current.updated_at, localKnownCloudUpdatedAt:expectedCloudUpdatedAt });
-      throw new CloudSaveConflictError("La partida en la nube es más reciente que tu copia local.", { cloudSaveId, cloud:current, localKnownCloudUpdatedAt:expectedCloudUpdatedAt });
+    const lastSync = expectedLastCloudSync ?? expectedCloudUpdatedAt;
+    const expectedTime = lastSync ? new Date(lastSync).getTime() : 0;
+    if (current && localHasUnsyncedChanges && expectedTime && cloudTime > expectedTime + 1000) {
+      logCloudEvent("warn", "Conflicto de sincronizaciÃ³n detectado", { cloudSaveId, cloudUpdatedAt:current.updated_at, lastCloudSync:lastSync });
+      throw new CloudSaveConflictError("La partida en la nube es mÃ¡s reciente que tu copia local.", { cloudSaveId, cloud:current, lastCloudSync:lastSync });
     }
   }
   const metadata = cloudMetadataFromGame(game, payload);
@@ -177,4 +178,15 @@ export function compareSaveDates(localUpdatedAt, cloudUpdatedAt) {
   if (local > cloud) return "local";
   if (cloud > local) return "cloud";
   return "equal";
+}
+
+export function getCloudSyncSnapshot(localSave, cloudUpdatedAt = null) {
+  const lastCloudSync = localSave?.lastCloudSync ?? localSave?.cloudUpdatedAt ?? null;
+  const localUpdatedAt = localSave?.updatedAt ?? null;
+  const localTime = localUpdatedAt ? new Date(localUpdatedAt).getTime() : 0;
+  const lastSyncTime = lastCloudSync ? new Date(lastCloudSync).getTime() : 0;
+  const cloudTime = cloudUpdatedAt ? new Date(cloudUpdatedAt).getTime() : 0;
+  const localHasUnsyncedChanges = Boolean((localSave?.cloudSaveId && !localTime) || (localTime && (!lastSyncTime || localTime > lastSyncTime + 1000)));
+  const cloudChangedAfterLastSync = Boolean(cloudTime && lastSyncTime && cloudTime > lastSyncTime + 1000);
+  return { lastCloudSync, localHasUnsyncedChanges, cloudChangedAfterLastSync };
 }
