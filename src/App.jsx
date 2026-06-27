@@ -2401,7 +2401,7 @@ function TeamSelection({ onSelect }) {
   );
 }
 
-function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
+function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], onOpenAttention }) {
   const team      = TEAMS.find(t => t.id === game.teamId);
   const standing  = game.standings.find(s => s.teamId === game.teamId);
   const pos       = [...game.standings].sort((a,b) => b.points-a.points || b.goalDifference-a.goalDifference).findIndex(s => s.teamId===game.teamId) + 1;
@@ -2436,10 +2436,45 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
   const allPlayed = game.fixtures.every(f=>f.played);
   const latestNews = getDashboardNews(game.news??[],game,3);
   const urgentAttention = attentionItems.filter(item=>item.priority!=="info");
-  const topAttention = urgentAttention.slice(0,3);
   const medicalAlerts = players.map(player=>({player,risk:calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId,game}),status:getPhysicalStatus(player)})).filter(item=>item.player.injured||item.risk>50).sort((a,b)=>b.risk-a.risk).slice(0,3);
   const clubPrestigeLevel = getPrestigeLevel(game.legacy?.clubPrestige??30);
   const managerPrestigeLevel = getPrestigeLevel(game.legacy?.manager?.prestige??10,true);
+  const lockerSummary = getLockerRoomSummary(players);
+  const fanSupport = Math.round(game.fanbase?.support ?? game.fanLove ?? 70);
+  const highLoadPlayers = players.filter(player=>(player.accumulatedFatigue??player.medical?.accumulatedFatigue??0)>=55||calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId,game})>=76);
+  const nextOpponent = nextFixture ? getOpponent(nextFixture) : null;
+  const nextOpponentStanding = nextOpponent ? [...game.standings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference||b.goalsFor-a.goalsFor).findIndex(row=>row.teamId===nextOpponent.id)+1 : null;
+  const nextOpponentLast = nextOpponent ? game.fixtures.filter(f=>f.played&&(f.homeTeamId===nextOpponent.id||f.awayTeamId===nextOpponent.id)).slice(-5) : [];
+  const nextOpponentForm = nextOpponentLast.map(f=>{const h=f.homeTeamId===nextOpponent?.id;const gf=h?f.homeGoals:f.awayGoals;const ga=h?f.awayGoals:f.homeGoals;return gf>ga?"V":gf===ga?"E":"D";}).join(" · ") || "Sin racha reciente";
+  const nextOpponentSquad = nextOpponent ? REAL_SQUADS[nextOpponent.id] ?? [] : [];
+  const nextOpponentKeyPlayer = [...nextOpponentSquad].sort((a,b)=>(b.overall??0)-(a.overall??0))[0];
+  const agendaItems = [
+    nextFixture && { icon:"⚽", title:`Partido de Liga · Jornada ${nextFixture.matchday}`, detail:`${nextFixture.homeTeamId===game.teamId?"Recibes a":"Visitas a"} ${nextOpponent?.name ?? "rival por confirmar"}`, action:"match" },
+    { icon:"🏋️", title:"Entrenamiento de la plantilla", detail:`Carga ${game.trainingPlan?.load ?? "media"} · revisar si hay fatiga acumulada`, action:"training" },
+    (game.matchday<=8||game.matchday>=31) && { icon:"💰", title:"Mercado abierto", detail:game.matchday<=8?`Quedan ${Math.max(0,9-game.matchday)} jornadas para el cierre inicial`:`Quedan ${Math.max(0,39-game.matchday)} jornadas para el cierre final`, action:"transfers" },
+    urgentAttention.find(item=>item.category==="contracts") && { icon:"📄", title:"Contratos pendientes", detail:"Hay decisiones contractuales que requieren revisión", action:"contracts" },
+    (game.transferMarket?.offers??[]).some(offer=>["clubCounter","playerCounter","ready","clubAccepted"].includes(offer.status)) && { icon:"📬", title:"Negociaciones activas", detail:"Hay respuestas de mercado esperando decisión", action:"transfers" },
+  ].filter(Boolean).slice(0,4);
+  const consequenceItems = [
+    game.lastTrainingReport?.improved?.length && { icon:"📈", text:`${game.lastTrainingReport.improved[0].name} mejora tras el trabajo semanal.` },
+    lockerSummary.atmosphere==="tenso" && { icon:"⚠️", text:"El vestuario muestra señales de tensión y conviene intervenir." },
+    lockerSummary.atmosphere==="positivo" && { icon:"🤝", text:"El vestuario mantiene un clima positivo alrededor del entrenador." },
+    fanSupport<45 && { icon:"❤️", text:"La afición está perdiendo confianza y necesita una reacción." },
+    highLoadPlayers[0] && { icon:"🩺", text:`El cuerpo médico recomienda descanso para ${highLoadPlayers[0].name}.` },
+    latestNews[0] && { icon:"📰", text:latestNews[0].summary || latestNews[0].title },
+  ].filter(Boolean).slice(0,4);
+  const kpiCards = [
+    { label:"Vestuario", value:lockerSummary.atmosphere==="tenso"?"Tenso":lockerSummary.atmosphere==="positivo"?"Positivo":"Estable", trend:lockerSummary.unhappy.length?`${lockerSummary.unhappy.length} jugador${lockerSummary.unhappy.length===1?"":"es"} incómodo${lockerSummary.unhappy.length===1?"":"s"}`:"Grupo unido", color:lockerSummary.atmosphere==="tenso"?"#ef4444":lockerSummary.atmosphere==="positivo"?"#22c55e":"#c9a84c", action:"lockerRoom" },
+    { label:"Afición", value:`${fanSupport}%`, trend:fanSupport>=70?"Ilusionada":fanSupport>=50?"Exigente":"Preocupada", color:fanSupport>=70?"#22c55e":fanSupport>=50?"#f59e0b":"#ef4444", action:"fans" },
+    { label:"Economía", value:fmtBudget(budgetLeft), trend:budgetLeft>0?"Margen para operar":"Sin margen de fichajes", color:budgetLeft>0?"#22c55e":"#ef4444", action:"finances" },
+    { label:"Carga física", value:highLoadPlayers.length?`${highLoadPlayers.length} alertas`:"Controlada", trend:avgFatigue>55?"Fatiga media elevada":"Plantilla recuperando bien", color:highLoadPlayers.length?"#f97316":"#22c55e", action:"medical" },
+  ];
+  const objectiveItems = [
+    { label:"Liga", value:`${pos}º · ${standing?.points??0} pts`, color:pos<=6?"#22c55e":pos>=17?"#ef4444":"#c9a84c" },
+    { label:"Confianza presidente", value:`${Math.round(game.legacy?.confidence??65)}/100`, color:(game.legacy?.confidence??65)>=60?"#22c55e":"#f59e0b" },
+    { label:"Prestigio club", value:clubPrestigeLevel.label, color:clubPrestigeLevel.color },
+    { label:"Entrenador", value:managerPrestigeLevel.label, color:managerPrestigeLevel.color },
+  ];
 
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
@@ -2471,7 +2506,66 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
         )}
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}><button onClick={()=>setScreen("board")} style={{textAlign:"left",background:"linear-gradient(135deg,rgba(201,168,76,.13),#161a24)",border:"1px solid rgba(201,168,76,.2)",borderRadius:9,padding:11,cursor:"pointer"}}><div style={{fontSize:9,color:"#6b7280",fontWeight:700}}>🏆 PRESTIGIO CLUB</div><div style={{fontSize:21,color:clubPrestigeLevel.color,fontWeight:900,marginTop:3}}>{Math.round(game.legacy?.clubPrestige??30)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:clubPrestigeLevel.color}}>{clubPrestigeLevel.label}</div></button><button onClick={()=>setScreen("board")} style={{textAlign:"left",background:"linear-gradient(135deg,rgba(167,139,250,.10),#161a24)",border:"1px solid rgba(167,139,250,.18)",borderRadius:9,padding:11,cursor:"pointer"}}><div style={{fontSize:9,color:"#6b7280",fontWeight:700}}>⭐ PRESTIGIO ENTRENADOR</div><div style={{fontSize:21,color:managerPrestigeLevel.color,fontWeight:900,marginTop:3}}>{Math.round(game.legacy?.manager?.prestige??10)}<span style={{fontSize:9,color:"#6b7280"}}>/100</span></div><div style={{fontSize:9,color:managerPrestigeLevel.color}}>{managerPrestigeLevel.label}</div></button></div>
+      {/* Despacho del entrenador: decisiones primero */}
+      <div style={{ background:urgentAttention.length?"linear-gradient(145deg,rgba(201,168,76,.14),#161a24 48%)":"linear-gradient(145deg,rgba(34,197,94,.11),#161a24 48%)", border:`1px solid ${urgentAttention.length?"rgba(201,168,76,.28)":"rgba(34,197,94,.22)"}`, borderRadius:14, padding:15, marginBottom:12, boxShadow:urgentAttention.some(item=>item.priority==="critical")?"0 0 0 1px rgba(239,68,68,.16)":undefined }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, marginBottom:urgentAttention.length?11:0 }}>
+          <div>
+            <div style={{ fontSize:10, color:"#6b7280", fontWeight:900, letterSpacing:".8px" }}>DESPACHO DEL ENTRENADOR</div>
+            <div style={{ fontSize:18, color:urgentAttention.length?"#f3f4f6":"#22c55e", fontWeight:900, marginTop:3 }}>{urgentAttention.length?"Requiere tu atención":"El día empieza tranquilo"}</div>
+            <div style={{ fontSize:11, color:"#8b92a3", marginTop:3 }}>{urgentAttention.length?`${urgentAttention.length} tarea${urgentAttention.length===1?"":"s"} pendiente${urgentAttention.length===1?"":"s"} antes de seguir.`:"No hay decisiones urgentes ahora mismo."}</div>
+          </div>
+          <button onClick={()=>setScreen("attention")} className={urgentAttention.length?"btn-gold":"btn-ghost"} style={{ padding:"9px 11px", borderRadius:9, fontSize:11, whiteSpace:"nowrap" }}>{urgentAttention.length?"Resolver":"Centro"}</button>
+        </div>
+        {urgentAttention.length>0 && <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {urgentAttention.slice(0,5).map(item=><button key={item.id} onClick={()=>onOpenAttention?onOpenAttention(item):setScreen("attention")} style={{ display:"flex", alignItems:"center", gap:9, width:"100%", textAlign:"left", background:item.priority==="critical"?"rgba(239,68,68,.08)":"rgba(201,168,76,.07)", border:`1px solid ${item.priority==="critical"?"rgba(239,68,68,.22)":"rgba(201,168,76,.18)"}`, borderRadius:10, padding:10, cursor:"pointer" }}>
+            <span style={{ fontSize:14 }}>{item.priority==="critical"?"🔴":"🟠"}</span>
+            <span style={{ flex:1, minWidth:0 }}>
+              <strong style={{ display:"block", color:"#e8eaf0", fontSize:12, lineHeight:1.25, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.title}</strong>
+              <small style={{ display:"block", color:"#7b8294", fontSize:9, lineHeight:1.35, marginTop:3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.summary}</small>
+            </span>
+            <span style={{ color:"#c9a84c", fontSize:14 }}>→</span>
+          </button>)}
+        </div>}
+      </div>
+
+      {agendaItems.length>0 && (
+        <div style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:12, padding:14, marginBottom:12 }}>
+          <div style={{ fontSize:11, color:"#c9a84c", fontWeight:900, letterSpacing:".6px", marginBottom:10 }}>📅 AGENDA DEL DÍA</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {agendaItems.map((item,index)=><button key={`${item.title}-${index}`} onClick={()=>item.action==="match"?(lineupValid?onPlay():setScreen("lineup")):setScreen(item.action)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left", background:"#0d0f14", border:"1px solid rgba(255,255,255,.055)", borderRadius:9, padding:"9px 10px", cursor:"pointer" }}>
+              <span style={{ fontSize:16 }}>{item.icon}</span>
+              <span style={{ flex:1, minWidth:0 }}>
+                <strong style={{ display:"block", color:"#dfe3ec", fontSize:12, lineHeight:1.25, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.title}</strong>
+                <small style={{ display:"block", color:"#6b7280", fontSize:9, marginTop:3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.detail}</small>
+              </span>
+              <span style={{ color:"#6b7280" }}>→</span>
+            </button>)}
+          </div>
+        </div>
+      )}
+
+      {consequenceItems.length>0 && (
+        <div style={{ background:"linear-gradient(145deg,rgba(96,165,250,.08),#161a24 45%)", border:"1px solid rgba(96,165,250,.17)", borderRadius:12, padding:14, marginBottom:12 }}>
+          <div style={{ fontSize:11, color:"#60a5fa", fontWeight:900, letterSpacing:".6px", marginBottom:10 }}>🧭 ÚLTIMAS CONSECUENCIAS</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+            {consequenceItems.map((item,index)=><div key={index} style={{ display:"flex", alignItems:"flex-start", gap:9, background:"rgba(13,15,20,.58)", borderRadius:9, padding:"8px 10px" }}>
+              <span>{item.icon}</span>
+              <span style={{ color:"#c9ced8", fontSize:11, lineHeight:1.45 }}>{item.text}</span>
+            </div>)}
+          </div>
+        </div>
+      )}
+
+      <div style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:12, padding:14, marginBottom:12 }}>
+        <div style={{ fontSize:11, color:"#c9a84c", fontWeight:900, letterSpacing:".6px", marginBottom:10 }}>📊 ESTADO DEL CLUB</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+          {kpiCards.map(card=><button key={card.label} onClick={()=>setScreen(card.action)} style={{ textAlign:"left", background:"#0d0f14", border:"1px solid rgba(255,255,255,.055)", borderRadius:10, padding:10, cursor:"pointer" }}>
+            <div style={{ fontSize:8, color:"#6b7280", fontWeight:900, letterSpacing:".5px" }}>{card.label.toUpperCase()}</div>
+            <div style={{ fontSize:16, color:card.color, fontWeight:900, marginTop:4, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{card.value}</div>
+            <div style={{ fontSize:9, color:"#8b92a3", marginTop:3, lineHeight:1.3 }}>{card.trend}</div>
+          </button>)}
+        </div>
+      </div>
 
       {/* Temporada terminada */}
       {allPlayed && (
@@ -2508,6 +2602,14 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
             <div style={{ fontSize:11, color:"#6b7280", textAlign:"center", marginTop:6 }}>
               {opp?.name} · Media {opp?.avg??TEAM_REAL_AVG[opp?.id??""]}
             </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7, marginTop:11 }}>
+              {[["Posición rival",nextOpponentStanding?`${nextOpponentStanding}º`:"—"],["Forma rival",nextOpponentForm],["Jugador peligroso",nextOpponentKeyPlayer?.name??"Sin referencia"],["Importancia",pos<=6||nextOpponentStanding<=6?"Partido de prestigio":pos>=16?"Necesitas puntuar":"Jornada clave"]].map(([label,value])=>(
+                <div key={label} style={{ background:"#0d0f14", border:"1px solid rgba(255,255,255,.055)", borderRadius:8, padding:"8px 9px" }}>
+                  <div style={{ fontSize:8, color:"#6b7280", fontWeight:900 }}>{label.toUpperCase()}</div>
+                  <div style={{ fontSize:10, color:"#dfe3ec", fontWeight:800, marginTop:3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{value}</div>
+                </div>
+              ))}
+            </div>
             <button onClick={()=>lineupValid?onPlay():setScreen("lineup")}
               className={lineupValid?"btn-gold":""}
               style={{ width:"100%", marginTop:12, background:lineupValid?undefined:"#374151", color:lineupValid?undefined:"#9aa0b4", border:lineupValid?undefined:"1px solid rgba(255,255,255,.08)", padding:"13px", borderRadius:9, fontWeight:700, fontSize:14, cursor:"pointer" }}>
@@ -2517,21 +2619,16 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
         );
       })()}
 
-      <div style={{ background:urgentAttention.length?"linear-gradient(145deg,rgba(201,168,76,.12),#161a24 52%)":"linear-gradient(145deg,rgba(34,197,94,.10),#161a24 52%)", border:`1px solid ${urgentAttention.length?"rgba(201,168,76,.25)":"rgba(34,197,94,.22)"}`, borderRadius:12, padding:14, marginBottom:12 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, marginBottom:urgentAttention.length?9:0 }}>
-          <div>
-            <div style={{ fontSize:11, color:urgentAttention.length?"#c9a84c":"#22c55e", fontWeight:900, letterSpacing:".6px" }}>{urgentAttention.length?"⚠ REQUIERE TU ATENCIÓN":"✅ TODO BAJO CONTROL"}</div>
-            <div style={{ fontSize:10, color:"#6b7280", marginTop:3 }}>{urgentAttention.length?`${urgentAttention.length} asunto${urgentAttention.length===1?"":"s"} pendiente${urgentAttention.length===1?"":"s"}`:"No hay asuntos urgentes."}</div>
-          </div>
-          <button onClick={()=>setScreen("attention")} className={urgentAttention.length?"btn-gold":"btn-ghost"} style={{ padding:"8px 10px", borderRadius:8, fontSize:10, whiteSpace:"nowrap" }}>{urgentAttention.length?"Ver asuntos":"Abrir"}</button>
+      <div style={{ background:"#161a24", border:"1px solid rgba(201,168,76,.18)", borderRadius:12, padding:14, marginBottom:12 }}>
+        <div style={{ fontSize:11, color:"#c9a84c", fontWeight:900, letterSpacing:".6px", marginBottom:10 }}>🎯 OBJETIVOS</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+          {objectiveItems.map(item=>(
+            <div key={item.label} style={{ background:"#0d0f14", border:"1px solid rgba(255,255,255,.055)", borderRadius:9, padding:"9px 10px" }}>
+              <div style={{ fontSize:8, color:"#6b7280", fontWeight:900 }}>{item.label.toUpperCase()}</div>
+              <div style={{ fontSize:11, color:item.color, fontWeight:900, marginTop:4, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.value}</div>
+            </div>
+          ))}
         </div>
-        {topAttention.map((item,index)=>(
-          <button key={item.id} onClick={()=>setScreen("attention")} style={{ width:"100%", display:"flex", alignItems:"center", gap:8, textAlign:"left", background:"transparent", border:"none", borderTop:index?"1px solid rgba(255,255,255,.05)":"none", padding:index?"8px 0 0":"0", marginTop:index?0:2, cursor:"pointer" }}>
-            <span style={{ fontSize:13 }}>{item.priority==="critical"?"🔴":"🟠"}</span>
-            <span style={{ flex:1, color:"#dfe3ec", fontSize:11, fontWeight:700, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.title}</span>
-            <span style={{ color:"#c9a84c", fontSize:13 }}>→</span>
-          </button>
-        ))}
       </div>
 
       <div style={{fontSize:10,color:"#6b7280",fontWeight:800,letterSpacing:".7px",margin:"2px 0 8px"}}>ACCIONES RÁPIDAS</div>
@@ -2539,26 +2636,11 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [] }) {
         {[["📋","Gestionar alineación","lineup","Once y suplentes","#3b82f6"],["💰","Mercado de fichajes","transfers","Altas y bajas","#22c55e"],["🏋","Entrenar plantilla","training","Plan semanal","#f59e0b"],["📰","Ver noticias","news","Centro de prensa","#a78bfa"]].map(([icon,label,target,helper,accent],index)=><button key={target} onClick={()=>setScreen(target)} className="quick-action-card" style={{display:"flex",alignItems:"center",gap:9,textAlign:"left",background:`linear-gradient(145deg,${accent}10,#161a24)`,border:`1px solid ${accent}22`,borderRadius:10,padding:11,minHeight:72,cursor:"pointer",animationDelay:`${index*35}ms`}}><span style={{fontSize:20}}>{icon}</span><span><strong style={{display:"block",fontSize:10,color:"#e8eaf0",lineHeight:1.25}}>{label}</strong><small style={{display:"block",fontSize:8,color:"#6b7280",marginTop:3}}>{helper}</small></span></button>)}
       </div>
 
-      {/* Stats rápidas */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
-        {[
-          ["Moral",      avgMorale,  avgMorale>=70?"#22c55e":avgMorale>=50?"#f59e0b":"#ef4444"],
-          ["Cansancio",  avgFatigue, avgFatigue<=35?"#22c55e":avgFatigue<=60?"#f59e0b":"#ef4444"],
-          ["Presupuesto",fmtBudget(budgetLeft), budgetLeft>=0?"#c9a84c":"#ef4444"],
-          ["Bajas",      injured+suspended, injured+suspended===0?"#22c55e":"#ef4444"],
-        ].map(([label,val,color])=>(
-          <div key={label} style={{ background:"#161a24", borderRadius:8, padding:"12px 14px" }}>
-            <div style={{ fontSize:11, color:"#6b7280", marginBottom:4 }}>{label}</div>
-            <div style={{ fontSize:22, fontWeight:700, color }}>{val}</div>
-          </div>
-        ))}
-      </div>
-
       {/* Informe médico */}
-      <div style={{ background:"#161a24", border:"1px solid rgba(34,197,94,.17)", borderRadius:10, padding:14, marginBottom:12 }}>
+      {medicalAlerts.length>0 && <div style={{ background:"#161a24", border:"1px solid rgba(34,197,94,.17)", borderRadius:10, padding:14, marginBottom:12 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:medicalAlerts.length?8:0 }}><div style={{ fontSize:11, color:"#22c55e", fontWeight:700, letterSpacing:".5px" }}>👨‍⚕️ INFORME MÉDICO</div><button onClick={()=>setScreen("medical")} style={{ background:"transparent", border:"none", color:"#22c55e", fontSize:10, fontWeight:700, cursor:"pointer" }}>Abrir centro →</button></div>
-        {medicalAlerts.length?medicalAlerts.map(({player,risk,status},index)=><div key={player.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 0", borderTop:index?"1px solid rgba(255,255,255,.05)":"none" }}><span>{status.icon}</span><div style={{ flex:1, color:"#c9ced8", fontSize:11 }}>{player.name}<div style={{ color:status.color, fontSize:9, marginTop:2 }}>{player.injured?status.label:`Riesgo de lesión ${risk}% · se recomienda descanso`}</div></div></div>):<div style={{ color:"#6b7280", fontSize:11, marginTop:7 }}>La plantilla se encuentra en buenas condiciones.</div>}
-      </div>
+        {medicalAlerts.map(({player,risk,status},index)=><div key={player.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 0", borderTop:index?"1px solid rgba(255,255,255,.05)":"none" }}><span>{status.icon}</span><div style={{ flex:1, color:"#c9ced8", fontSize:11 }}>{player.name}<div style={{ color:status.color, fontSize:9, marginTop:2 }}>{player.injured?status.label:`Riesgo de lesión ${risk}% · se recomienda descanso`}</div></div></div>)}
+      </div>}
 
       {/* Actualidad relevante del club */}
       <div style={{ background:"linear-gradient(145deg,rgba(201,168,76,.08),#161a24 45%)", border:"1px solid rgba(201,168,76,.22)", borderRadius:11, padding:14, marginBottom:12 }}>
@@ -6406,7 +6488,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "league"    && <LeagueScreen country={pendingCountry} onSelect={l => { setPendingLeague(l); setScreen("teams"); }} onBack={() => setScreen("country")} />}
           {screen === "teams"     && <TeamSelection onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
           {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
-          {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} />}
+          {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} onOpenAttention={handleAttentionOpen} />}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
           {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />}
           {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
