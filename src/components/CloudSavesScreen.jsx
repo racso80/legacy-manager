@@ -72,7 +72,7 @@ export default function CloudSavesScreen({ session, localSave, status, syncState
         {syncState?.lastSyncAt && <span style={{ color:"#6b7280", fontSize:9, alignSelf:"center" }}>Última sync: {fmtDate(syncState.lastSyncAt)}</span>}
       </div>
       <div style={{ display:"flex", gap:8, marginTop:12 }}>
-        <button disabled={!localSave} onClick={async()=>{await onSaveCloud(); await refresh();}} className="btn-gold" style={{ flex:1, borderRadius:9, padding:10, opacity:localSave?1:.5 }}>Guardar en la nube</button>
+        <button disabled={!localSave} onClick={async()=>{await onSaveCloud(); await refresh();}} className="btn-gold" style={{ flex:1, borderRadius:9, padding:10, opacity:localSave?1:.5 }}>Sincronizar ahora</button>
         <button onClick={refresh} className="btn-ghost" style={{ flex:.65, borderRadius:9, padding:10 }}>{loading ? "..." : "Actualizar"}</button>
         <button onClick={onSignOut} style={{ background:"#1e2330", border:"1px solid rgba(255,255,255,.08)", color:"#9aa0b4", borderRadius:9, padding:"0 10px" }}>Salir</button>
       </div>

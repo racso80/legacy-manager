@@ -1737,6 +1737,22 @@ function BottomNav({ screen, setScreen, disabled, attentionCount = 0 }) {
   );
 }
 
+function CloudSyncIndicator({ session, syncState, conflict, onClick }) {
+  if (!session) return null;
+  const state = conflict ? "error" : syncState?.state ?? "idle";
+  const meta = state === "saving"
+    ? { icon:"🟡", label:"Sincronizando...", color:"#f59e0b" }
+    : state === "error"
+      ? { icon:"🔴", label:"Error de sincronización", color:"#ef4444" }
+      : { icon:"🟢", label:"Sincronizado", color:"#22c55e" };
+  return (
+    <button onClick={onClick} title={meta.label} style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(255,255,255,.04)", border:`1px solid ${meta.color}22`, color:meta.color, borderRadius:999, padding:"6px 8px", fontSize:10, fontWeight:900, cursor:"pointer", maxWidth:150 }}>
+      <span>{meta.icon}</span>
+      <span style={{ whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{meta.label}</span>
+    </button>
+  );
+}
+
 // ─── ESTILOS GLOBALES ────────────────────────────────────────────────────────
 
 const GLOBAL_CSS = `
@@ -5196,6 +5212,7 @@ export default function App({ externalData }) {
   const [cloudStatus, setCloudStatus] = useState("");
   const [cloudSyncState, setCloudSyncState] = useState({ state:"idle", lastSyncAt:null, error:null });
   const [cloudConflict, setCloudConflict] = useState(null);
+  const [cloudLinkPrompt, setCloudLinkPrompt] = useState(null);
   const cloudSaveTimerRef = useRef(null);
   const cloudSavingRef = useRef(false);
   const pendingCloudSaveRef = useRef(null);
@@ -5302,12 +5319,24 @@ export default function App({ externalData }) {
   }, [game, cloudSession?.user?.id, lineup, formation, subs, saveGame]);
 
   const autosaveCloud = useCallback((g, reason = "autosave", extra = {}) => {
-    if (!cloudSession?.user?.id || !g?.cloudSaveId) return;
+    if (!cloudSession?.user?.id || !g) return;
+    if (!g.cloudSaveId && !extra.allowCreate) return;
     if (cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
     cloudSaveTimerRef.current = setTimeout(() => {
-      saveGameToCloud(g, { ...extra, reason, silent:true, skipState:true }).catch(() => {});
+      saveGameToCloud(g, { ...extra, reason, silent:true, skipState:Boolean(g.cloudSaveId) }).catch(() => {});
     }, 1200);
   }, [cloudSession?.user?.id, saveGameToCloud]);
+
+  useEffect(() => {
+    if (!cloudSession?.user?.id || !game || !activeSaveId || game.cloudSaveId) {
+      setCloudLinkPrompt(null);
+      return;
+    }
+    const key = `legacy_cloud_link_prompt_${activeSaveId}`;
+    if (localStorage.getItem(key) === "shown") return;
+    localStorage.setItem(key, "shown");
+    setCloudLinkPrompt({ saveId:activeSaveId, name:game.name ?? "Partida local" });
+  }, [cloudSession?.user?.id, game?.id, game?.cloudSaveId, activeSaveId]);
 
   const loadGame = (saveId) => {
     try {
@@ -5475,6 +5504,11 @@ export default function App({ externalData }) {
     setTactics(DEFAULT_TACTICS);
     setGame(g);
     saveGame(g, emptyLineup(), "4-3-3", emptyBench(), newId);
+    if (cloudSession?.user?.id) {
+      saveGameToCloud(g,{saveIdOverride:newId,lineup:emptyLineup(),formation:"4-3-3",subs:emptyBench(),reason:"new-game"}).then(saved=>{
+        if(saved)setGame(current=>current?.id===g.id?{...current,cloudSaveId:saved.id,cloudUpdatedAt:saved.updated_at}:current);
+      }).catch(()=>{});
+    }
     setScreen("dashboard");
   };
 
@@ -6055,7 +6089,15 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
               <div style={{ fontSize:11, color:"#4b5563", marginTop:1 }}>Jornada {game.matchday} · Temporada {game.season ?? "2025"}/{String(parseInt(game.season??2025)+1).slice(-2)}</div>
             )}
           </div>
+          {game && <CloudSyncIndicator session={cloudSession} syncState={cloudSyncState} conflict={cloudConflict} onClick={()=>setScreen("cloudSaves")} />}
           <div style={{ width:30, height:30, background:"linear-gradient(135deg,#c9a84c,#e8c96a)", borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:14, color:"#1a1200", boxShadow:"0 2px 8px rgba(201,168,76,.3)" }}>L</div>
+        </div>
+      )}
+      {cloudLinkPrompt && game && (
+        <div style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 12px", background:"rgba(96,165,250,.1)", borderBottom:"1px solid rgba(96,165,250,.2)", color:"#cfe3ff", fontSize:11 }}>
+          <span style={{ flex:1 }}>Esta partida todavía no está sincronizada con la nube.</span>
+          <button onClick={()=>{setCloudLinkPrompt(null);saveGameToCloud(game,{reason:"link-local-save"});}} style={{ background:"#60a5fa", border:"none", color:"#07111f", borderRadius:8, padding:"7px 9px", fontSize:10, fontWeight:900, cursor:"pointer" }}>Sincronizar ahora</button>
+          <button onClick={()=>setCloudLinkPrompt(null)} style={{ background:"transparent", border:"none", color:"#8b92a3", fontSize:16, cursor:"pointer" }}>×</button>
         </div>
       )}
 

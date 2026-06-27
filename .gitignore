@@ -4,5 +4,4 @@ dist/
 *.local
 .env
 .env.*
-!.env.example
 tools/player_portraits/.cache/
