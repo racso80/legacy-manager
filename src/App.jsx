@@ -40,6 +40,7 @@ import { createCoachCareer, ensureCoachCareer, finalizeCoachSeason, recordCoachM
 import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, applyFanYouthReaction, ensureFanbaseState, estimateFanAttendance, generateFanNews } from "./fans/fanEngine.js";
 import { advanceConversationMemory, ensureConversationState, getActiveConversations, respondToConversation } from "./conversations/conversationEngine.js";
 import { advanceClubLife, ensureClubLifeState, getClubLifeIssues, resolveClubLifeIssue } from "./clubLife/clubLifeEngine.js";
+import { ensureLegacyDirectorState, getLegacyDirectorSelection, markLegacyDirectorItem } from "./legacyDirector/legacyDirectorEngine.js";
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
 
 const STARTERS_SLOTS = 11;
@@ -2555,7 +2556,7 @@ function conversationPersona(conversation) {
   return { ...base, name:conversation.actorName, role:conversation.role ?? base.role, emotionalState:conversation.emotionalState, line:conversation.opening, action:"Hablar" };
 }
 
-function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conversations = [], clubLifeIssues = [], onOpenAttention, onOpenConversation, onOpenClubLifeIssue }) {
+function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conversations = [], clubLifeIssues = [], directorItems = [], onOpenAttention, onOpenConversation, onOpenClubLifeIssue }) {
   const team      = TEAMS.find(t => t.id === game.teamId);
   const standing  = game.standings.find(s => s.teamId === game.teamId);
   const pos       = [...game.standings].sort((a,b) => b.points-a.points || b.goalDifference-a.goalDifference).findIndex(s => s.teamId===game.teamId) + 1;
@@ -2632,7 +2633,11 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
   const priorityLabel = priority => priority==="urgent"||priority==="critical" ? "Urgente" : priority==="important" ? "Importante" : "Informativa";
   const priorityColor = priority => priority==="urgent"||priority==="critical" ? "#ef4444" : priority==="important" ? "#f59e0b" : "#22c55e";
   const priorityRank = priority => priority==="urgent"||priority==="critical" ? 0 : priority==="important" ? 1 : 2;
-  const waitingPeople = [
+  const waitingPeople = directorItems.length ? directorItems.map(item=>{
+    if(item.source==="clubLife")return{kind:"clubLife",id:item.rawId,priority:item.priority,person:clubLifePersona(item.issue),onClick:()=>onOpenClubLifeIssue?.(item.issue)};
+    if(item.source==="conversation")return{kind:"conversation",id:item.rawId,priority:item.priority,person:conversationPersona(item.conversation),onClick:()=>onOpenConversation?.(item.rawId)};
+    return{kind:"attention",id:item.rawId,priority:item.priority,person:attentionPersona(item.attention),onClick:()=>onOpenAttention?onOpenAttention(item.attention):setScreen(item.attention?.action?.screen??"attention")};
+  }) : [
     ...clubLifeIssues.map(issue=>({ kind:"clubLife", id:issue.id, priority:issue.priority, person:clubLifePersona(issue), onClick:()=>onOpenClubLifeIssue?.(issue) })),
     ...conversations.map(conversation=>({ kind:"conversation", id:conversation.id, priority:conversation.priority, person:conversationPersona(conversation), onClick:()=>onOpenConversation?.(conversation.id) })),
     ...urgentAttention.filter(item=>!String(item.id).startsWith("conversation:")).map(item=>({ kind:"attention", id:item.id, priority:item.priority, person:attentionPersona(item), onClick:()=>onOpenAttention?onOpenAttention(item):setScreen(item.action?.screen??"attention") })),
@@ -5834,11 +5839,11 @@ export default function App({ externalData }) {
         });
         setActiveSaveId(saveId);
         const loadedTeam=TEAMS.find(team=>team.id===parsed.teamId);
-        let migrated=ensureClubLifeState(ensureConversationState(ensureFanbaseState(ensureCoachCareer(ensureStaffState(ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam))),TEAMS),loadedTeam,TEAMS),loadedTeam,TEAMS)));
+        let migrated=ensureLegacyDirectorState(ensureClubLifeState(ensureConversationState(ensureFanbaseState(ensureCoachCareer(ensureStaffState(ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam))),TEAMS),loadedTeam,TEAMS),loadedTeam,TEAMS))));
         migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,parsed.season??"2025",parsed.matchday??1),parsed.season??"2025")))};
         migrated=migrateNewDataPlayersToSave(migrated,currentDataVersion);
         detachFreeAgentsFromRealSquads(migrated);
-        migrated=advanceClubLife(advanceConversationMemory(refreshTransferListings(ensureTransferState(bootstrapScouting(migrated,getScoutingPool(migrated))),TEAMS,REAL_SQUADS)),{lineup:loadedLineup});
+        migrated=ensureLegacyDirectorState(advanceClubLife(advanceConversationMemory(refreshTransferListings(ensureTransferState(bootstrapScouting(migrated,getScoutingPool(migrated))),TEAMS,REAL_SQUADS)),{lineup:loadedLineup}));
         saveGame(migrated, loadedLineup, loadedFormation, loadedSubs, saveId);
         setGame(migrated);
         if(options.targetScreen){setScreen(options.targetScreen);}
@@ -5976,7 +5981,7 @@ export default function App({ externalData }) {
       country: pendingCountry?.id, league: pendingLeague?.id },team),team);
     let g={...seeded,youth:{...seeded.youth,players:seeded.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,"2025",1),"2025")))}};
     g=ensureFanbaseState(ensureCoachCareer({...g,coachCareer:createCoachCareer(coachData??{},team,"2025")},team,TEAMS),team,TEAMS);
-    g=advanceClubLife(ensureClubLifeState(ensureConversationState(ensureStaffState(ensureContractState(refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS)),TEAMS))),{lineup:emptyLineup()});
+    g=ensureLegacyDirectorState(advanceClubLife(ensureClubLifeState(ensureConversationState(ensureStaffState(ensureContractState(refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS)),TEAMS))),{lineup:emptyLineup()}));
     const firstProspect=[...g.youth.players].sort((a,b)=>b.potential-a.potential)[0];
     if(firstProspect)g.news=generateYouthNews({items:[{title:"La cantera presenta una nueva generación",summary:`${firstProspect.name} encabeza la hornada con un potencial estimado de ${firstProspect.potential}.`,importance:firstProspect.potential>=86?"high":"medium",playerId:firstProspect.id,fingerprint:`academy-intake:2025`}],season:"2025",matchday:1,userTeamId:team.id});
     setActiveSaveId(newId);
@@ -6268,7 +6273,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const aiCountBefore=newGame.transferMarket?.aiTransfers?.length??0;
       newGame=maybeCreateAITransfer(newGame,TEAMS,REAL_SQUADS);
       if((newGame.transferMarket?.aiTransfers?.length??0)>aiCountBefore){const move=newGame.transferMarket.aiTransfers[0];const from=TEAMS.find(team=>team.id===move.fromTeamId);const to=TEAMS.find(team=>team.id===move.toTeamId);const renewal=move.type==="renewal",loan=move.type==="loan",young=move.type==="youth";newGame={...newGame,news:mergeNews(newGame.news??[],[{id:`news-${move.id}`,type:"transfer",importance:young?"high":"medium",title:renewal?`${move.player.name} renueva con ${from?.name}`:loan?`${move.player.name}, cedido al ${to?.name}`:young?`${to?.name} apuesta por el joven ${move.player.name}`:`${move.player.name} ficha por ${to?.name}`,summary:renewal?`${from?.name} asegura la continuidad del jugador.`:loan?`${from?.name} busca minutos para el futbolista.`:`${from?.name} y ${to?.name} cierran la operación por €${(move.value/1000).toFixed(1)}M.${move.reason?` ${move.reason}.`:""}`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:move.id}])};newGame=refreshTransferListings(newGame,TEAMS,REAL_SQUADS,true);}
-      newGame=advanceClubLife(advanceConversationMemory(ensureConversationState(ensureClubLifeState(newGame))),{lineup});
+      newGame=ensureLegacyDirectorState(advanceClubLife(advanceConversationMemory(ensureConversationState(ensureClubLifeState(newGame))),{lineup}));
       saveGame(newGame);
       autosaveCloud(newGame,"match-end");
 
@@ -6361,7 +6366,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       g={...g,youth:{...g.youth,players:g.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,newSeason,1),newSeason)))}};
       g=refreshScoutingRecommendations(g,getScoutingPool(g));
       g=ensureCoachCareer(g,teamData,TEAMS);
-      g=advanceClubLife(ensureClubLifeState(ensureConversationState(ensureFanbaseState(g,teamData,TEAMS))),{lineup:emptyLineup()});
+      g=ensureLegacyDirectorState(advanceClubLife(ensureClubLifeState(ensureConversationState(ensureFanbaseState(g,teamData,TEAMS))),{lineup:emptyLineup()}));
       g=refreshTransferListings(g,TEAMS,REAL_SQUADS,true);
       const intakePlayers=g.youth.players.filter(player=>(g.youth.lastIntake??[]).includes(player.id));
       const topIntake=[...intakePlayers].sort((a,b)=>b.potential-a.potential)[0];
@@ -6522,7 +6527,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     setGame(prev => {
       if (!prev) return prev;
       const result = respondToConversation(prev, conversationId, responseId, { lineup });
-      const updated = result.game;
+      const updated = markLegacyDirectorItem(result.game, `conversation:${conversationId}`, "resolved");
       saveGame(updated, lineup, formation, subs);
       autosaveCloud(updated, "conversation", { lineup, formation, subs });
       return updated;
@@ -6534,7 +6539,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   const handleClubLifeIssueOpen = (issue) => {
     setGame(prev => {
       if (!prev) return prev;
-      const updated = resolveClubLifeIssue(prev, issue.id, "resolved");
+      const updated = markLegacyDirectorItem(resolveClubLifeIssue(prev, issue.id, "resolved"), `clubLife:${issue.id}`, "resolved");
       saveGame(updated, lineup, formation, subs);
       autosaveCloud(updated, "club-life", { lineup, formation, subs });
       return updated;
@@ -6575,7 +6580,61 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     action:{ screen:"match" },
     actionLabel:"Continuar partido",
   }] : [];
-  const attentionItems = game ? [...clubLifeAttention, ...conversationAttention, ...activeMatchAttention, ...getAttentionItems(game, { lineup })] : [];
+  const baseAttentionItems = game ? getAttentionItems(game, { lineup }) : [];
+  const attentionItems = game ? [...clubLifeAttention, ...conversationAttention, ...activeMatchAttention, ...baseAttentionItems] : [];
+  const directorCandidates = game ? [
+    ...clubLifeIssues.map(issue=>({
+      id:`clubLife:${issue.id}`,
+      rawId:issue.id,
+      source:"clubLife",
+      actorId:issue.actorId,
+      origin:issue.origin,
+      priority:issue.priority,
+      status:issue.status,
+      date:issue.date,
+      requiresDecision:true,
+      consequenceIfIgnored:issue.consequenceIfIgnored,
+      issue,
+    })),
+    ...activeConversations.map(conversation=>({
+      id:`conversation:${conversation.id}`,
+      rawId:conversation.id,
+      source:"conversation",
+      actorId:conversation.actorType==="player"?"player":conversation.actorName,
+      actorType:conversation.actorType,
+      origin:conversation.context,
+      groupKey:conversation.actorType==="player"?`player:${conversation.actorId}`:conversation.context,
+      priority:conversation.priority,
+      status:conversation.status,
+      requiresDecision:true,
+      conversation,
+    })),
+    ...activeMatchAttention.map(item=>({
+      id:item.id,
+      rawId:item.id,
+      source:"attention",
+      actorId:"assistantCoach",
+      origin:"match",
+      priority:item.priority,
+      status:item.status,
+      requiresDecision:true,
+      consequenceIfIgnored:"El partido no podrá cerrarse correctamente hasta retomarlo o abandonarlo.",
+      attention:item,
+    })),
+    ...baseAttentionItems.map(item=>({
+      id:`attention:${item.id}`,
+      rawId:item.id,
+      source:"attention",
+      actorId:item.category==="medical"?"doctor":item.category==="market"||item.category==="contracts"?"sportingDirector":item.category==="fans"||item.category==="board"?"president":item.category==="youth"?"academyChief":item.category==="training"?"fitnessCoach":"assistantCoach",
+      origin:item.category,
+      priority:item.priority,
+      status:item.status,
+      requiresDecision:item.priority!=="info",
+      consequenceIfIgnored:item.summary,
+      attention:item,
+    })),
+  ] : [];
+  const legacyDirectorItems = game ? getLegacyDirectorSelection(game, directorCandidates) : [];
   const attentionCount = getAttentionCount(attentionItems);
 
   const updateAttentionStatus = (itemId, status) => {
@@ -6593,7 +6652,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     if (item.action?.clubLifeIssueId) {
       setGame(prev => {
         if (!prev) return prev;
-        const updated = resolveClubLifeIssue(prev, item.action.clubLifeIssueId, "resolved");
+        const updated = markLegacyDirectorItem(resolveClubLifeIssue(prev, item.action.clubLifeIssueId, "resolved"), `clubLife:${item.action.clubLifeIssueId}`, "resolved");
         saveGame(updated, lineup, formation, subs);
         autosaveCloud(updated,"club-life",{lineup,formation,subs});
         return updated;
@@ -6729,7 +6788,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "league"    && <LeagueScreen country={pendingCountry} onSelect={l => { setPendingLeague(l); setScreen("teams"); }} onBack={() => setScreen("country")} />}
           {screen === "teams"     && <TeamSelection onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
           {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
-          {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} conversations={activeConversations} clubLifeIssues={clubLifeIssues} onOpenAttention={handleAttentionOpen} onOpenConversation={openConversation} onOpenClubLifeIssue={handleClubLifeIssueOpen} />}
+          {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} conversations={activeConversations} clubLifeIssues={clubLifeIssues} directorItems={legacyDirectorItems} onOpenAttention={handleAttentionOpen} onOpenConversation={openConversation} onOpenClubLifeIssue={handleClubLifeIssueOpen} />}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
           {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />}
           {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
