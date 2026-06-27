@@ -3972,54 +3972,156 @@ function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[],
   return <div style={{background:"#161a24",border:`1px solid ${team?.color??"#6b7280"}28`,borderRadius:11,padding:12,marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TeamCrest team={team} size={38}/><div style={{flex:1}}><div style={{fontSize:12,color:"#fff",fontWeight:850}}>{team?.name}</div><div style={{fontSize:9,color:team?.color??"#9aa0b4",marginTop:2}}>{formation} · {active.length} jugadores activos</div></div><div style={{textAlign:"center"}}><div style={{fontSize:20,color:"#c9a84c",fontWeight:900}}>{average}</div><div style={{fontSize:7,color:"#6b7280"}}>MEDIA ONCE</div></div></div><div style={{display:"flex",flexDirection:"column",gap:5}}>{lineupPlayers.map(player=>{const data=playerData(player);const red=data.red;const injured=injuredIds.has(player.id);const subOut=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===player.id);const subIn=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.playerId===player.id);return <div key={player.id} style={{background:red?"rgba(239,68,68,.07)":injured?"rgba(249,115,22,.07)":"#11141c",borderRadius:7,padding:"7px 9px",opacity:red||subOut?.7:1}}><div style={{display:"flex",alignItems:"center",gap:7}}><span style={{width:29,color:"#6b7280",fontSize:9,fontWeight:800}}>{player.pos}</span><span style={{flex:1,color:red?"#ef4444":injured?"#f97316":"#dfe3ec",fontSize:10,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</span>{data.goals>0&&<span>⚽{data.goals}</span>}{data.assists>0&&<span style={{fontSize:8,color:"#60a5fa"}}>A{data.assists}</span>}{data.yellows>0&&<span>🟨</span>}{red&&<span>🟥</span>}{injured&&<span>🏥</span>}<strong style={{fontSize:11,color:Number(data.rating)>=7?"#22c55e":"#c9a84c"}}>{data.rating}</strong></div><div style={{display:"flex",gap:7,marginTop:3,paddingLeft:36,fontSize:8,color:"#697083"}}>{player.fatigue!=null&&<span>⚡ {Math.max(0,Math.round(100-player.fatigue))}%</span>}{subIn&&<span style={{color:"#22c55e"}}>ENTRA {subIn.minute}'</span>}{subOut&&<span style={{color:"#a855f7"}}>SALE {subOut.minute}'</span>}</div></div>})}</div>{keyPlayer&&<div style={{marginTop:9,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.05)",fontSize:9,color:"#6b7280"}}>⭐ Jugador clave: <strong style={{color:team?.color??"#c9a84c"}}>{keyPlayer.name}</strong> · {keyPlayer.overall}</div>}{changes.length>0&&<div style={{marginTop:6,fontSize:8,color:"#a855f7"}}>🔄 {changes.length} cambio{changes.length===1?"":"s"}</div>}</div>;
 }
 
-function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, lineup: baseLineup, setLineup: setBaseLineup, subs: baseSubs, setSubs: setBaseSubs, formation:baseFormation="4-3-3", onMatchEnd }) {
+const ACTIVE_MATCH_STORAGE_KEY = "legacy_manager_active_match";
+
+function buildMatchSessionId(game, fixture) {
+  if (!game || !fixture) return null;
+  return `${game.id ?? "save"}:${game.season ?? "2025"}:${fixture.id}`;
+}
+
+function readActiveMatchSession() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_MATCH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.status === "in_progress" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function getRecoverableActiveMatchSession() {
+  const session = readActiveMatchSession();
+  if (!session) return null;
+  if (session.saveId && session.fixtureId) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`legacy_manager_save_${session.saveId}`) ?? "null");
+      const fixture = saved?.fixtures?.find(item => item.id === session.fixtureId);
+      if (!saved || !fixture || fixture.played) {
+        clearActiveMatchSession(session.matchId);
+        return null;
+      }
+    } catch {}
+  }
+  return session;
+}
+
+function writeActiveMatchSession(session) {
+  if (!session?.matchId) return;
+  try {
+    localStorage.setItem(ACTIVE_MATCH_STORAGE_KEY, JSON.stringify({ ...session, updatedAt:new Date().toISOString() }));
+  } catch {}
+}
+
+function clearActiveMatchSession(matchId = null) {
+  try {
+    const current = readActiveMatchSession();
+    if (!matchId || current?.matchId === matchId) localStorage.removeItem(ACTIVE_MATCH_STORAGE_KEY);
+  } catch {}
+}
+
+function getRecoverableMatchForGame(game) {
+  const session = readActiveMatchSession();
+  if (!session || !game) return null;
+  const fixture = (game.fixtures ?? []).find(item => item.id === session.fixtureId);
+  if (!fixture || fixture.played) return null;
+  return session.saveId === game.id || session.teamId === game.teamId ? session : null;
+}
+
+function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTactics, lineup: baseLineup, setLineup: setBaseLineup, subs: baseSubs, setSubs: setBaseSubs, formation:baseFormation="4-3-3", onMatchEnd, onAbandonMatch }) {
   const initialFixture=game.fixtures.find(f=>!f.played&&(f.homeTeamId===game.teamId||f.awayTeamId===game.teamId));
   const initialOppId=initialFixture?(initialFixture.homeTeamId===game.teamId?initialFixture.awayTeamId:initialFixture.homeTeamId):null;
   const initialOppFormation=chooseOpponentFormation(initialOppId??"");
   const initialOppPlayers=REAL_SQUADS[initialOppId]??[];
-  const [segment, setSegment]   = useState(0);
-  const [events, setEvents]     = useState([]);
-  const [score, setScore]       = useState({ home: 0, away: 0 });
-  const [finished, setFinished] = useState(false);
-  const [tab, setTab]           = useState("eventos"); // eventos | tacticas | cambios
-  const [livePlayer, setLivePlayers] = useState(game.players);
-  const [liveOppPlayers, setLiveOppPlayers] = useState(()=>initialOppPlayers.map(player=>({...player,fatigue:player.fatigue??18})));
-  const [subsUsed, setSubsUsed] = useState(0);
+  const matchId = buildMatchSessionId(game, initialFixture);
+  const savedMatch = readActiveMatchSession();
+  const recoverState = savedMatch?.matchId === matchId ? savedMatch.state ?? {} : {};
+  const [segment, setSegment]   = useState(recoverState.segment ?? 0);
+  const [events, setEvents]     = useState(recoverState.events ?? []);
+  const [score, setScore]       = useState(recoverState.score ?? { home: 0, away: 0 });
+  const [finished, setFinished] = useState(recoverState.finished ?? false);
+  const [tab, setTab]           = useState(recoverState.tab ?? "eventos"); // eventos | tacticas | cambios
+  const [livePlayer, setLivePlayers] = useState(recoverState.livePlayer ?? game.players);
+  const [liveOppPlayers, setLiveOppPlayers] = useState(()=>recoverState.liveOppPlayers ?? initialOppPlayers.map(player=>({...player,fatigue:player.fatigue??18})));
+  const [subsUsed, setSubsUsed] = useState(recoverState.subsUsed ?? 0);
   const MAX_SUBS = MAX_MATCH_SUBS;
   // Lesión pendiente de sustitución forzada: { playerId, name }
-  const [pendingInjury, setPendingInjury] = useState(null);
+  const [pendingInjury, setPendingInjury] = useState(recoverState.pendingInjury ?? null);
   // Slot del titular que se quiere sustituir manualmente: index en lineup, o null
-  const [subbingSlot, setSubbingSlot] = useState(null);
+  const [subbingSlot, setSubbingSlot] = useState(recoverState.subbingSlot ?? null);
   // Banner de evento clave del último tramo (gol, tarjeta) — se autodescarta
-  const [keyEventBanner, setKeyEventBanner] = useState(null);
+  const [keyEventBanner, setKeyEventBanner] = useState(recoverState.keyEventBanner ?? null);
   // Posesión del balón (% del equipo del usuario) — se actualiza tras cada tramo
-  const [possession, setPossession] = useState(50);
+  const [possession, setPossession] = useState(recoverState.possession ?? 50);
   // IDs de jugadores expulsados durante ESTE partido — quedan fuera del campo el resto del encuentro
-  const [sentOffIds, setSentOffIds] = useState([]);
-  const [oppSentOffIds, setOppSentOffIds] = useState([]);
-  const [currentMinute, setCurrentMinute] = useState(0);
-  const [pauseEvent, setPauseEvent] = useState(null);
-  const [playing, setPlaying] = useState(false);
-  const [matchPhase, setMatchPhase] = useState("firstRegular");
-  const [addedTime, setAddedTime] = useState({ first:null, second:null });
+  const [sentOffIds, setSentOffIds] = useState(recoverState.sentOffIds ?? []);
+  const [oppSentOffIds, setOppSentOffIds] = useState(recoverState.oppSentOffIds ?? []);
+  const [currentMinute, setCurrentMinute] = useState(recoverState.currentMinute ?? 0);
+  const [pauseEvent, setPauseEvent] = useState(recoverState.pauseEvent ?? null);
+  const [playing, setPlaying] = useState(recoverState.playing ?? false);
+  const [matchPhase, setMatchPhase] = useState(recoverState.matchPhase ?? "firstRegular");
+  const [addedTime, setAddedTime] = useState(recoverState.addedTime ?? { first:null, second:null });
+  const [matchAutosaveAt, setMatchAutosaveAt] = useState(recoverState.savedAt ?? null);
   // IDs de jugadores ya sustituidos (salieron del campo) — no pueden volver a jugar este partido
-  const [subbedOutIds, setSubbedOutIds] = useState([]);
-  const [oppCallup] = useState(()=>buildMatchdaySquad(initialOppPlayers,initialOppFormation,BENCH_SLOTS));
-  const [oppLineup, setOppLineup] = useState(()=>oppCallup.lineup);
-  const [oppSubs, setOppSubs] = useState(()=>oppCallup.bench);
-  const [oppSubsUsed, setOppSubsUsed] = useState(0);
-  const [oppSubbedOutIds, setOppSubbedOutIds] = useState([]);
-  const processedMinuteRef = useRef(new Set());
+  const [subbedOutIds, setSubbedOutIds] = useState(recoverState.subbedOutIds ?? []);
+  const [oppCallup] = useState(()=>recoverState.oppCallup ?? buildMatchdaySquad(initialOppPlayers,initialOppFormation,BENCH_SLOTS));
+  const [oppLineup, setOppLineup] = useState(()=>recoverState.oppLineup ?? oppCallup.lineup);
+  const [oppSubs, setOppSubs] = useState(()=>recoverState.oppSubs ?? oppCallup.bench);
+  const [oppSubsUsed, setOppSubsUsed] = useState(recoverState.oppSubsUsed ?? 0);
+  const [oppSubbedOutIds, setOppSubbedOutIds] = useState(recoverState.oppSubbedOutIds ?? []);
+  const processedMinuteRef = useRef(new Set(recoverState.processedMinutes ?? []));
+  const matchSnapshotRef = useRef(null);
 
   // Copias LOCALES de alineación, banco y táctica — los cambios durante el partido
   // son solo para este partido y nunca tocan el estado persistente de App.
   // Al terminar el partido se descartan automáticamente (no se sincronizan de vuelta).
-  const [lineup, setLineup] = useState(normalizeSlots(baseLineup, STARTERS_SLOTS));
-  const [subs, setSubs]     = useState(normalizeSlots(baseSubs, BENCH_SLOTS));
-  const [tactics, setTactics] = useState(baseTactics);
+  const [lineup, setLineup] = useState(normalizeSlots(recoverState.lineup ?? baseLineup, STARTERS_SLOTS));
+  const [subs, setSubs]     = useState(normalizeSlots(recoverState.subs ?? baseSubs, BENCH_SLOTS));
+  const [tactics, setTactics] = useState(recoverState.tactics ?? baseTactics);
 
   const teamId  = game.teamId;
   const fixture = game.fixtures.find(f => !f.played && (f.homeTeamId === teamId || f.awayTeamId === teamId));
+  useEffect(() => {
+    if (!fixture || !matchId || finished) return;
+    const state = {
+      segment, events, score, finished, tab, livePlayer, liveOppPlayers, subsUsed, pendingInjury, subbingSlot,
+      keyEventBanner, possession, sentOffIds, oppSentOffIds, currentMinute, pauseEvent, playing, matchPhase,
+      addedTime, subbedOutIds, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds,
+      processedMinutes:[...processedMinuteRef.current], lineup, subs, tactics, savedAt:new Date().toISOString(),
+    };
+    const session = {
+      version: 1,
+      status: "in_progress",
+      matchId,
+      saveId,
+      fixtureId: fixture.id,
+      teamId: game.teamId,
+      season: game.season ?? "2025",
+      matchday: fixture.matchday,
+      homeTeamId: fixture.homeTeamId,
+      awayTeamId: fixture.awayTeamId,
+      state,
+    };
+    matchSnapshotRef.current = session;
+    writeActiveMatchSession(session);
+    setMatchAutosaveAt(state.savedAt);
+  }, [fixture?.id, matchId, saveId, segment, events, score, finished, tab, livePlayer, liveOppPlayers, subsUsed, pendingInjury, subbingSlot, keyEventBanner, possession, sentOffIds, oppSentOffIds, currentMinute, pauseEvent, playing, matchPhase, addedTime, subbedOutIds, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds, lineup, subs, tactics]);
+
+  useEffect(() => {
+    const flush = () => {
+      if (matchSnapshotRef.current) writeActiveMatchSession(matchSnapshotRef.current);
+    };
+    const onVisibility = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
   if (!fixture) return <div style={{ padding: 20, color: "#9aa0b4" }}>No hay partido disponible.</div>;
 
   const isHome     = fixture.homeTeamId === teamId;
@@ -4344,17 +4446,26 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
     simNext();
   };
 
-  const endMatch = () => onMatchEnd(fixture.id, score.home, score.away, events, livePlayer, {
-    teamId: game.teamId,
-    starters: baseLineup.filter(Boolean),
-    finishers: lineup.filter(id=>id&&!sentOffIds.includes(id)&&!livePlayer.find(player=>player.id===id)?.injured),
-    userFormation:baseFormation,
-    opponentFormation:initialOppFormation,
-    opponentStarters:oppCallup.lineup.filter(Boolean),
-    opponentBench:oppCallup.bench.filter(Boolean),
-    opponentFinishers:oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)),
-    opponentPlayers:liveOppPlayers,
-  });
+  const endMatch = () => {
+    clearActiveMatchSession(matchId);
+    onMatchEnd(fixture.id, score.home, score.away, events, livePlayer, {
+      teamId: game.teamId,
+      starters: baseLineup.filter(Boolean),
+      finishers: lineup.filter(id=>id&&!sentOffIds.includes(id)&&!livePlayer.find(player=>player.id===id)?.injured),
+      userFormation:baseFormation,
+      opponentFormation:initialOppFormation,
+      opponentStarters:oppCallup.lineup.filter(Boolean),
+      opponentBench:oppCallup.bench.filter(Boolean),
+      opponentFinishers:oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)),
+      opponentPlayers:liveOppPlayers,
+      matchId,
+    });
+  };
+
+  const abandonMatch = () => {
+    clearActiveMatchSession(matchId);
+    onAbandonMatch?.();
+  };
 
   const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",DEFENSIVE_ACTION:"#60a5fa",INJURY:"#f97316",SUBSTITUTION:"#a855f7",ADDED_TIME:"#c9a84c",HALFTIME:"#c9a84c" };
   const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÓN",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",DEFENSIVE_ACTION:"DEFENSA",INJURY:"LESIÓN",SUBSTITUTION:"CAMBIO",ADDED_TIME:"DESCUENTO",HALFTIME:"DESCANSO" };
@@ -4442,6 +4553,9 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
             {" · "}{tactics.presion} presión{" · "}{tactics.estilo}
           </div>
           <div style={{fontSize:11,color:activeUserCount<11?"#ef4444":oppSentOffIds.length?"#22c55e":"#6b7280",fontWeight:700}}>👥 {activeUserCount} vs {oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)).length}</div>
+        </div>
+        <div style={{ marginTop:6, fontSize:9, color:"#22c55e", fontWeight:700 }}>
+          Partido guardado{matchAutosaveAt ? ` · ${new Date(matchAutosaveAt).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}` : ""}
         </div>
       </div>
 
@@ -4623,6 +4737,9 @@ function MatchScreen({ game, tactics: baseTactics, setTactics: setBaseTactics, l
             <button onClick={manualAdvance} className="btn-ghost" style={{padding:14,borderRadius:9,fontSize:14}}>Avance manual</button>
           </div>
           <div style={{fontSize:9,color:pauseEvent?"#c9a84c":"#6b7280",textAlign:"center",lineHeight:1.4,marginTop:7}}>{pauseEvent?`Partido detenido en el ${currentMinute}'. Pulsa Play para reanudar o Avance manual para continuar paso a paso.`:"1 segundo real = 1 minuto de partido. Se detiene en goles, penaltis, tarjetas, lesiones y decisiones."}</div>
+          <button onClick={abandonMatch} className="btn-danger" style={{ width:"100%", padding:11, borderRadius:9, fontSize:12, marginTop:9 }}>
+            Abandonar partido y volver al inicio
+          </button>
           </>
         ) : (
           <>
@@ -5294,12 +5411,14 @@ export default function App({ externalData }) {
   const [cloudSyncState, setCloudSyncState] = useState({ state:"local", lastSyncAt:null, error:null });
   const [cloudConflict, setCloudConflict] = useState(null);
   const [cloudLinkPrompt, setCloudLinkPrompt] = useState(null);
+  const [recoverableMatch, setRecoverableMatch] = useState(null);
   const cloudSaveTimerRef = useRef(null);
   const cloudSavingRef = useRef(false);
   const pendingCloudSaveRef = useRef(null);
 
   useEffect(() => {
     setSavesIndexState(getSavesIndex());
+    setRecoverableMatch(getRecoverableActiveMatchSession());
   }, []);
 
   useEffect(() => {
@@ -5427,7 +5546,7 @@ export default function App({ externalData }) {
     setCloudLinkPrompt({ saveId:activeSaveId, name:game.name ?? "Partida local" });
   }, [cloudSession?.user?.id, game?.id, game?.cloudSaveId, activeSaveId]);
 
-  const loadGame = (saveId) => {
+  const loadGame = (saveId, options = {}) => {
     try {
       const saved = localStorage.getItem(saveSlotKey(saveId));
       if (saved) {
@@ -5470,7 +5589,8 @@ export default function App({ externalData }) {
         migrated=refreshTransferListings(ensureTransferState(bootstrapScouting(migrated,getScoutingPool(migrated))),TEAMS,REAL_SQUADS);
         saveGame(migrated, loadedLineup, loadedFormation, loadedSubs, saveId);
         setGame(migrated);
-        if(migrated.seasonTransition==="seasonEnd"){setSeasonSummary({standings:migrated.standings,teamId:migrated.teamId,season:migrated.season,history:migrated.history??[],players:migrated.players,legacy:migrated.legacy,game:migrated});setScreen("seasonEnd");}
+        if(options.targetScreen){setScreen(options.targetScreen);}
+        else if(migrated.seasonTransition==="seasonEnd"){setSeasonSummary({standings:migrated.standings,teamId:migrated.teamId,season:migrated.season,history:migrated.history??[],players:migrated.players,legacy:migrated.legacy,game:migrated});setScreen("seasonEnd");}
         else setScreen(migrated.seasonTransition==="preseason"?"preseason":"dashboard");
       }
     } catch (e) {}
@@ -5487,6 +5607,27 @@ export default function App({ externalData }) {
         setGame(null);
       }
     } catch (e) {}
+  };
+
+  const handleContinueRecoveredMatch = () => {
+    const session = getRecoverableActiveMatchSession();
+    if (!session) {
+      setRecoverableMatch(null);
+      return;
+    }
+    setRecoverableMatch(session);
+    if (session.saveId) {
+      loadGame(session.saveId, { targetScreen:"match" });
+    } else if (game) {
+      setScreen("match");
+    }
+  };
+
+  const handleAbandonRecoveredMatch = () => {
+    const session = getRecoverableActiveMatchSession();
+    if (session) clearActiveMatchSession(session.matchId);
+    setRecoverableMatch(null);
+    if (screen === "match") setScreen(game ? "dashboard" : "menu");
   };
 
   const activeLocalSave = activeSaveId ? getSavesIndex().find(item=>item.id===activeSaveId) : null;
@@ -5666,11 +5807,14 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
 
   const handleMatchEnd = (fixtureId, homeGoals, awayGoals, events, livePlayer, participation) => {
     let summaryData = null;
+    if (participation?.matchId) clearActiveMatchSession(participation.matchId);
+    setRecoverableMatch(null);
     setGame(prev => {
+      const fixture  = prev.fixtures.find(f => f.id === fixtureId);
+      if (!fixture || fixture.played) return prev;
       const newFixtures = prev.fixtures.map(f =>
         f.id === fixtureId ? { ...f, played: true, homeGoals, awayGoals, events, participation } : f
       );
-      const fixture  = prev.fixtures.find(f => f.id === fixtureId);
       const matchday = fixture.matchday;
       const finalFixtures = newFixtures.map(f => {
         if (f.matchday === matchday && !f.played) {
@@ -6113,7 +6257,18 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     if (transfer?.player) openPlayerProfile(transfer.player, transfer.type === "buy" ? game.teamId : null);
   };
 
-  const attentionItems = game ? getAttentionItems(game, { lineup }) : [];
+  const activeMatchForGame = game ? getRecoverableMatchForGame(game) : null;
+  const activeMatchAttention = activeMatchForGame ? [{
+    id:`match-in-progress:${activeMatchForGame.matchId}`,
+    category:"match",
+    priority:"critical",
+    title:"Partido en curso pendiente de finalizar.",
+    summary:"Hay un partido iniciado que todavía no ha terminado.",
+    status:"new",
+    action:{ screen:"match" },
+    actionLabel:"Continuar partido",
+  }] : [];
+  const attentionItems = game ? [...activeMatchAttention, ...getAttentionItems(game, { lineup })] : [];
   const attentionCount = getAttentionCount(attentionItems);
 
   const updateAttentionStatus = (itemId, status) => {
@@ -6224,6 +6379,24 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           <button onClick={()=>setCloudLinkPrompt(null)} style={{ background:"transparent", border:"none", color:"#8b92a3", fontSize:16, cursor:"pointer" }}>×</button>
         </div>
       )}
+      {recoverableMatch && screen === "menu" && (
+        <div style={{ position:"fixed", inset:0, zIndex:80, background:"rgba(6,8,12,.82)", display:"flex", alignItems:"center", justifyContent:"center", padding:18 }}>
+          <div style={{ width:"100%", maxWidth:420, background:"#161a24", border:"1px solid rgba(201,168,76,.28)", borderRadius:16, padding:18, boxShadow:"0 18px 45px rgba(0,0,0,.45)" }}>
+            <div style={{ fontSize:11, color:"#c9a84c", fontWeight:900, letterSpacing:".7px", marginBottom:8 }}>PARTIDO EN CURSO</div>
+            <div style={{ fontSize:20, color:"#f3f4f6", fontWeight:900, lineHeight:1.2, marginBottom:8 }}>Se ha detectado un partido en curso.</div>
+            <div style={{ fontSize:12, color:"#9aa0b4", lineHeight:1.5, marginBottom:14 }}>
+              Puedes continuar exactamente donde estaba o abandonar el partido pendiente. No se reiniciará automáticamente.
+            </div>
+            <div style={{ background:"#0d0f14", border:"1px solid rgba(255,255,255,.06)", borderRadius:10, padding:10, marginBottom:14, fontSize:11, color:"#8b92a3" }}>
+              Jornada {recoverableMatch.matchday ?? "—"} · Temporada {recoverableMatch.season ?? "—"}
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:9 }}>
+              <button onClick={handleContinueRecoveredMatch} className="btn-gold" style={{ padding:13, borderRadius:10, fontSize:14 }}>Continuar partido</button>
+              <button onClick={handleAbandonRecoveredMatch} className="btn-danger" style={{ padding:12, borderRadius:10, fontSize:13 }}>Abandonar partido</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
         <ScreenWrapper animKey={screen}>
@@ -6258,7 +6431,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "contracts" && game && <ContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} />}
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} />}
-          {screen === "match"     && game && <MatchScreen game={game} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} />}
+          {screen === "match"     && game && <MatchScreen game={game} saveId={activeSaveId} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} onAbandonMatch={()=>{setRecoverableMatch(null);setScreen("dashboard");}} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
           {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"preseason-start",{lineup,formation,subs});return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}
