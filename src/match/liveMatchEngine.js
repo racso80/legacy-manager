@@ -5,21 +5,25 @@ const EVENT_SIDE = {
   opp: "opponent",
 };
 
-function eventSide(event, isHome) {
+function eventSide(event, isHome, context = {}) {
+  if (event?.teamId && event.teamId === context.userTeamId) return "user";
+  if (event?.teamId && event.teamId === context.opponentTeamId) return "opponent";
+  if (event?.playerId && context.userPlayerIds?.has(event.playerId)) return "user";
+  if (event?.playerId && context.opponentPlayerIds?.has(event.playerId)) return "opponent";
   if (EVENT_SIDE[event?.team]) return EVENT_SIDE[event.team];
   if (event?.team === "home") return isHome ? "user" : "opponent";
   if (event?.team === "away") return isHome ? "opponent" : "user";
   return "neutral";
 }
 
-function countEvents(events, isHome, side, types) {
+function countEvents(events, isHome, side, types, context) {
   const typeSet = new Set(types);
-  return events.filter(event => eventSide(event, isHome) === side && typeSet.has(event.type)).length;
+  return events.filter(event => eventSide(event, isHome, context) === side && typeSet.has(event.type)).length;
 }
 
-function yellowsByPlayer(events, isHome, side) {
+function yellowsByPlayer(events, isHome, side, context) {
   return events.reduce((map, event) => {
-    if (event.type !== "YELLOW" || !event.playerId || eventSide(event, isHome) !== side) return map;
+    if (event.type !== "YELLOW" || !event.playerId || eventSide(event, isHome, context) !== side) return map;
     map[event.playerId] = (map[event.playerId] ?? 0) + 1;
     return map;
   }, {});
@@ -41,6 +45,8 @@ export function buildLiveMatchState({
   isHome = true,
   userPlayers = [],
   opponentPlayers = [],
+  userTeamId = null,
+  opponentTeamId = null,
   lineup = [],
   opponentLineup = [],
   sentOffIds = [],
@@ -51,6 +57,12 @@ export function buildLiveMatchState({
 }) {
   const userGoals = isHome ? score.home : score.away;
   const opponentGoals = isHome ? score.away : score.home;
+  const sideContext = {
+    userTeamId,
+    opponentTeamId,
+    userPlayerIds: new Set(userPlayers.map(player => player.id)),
+    opponentPlayerIds: new Set(opponentPlayers.map(player => player.id)),
+  };
   const userActiveIds = activePlayerIds(lineup, sentOffIds);
   const opponentActiveIds = activePlayerIds(opponentLineup, opponentSentOffIds);
   const userActive = userActiveIds
@@ -59,30 +71,32 @@ export function buildLiveMatchState({
   const opponentActive = opponentActiveIds
     .map(id => opponentPlayers.find(player => player.id === id))
     .filter(Boolean);
-  const yellowMap = yellowsByPlayer(events, isHome, "user");
+  const yellowMap = yellowsByPlayer(events, isHome, "user", sideContext);
 
-  const userGoalsCount = countEvents(events, isHome, "user", ["GOAL", "PENALTY"]);
-  const opponentGoalsCount = countEvents(events, isHome, "opponent", ["GOAL", "PENALTY"]);
-  const userBigChances = countEvents(events, isHome, "user", ["BIG_CHANCE", "DANGEROUS_CROSS", "CORNER"]);
-  const opponentBigChances = countEvents(events, isHome, "opponent", ["BIG_CHANCE", "DANGEROUS_CROSS", "CORNER"]);
-  const userBlockedShots = countEvents(events, isHome, "user", ["BLOCKED_SHOT"]);
-  const opponentBlockedShots = countEvents(events, isHome, "opponent", ["BLOCKED_SHOT"]);
-  const userSaves = countEvents(events, isHome, "user", ["SAVE"]);
-  const opponentSaves = countEvents(events, isHome, "opponent", ["SAVE"]);
+  const userGoalsCount = countEvents(events, isHome, "user", ["GOAL", "PENALTY"], sideContext);
+  const opponentGoalsCount = countEvents(events, isHome, "opponent", ["GOAL", "PENALTY"], sideContext);
+  const userChanceEvents = countEvents(events, isHome, "user", ["BIG_CHANCE", "DANGEROUS_CROSS", "CORNER"], sideContext);
+  const opponentChanceEvents = countEvents(events, isHome, "opponent", ["BIG_CHANCE", "DANGEROUS_CROSS", "CORNER"], sideContext);
+  const userBlockedShots = countEvents(events, isHome, "user", ["BLOCKED_SHOT"], sideContext);
+  const opponentBlockedShots = countEvents(events, isHome, "opponent", ["BLOCKED_SHOT"], sideContext);
+  const userSaves = countEvents(events, isHome, "user", ["SAVE"], sideContext);
+  const opponentSaves = countEvents(events, isHome, "opponent", ["SAVE"], sideContext);
 
   const stats = {
     userGoals,
     opponentGoals,
-    userShots: userGoalsCount + userBigChances + userBlockedShots + opponentSaves,
-    opponentShots: opponentGoalsCount + opponentBigChances + opponentBlockedShots + userSaves,
-    userBigChances,
-    opponentBigChances,
+    userShots: userGoalsCount + userChanceEvents + userBlockedShots + opponentSaves,
+    opponentShots: opponentGoalsCount + opponentChanceEvents + opponentBlockedShots + userSaves,
+    userBigChances: userGoalsCount + opponentSaves + userChanceEvents,
+    opponentBigChances: opponentGoalsCount + userSaves + opponentChanceEvents,
     userSaves,
     opponentSaves,
-    userYellows: countEvents(events, isHome, "user", ["YELLOW"]),
-    opponentYellows: countEvents(events, isHome, "opponent", ["YELLOW"]),
-    userReds: countEvents(events, isHome, "user", ["RED"]),
-    opponentReds: countEvents(events, isHome, "opponent", ["RED"]),
+    userShotsOnTarget: userGoalsCount + opponentSaves,
+    opponentShotsOnTarget: opponentGoalsCount + userSaves,
+    userYellows: countEvents(events, isHome, "user", ["YELLOW"], sideContext),
+    opponentYellows: countEvents(events, isHome, "opponent", ["YELLOW"], sideContext),
+    userReds: countEvents(events, isHome, "user", ["RED"], sideContext),
+    opponentReds: countEvents(events, isHome, "opponent", ["RED"], sideContext),
     userActiveCount: userActive.length,
     opponentActiveCount: opponentActive.length,
   };
