@@ -262,9 +262,10 @@ function normalizeCandidateToIssue(candidate, game) {
     title,
     summary: humanSummary(candidate, owner.id),
     consequenceIfIgnored: candidate.consequenceIfIgnored ?? candidate.issue?.consequenceIfIgnored ?? candidate.attention?.summary ?? candidate.consequence,
-    goal: key.startsWith("contract_renewal_response:") ? renewalResponseGoal(candidate) : candidate.issue?.expectedOutcome ?? "Tomar una decisión clara.",
+    goal: key.startsWith("contract_renewal_response:") ? renewalResponseGoal(candidate) : candidate.attention?.expectedOutcome ?? candidate.issue?.expectedOutcome ?? "Tomar una decisión clara.",
     availableActions: [candidate.issue?.actionLabel ?? candidate.attention?.actionLabel ?? "Revisar"],
     responseType: candidate.attention?.responseType ?? candidate.responseType ?? null,
+    momentType: candidate.attention?.momentType ?? candidate.momentType ?? null,
     history: [],
   };
 }

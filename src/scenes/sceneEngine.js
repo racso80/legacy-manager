@@ -227,6 +227,33 @@ function isRenewalResponseIssue(item) {
   return String(item.normalizedIssue?.id ?? item.issueKey ?? item.attention?.issueKey ?? "").startsWith("contract_renewal_response:");
 }
 
+function isClubLifeMoment(item) {
+  return String(item.normalizedIssue?.id ?? item.issueKey ?? item.attention?.issueKey ?? "").startsWith("club_life_moment:");
+}
+
+function clubLifeMomentMessage(item, actor) {
+  const issue = item.normalizedIssue ?? item.attention ?? {};
+  const subject = issue.subjectName ?? issue.playerName ?? "el chico";
+  const shortSubject = firstName(subject);
+  const type = issue.momentType ?? item.attention?.momentType;
+  if (type === "captain_gratitude") {
+    return `Mister...\n\nSolo queria decirtelo antes de que empiece el ruido de la semana.\n\nEl grupo esta contigo. Han agradecido como gestionaste los ultimos dias; no todos lo dicen en voz alta, pero se nota en el vestuario.\n\nNo venia a pedir nada. A veces tambien conviene saber cuando algo esta saliendo bien.`;
+  }
+  if (type === "academy_hope") {
+    return `Mister...\n\nPerdone que venga con esta cara, pero creo que tenemos algo bonito entre manos.\n\n${shortSubject} tiene detalles que no se entrenan facilmente. Todavia hay que protegerlo, claro, pero cuando un chico mira asi el juego... merece que no lo perdamos de vista.\n\nNo le pido que lo suba ya. Solo que lo mire con calma.`;
+  }
+  if (type === "medical_good_news") {
+    return `Mister...\n\nHoy traigo una buena noticia, que tampoco esta mal variar un poco.\n\n${shortSubject} esta respondiendo mejor de lo esperado. No quiero correr, ya me conoce, pero la recuperacion va por buen camino.\n\nSi seguimos sin precipitarnos, podemos ganar un jugador sin pagar el precio dos veces.`;
+  }
+  if (type === "president_praise") {
+    return `Queria verte un minuto.\n\nNo voy a alargarme. El club transmite una sensacion de rumbo, y eso importa.\n\nLos resultados son importantes, ya lo sabes. Pero tambien lo es que la gente sienta que hay una idea detras. Sigue asi.`;
+  }
+  if (type === "assistant_training_good") {
+    return `Mister...\n\nHoy el entrenamiento ha tenido otra energia. Se les ha visto con chispa, con mala leche buena, de la que hace falta para competir.\n\nYo saldria de aqui contento. No porque ya este todo hecho, sino porque el equipo empieza a parecerse a lo que queremos.`;
+  }
+  return `Mister...\n\nSolo queria comentarle una cosa. No es un problema, pero si una de esas pequenas senales que hacen que el club parezca vivo.\n\n${issue.summary ?? "La semana ha dejado una sensacion positiva."}`;
+}
+
 function renewalResponseMessage(item) {
   const issue = item.normalizedIssue ?? item.attention ?? {};
   const subject = issue.subjectName ?? issue.playerName ?? "el jugador";
@@ -245,6 +272,7 @@ function renewalResponseMessage(item) {
 }
 
 function sceneMessage(item, actor) {
+  if (isClubLifeMoment(item)) return clubLifeMomentMessage(item, actor);
   if (isRenewalResponseIssue(item)) return renewalResponseMessage(item);
   if (item.normalizedIssue) {
     return clubLifeMessage({
@@ -362,6 +390,17 @@ function sceneOptions(item, actor) {
       ...base.map(([id, label, consequence]) => ({ id, label, tone:"contractual", type:"act", navigateTo:screen, consequence, reaction:reactionFor(actor, { id, type:"act" }) })),
       { id:"postpone", label:"Esperar unos dias", tone:"prudente", type:"postpone", consequence:"Ganas margen, pero la negociacion puede volver con mas tension.", reaction:reactionFor(actor, { id:"postpone", type:"postpone" }) },
     ];
+  }
+  if (isClubLifeMoment(item)) {
+    return [{
+      id:"thanks",
+      label:"Gracias por venir a contarmelo",
+      tone:"cercano",
+      type:"act",
+      navigateTo:"dashboard",
+      consequence:"No todo queda en una decision. A veces escuchar tambien construye vestuario.",
+      reaction:`${actor.name} asiente con una media sonrisa. No era una reunion larga; era una pequena pieza mas de confianza.`,
+    }];
   }
   const screen = item.source === "clubLife" ? item.issue.action?.screen : item.attention?.action?.screen;
   const actionLabel = item.source === "clubLife" ? item.issue.actionLabel : item.attention?.actionLabel;

@@ -32,6 +32,12 @@ function pushEvent(events, event) {
   logEvent("Event published", event);
 }
 
+function pickByDay(game, list = []) {
+  if (!list.length) return null;
+  const seed = Number(game?.matchday ?? 1) + Number(game?.season ?? 2025);
+  return list[Math.abs(seed) % list.length];
+}
+
 function renewalLabel(status) {
   return {
     accepted: "ha respondido positivamente a la oferta de renovacion",
@@ -311,6 +317,97 @@ export function buildLegacyDirectorEvents(game, context = {}) {
     });
   }
 
+  const hasCritical = events.some(event => event.priority === "critical");
+  const shouldBreathe = !hasCritical && (stamp.matchday ?? 1) > 1 && (stamp.matchday ?? 1) % 4 === 0;
+  if (shouldBreathe) {
+    const bestYouth = [...(game.youth?.players ?? [])].sort((a, b) => (b.potential ?? 0) - (a.potential ?? 0))[0];
+    const recovered = (game.players ?? []).find(player => player.medical?.phase === "available" && (player.medical?.recoveryProgress ?? 0) >= 95);
+    const goodMood = (game.players ?? []).filter(player => (player.morale ?? 70) >= 78).length >= Math.max(3, Math.floor((game.players?.length ?? 20) / 4));
+    const moments = [
+      goodMood && {
+        id:`ClubLifeMoment:captain:${stamp.season}:${stamp.matchday}`,
+        type:"ClubLifeMoment",
+        momentType:"captain_gratitude",
+        issueKey:`club_life_moment:captain:${stamp.season}:${stamp.matchday}`,
+        category:"training",
+        ownerActorId:"captain",
+        priority:"important",
+        title:"El capitan quiere comentarte algo",
+        summary:"El grupo ha agradecido como estas llevando estas semanas. No es un problema; es vestuario respirando.",
+        action:{ screen:"lockerRoom" },
+        actionLabel:"Escuchar",
+        expectedOutcome:"Escuchar al capitan y reforzar la relacion con el vestuario.",
+        ...stamp,
+      },
+      bestYouth && {
+        id:`ClubLifeMoment:academy:${bestYouth.id}:${stamp.season}:${stamp.matchday}`,
+        type:"ClubLifeMoment",
+        momentType:"academy_hope",
+        issueKey:`club_life_moment:academy:${bestYouth.id}`,
+        category:"youth",
+        ownerActorId:"academyChief",
+        priority:"important",
+        title:`${bestYouth.name} ilusiona en la cantera`,
+        summary:`El jefe de cantera cree que ${firstName(bestYouth.name)} tiene algo especial. No exige una decision urgente, pero conviene seguirlo de cerca.`,
+        subjectId:bestYouth.id,
+        subjectName:bestYouth.name,
+        action:{ screen:"youth", playerId:bestYouth.id },
+        actionLabel:"Escuchar informe",
+        expectedOutcome:"Conocer mejor al canterano y decidir si merece seguimiento cercano.",
+        ...stamp,
+      },
+      recovered && {
+        id:`ClubLifeMoment:medical:${recovered.id}:${stamp.season}:${stamp.matchday}`,
+        type:"ClubLifeMoment",
+        momentType:"medical_good_news",
+        issueKey:`club_life_moment:medical:${recovered.id}`,
+        category:"medical",
+        ownerActorId:"doctor",
+        priority:"important",
+        title:`Buenas noticias sobre ${recovered.name}`,
+        summary:"El medico trae una nota positiva de recuperacion. Hoy no todo son alarmas.",
+        subjectId:recovered.id,
+        subjectName:recovered.name,
+        action:{ screen:"medical", playerId:recovered.id },
+        actionLabel:"Escuchar informe",
+        expectedOutcome:"Recibir una buena noticia medica y valorar el regreso progresivo.",
+        ...stamp,
+      },
+      (game.legacy?.confidence ?? 70) >= 72 && {
+        id:`ClubLifeMoment:president:${stamp.season}:${stamp.matchday}`,
+        type:"ClubLifeMoment",
+        momentType:"president_praise",
+        issueKey:`club_life_moment:president:${stamp.season}:${stamp.matchday}`,
+        category:"board",
+        ownerActorId:"president",
+        priority:"important",
+        title:"El presidente pasa por tu despacho",
+        summary:"Quiere reconocer que el club transmite una sensacion de rumbo. Una conversacion breve, pero importante.",
+        action:{ screen:"board" },
+        actionLabel:"Recibir",
+        expectedOutcome:"Reforzar la confianza institucional.",
+        ...stamp,
+      },
+      {
+        id:`ClubLifeMoment:assistant:${stamp.season}:${stamp.matchday}`,
+        type:"ClubLifeMoment",
+        momentType:"assistant_training_good",
+        issueKey:`club_life_moment:assistant:${stamp.season}:${stamp.matchday}`,
+        category:"training",
+        ownerActorId:"assistantCoach",
+        priority:"important",
+        title:"El segundo entrenador viene animado",
+        summary:"El entrenamiento ha dejado buenas sensaciones. No todo necesita una crisis para merecer una conversacion.",
+        action:{ screen:"training" },
+        actionLabel:"Escuchar",
+        expectedOutcome:"Recibir informacion util del cuerpo tecnico.",
+        ...stamp,
+      },
+    ].filter(Boolean);
+    const moment = pickByDay(game, moments);
+    if (moment) pushEvent(events, moment);
+  }
+
   return events;
 }
 
@@ -337,6 +434,8 @@ export function legacyDirectorEventsToAttentionItems(game, events = []) {
         playerName:event.subjectName,
         action:event.action,
         actionLabel:event.actionLabel ?? "Revisar",
+        expectedOutcome:event.expectedOutcome ?? null,
+        momentType:event.momentType ?? null,
         status:saved.status ?? "new",
         firstSeenAt:saved.firstSeenAt ?? null,
         updatedAt:saved.updatedAt ?? null,
