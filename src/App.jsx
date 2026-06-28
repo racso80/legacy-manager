@@ -695,6 +695,37 @@ function tacticModifiers(tactics) {
 
 const LIVE_FORMATION_OPTIONS = Object.keys(MATCH_FORMATIONS);
 
+const LIVE_PITCH_LAYOUTS = {
+  "4-3-3": [
+    {slot:0,x:50,y:88},{slot:1,x:82,y:70},{slot:2,x:63,y:72},{slot:3,x:37,y:72},{slot:4,x:18,y:70},
+    {slot:5,x:74,y:50},{slot:6,x:50,y:52},{slot:7,x:26,y:50},{slot:8,x:78,y:25},{slot:9,x:50,y:22},{slot:10,x:22,y:25},
+  ],
+  "4-4-2": [
+    {slot:0,x:50,y:88},{slot:1,x:82,y:70},{slot:2,x:63,y:72},{slot:3,x:37,y:72},{slot:4,x:18,y:70},
+    {slot:5,x:78,y:50},{slot:6,x:59,y:50},{slot:7,x:41,y:50},{slot:8,x:22,y:50},{slot:9,x:65,y:24},{slot:10,x:35,y:24},
+  ],
+  "4-2-3-1": [
+    {slot:0,x:50,y:90},{slot:1,x:84,y:73},{slot:2,x:63,y:76},{slot:3,x:37,y:76},{slot:4,x:16,y:73},
+    {slot:5,x:63,y:58},{slot:6,x:37,y:58},{slot:7,x:80,y:36},{slot:8,x:50,y:38},{slot:9,x:20,y:36},{slot:10,x:50,y:14},
+  ],
+  "4-5-1": [
+    {slot:0,x:50,y:90},{slot:1,x:84,y:73},{slot:2,x:63,y:76},{slot:3,x:37,y:76},{slot:4,x:16,y:73},
+    {slot:5,x:82,y:48},{slot:6,x:62,y:50},{slot:7,x:50,y:56},{slot:8,x:38,y:50},{slot:9,x:18,y:48},{slot:10,x:50,y:18},
+  ],
+  "5-3-2": [
+    {slot:0,x:50,y:90},{slot:1,x:86,y:72},{slot:2,x:68,y:76},{slot:3,x:50,y:78},{slot:4,x:32,y:76},{slot:5,x:14,y:72},
+    {slot:6,x:64,y:50},{slot:7,x:50,y:54},{slot:8,x:36,y:50},{slot:9,x:64,y:24},{slot:10,x:36,y:24},
+  ],
+  "5-4-1": [
+    {slot:0,x:50,y:90},{slot:1,x:86,y:72},{slot:2,x:68,y:76},{slot:3,x:50,y:78},{slot:4,x:32,y:76},{slot:5,x:14,y:72},
+    {slot:6,x:78,y:50},{slot:7,x:59,y:52},{slot:8,x:41,y:52},{slot:9,x:22,y:50},{slot:10,x:50,y:20},
+  ],
+  "3-5-2": [
+    {slot:0,x:50,y:88},{slot:1,x:70,y:72},{slot:2,x:50,y:74},{slot:3,x:30,y:72},
+    {slot:4,x:82,y:52},{slot:5,x:64,y:52},{slot:6,x:50,y:50},{slot:7,x:36,y:52},{slot:8,x:18,y:52},{slot:9,x:65,y:24},{slot:10,x:35,y:24},
+  ],
+};
+
 function positionFamily(position) {
   if (position === "POR") return "POR";
   if (["LD","LI","DFC"].includes(position)) return "DEF";
@@ -3123,7 +3154,7 @@ function SquadScreen({ game, players, onOpenPlayer }) {
   const seasons=[...new Set([String(game.season),...players.flatMap(player=>(player.careerHistory??[]).map(entry=>String(entry.season)))])].sort((a,b)=>Number(b)-Number(a));
   const seasonStats=player=>statsSeason===String(game.season)?getPlayerSeasonStats(player,game,game.teamId):(player.careerHistory??[]).find(entry=>String(entry.season)===statsSeason)??{};
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position:"relative" }}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"9px 14px",background:"#13161f",borderBottom:"1px solid rgba(255,255,255,.06)"}}><div><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>ESTADÍSTICAS</div><div style={{fontSize:11,color:"#e8eaf0",marginTop:2}}>{statsSeason===String(game.season)?"Temporada actual":"Temporada histórica"}</div></div><select value={statsSeason} onChange={event=>setStatsSeason(event.target.value)} style={{background:"#1e2330",border:"1px solid rgba(201,168,76,.25)",color:"#c9a84c",borderRadius:7,padding:"7px 9px",fontSize:11,fontWeight:700}}>{seasons.map(season=><option key={season} value={season}>{season}/{String(Number(season)+1).slice(-2)}{season===String(game.season)?" · actual":""}</option>)}</select></div>
       <div style={{ display: "flex", gap: 8, padding: "10px 14px", overflowX: "auto", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
         {filters.map(([val, label]) => (
@@ -4581,6 +4612,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
   const [matchFormation, setMatchFormation] = useState(recoverState.matchFormation ?? baseFormation);
   const [oppFormation, setOppFormation] = useState(recoverState.oppFormation ?? initialOppFormation);
   const [selectedFormationSlot, setSelectedFormationSlot] = useState(recoverState.selectedFormationSlot ?? null);
+  const [tacticalBoardOpen, setTacticalBoardOpen] = useState(recoverState.tacticalBoardOpen ?? false);
   const [oppFormationChanged, setOppFormationChanged] = useState(recoverState.oppFormationChanged ?? false);
   const [oppCallup] = useState(()=>recoverState.oppCallup ?? buildMatchdaySquad(initialOppPlayers,recoverState.oppFormation ?? initialOppFormation,BENCH_SLOTS));
   const [oppLineup, setOppLineup] = useState(()=>recoverState.oppLineup ?? oppCallup.lineup);
@@ -4606,7 +4638,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     const state = {
       segment, events, score, finished, tab, livePlayer, liveOppPlayers, subsUsed, pendingInjury, subbingSlot,
       keyEventBanner, possession, sentOffIds, oppSentOffIds, currentMinute, pauseEvent, playing, matchPhase,
-      addedTime, subbedOutIds, matchFormation, oppFormation, selectedFormationSlot, oppFormationChanged, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds, liveDecision, dismissedLiveSignals,
+      addedTime, subbedOutIds, matchFormation, oppFormation, selectedFormationSlot, tacticalBoardOpen, oppFormationChanged, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds, liveDecision, dismissedLiveSignals,
       processedMinutes:[...processedMinuteRef.current], lineup, subs, tactics, savedAt:new Date().toISOString(),
     };
     const session = {
@@ -4625,7 +4657,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     matchSnapshotRef.current = session;
     writeActiveMatchSession(session);
     setMatchAutosaveAt(state.savedAt);
-  }, [fixture?.id, matchId, saveId, segment, events, score, finished, tab, livePlayer, liveOppPlayers, subsUsed, pendingInjury, subbingSlot, keyEventBanner, possession, sentOffIds, oppSentOffIds, currentMinute, pauseEvent, playing, matchPhase, addedTime, subbedOutIds, matchFormation, oppFormation, selectedFormationSlot, oppFormationChanged, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds, liveDecision, dismissedLiveSignals, lineup, subs, tactics]);
+  }, [fixture?.id, matchId, saveId, segment, events, score, finished, tab, livePlayer, liveOppPlayers, subsUsed, pendingInjury, subbingSlot, keyEventBanner, possession, sentOffIds, oppSentOffIds, currentMinute, pauseEvent, playing, matchPhase, addedTime, subbedOutIds, matchFormation, oppFormation, selectedFormationSlot, tacticalBoardOpen, oppFormationChanged, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds, liveDecision, dismissedLiveSignals, lineup, subs, tactics]);
 
   useEffect(() => {
     const flush = () => {
@@ -5060,6 +5092,19 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     simNext();
   };
 
+  const openTacticalBoard = () => {
+    setPlaying(false);
+    setTacticalBoardOpen(true);
+    setTab("tacticas");
+  };
+
+  const closeTacticalBoard = () => {
+    setTacticalBoardOpen(false);
+    setSelectedFormationSlot(null);
+    if (liveDecision) acknowledgeLiveDecision();
+    if (!pendingInjury && !finished && !["firstAddedReady","halftime","secondAddedReady"].includes(matchPhase)) setPlaying(true);
+  };
+
   const endMatch = () => {
     clearActiveMatchSession(matchId);
     onMatchEnd(fixture.id, score.home, score.away, events, livePlayer, {
@@ -5215,7 +5260,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
               <div style={{ fontSize:12, fontWeight:900, color:"#e8eaf0" }}>{liveDecision.title}</div>
               <div style={{ fontSize:11, color:"#cfd4df", lineHeight:1.45, marginTop:4 }}>{liveDecision.message}</div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:10 }}>
-                <button onClick={() => acknowledgeLiveDecision(liveDecision.targetTab)} className="btn-gold" style={{ padding:9, borderRadius:8, fontSize:11 }}>
+                <button onClick={() => liveDecision.targetTab === "tacticas" ? openTacticalBoard() : acknowledgeLiveDecision(liveDecision.targetTab)} className="btn-gold" style={{ padding:9, borderRadius:8, fontSize:11 }}>
                   {liveDecision.action}
                 </button>
                 <button onClick={() => acknowledgeLiveDecision()} className="btn-ghost" style={{ padding:9, borderRadius:8, fontSize:11 }}>
@@ -5383,13 +5428,36 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
         {tab === "tacticas" && (
           <div style={{ padding: 12 }}>
             <div style={{ fontSize: 11, color: "#f59e0b", background: "#f59e0b11", border: "1px solid #f59e0b33", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
-              Los cambios se aplican al siguiente tramo simulado.
+              Los cambios se aplican al siguiente tramo simulado. Para reorganizar el equipo, abre la pizarra del banquillo.
             </div>
+            <button onClick={openTacticalBoard} className="btn-gold" style={{ width:"100%", padding:12, borderRadius:9, fontSize:13, marginBottom:12 }}>
+              Abrir pizarra tactica
+            </button>
             <TacticsInMatch tactics={tactics} setTactics={setTactics} formation={matchFormation} onFormationChange={applyMatchFormation} lineup={lineup} subs={subs} players={livePlayer} selectedSlot={selectedFormationSlot} setSelectedSlot={setSelectedFormationSlot} onSwapSlots={swapFormationSlots} onSubstituteSlot={(slot,pid)=>doSubstitution(lineup[slot],pid)} />
           </div>
         )}
       </div>
       </SwipeTabs>
+
+      {tacticalBoardOpen && (
+        <TacticalBoardOverlay
+          minute={displayMinute}
+          formation={matchFormation}
+          lineup={lineup}
+          subs={subs}
+          players={livePlayer}
+          events={events}
+          sentOffIds={sentOffIds}
+          selectedSlot={selectedFormationSlot}
+          setSelectedSlot={setSelectedFormationSlot}
+          onFormationChange={applyMatchFormation}
+          onSwapSlots={swapFormationSlots}
+          onSubstituteSlot={(slot,pid)=>doSubstitution(lineup[slot],pid)}
+          onClose={closeTacticalBoard}
+          liveDecision={liveDecision}
+          subsLeft={MAX_SUBS - subsUsed}
+        />
+      )}
 
       {/* Controles */}
       <div style={{ padding: 12, background: "#161a24", borderTop: "1px solid rgba(255,255,255,.08)", flexShrink: 0 }}>
@@ -5399,6 +5467,9 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
             <button onClick={togglePlay} className={playing?"btn-ghost":"btn-gold"} disabled={!!pendingInjury} style={{padding:14,borderRadius:9,fontSize:14,opacity:pendingInjury?.65:1}}>{playing?"Pausa":"Play"}</button>
             <button onClick={manualAdvance} className="btn-ghost" style={{padding:14,borderRadius:9,fontSize:14}}>Avance manual</button>
           </div>
+          <button onClick={openTacticalBoard} className="btn-ghost" style={{ width:"100%", padding:12, borderRadius:9, fontSize:13, marginBottom:8 }}>
+            Cambiar tactica desde la pizarra
+          </button>
           <div style={{fontSize:9,color:pauseEvent?"#c9a84c":"#6b7280",textAlign:"center",lineHeight:1.4,marginTop:7}}>{pauseEvent?`Partido detenido en el ${currentMinute}'. Pulsa Play para reanudar o Avance manual para continuar paso a paso.`:"1 segundo real = 1 minuto de partido. Se detiene en goles, penaltis, tarjetas, lesiones y decisiones."}</div>
           <button onClick={abandonMatch} className="btn-danger" style={{ width:"100%", padding:11, borderRadius:9, fontSize:12, marginTop:9 }}>
             Abandonar partido y volver al inicio
@@ -5428,6 +5499,122 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
 }
 
 // Mini vista de tácticas dentro del partido (sin setTactics — sólo lectura)
+function TacticalBoardOverlay({ minute, formation, lineup = [], subs = [], players = [], events = [], sentOffIds = [], selectedSlot = null, setSelectedSlot = () => {}, onFormationChange = () => {}, onSwapSlots = () => {}, onSubstituteSlot = () => {}, onClose = () => {}, liveDecision = null, subsLeft = 0 }) {
+  const slots = MATCH_FORMATIONS[formation] ?? MATCH_FORMATIONS["4-3-3"];
+  const layout = LIVE_PITCH_LAYOUTS[formation] ?? LIVE_PITCH_LAYOUTS["4-3-3"];
+  const selectedPosition = selectedSlot != null ? slots[selectedSlot] : null;
+  const playerById = Object.fromEntries(players.map(player => [player.id, player]));
+  const yellowsById = events.reduce((map,event) => {
+    if (event.type === "YELLOW" && event.playerId) map[event.playerId] = (map[event.playerId] ?? 0) + 1;
+    return map;
+  }, {});
+  const injuredInMatch = new Set(events.filter(event => event.type === "INJURY" && event.playerId).map(event => event.playerId));
+  const assistantText = liveDecision?.targetTab === "tacticas"
+    ? liveDecision.message
+    : formation === "5-4-1"
+      ? "El equipo queda protegido. Es una buena estructura para cerrar el partido, pero costara salir."
+      : formation === "4-3-3"
+        ? "Abrimos el campo. Los extremos tendran mas peso y tambien mas desgaste."
+        : "Revisa si el dibujo mantiene equilibrio entre cansancio, tarjetas y zonas descubiertas.";
+  const handleSlotClick = (slot) => {
+    if (selectedSlot === slot) {
+      setSelectedSlot(null);
+      return;
+    }
+    if (selectedSlot == null) {
+      setSelectedSlot(slot);
+      return;
+    }
+    onSwapSlots(selectedSlot, slot);
+  };
+  return (
+    <div style={{ position:"absolute", inset:0, zIndex:30, background:"rgba(5,7,12,.84)", backdropFilter:"blur(5px)", display:"flex", flexDirection:"column" }}>
+      <div style={{ padding:"12px 14px", background:"rgba(13,15,20,.96)", borderBottom:"1px solid rgba(201,168,76,.22)", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:10, color:"#c9a84c", fontWeight:900, letterSpacing:".7px" }}>PIZARRA TACTICA - MIN {minute}'</div>
+          <div style={{ fontSize:12, color:"#e8eaf0", marginTop:3 }}>El partido espera al entrenador. Cambia dibujo, mueve jugadores o haz una sustitucion.</div>
+        </div>
+        <button onClick={onClose} className="btn-gold" style={{ padding:"9px 12px", borderRadius:8, fontSize:11 }}>Confirmar</button>
+      </div>
+
+      <div style={{ padding:"10px 12px", background:"rgba(96,165,250,.09)", borderBottom:"1px solid rgba(96,165,250,.18)", color:"#cfd8e6", fontSize:11, lineHeight:1.45, flexShrink:0 }}>
+        <strong style={{ color:"#60a5fa" }}>Segundo entrenador:</strong> {assistantText}
+      </div>
+
+      <div style={{ padding:"10px 12px", display:"flex", gap:7, overflowX:"auto", flexShrink:0, background:"rgba(13,15,20,.7)" }}>
+        {LIVE_FORMATION_OPTIONS.map(option => {
+          const active = option === formation;
+          return (
+            <button key={option} onClick={() => onFormationChange(option)}
+              style={{ flex:"0 0 auto", background:active?"#c9a84c":"#1e2330", color:active?"#1a1200":"#e8eaf0", border:`1px solid ${active?"#c9a84c":"rgba(255,255,255,.1)"}`, borderRadius:8, padding:"8px 11px", fontSize:12, fontWeight:850, cursor:"pointer" }}>
+              {option}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ flex:1, overflow:"auto", padding:12 }}>
+        <div style={{ position:"relative", minHeight:470, maxWidth:520, margin:"0 auto", borderRadius:22, overflow:"hidden", background:"linear-gradient(180deg,#14532d,#0f3d24)", border:"2px solid rgba(255,255,255,.16)", boxShadow:"0 18px 40px rgba(0,0,0,.35)" }}>
+          <div style={{ position:"absolute", inset:"4% 7%", border:"1px solid rgba(255,255,255,.25)", borderRadius:12 }} />
+          <div style={{ position:"absolute", left:"7%", right:"7%", top:"50%", borderTop:"1px solid rgba(255,255,255,.25)" }} />
+          <div style={{ position:"absolute", left:"50%", top:"50%", width:86, height:86, border:"1px solid rgba(255,255,255,.22)", borderRadius:"50%", transform:"translate(-50%,-50%)" }} />
+          <div style={{ position:"absolute", left:"32%", right:"32%", bottom:"4%", height:"17%", border:"1px solid rgba(255,255,255,.22)", borderBottom:"none", borderRadius:"12px 12px 0 0" }} />
+          <div style={{ position:"absolute", left:"32%", right:"32%", top:"4%", height:"17%", border:"1px solid rgba(255,255,255,.16)", borderTop:"none", borderRadius:"0 0 12px 12px", opacity:.45 }} />
+
+          {layout.map(({slot,x,y}) => {
+            const position = slots[slot];
+            const player = playerById[lineup[slot]];
+            const score = playerPositionScore(player, position);
+            const warning = player && score < 55;
+            const selected = selectedSlot === slot;
+            const yellowCount = player ? yellowsById[player.id] ?? 0 : 0;
+            const sentOff = player ? sentOffIds.includes(player.id) : false;
+            const injury = player ? injuredInMatch.has(player.id) || player.injured : false;
+            const fatigue = Math.round(player?.fatigue ?? 0);
+            return (
+              <button key={`${position}-${slot}`} onClick={() => handleSlotClick(slot)}
+                style={{ position:"absolute", left:`${x}%`, top:`${y}%`, transform:"translate(-50%,-50%)", width:78, minHeight:58, borderRadius:12, padding:"6px 5px", cursor:"pointer", textAlign:"center",
+                  background:selected?"rgba(201,168,76,.96)":sentOff?"rgba(239,68,68,.8)":warning?"rgba(245,158,11,.88)":"rgba(13,15,20,.9)",
+                  color:selected?"#1a1200":"#f8fafc", border:`1px solid ${selected?"#fff1b8":warning?"#fbbf24":"rgba(255,255,255,.18)"}`, boxShadow:"0 8px 18px rgba(0,0,0,.32)" }}>
+                <div style={{ fontSize:10, fontWeight:900, opacity:.9 }}>{position}</div>
+                <div style={{ fontSize:11, fontWeight:900, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{player?.name ?? "Libre"}</div>
+                <div style={{ display:"flex", justifyContent:"center", gap:4, marginTop:3, fontSize:9, color:selected?"#4b2d00":"#cbd5e1" }}>
+                  <span>{fatigue}%</span>
+                  {yellowCount > 0 && <span style={{ color:"#facc15" }}>A</span>}
+                  {injury && <span style={{ color:"#fb923c" }}>MED</span>}
+                  {warning && <span>FP</span>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ maxWidth:520, margin:"10px auto 0", background:"#111827", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, padding:10 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, marginBottom:8 }}>
+            <div style={{ fontSize:10, color:"#9aa0b4", fontWeight:900 }}>BANQUILLO {subsLeft} cambios restantes</div>
+            <div style={{ fontSize:10, color:selectedPosition?"#c9a84c":"#6b7280" }}>{selectedPosition ? `Seleccionada: ${selectedPosition}` : "Toca una posicion del campo"}</div>
+          </div>
+          <div style={{ display:"flex", gap:7, overflowX:"auto", paddingBottom:3 }}>
+            {subs.filter(Boolean).map(pid => {
+              const player = playerById[pid];
+              if (!player || player.injured || player.suspended) return null;
+              const score = selectedPosition ? playerPositionScore(player, selectedPosition) : 0;
+              const disabled = selectedSlot == null || subsLeft <= 0;
+              return (
+                <button key={pid} disabled={disabled} onClick={() => onSubstituteSlot(selectedSlot, pid)}
+                  style={{ flex:"0 0 132px", opacity:disabled ? .45 : 1, background:"#1e2330", border:`1px solid ${score>=55?"rgba(34,197,94,.35)":"rgba(255,255,255,.08)"}`, color:"#e8eaf0", borderRadius:9, padding:"8px 9px", textAlign:"left", cursor:disabled?"not-allowed":"pointer" }}>
+                  <div style={{ fontSize:11, fontWeight:850, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{player.name}</div>
+                  <div style={{ fontSize:10, color:score>=55?"#22c55e":"#9aa0b4", marginTop:3 }}>{player.pos} - {Math.round(player.fatigue ?? 0)}%</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TacticsInMatch({ tactics, setTactics, formation, onFormationChange, lineup = [], subs = [], players = [], selectedSlot = null, setSelectedSlot = () => {}, onSwapSlots = () => {}, onSubstituteSlot = () => {} }) {
   const fields = [
     ["mentalidad", "Mentalidad", [["defensiva","Defensiva"],["equilibrada","Equilibrada"],["ofensiva","Ofensiva"]]],
