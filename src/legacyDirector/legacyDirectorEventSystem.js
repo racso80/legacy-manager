@@ -324,6 +324,7 @@ export function legacyDirectorEventsToAttentionItems(game, events = []) {
         source:"legacyDirectorEvent",
         sourceEventId:event.id,
         sourceEventType:event.type,
+        responseType:event.responseType ?? null,
         issueKey:event.issueKey,
         ownerActorId:event.ownerActorId,
         category:event.category,

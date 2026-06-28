@@ -210,6 +210,14 @@ function cleanTitle(title = "", ownerId = "") {
   return text.trim() || "Asunto pendiente";
 }
 
+function renewalResponseGoal(candidate) {
+  const responseType = candidate.attention?.responseType ?? candidate.responseType;
+  if (responseType === "RenewalAccepted") return "Cerrar renovacion.";
+  if (responseType === "RenewalRejected") return "Decidir si mejorar condiciones, mantener postura o retirar la oferta.";
+  if (responseType === "RenewalCounterOffer") return "Responder a la contraoferta.";
+  return "Revisar la respuesta de renovacion.";
+}
+
 function humanSummary(candidate, ownerId) {
   const issue = candidate.issue;
   const attention = candidate.attention;
@@ -254,8 +262,9 @@ function normalizeCandidateToIssue(candidate, game) {
     title,
     summary: humanSummary(candidate, owner.id),
     consequenceIfIgnored: candidate.consequenceIfIgnored ?? candidate.issue?.consequenceIfIgnored ?? candidate.attention?.summary ?? candidate.consequence,
-    goal: candidate.issue?.expectedOutcome ?? "Tomar una decisión clara.",
+    goal: key.startsWith("contract_renewal_response:") ? renewalResponseGoal(candidate) : candidate.issue?.expectedOutcome ?? "Tomar una decisión clara.",
     availableActions: [candidate.issue?.actionLabel ?? candidate.attention?.actionLabel ?? "Revisar"],
+    responseType: candidate.attention?.responseType ?? candidate.responseType ?? null,
     history: [],
   };
 }
@@ -379,7 +388,8 @@ function avoidSameActorSpam(candidates, game, directorState) {
   const sorted = [...candidates].sort((a, b) => compareCandidates(a, b, game, directorState));
   sorted.forEach(candidate => {
     const key = actorKey(candidate);
-    if (!usedActors.has(key)) {
+    const allowSameOwner = String(candidate.issueKey ?? candidate.normalizedIssue?.id ?? "").startsWith("contract_renewal_response:");
+    if (allowSameOwner || !usedActors.has(key)) {
       selected.push(candidate);
       usedActors.add(key);
     }

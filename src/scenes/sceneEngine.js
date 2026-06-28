@@ -219,7 +219,33 @@ function attentionMessage(attention, actor) {
   return `Míster...\n\n${summary}\n\nNo sé si será el asunto más grande del día, pero sí merece que lo miremos antes de seguir.`;
 }
 
+function renewalResponseKind(item) {
+  return item.normalizedIssue?.responseType ?? item.attention?.responseType ?? item.responseType ?? null;
+}
+
+function isRenewalResponseIssue(item) {
+  return String(item.normalizedIssue?.id ?? item.issueKey ?? item.attention?.issueKey ?? "").startsWith("contract_renewal_response:");
+}
+
+function renewalResponseMessage(item) {
+  const issue = item.normalizedIssue ?? item.attention ?? {};
+  const subject = issue.subjectName ?? issue.playerName ?? "el jugador";
+  const shortSubject = firstName(subject);
+  const kind = renewalResponseKind(item);
+  if (kind === "RenewalAccepted") {
+    return `Mister...\n\nYa tenemos respuesta del entorno de ${shortSubject}.\n\nHan aceptado la base de la renovacion. Todavia quedan algunos detalles, pero creo que estamos cerca de cerrarlo.\n\nAhora toca decidir si firmamos, revisamos el contrato o dejamos unos dias de margen.`;
+  }
+  if (kind === "RenewalRejected") {
+    return `Mister...\n\nYa tenemos respuesta del entorno de ${shortSubject}.\n\nNo aceptan las condiciones actuales. Creen que merece un contrato mejor y, si no nos movemos, la negociacion puede enfriarse rapido.\n\nTenemos que decidir si mejoramos la oferta, mantenemos postura o retiramos la propuesta.`;
+  }
+  if (kind === "RenewalCounterOffer") {
+    return `Mister...\n\nNos han enviado una contraoferta por ${shortSubject}.\n\nNo han rechazado la renovacion, pero quieren mejores condiciones antes de avanzar.\n\nPodemos aceptar la peticion, revisar los detalles o ganar unos dias antes de responder.`;
+  }
+  return `Mister...\n\nYa tenemos respuesta del entorno de ${shortSubject}.\n\nLa negociacion ha cambiado de fase y necesita una decision concreta antes de seguir avanzando.`;
+}
+
 function sceneMessage(item, actor) {
+  if (isRenewalResponseIssue(item)) return renewalResponseMessage(item);
   if (item.normalizedIssue) {
     return clubLifeMessage({
       title: item.normalizedIssue.title,
@@ -311,6 +337,31 @@ function sceneOptions(item, actor) {
       };
       return { ...humanOption, reaction: reactionFor(actor, humanOption) };
     });
+  }
+  if (isRenewalResponseIssue(item)) {
+    const screen = item.attention?.action?.screen ?? "contracts";
+    const kind = renewalResponseKind(item);
+    const base = kind === "RenewalAccepted"
+      ? [
+          ["close_renewal", "Cerrar acuerdo", "Firmas la renovacion si las condiciones siguen encajando."],
+          ["review_contract", "Revisar contrato", "Abres la negociacion para comprobar todos los detalles."],
+          ["improve_detail", "Mejorar algun detalle", "Puedes reforzar la relacion sin reabrir todo el pulso."],
+        ]
+      : kind === "RenewalRejected"
+        ? [
+            ["improve_offer", "Mejorar oferta", "Intentas desbloquear la negociacion con mejores condiciones."],
+            ["hold_position", "Mantener postura", "El club no se mueve todavia; la tension puede crecer."],
+            ["withdraw_offer", "Retirar oferta", "Cierras esta via y asumes el impacto en la relacion."],
+          ]
+        : [
+            ["accept_counter", "Aceptar peticion", "Aceptas la contraoferta para acercar la firma."],
+            ["negotiate_terms", "Revisar condiciones", "Abres contratos para ajustar salario, anos o rol."],
+            ["hold_position", "Mantener oferta", "El club no se mueve todavia; la otra parte puede impacientarse."],
+          ];
+    return [
+      ...base.map(([id, label, consequence]) => ({ id, label, tone:"contractual", type:"act", navigateTo:screen, consequence, reaction:reactionFor(actor, { id, type:"act" }) })),
+      { id:"postpone", label:"Esperar unos dias", tone:"prudente", type:"postpone", consequence:"Ganas margen, pero la negociacion puede volver con mas tension.", reaction:reactionFor(actor, { id:"postpone", type:"postpone" }) },
+    ];
   }
   const screen = item.source === "clubLife" ? item.issue.action?.screen : item.attention?.action?.screen;
   const actionLabel = item.source === "clubLife" ? item.issue.actionLabel : item.attention?.actionLabel;
