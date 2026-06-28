@@ -2703,15 +2703,11 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
   ];
   const priorityLabel = priority => priority==="urgent"||priority==="critical" ? "Urgente" : priority==="important" ? "Importante" : "Informativa";
   const priorityColor = priority => priority==="urgent"||priority==="critical" ? "#ef4444" : priority==="important" ? "#f59e0b" : "#22c55e";
-  const waitingPeople = directorItems.length ? directorItems.map(item=>{
+  const waitingPeople = directorItems.map(item=>{
     if(item.source==="clubLife")return{kind:"clubLife",id:item.rawId,priority:item.priority,person:{...clubLifePersona(item.issue),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
     if(item.source==="conversation")return{kind:"conversation",id:item.rawId,priority:item.priority,person:{...conversationPersona(item.conversation),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
     return{kind:"attention",id:item.rawId,priority:item.priority,person:{...attentionPersona(item.attention),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
-  }) : [
-    ...clubLifeIssues.map(issue=>({ kind:"clubLife", id:issue.id, priority:issue.priority, person:clubLifePersona(issue), onClick:()=>onOpenClubLifeIssue?.(issue) })),
-    ...conversations.map(conversation=>({ kind:"conversation", id:conversation.id, priority:conversation.priority, person:conversationPersona(conversation), onClick:()=>onOpenConversation?.(conversation.id) })),
-    ...urgentAttention.filter(item=>!String(item.id).startsWith("conversation:")).map(item=>({ kind:"attention", id:item.id, priority:item.priority, person:attentionPersona(item), onClick:()=>onOpenAttention?onOpenAttention(item):setScreen(item.action?.screen??"attention") })),
-  ].sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)).slice(0,3);
+  }).sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)).slice(0,3);
 
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
@@ -6622,6 +6618,20 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
 
   const handleOpenScene = (directorItem) => {
     const scene = buildSceneFromDirectorItem(directorItem, game);
+    if (scene) {
+      setGame(prev => {
+        if (!prev) return prev;
+        const updated = markLegacyDirectorItem(prev, directorItem.id, "in_progress", {
+          item: directorItem,
+          issueKey: scene.issueKey,
+          ownerActorId: scene.ownerActorId,
+          related: scene.relatedItemIds,
+        });
+        saveGame(updated, lineup, formation, subs);
+        autosaveCloud(updated, "scene-open", { lineup, formation, subs });
+        return updated;
+      });
+    }
     setSelectedScene(scene);
     setScreen("scene");
   };
@@ -6633,7 +6643,12 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       setGame(prev => {
         if (!prev) return prev;
         const result = respondToConversation(recordSceneDecision(prev, selectedScene, decision), conversationId, decision.responseId, { lineup });
-        const updated = markLegacyDirectorItem(result.game, `conversation:${conversationId}`, "resolved");
+        const updated = markLegacyDirectorItem(result.game, `conversation:${conversationId}`, "resolved", {
+          issueKey: selectedScene.issueKey,
+          ownerActorId: selectedScene.ownerActorId,
+          related: selectedScene.relatedItemIds,
+          decisionId: decision.id,
+        });
         saveGame(updated, lineup, formation, subs);
         autosaveCloud(updated, "scene", { lineup, formation, subs });
         return updated;
@@ -6647,7 +6662,15 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       setGame(prev => {
         if (!prev || !issue) return prev;
         const withScene = recordSceneDecision(prev, selectedScene, decision);
-        const resolved = decision.type === "postpone" ? markLegacyDirectorItem(withScene, `clubLife:${issue.id}`, "ignored") : markLegacyDirectorItem(resolveClubLifeIssue(withScene, issue.id, decision.type === "delegate" ? "delegated" : "resolved"), `clubLife:${issue.id}`, decision.type === "postpone" ? "ignored" : "resolved");
+        const issueOutcome = decision.type === "postpone" ? "waiting" : decision.type === "delegate" ? "delegated" : "resolved";
+        const directorOutcome = decision.type === "postpone" ? "waiting" : issueOutcome;
+        const resolvedIssue = resolveClubLifeIssue(withScene, issue.id, issueOutcome);
+        const resolved = markLegacyDirectorItem(resolvedIssue, `clubLife:${issue.id}`, directorOutcome, {
+          issueKey: selectedScene.issueKey,
+          ownerActorId: selectedScene.ownerActorId,
+          related: selectedScene.relatedItemIds,
+          decisionId: decision.id,
+        });
         saveGame(resolved, lineup, formation, subs);
         autosaveCloud(resolved, "scene", { lineup, formation, subs });
         return resolved;
@@ -6661,7 +6684,12 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       setGame(prev => {
         if (!prev) return prev;
         const withScene = recordSceneDecision(prev, selectedScene, decision);
-        const updated = decision.type === "postpone" ? markLegacyDirectorItem(withScene, selectedScene.sourceItemId, "ignored") : markLegacyDirectorItem(withScene, selectedScene.sourceItemId, "resolved");
+        const updated = markLegacyDirectorItem(withScene, selectedScene.sourceItemId, decision.type === "postpone" ? "waiting" : "resolved", {
+          issueKey: selectedScene.issueKey,
+          ownerActorId: selectedScene.ownerActorId,
+          related: selectedScene.relatedItemIds,
+          decisionId: decision.id,
+        });
         saveGame(updated, lineup, formation, subs);
         autosaveCloud(updated, "scene", { lineup, formation, subs });
         return updated;

@@ -110,17 +110,9 @@ function actorFromItem(item) {
   }
   if (item.source === "clubLife") {
     const issue = item.issue;
-    if (issue.person?.type === "player") {
-      return {
-        ...STAFF_SCENE_ACTORS.player,
-        id: issue.person.id,
-        name: issue.person.name,
-        portrait: issue.person.portrait,
-      };
-    }
-    return STAFF_SCENE_ACTORS[issue.actorId] ?? STAFF_SCENE_ACTORS.assistantCoach;
+    return STAFF_SCENE_ACTORS[item.ownerActorId ?? issue.actorId] ?? STAFF_SCENE_ACTORS.assistantCoach;
   }
-  const actorId = item.actorId ?? "assistantCoach";
+  const actorId = item.ownerActorId ?? item.actorId ?? "assistantCoach";
   return STAFF_SCENE_ACTORS[actorId] ?? STAFF_SCENE_ACTORS.assistantCoach;
 }
 
@@ -347,6 +339,9 @@ export function buildSceneFromDirectorItem(item, game) {
     id: `scene:${item.id}`,
     sourceItemId: item.id,
     rawId: item.rawId,
+    issueKey: item.issueKey ?? item.groupKey ?? item.topicKey ?? item.id,
+    ownerActorId: actor.id,
+    relatedItemIds: item.related ?? [item.id],
     source: item.source,
     actor,
     title: issue.title ?? item.attention?.title ?? "Una conversación en el despacho",

@@ -16,6 +16,7 @@ const DEFAULT_DIRECTOR_STATE = {
   shown: {},
   resolved: {},
   ignored: {},
+  issueStates: {},
   dayHistory: [],
   lastSelection: [],
   lastProtagonistActorId: null,
@@ -28,6 +29,7 @@ function normalizeState(state = {}) {
     shown: state.shown ?? {},
     resolved: state.resolved ?? {},
     ignored: state.ignored ?? {},
+    issueStates: state.issueStates ?? {},
     dayHistory: state.dayHistory ?? [],
     lastSelection: state.lastSelection ?? [],
   };
@@ -53,6 +55,57 @@ function normalizePriority(priority) {
   return "normal";
 }
 
+function subjectId(candidate) {
+  return candidate.issue?.payload?.playerId
+    ?? candidate.issue?.person?.id
+    ?? candidate.attention?.playerId
+    ?? candidate.attention?.action?.playerId
+    ?? candidate.conversation?.actorId
+    ?? candidate.playerId
+    ?? candidate.payload?.playerId
+    ?? null;
+}
+
+function ownerActorId(candidate) {
+  const origin = candidate.origin ?? candidate.category ?? "";
+  if (["contracts", "contract", "market", "transfers"].includes(origin)) return "sportingDirector";
+  if (origin === "medical") return "doctor";
+  if (origin === "training") return "fitnessCoach";
+  if (["lockerRoom", "morale"].includes(origin)) return "captain";
+  if (["lineup", "match"].includes(origin)) return "assistantCoach";
+  if (["press", "news"].includes(origin)) return "pressOfficer";
+  if (["fans", "board", "career"].includes(origin)) return "president";
+  if (["youth", "academy"].includes(origin)) return "academyChief";
+  return candidate.actorId ?? candidate.actorName ?? candidate.actorType ?? "assistantCoach";
+}
+
+function narrativeIssueKey(candidate) {
+  if (candidate.issueKey) return candidate.issueKey;
+  const origin = candidate.origin ?? candidate.category ?? "";
+  const subject = subjectId(candidate);
+  if (["contracts", "contract"].includes(origin)) return `contract:${subject ?? groupKey(candidate)}`;
+  if (origin === "medical") return `medical:${subject ?? groupKey(candidate)}`;
+  if (origin === "training") return `physical:${subject ?? groupKey(candidate)}`;
+  if (["lockerRoom", "morale"].includes(origin)) return "locker-room";
+  if (["lineup", "match"].includes(origin)) return "match-preparation";
+  if (["market", "transfers"].includes(origin)) return `market:${candidate.issue?.payload?.offerId ?? candidate.attention?.action?.offerId ?? candidate.rawId ?? groupKey(candidate)}`;
+  if (["press", "news"].includes(origin)) return "press-message";
+  if (["fans", "board", "career"].includes(origin)) return "club-pressure";
+  if (["youth", "academy"].includes(origin)) return `academy:${subject ?? groupKey(candidate)}`;
+  if (candidate.source === "conversation" && candidate.conversation?.actorType === "player") return `player:${candidate.conversation.actorId}:${candidate.conversation.motive ?? candidate.topicKey ?? candidate.rawId}`;
+  return candidate.topicKey ?? candidate.groupKey ?? groupKey(candidate);
+}
+
+function isIssueBlocked(candidate, game, directorState) {
+  const issueState = directorState.issueStates[narrativeIssueKey(candidate)];
+  if (!issueState) return false;
+  if (["in_progress", "archived"].includes(issueState.status)) return true;
+  const currentMatchday = game.matchday ?? 1;
+  const sameSeason = !issueState.nextAvailableAt?.season || issueState.nextAvailableAt.season === String(game.season ?? "2025");
+  const blockedByDate = sameSeason && (issueState.nextAvailableAt?.matchday ?? 0) > currentMatchday;
+  return ["resolved", "waiting"].includes(issueState.status) && blockedByDate;
+}
+
 function sourceScore(candidate, game, directorState) {
   const priority = normalizePriority(candidate.priority);
   const priorityScore = PRIORITY_WEIGHT[priority] ?? 20;
@@ -68,6 +121,7 @@ function sourceScore(candidate, game, directorState) {
 }
 
 function groupKey(candidate) {
+  if (candidate.issueKey) return candidate.issueKey;
   if (candidate.topicKey) return candidate.topicKey;
   if (candidate.groupKey) return candidate.groupKey;
   const origin = candidate.origin ?? candidate.category ?? "";
@@ -89,9 +143,17 @@ function actorKey(candidate) {
 }
 
 function shouldConsider(candidate, directorState) {
+  return shouldConsiderForGame(candidate, null, directorState);
+}
+
+function shouldConsiderForGame(candidate, game, directorState) {
   if (!candidate?.id) return false;
   if (["resolved", "dismissed", "ignored"].includes(candidate.status)) return false;
-  if (directorState.resolved[candidate.id]) return false;
+  if (directorState.resolved[candidate.id]) {
+    const issueState = game ? directorState.issueStates[narrativeIssueKey(candidate)] : null;
+    if (!issueState || isIssueBlocked(candidate, game, directorState)) return false;
+  }
+  if (game && isIssueBlocked(candidate, game, directorState)) return false;
   if (candidate.requiresDecision === false && normalizePriority(candidate.priority) !== "urgent") return false;
   if (normalizePriority(candidate.priority) === "info" && !candidate.consequenceIfIgnored && !candidate.consequence) return false;
   return true;
@@ -165,7 +227,12 @@ export function getLegacyDirectorSelection(game, candidates = []) {
   const safeGame = ensureLegacyDirectorState(game);
   const directorState = normalizeState(safeGame.legacyDirector);
   const viable = candidates
-    .filter(candidate => shouldConsider(candidate, directorState))
+    .map(candidate => {
+      const owner = ownerActorId(candidate);
+      const issueKey = narrativeIssueKey(candidate);
+      return { ...candidate, actorId: owner, ownerActorId: owner, issueKey };
+    })
+    .filter(candidate => shouldConsiderForGame(candidate, safeGame, directorState))
     .map(candidate => ({
       ...candidate,
       priority: normalizePriority(candidate.priority),
@@ -188,8 +255,9 @@ export function rememberLegacyDirectorSelection(game, selection = []) {
     shown[item.id] = {
       count: (previous.count ?? 0) + 1,
       lastShown: today,
-      actorId: item.actorId ?? item.actorName ?? null,
+      actorId: item.ownerActorId ?? item.actorId ?? item.actorName ?? null,
       origin: item.origin ?? item.category ?? null,
+      issueKey: item.issueKey ?? null,
     };
   });
   return {
@@ -207,10 +275,36 @@ export function rememberLegacyDirectorSelection(game, selection = []) {
   };
 }
 
-export function markLegacyDirectorItem(game, itemId, status = "resolved") {
+export function markLegacyDirectorItem(game, itemId, status = "resolved", meta = {}) {
   const safeGame = ensureLegacyDirectorState(game);
   const state = normalizeState(safeGame.legacyDirector);
   const today = stamp(safeGame);
+  const issueKey = meta.issueKey ?? meta.item?.issueKey ?? null;
+  const related = [itemId, ...(meta.related ?? meta.item?.related ?? [])].filter(Boolean);
+  const nextAvailableAt = meta.nextAvailableAt ?? (
+    status === "waiting" || status === "ignored"
+      ? { ...today, matchday: today.matchday + 2 }
+      : status === "resolved" || status === "delegated"
+        ? { ...today, matchday: today.matchday + 3 }
+        : null
+  );
+  const resolvedPatch = Object.fromEntries(related.map(id => [id, { status, resolvedAt: today, issueKey }]));
+  const issueStates = issueKey ? {
+    ...state.issueStates,
+    [issueKey]: {
+      ...(state.issueStates[issueKey] ?? {}),
+      issueKey,
+      ownerActorId: meta.ownerActorId ?? meta.item?.ownerActorId ?? meta.item?.actorId ?? null,
+      status,
+      updatedAt: today,
+      nextAvailableAt,
+      relatedIds: related,
+      history: [
+        { status, at: today, decisionId: meta.decisionId ?? null },
+        ...((state.issueStates[issueKey]?.history ?? []).slice(0, 19)),
+      ],
+    },
+  } : state.issueStates;
   if (status === "ignored") {
     const previous = state.ignored[itemId] ?? {};
     return {
@@ -221,6 +315,7 @@ export function markLegacyDirectorItem(game, itemId, status = "resolved") {
           ...state.ignored,
           [itemId]: { count: (previous.count ?? 0) + 1, lastIgnored: today },
         },
+        issueStates,
       },
     };
   }
@@ -230,8 +325,9 @@ export function markLegacyDirectorItem(game, itemId, status = "resolved") {
       ...state,
       resolved: {
         ...state.resolved,
-        [itemId]: { status, resolvedAt: today },
+        ...resolvedPatch,
       },
+      issueStates,
     },
   };
 }

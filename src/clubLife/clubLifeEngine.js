@@ -154,6 +154,12 @@ function daysSince(issue, game) {
   return Math.max(0, (game.matchday ?? 1) - created);
 }
 
+function isDue(stamp, game) {
+  if (!stamp) return false;
+  if (String(stamp.season ?? game.season ?? "2025") !== String(game.season ?? "2025")) return false;
+  return (stamp.matchday ?? 999) <= (game.matchday ?? 1);
+}
+
 function nextFixture(game) {
   return (game.fixtures ?? []).find(f => !f.played && (f.homeTeamId === game.teamId || f.awayTeamId === game.teamId));
 }
@@ -397,6 +403,17 @@ function applyIgnoredConsequence(game, issueItem) {
 }
 
 function evolveIssue(game, issueItem) {
+  if (issueItem.status === "waiting" && isDue(issueItem.reappearAt, game)) {
+    return {
+      game,
+      issue: {
+        ...issueItem,
+        status: "open",
+        escalationLevel: Math.max(1, issueItem.escalationLevel ?? 0),
+        lastReopenedAt: currentStamp(game),
+      },
+    };
+  }
   if (issueItem.status !== "open") return { game, issue: issueItem };
   const age = daysSince(issueItem, game);
   let nextIssue = issueItem;
@@ -442,8 +459,20 @@ export function advanceClubLife(game, context = {}) {
 
   observed.forEach(item => {
     const existing = issues[item.id];
-    if (!existing || ["resolved", "ignored", "dismissed"].includes(existing.status)) {
+    if (!existing) {
       issues[item.id] = item;
+    } else if (["resolved", "ignored", "dismissed", "delegated", "waiting"].includes(existing.status) && !isDue(existing.reappearAt, safeGame)) {
+      issues[item.id] = existing;
+    } else if (["resolved", "ignored", "dismissed", "delegated", "waiting"].includes(existing.status) && isDue(existing.reappearAt, safeGame)) {
+      issues[item.id] = {
+        ...existing,
+        ...item,
+        date: existing.date,
+        status: "open",
+        escalationLevel: Math.max(existing.escalationLevel ?? 0, item.escalationLevel ?? 0),
+        previousStatus: existing.status,
+        lastReopenedAt: currentStamp(safeGame),
+      };
     } else {
       issues[item.id] = { ...existing, ...item, date: existing.date, status: existing.status, escalationLevel: existing.escalationLevel ?? 0 };
     }
@@ -482,6 +511,12 @@ export function resolveClubLifeIssue(game, issueId, outcome = "resolved") {
   const state = normalizeClubLife(safeGame.clubLife);
   const current = state.issues[issueId];
   if (!current) return safeGame;
+  const stamp = currentStamp(safeGame);
+  const reappearAt = outcome === "waiting"
+    ? { ...stamp, matchday: stamp.matchday + 2 }
+    : ["resolved", "delegated"].includes(outcome)
+      ? { ...stamp, matchday: stamp.matchday + 3 }
+      : current.reappearAt ?? null;
   return {
     ...safeGame,
     clubLife: {
@@ -491,7 +526,8 @@ export function resolveClubLifeIssue(game, issueId, outcome = "resolved") {
         [issueId]: {
           ...current,
           status: outcome,
-          resolvedAt: currentStamp(safeGame),
+          resolvedAt: stamp,
+          reappearAt,
         },
       },
       log: [
