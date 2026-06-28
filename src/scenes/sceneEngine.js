@@ -276,7 +276,7 @@ function isRenewalResponseIssue(item) {
 
 function isClubLifeMoment(item) {
   const key = String(item.normalizedIssue?.id ?? item.issueKey ?? item.attention?.issueKey ?? "");
-  return key.startsWith("club_life_moment:") || key.startsWith("weekly_preparation:");
+  return key.startsWith("club_life_moment:") || key.startsWith("weekly_preparation:") || key.startsWith("external_world:");
 }
 
 function clubLifeMomentMessage(item, actor, game) {
@@ -285,6 +285,33 @@ function clubLifeMomentMessage(item, actor, game) {
   const subject = issue.subjectName ?? issue.playerName ?? "el chico";
   const shortSubject = firstName(subject);
   const type = issue.momentType ?? item.attention?.momentType;
+  if (type === "world_big_win") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}La victoria no se ha quedado dentro del vestuario.\n\nLos periodistas empiezan a hablar del equipo con otro tono. La aficion tambien. Eso puede ayudarnos, pero si lo alimentamos demasiado pronto, mañana nos lo van a exigir como obligacion.\n\nSolo necesito una linea: ilusion o prudencia.`;
+  }
+  if (type === "world_hard_loss") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Fuera se esta hablando bastante del resultado.\n\nNo es solo perder. Es la forma en que se interpreta. La sala va a buscar culpables, titulares y una frase que resuma todo.\n\nSi no damos un mensaje claro, lo van a escribir por nosotros.`;
+  }
+  if (type === "world_derby_win" || type === "world_derby_loss" || type === "world_derby_draw") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}El derbi sigue en la calle.\n\nNo hace falta que le diga lo que mueve un partido asi. Hay bares, radios y redes hablando de cada decision. Podemos bajar el tono, proteger al grupo o aprovechar el ambiente.\n\nLo importante es que no parezca que el club no entiende lo que acaba de pasar.`;
+  }
+  if (type === "world_win_streak") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}La ciudad empieza a creer.\n\nDentro podemos decir que solo son tres partidos, pero fuera la gente ya esta construyendo una historia. Eso puede empujar al equipo... o meterle una mochila.\n\nConviene elegir como convivimos con esa ilusion.`;
+  }
+  if (type === "world_negative_streak") {
+    return `${intro ? `${intro}\n\n` : "Queria verte un momento.\n\n"}La mala racha ya no es un dato interno.\n\nLa directiva lo ve, la aficion lo comenta y la prensa empieza a preguntar si hay rumbo. No vengo a dramatizar, pero si a decirte que el silencio tambien se interpreta.\n\nNecesitamos una respuesta, aunque sea serena.`;
+  }
+  if (type === "world_youth_debut") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Todo el mundo pregunta por ${shortSubject}.\n\nEl debut ha conectado con la gente. Es bonito, pero tambien peligroso si le ponemos encima una historia demasiado grande.\n\nPodemos protegerlo, darle valor o llevarlo al mensaje de equipo.`;
+  }
+  if (type === "world_serious_injury") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}La lesion de ${shortSubject} ya se esta comentando fuera.\n\nPara nosotros es un asunto medico y deportivo. Para el exterior es una pregunta inmediata: como va a responder el equipo sin el.\n\nAntes de que se llene de ruido, conviene tener claro el mensaje.`;
+  }
+  if (type === "world_transfer_reaction") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}El movimiento ya tiene eco fuera.\n\nCuando el club ficha o mueve una pieza, todo el mundo intenta leer una intencion: ambicion, urgencia, futuro, presion. No significa que tengamos que explicar todo.\n\nPero si conviene saber que historia queremos dejar que se cuente.`;
+  }
+  if (type === "world_transfer_rumor") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}No hay oferta formal, pero el ruido existe.\n\nAlgunos clubes miran a ${shortSubject}. Ahora mismo es solo ambiente de mercado, nada mas. Pero estas cosas, si no se vigilan, pueden entrar en el vestuario sin llamar.\n\nYo lo llevaria con discrecion.`;
+  }
   if (type === "weekly_rival_report") {
     return `${intro ? `${intro}\n\n` : "Mister...\n\n"}He vuelto a mirar al rival con calma.\n\nNo creo que haya que cambiarlo todo, pero si preparamos la semana como si fuera un partido cualquiera, vamos a perder detalles. Hay una zona del campo donde podemos hacerles dano y otra donde no conviene regalar metros.\n\nSolo necesito saber si seguimos con el plan o si ajustamos algo antes de entrenarlo.`;
   }
@@ -536,6 +563,39 @@ function sceneOptions(item, actor) {
   }
   if (isClubLifeMoment(item)) {
     const momentType = item.normalizedIssue?.momentType ?? item.attention?.momentType;
+    if (String(momentType ?? "").startsWith("world_")) {
+      const target = item.attention?.action?.screen ?? item.normalizedIssue?.action?.screen ?? "dashboard";
+      const actorName = actor.name ?? "La persona";
+      return [
+        {
+          id:"own_message",
+          label:"Mantengo mi idea",
+          tone:"firme",
+          type:"act",
+          navigateTo:"dashboard",
+          consequence:"El club transmite una linea clara sin sobreactuar.",
+          reaction:`${actorName} toma nota. La respuesta no busca gustar a todos, pero si marcar una direccion reconocible.`,
+        },
+        {
+          id:"adapt_message",
+          label:"Hemos tenido que adaptarnos",
+          tone:"realista",
+          type:"act",
+          navigateTo:target,
+          consequence:"Aceptas el contexto exterior y ajustas el mensaje sin perder el control.",
+          reaction:`${actorName} asiente despacio. Es una respuesta manejable: reconoce el ruido sin entregarle el volante.`,
+        },
+        {
+          id:"avoid_noise",
+          label:"No voy a alimentar el ruido",
+          tone:"prudente",
+          type:"act",
+          navigateTo:"dashboard",
+          consequence:"Rebajas el foco mediatico y proteges al grupo.",
+          reaction:`${actorName} cierra la carpeta. A veces no dar una frase grande tambien es una decision.`,
+        },
+      ];
+    }
     if (String(momentType ?? "").startsWith("weekly_")) {
       const target = item.attention?.action?.screen ?? item.normalizedIssue?.action?.screen ?? "dashboard";
       const actionLabel = item.attention?.actionLabel ?? item.normalizedIssue?.availableActions?.[0] ?? "Revisar";

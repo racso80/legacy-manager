@@ -159,6 +159,228 @@ function weeklyPreparationMoment(game, fixture, context = {}, activeEvents = [])
   return candidates[phase] ?? pickByDay(game, candidates);
 }
 
+function userFixtureResult(game, fixture) {
+  if (!fixture || !game?.teamId) return null;
+  const isHome = fixture.homeTeamId === game.teamId;
+  const goalsFor = isHome ? fixture.homeGoals : fixture.awayGoals;
+  const goalsAgainst = isHome ? fixture.awayGoals : fixture.homeGoals;
+  if (typeof goalsFor !== "number" || typeof goalsAgainst !== "number") return null;
+  return {
+    isHome,
+    goalsFor,
+    goalsAgainst,
+    diff: goalsFor - goalsAgainst,
+    won: goalsFor > goalsAgainst,
+    drew: goalsFor === goalsAgainst,
+    lost: goalsFor < goalsAgainst,
+    opponentId: isHome ? fixture.awayTeamId : fixture.homeTeamId,
+  };
+}
+
+function recentUserFixtures(game) {
+  return [...(game?.fixtures ?? [])]
+    .filter(item => item.played && (item.homeTeamId === game.teamId || item.awayTeamId === game.teamId))
+    .sort((a, b) => (b.matchday ?? 0) - (a.matchday ?? 0));
+}
+
+function isRivalry(game, opponentId) {
+  const teamId = game?.teamId;
+  if (!teamId || !opponentId) return false;
+  const rivalries = {
+    athletic:["realsociedad", "osasuna", "alaves"],
+    realsociedad:["athletic", "osasuna", "alaves"],
+    osasuna:["athletic", "realsociedad"],
+    alaves:["athletic", "realsociedad"],
+    realmadrid:["barcelona", "atletico"],
+    barcelona:["realmadrid", "espanyol"],
+    atletico:["realmadrid", "rayo"],
+    betis:["sevilla"],
+    sevilla:["betis"],
+    valencia:["villarreal"],
+    villarreal:["valencia"],
+    getafe:["leganes"],
+    leganes:["getafe"],
+  };
+  return rivalries[teamId]?.includes(opponentId) ?? false;
+}
+
+function externalWorldMoment(game, activeEvents = []) {
+  if (!game) return null;
+  const stamp = currentStamp(game);
+  const matchday = stamp.matchday ?? 1;
+  if (matchday <= 1 || matchday > 39) return null;
+  if (activeEvents.some(event => event.priority === "critical")) return null;
+  if (activeEvents.filter(event => event.priority === "important").length >= 3) return null;
+
+  const recent = recentUserFixtures(game);
+  const lastFixture = recent[0];
+  if (!lastFixture) return null;
+  const result = userFixtureResult(game, lastFixture);
+  if (!result) return null;
+  const commonId = `${stamp.season}:${lastFixture.matchday}`;
+  const userPos = standingPosition(game, game.teamId);
+  const opponentPos = standingPosition(game, result.opponentId);
+  const topContext = (userPos && userPos <= 6) || (opponentPos && opponentPos <= 6) || lastFixture.matchday >= 31;
+  const derby = isRivalry(game, result.opponentId);
+  const recentResults = recent.slice(0, 4).map(item => userFixtureResult(game, item)).filter(Boolean);
+  const winStreak = recentResults.length >= 3 && recentResults.slice(0, 3).every(item => item.won);
+  const lossStreak = recentResults.length >= 3 && recentResults.slice(0, 3).every(item => item.lost);
+  const youthDebut = (game.players ?? []).find(player => player.academyData?.debutMatchday === lastFixture.matchday && String(player.academyData?.debutSeason ?? game.season) === String(game.season));
+  const seriousInjury = (game.players ?? []).find(player => (player.medical?.startedMatchday ?? player.injuryMatchday) === lastFixture.matchday && (player.medical?.remainingDays ?? 0) >= 28);
+  const recentOwnTransfer = [...(game.transfers ?? [])].reverse().find(item => Number(item.matchday ?? 0) >= matchday - 1 && (item.toTeamId === game.teamId || ["buy", "loanIn"].includes(item.type)));
+  const star = [...(game.players ?? [])].filter(player => (player.overall ?? 0) >= 82).sort((a, b) => (b.overall ?? 0) - (a.overall ?? 0))[0];
+  const marketWindow = matchday <= 8 || matchday >= 31;
+  const canRumor = marketWindow && star && matchday % 5 === 0 && !recentOwnTransfer;
+  const base = { season:stamp.season, matchday };
+  const candidates = [
+    derby && {
+      id:`ExternalWorld:Derby:${commonId}`,
+      type:"ExternalWorldMoment",
+      momentType:result.won ? "world_derby_win" : result.lost ? "world_derby_loss" : "world_derby_draw",
+      issueKey:`external_world:derby:${commonId}`,
+      category:"press",
+      ownerActorId:"pressOfficer",
+      priority:"important",
+      title:result.won ? "La ciudad habla del derbi" : "El derbi deja ruido fuera del club",
+      summary:result.won ? "El ambiente alrededor del club es espectacular despues del resultado." : "La prensa y la aficion estan midiendo cada palabra despues del derbi.",
+      action:{ screen:"news" },
+      actionLabel:"Responder tono",
+      expectedOutcome:"Elegir el tono publico tras un partido emocional.",
+      ...base,
+    },
+    result.won && result.diff >= 3 && {
+      id:`ExternalWorld:BigWin:${commonId}`,
+      type:"ExternalWorldMoment",
+      momentType:"world_big_win",
+      issueKey:`external_world:big_win:${commonId}`,
+      category:"press",
+      ownerActorId:"pressOfficer",
+      priority:"important",
+      title:"La prensa empieza a hablar del equipo",
+      summary:"La victoria ha tenido repercusion. Fuera del club empiezan a mirar el proyecto con otros ojos.",
+      action:{ screen:"news" },
+      actionLabel:"Marcar mensaje",
+      expectedOutcome:"Decidir si alimentar la ilusion o mantener prudencia.",
+      ...base,
+    },
+    result.lost && result.diff <= -2 && {
+      id:`ExternalWorld:HardLoss:${commonId}`,
+      type:"ExternalWorldMoment",
+      momentType:"world_hard_loss",
+      issueKey:`external_world:hard_loss:${commonId}`,
+      category:"press",
+      ownerActorId:"pressOfficer",
+      priority:"important",
+      title:"La derrota ha generado ruido",
+      summary:"El resultado ha pesado fuera. La sala de prensa busca una explicacion sencilla.",
+      action:{ screen:"news" },
+      actionLabel:"Cuidar mensaje",
+      expectedOutcome:"Decidir si proteger al grupo, asumir responsabilidad o rebajar el ruido.",
+      ...base,
+    },
+    winStreak && {
+      id:`ExternalWorld:WinStreak:${commonId}`,
+      type:"ExternalWorldMoment",
+      momentType:"world_win_streak",
+      issueKey:`external_world:win_streak:${commonId}`,
+      category:"board",
+      ownerActorId:topContext ? "president" : "captain",
+      priority:"important",
+      title:topContext ? "El presidente nota el cambio de ambiente" : "La grada empieza a creer",
+      summary:"La racha positiva ya no se queda dentro del vestuario. La ciudad empieza a hablar del equipo.",
+      action:{ screen:"fans" },
+      actionLabel:"Tomar pulso",
+      expectedOutcome:"Gestionar la ilusion sin perder foco.",
+      ...base,
+    },
+    lossStreak && {
+      id:`ExternalWorld:LossStreak:${commonId}`,
+      type:"ExternalWorldMoment",
+      momentType:"world_negative_streak",
+      issueKey:`external_world:negative_streak:${commonId}`,
+      category:"board",
+      ownerActorId:"president",
+      priority:"important",
+      title:"La mala racha ya se comenta fuera",
+      summary:"La directiva y la aficion empiezan a mirar la tendencia con preocupacion.",
+      action:{ screen:"board" },
+      actionLabel:"Escuchar postura",
+      expectedOutcome:"Asumir el contexto y definir un mensaje de reaccion.",
+      ...base,
+    },
+    youthDebut && {
+      id:`ExternalWorld:YouthDebut:${youthDebut.id}:${commonId}`,
+      type:"ExternalWorldMoment",
+      momentType:"world_youth_debut",
+      issueKey:`external_world:youth_debut:${youthDebut.id}:${commonId}`,
+      category:"press",
+      ownerActorId:"pressOfficer",
+      priority:"important",
+      title:`Todo el mundo habla de ${firstName(youthDebut.name)}`,
+      summary:"El debut del canterano ha conectado con la aficion. Conviene cuidar el mensaje alrededor del chico.",
+      subjectId:youthDebut.id,
+      subjectName:youthDebut.name,
+      action:{ screen:"youth", playerId:youthDebut.id },
+      actionLabel:"Cuidar mensaje",
+      expectedOutcome:"Proteger al jugador sin apagar la ilusion.",
+      ...base,
+    },
+    seriousInjury && {
+      id:`ExternalWorld:SeriousInjury:${seriousInjury.id}:${commonId}`,
+      type:"ExternalWorldMoment",
+      momentType:"world_serious_injury",
+      issueKey:`external_world:serious_injury:${seriousInjury.id}:${commonId}`,
+      category:"medical",
+      ownerActorId:"doctor",
+      priority:"important",
+      title:`La lesion de ${firstName(seriousInjury.name)} tambien preocupa fuera`,
+      summary:"No es solo un asunto medico. La baja cambia el ambiente alrededor del equipo.",
+      subjectId:seriousInjury.id,
+      subjectName:seriousInjury.name,
+      action:{ screen:"medical", playerId:seriousInjury.id },
+      actionLabel:"Revisar informe",
+      expectedOutcome:"Entender la repercusion deportiva y publica de la baja.",
+      ...base,
+    },
+    recentOwnTransfer && {
+      id:`ExternalWorld:Transfer:${recentOwnTransfer.id ?? commonId}`,
+      type:"ExternalWorldMoment",
+      momentType:"world_transfer_reaction",
+      issueKey:`external_world:transfer:${recentOwnTransfer.id ?? commonId}`,
+      category:"market",
+      ownerActorId:"sportingDirector",
+      priority:"important",
+      title:`El movimiento de ${recentOwnTransfer.player?.name ?? "mercado"} ya tiene eco`,
+      summary:"El mercado no termina cuando se firma. Fuera ya se interpreta lo que significa para el proyecto.",
+      subjectId:recentOwnTransfer.player?.id,
+      subjectName:recentOwnTransfer.player?.name,
+      action:{ screen:"transfers" },
+      actionLabel:"Revisar mercado",
+      expectedOutcome:"Medir la lectura externa del movimiento.",
+      ...base,
+    },
+    canRumor && {
+      id:`ExternalWorld:Rumor:${star.id}:${Math.floor(matchday / 5)}`,
+      type:"ExternalWorldMoment",
+      momentType:"world_transfer_rumor",
+      issueKey:`external_world:rumor:${star.id}:${Math.floor(matchday / 5)}`,
+      category:"market",
+      ownerActorId:"sportingDirector",
+      priority:"normal",
+      title:`Empiezan los rumores sobre ${firstName(star.name)}`,
+      summary:"No hay oferta formal, pero algunos clubes observan. El ruido exterior ya existe.",
+      subjectId:star.id,
+      subjectName:star.name,
+      action:{ screen:"transfers", playerId:star.id },
+      actionLabel:"Mantener vigilancia",
+      expectedOutcome:"Decidir si cerrar filas o escuchar el mercado.",
+      ...base,
+    },
+  ].filter(Boolean);
+
+  return candidates[0] ?? null;
+}
+
 function renewalLabel(status) {
   return {
     accepted: "ha respondido positivamente a la oferta de renovacion",
@@ -438,8 +660,10 @@ export function buildLegacyDirectorEvents(game, context = {}) {
     });
   }
 
+  const externalMoment = externalWorldMoment(game, events);
+  if (externalMoment) pushEvent(events, externalMoment);
   const hasCritical = events.some(event => event.priority === "critical");
-  const weeklyMoment = weeklyPreparationMoment(game, fixture, context, events);
+  const weeklyMoment = externalMoment ? null : weeklyPreparationMoment(game, fixture, context, events);
   if (weeklyMoment) pushEvent(events, weeklyMoment);
   const shouldBreathe = !weeklyMoment && !hasCritical && (stamp.matchday ?? 1) > 1 && (stamp.matchday ?? 1) % 4 === 0;
   if (shouldBreathe) {
