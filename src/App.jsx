@@ -6623,12 +6623,15 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     if (scene) {
       setGame(prev => {
         if (!prev) return prev;
-        const updated = markLegacyDirectorItem(prev, directorItem.id, "in_scene", {
+        let updated = markLegacyDirectorItem(prev, directorItem.id, "in_scene", {
           item: directorItem,
           issueKey: scene.issueKey,
           ownerActorId: scene.ownerActorId,
           related: scene.relatedItemIds,
         });
+        if (directorItem.source === "attention" && directorItem.attention?.id) {
+          updated = markAttentionItem(updated, directorItem.attention.id, "seen");
+        }
         saveGame(updated, lineup, formation, subs);
         autosaveCloud(updated, "scene-open", { lineup, formation, subs });
         return updated;
@@ -6686,12 +6689,14 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       setGame(prev => {
         if (!prev) return prev;
         const withScene = recordSceneDecision(prev, selectedScene, decision);
-        const updated = markLegacyDirectorItem(withScene, selectedScene.sourceItemId, decision.type === "postpone" ? "waiting" : "resolved", {
+        const outcome = decision.type === "postpone" || decision.type === "delegate" ? "waiting" : "resolved";
+        let updated = markLegacyDirectorItem(withScene, selectedScene.sourceItemId, outcome, {
           issueKey: selectedScene.issueKey,
           ownerActorId: selectedScene.ownerActorId,
           related: selectedScene.relatedItemIds,
           decisionId: decision.id,
         });
+        updated = markAttentionItem(updated, attention.id, outcome);
         saveGame(updated, lineup, formation, subs);
         autosaveCloud(updated, "scene", { lineup, formation, subs });
         return updated;
@@ -6832,7 +6837,22 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   };
 
   const handleAttentionDismiss = (item) => {
-    updateAttentionStatus(item.id, "dismissed");
+    setGame(prev => {
+      if (!prev) return prev;
+      const matchingDirectorItem = legacyDirectorItems.find(directorItem => directorItem.rawId === item.id || directorItem.id === `attention:${item.id}`);
+      let updated = markAttentionItem(prev, item.id, "dismissed");
+      if (matchingDirectorItem) {
+        updated = markLegacyDirectorItem(updated, matchingDirectorItem.id, "archived", {
+          item: matchingDirectorItem,
+          issueKey: matchingDirectorItem.issueKey,
+          ownerActorId: matchingDirectorItem.ownerActorId,
+          related: [item.id, ...(matchingDirectorItem.related ?? [])],
+        });
+      }
+      saveGame(updated, lineup, formation, subs);
+      autosaveCloud(updated,"attention",{lineup,formation,subs});
+      return updated;
+    });
   };
 
   useEffect(() => {

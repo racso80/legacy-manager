@@ -14,6 +14,7 @@ function ItemCard({ item, onOpen, onDismiss }) {
   const priority = ATTENTION_PRIORITIES[item.priority] ?? ATTENTION_PRIORITIES.info;
   const category = ATTENTION_CATEGORIES[item.category] ?? ATTENTION_CATEGORIES.match;
   const fresh = item.status === "new";
+  const statusLabel = item.status === "waiting" ? "EN ESPERA" : item.status === "seen" ? "VISTO" : null;
   return (
     <div style={{ background:"#161a24", border:`1px solid ${priority.color}22`, borderLeft:`3px solid ${priority.color}`, borderRadius:11, padding:11, boxShadow:fresh?"0 8px 20px rgba(0,0,0,.18)":"none" }}>
       <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
@@ -22,6 +23,7 @@ function ItemCard({ item, onOpen, onDismiss }) {
           <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
             <span style={{ color:priority.color, fontSize:9, fontWeight:900 }}>{priority.icon} {priority.label.toUpperCase()}</span>
             {fresh && <span style={{ color:"#1a1200", background:"#c9a84c", borderRadius:99, padding:"2px 6px", fontSize:8, fontWeight:900 }}>NUEVO</span>}
+            {statusLabel && <span style={{ color:"#9ca3af", background:"rgba(255,255,255,.06)", borderRadius:99, padding:"2px 6px", fontSize:8, fontWeight:900 }}>{statusLabel}</span>}
           </div>
           {item.staff && <div style={{ color:category.accent, fontSize:9, fontWeight:850, marginBottom:4 }}>{item.staff.icon} {item.staff.role} · {item.staff.name}</div>}
           <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:800, lineHeight:1.35 }}>{item.title}</div>

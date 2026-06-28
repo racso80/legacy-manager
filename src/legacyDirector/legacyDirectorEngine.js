@@ -264,7 +264,7 @@ function isIssueBlocked(candidate, game, directorState) {
   if (!game) return false;
   const issueState = directorState.issueStates[narrativeIssueKey(candidate, game)];
   if (!issueState) return false;
-  if (["in_scene", "in_progress", "archived"].includes(issueState.status)) return true;
+  if (issueState.status === "archived") return true;
   const currentMatchday = game.matchday ?? 1;
   const sameSeason = !issueState.nextAvailableAt?.season || issueState.nextAvailableAt.season === String(game.season ?? "2025");
   const blockedByDate = sameSeason && (issueState.nextAvailableAt?.matchday ?? 0) > currentMatchday;
