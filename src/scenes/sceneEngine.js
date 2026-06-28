@@ -275,7 +275,8 @@ function isRenewalResponseIssue(item) {
 }
 
 function isClubLifeMoment(item) {
-  return String(item.normalizedIssue?.id ?? item.issueKey ?? item.attention?.issueKey ?? "").startsWith("club_life_moment:");
+  const key = String(item.normalizedIssue?.id ?? item.issueKey ?? item.attention?.issueKey ?? "");
+  return key.startsWith("club_life_moment:") || key.startsWith("weekly_preparation:");
 }
 
 function clubLifeMomentMessage(item, actor, game) {
@@ -284,6 +285,24 @@ function clubLifeMomentMessage(item, actor, game) {
   const subject = issue.subjectName ?? issue.playerName ?? "el chico";
   const shortSubject = firstName(subject);
   const type = issue.momentType ?? item.attention?.momentType;
+  if (type === "weekly_rival_report") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}He vuelto a mirar al rival con calma.\n\nNo creo que haya que cambiarlo todo, pero si preparamos la semana como si fuera un partido cualquiera, vamos a perder detalles. Hay una zona del campo donde podemos hacerles dano y otra donde no conviene regalar metros.\n\nSolo necesito saber si seguimos con el plan o si ajustamos algo antes de entrenarlo.`;
+  }
+  if (type === "weekly_training_focus") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}La semana nos da para una cosa, no para diez.\n\nPodemos apretar, recuperar piernas, trabajar balon parado o reforzar conceptos. Lo importante es elegirlo ahora, porque el equipo nota cuando cada dia empuja en una direccion distinta.\n\nNo es una urgencia. Es preparar el partido antes de que el partido nos prepare a nosotros.`;
+  }
+  if (type === "weekly_locker_room") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}No vengo por un incendio. Vengo porque la semana tambien se juega dentro.\n\nEl grupo esta pendiente del siguiente partido. Algunos estan con confianza, otros miran de reojo si van a tener minutos. Nada grave, pero conviene que el mensaje sea claro.\n\nSi quiere, lo movemos con calma antes de que llegue el ruido.`;
+  }
+  if (type === "weekly_medical_followup") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}No traigo malas noticias, y eso ya es bastante.\n\nPero hay cargas que prefiero comentar antes del partido. Si decidimos hoy quien necesita cuidado, el domingo no tendremos que improvisar con el cuerpo caliente.\n\nMi recomendacion es simple: revisar antes de forzar.`;
+  }
+  if (type === "weekly_academy_progress") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Esta semana he querido pasar sin hacer ruido, pero creo que merece la pena que lo sepa.\n\n${shortSubject} ha dado un paso pequeno, de esos que no salen en titulares pero si cuentan para su futuro. No le pido una decision grande.\n\nSolo que lo tengamos presente mientras preparamos el equipo.`;
+  }
+  if (type === "weekly_press_context") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Antes del partido ya se esta construyendo un relato fuera.\n\nNo necesitamos una rueda de prensa larga, pero si conviene saber que tono queremos transmitir: calma, ambicion o prudencia. La prensa va a llenar los huecos si nosotros no damos una linea clara.\n\nMe basta con saber por donde quiere llevar el mensaje.`;
+  }
   if (type === "captain_gratitude") {
     return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Solo queria decirtelo antes de que empiece el ruido de la semana.\n\nEl grupo esta contigo. Han agradecido como gestionaste los ultimos dias; no todos lo dicen en voz alta, pero se nota en el vestuario.\n\nNo venia a pedir nada. A veces tambien conviene saber cuando algo esta saliendo bien.`;
   }
@@ -516,6 +535,40 @@ function sceneOptions(item, actor) {
     ];
   }
   if (isClubLifeMoment(item)) {
+    const momentType = item.normalizedIssue?.momentType ?? item.attention?.momentType;
+    if (String(momentType ?? "").startsWith("weekly_")) {
+      const target = item.attention?.action?.screen ?? item.normalizedIssue?.action?.screen ?? "dashboard";
+      const actionLabel = item.attention?.actionLabel ?? item.normalizedIssue?.availableActions?.[0] ?? "Revisar";
+      return [
+        {
+          id:"continue_plan",
+          label:"Continuar con el plan",
+          tone:"sereno",
+          type:"act",
+          navigateTo:"dashboard",
+          consequence:"Das continuidad a la semana sin cambiar el foco.",
+          reaction:`${actor.name} asiente. No todo necesita giro; a veces preparar tambien es sostener una idea.`,
+        },
+        {
+          id:"adjust_focus",
+          label:actionLabel,
+          tone:"preparacion",
+          type:"act",
+          navigateTo:target,
+          consequence:"Abres el area relacionada para ajustar el enfoque antes del partido.",
+          reaction:`${actor.name} abre la carpeta de nuevo. La semana cambia un poco de direccion, pero con sentido.`,
+        },
+        {
+          id:"no_intervention",
+          label:"No intervenir por ahora",
+          tone:"prudente",
+          type:"act",
+          navigateTo:"dashboard",
+          consequence:"El club sigue trabajando sin una orden nueva del entrenador.",
+          reaction:`${actor.name} entiende la respuesta. No parece una negativa, sino una forma de no tocar lo que funciona.`,
+        },
+      ];
+    }
     return [{
       id:"thanks",
       label:"Gracias por venir a contarmelo",

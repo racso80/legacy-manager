@@ -38,6 +38,127 @@ function pickByDay(game, list = []) {
   return list[Math.abs(seed) % list.length];
 }
 
+function standingPosition(game, teamId) {
+  const sorted = [...(game?.standings ?? [])].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference);
+  const index = sorted.findIndex(item => item.teamId === teamId);
+  return index >= 0 ? index + 1 : null;
+}
+
+function weeklyPreparationMoment(game, fixture, context = {}, activeEvents = []) {
+  if (!game || !fixture) return null;
+  const stamp = currentStamp(game);
+  const matchday = stamp.matchday ?? 1;
+  if (matchday > 38) return null;
+  const pressureCount = activeEvents.filter(event => ["critical", "important"].includes(event.priority)).length;
+  if (activeEvents.some(event => event.priority === "critical") || pressureCount >= 3) return null;
+  if (matchday > 1 && matchday % 7 === 0 && pressureCount > 0) return null;
+
+  const opponentId = fixture.homeTeamId === game.teamId ? fixture.awayTeamId : fixture.homeTeamId;
+  const opponentPos = standingPosition(game, opponentId);
+  const userPos = standingPosition(game, game.teamId);
+  const isImportantMatch = matchday >= 31 || (opponentPos && opponentPos <= 6) || (userPos && userPos <= 6);
+  const tiredPlayer = [...(game.players ?? [])].sort((a, b) => (b.fatigue ?? 0) - (a.fatigue ?? 0))[0];
+  const bestYouth = [...(game.youth?.players ?? [])].sort((a, b) => (b.potential ?? 0) - (a.potential ?? 0))[0];
+  const trainingLoad = game.trainingPlan?.load ?? "medium";
+  const phase = Math.abs((matchday + Number(stamp.season ?? 2025)) % 6);
+  const base = { season:stamp.season, matchday, priority:"normal" };
+  const commonId = `${stamp.season}:${matchday}`;
+  const candidates = [
+    {
+      id:`WeeklyPrep:Rival:${commonId}`,
+      type:"WeeklyPreparationMoment",
+      momentType:"weekly_rival_report",
+      issueKey:`weekly_preparation:rival:${commonId}`,
+      category:"match",
+      ownerActorId:"assistantCoach",
+      title:"El segundo entrenador trae el informe del rival",
+      summary:opponentPos ? `El proximo rival llega ${opponentPos} en la tabla. Hay detalles que pueden condicionar el plan.` : "El cuerpo tecnico ha detectado un patron del rival para preparar el partido.",
+      action:{ screen:"lineup" },
+      actionLabel:"Preparar plan",
+      expectedOutcome:"Decidir si mantener el plan o ajustar el planteamiento.",
+      ...base,
+    },
+    {
+      id:`WeeklyPrep:Training:${commonId}`,
+      type:"WeeklyPreparationMoment",
+      momentType:"weekly_training_focus",
+      issueKey:`weekly_preparation:training:${commonId}`,
+      category:"training",
+      ownerActorId:"fitnessCoach",
+      title:"El preparador fisico propone enfocar la semana",
+      summary:`La carga actual es ${trainingLoad}. Puede ser buen momento para decidir si priorizamos intensidad, recuperacion o trabajo especifico.`,
+      action:{ screen:"training" },
+      actionLabel:"Revisar entrenamiento",
+      expectedOutcome:"Elegir el enfoque de trabajo antes del partido.",
+      ...base,
+    },
+    {
+      id:`WeeklyPrep:Locker:${commonId}`,
+      type:"WeeklyPreparationMoment",
+      momentType:"weekly_locker_room",
+      issueKey:`weekly_preparation:locker:${commonId}`,
+      category:"training",
+      ownerActorId:"captain",
+      title:"El capitan pasa a tomar la temperatura del grupo",
+      summary:"No hay una crisis, pero el vestuario tambien se prepara durante la semana.",
+      action:{ screen:"lockerRoom" },
+      actionLabel:"Escuchar vestuario",
+      expectedOutcome:"Interpretar el animo del grupo antes del partido.",
+      ...base,
+    },
+    {
+      id:`WeeklyPrep:Medical:${commonId}`,
+      type:"WeeklyPreparationMoment",
+      momentType:"weekly_medical_followup",
+      issueKey:`weekly_preparation:medical:${commonId}`,
+      category:"medical",
+      ownerActorId:"doctor",
+      title:tiredPlayer ? `El medico quiere revisar la carga de ${firstName(tiredPlayer.name)}` : "El medico trae una nota de seguimiento",
+      summary:tiredPlayer ? `${firstName(tiredPlayer.name)} acumula ${Math.round(tiredPlayer.fatigue ?? 0)}% de fatiga. No es una lesion, pero conviene vigilarlo.` : "El cuerpo medico prefiere llegar al partido sin sorpresas fisicas.",
+      subjectId:tiredPlayer?.id,
+      subjectName:tiredPlayer?.name,
+      action:{ screen:"medical", playerId:tiredPlayer?.id },
+      actionLabel:"Ver carga fisica",
+      expectedOutcome:"Valorar descanso, minutos o seguimiento.",
+      ...base,
+    },
+    bestYouth && {
+      id:`WeeklyPrep:Academy:${bestYouth.id}:${commonId}`,
+      type:"WeeklyPreparationMoment",
+      momentType:"weekly_academy_progress",
+      issueKey:`weekly_preparation:academy:${bestYouth.id}:${commonId}`,
+      category:"youth",
+      ownerActorId:"academyChief",
+      title:`La cantera informa de ${firstName(bestYouth.name)}`,
+      summary:`Esta semana ha dejado buenas sensaciones. Potencial ${bestYouth.potential}; no exige promocion, solo seguimiento.`,
+      subjectId:bestYouth.id,
+      subjectName:bestYouth.name,
+      action:{ screen:"youth", playerId:bestYouth.id },
+      actionLabel:"Escuchar cantera",
+      expectedOutcome:"Decidir si merece seguimiento cercano.",
+      ...base,
+    },
+    {
+      id:`WeeklyPrep:Press:${commonId}`,
+      type:"WeeklyPreparationMoment",
+      momentType:"weekly_press_context",
+      issueKey:`weekly_preparation:press:${commonId}`,
+      category:"press",
+      ownerActorId:"pressOfficer",
+      priority:isImportantMatch ? "important" : "normal",
+      title:isImportantMatch ? "La prensa empieza a calentar el partido" : "Comunicacion quiere cuidar el ambiente previo",
+      summary:isImportantMatch ? "El contexto del proximo partido puede marcar titulares. Conviene alinear el mensaje." : "No hace falta rueda de prensa completa, pero si conviene cuidar el tono de la semana.",
+      action:{ screen:"news" },
+      actionLabel:"Revisar ambiente",
+      expectedOutcome:"Decidir si conviene mandar un mensaje sereno o ambicioso.",
+      ...base,
+      priority:isImportantMatch ? "important" : "normal",
+    },
+  ].filter(Boolean);
+
+  return candidates[phase] ?? pickByDay(game, candidates);
+}
+
 function renewalLabel(status) {
   return {
     accepted: "ha respondido positivamente a la oferta de renovacion",
@@ -318,7 +439,9 @@ export function buildLegacyDirectorEvents(game, context = {}) {
   }
 
   const hasCritical = events.some(event => event.priority === "critical");
-  const shouldBreathe = !hasCritical && (stamp.matchday ?? 1) > 1 && (stamp.matchday ?? 1) % 4 === 0;
+  const weeklyMoment = weeklyPreparationMoment(game, fixture, context, events);
+  if (weeklyMoment) pushEvent(events, weeklyMoment);
+  const shouldBreathe = !weeklyMoment && !hasCritical && (stamp.matchday ?? 1) > 1 && (stamp.matchday ?? 1) % 4 === 0;
   if (shouldBreathe) {
     const bestYouth = [...(game.youth?.players ?? [])].sort((a, b) => (b.potential ?? 0) - (a.potential ?? 0))[0];
     const recovered = (game.players ?? []).find(player => player.medical?.phase === "available" && (player.medical?.recoveryProgress ?? 0) >= 95);
