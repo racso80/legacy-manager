@@ -29,6 +29,10 @@ export const MATCH_FORMATIONS={
   "4-3-3":["POR","LD","DFC","DFC","LI","MCD","MC","MCO","ED","DC","EI"],
   "4-4-2":["POR","LD","DFC","DFC","LI","MD","MC","MC","MI","DC","DC"],
   "4-2-3-1":["POR","LD","DFC","DFC","LI","MCD","MCD","MCO","ED","EI","DC"],
+  "4-5-1":["POR","LD","DFC","DFC","LI","MD","MC","MCD","MC","MI","DC"],
+  "5-3-2":["POR","LD","DFC","DFC","DFC","LI","MC","MCD","MC","DC","DC"],
+  "5-4-1":["POR","LD","DFC","DFC","DFC","LI","MD","MC","MC","MI","DC"],
+  "3-5-2":["POR","DFC","DFC","DFC","MD","MC","MCD","MC","MI","DC","DC"],
 };
 
 const positionGroup=position=>position==="POR"?"POR":["DFC","LD","LI"].includes(position)?"DEF":["MCD","MC","MCO","MD","MI"].includes(position)?"MED":"DEL";

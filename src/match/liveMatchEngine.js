@@ -52,6 +52,8 @@ export function buildLiveMatchState({
   sentOffIds = [],
   opponentSentOffIds = [],
   tactics = {},
+  formation = "4-3-3",
+  opponentFormation = "4-3-3",
   subsUsed = 0,
   maxSubs = 5,
 }) {
@@ -154,6 +156,48 @@ export function buildLiveMatchState({
       message: `Vamos por detras y seguimos con mentalidad ${tactics.mentalidad ?? "equilibrada"}. El segundo entrenador propone ajustar el plan antes de que se escape.`,
       action: "Abrir tacticas",
       targetTab: "tacticas",
+      requiresDecision: true,
+    });
+  }
+
+  if (minute >= 60 && userGoals < opponentGoals && !["4-3-3","3-5-2"].includes(formation)) {
+    signals.push({
+      key: `formation:attack:${formation}`,
+      source: "assistant",
+      severity: minute >= 75 ? "urgent" : "important",
+      title: "Podemos cambiar el dibujo",
+      message: "El segundo entrenador propone pasar a un sistema mas ofensivo para ganar metros y cargar el area.",
+      action: "Cambiar formacion",
+      targetTab: "tacticas",
+      suggestedFormation: "4-3-3",
+      requiresDecision: true,
+    });
+  }
+
+  if (minute >= 70 && userGoals > opponentGoals && !["5-4-1","5-3-2","4-5-1"].includes(formation)) {
+    signals.push({
+      key: `formation:protect:${formation}`,
+      source: "assistant",
+      severity: "important",
+      title: "Cerrar mejor el partido",
+      message: "El segundo entrenador cree que una linea mas protegida ayudaria a defender el resultado sin romper al equipo.",
+      action: "Cambiar formacion",
+      targetTab: "tacticas",
+      suggestedFormation: "5-4-1",
+      requiresDecision: true,
+    });
+  }
+
+  if (minute >= 35 && stats.userReds > stats.opponentReds && !["5-4-1","5-3-2","4-4-2"].includes(formation)) {
+    signals.push({
+      key: `formation:red:${formation}:${stats.userReds}`,
+      source: "assistant",
+      severity: "urgent",
+      title: "Reajustar tras la expulsion",
+      message: "Con uno menos, el banquillo pide recolocar el equipo antes de que el rival encuentre espacios.",
+      action: "Cambiar formacion",
+      targetTab: "tacticas",
+      suggestedFormation: "5-4-1",
       requiresDecision: true,
     });
   }

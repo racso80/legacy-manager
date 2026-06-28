@@ -8,7 +8,7 @@ import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
 import LegacyMuseumScreen from "./components/LegacyMuseumScreen.jsx";
 import ScoutingScreen from "./components/ScoutingScreen.jsx";
 import TeamCrest from "./components/TeamCrest.jsx";
-import { buildMatchdaySquad, buildStartingEleven, calculateMatchRatings, chooseOpponentFormation, eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
+import { MATCH_FORMATIONS, buildMatchdaySquad, buildStartingEleven, calculateMatchRatings, chooseOpponentFormation, eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
 import { buildLiveMatchState } from "./match/liveMatchEngine.js";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
@@ -691,6 +691,71 @@ function tacticModifiers(tactics) {
   if (tactics.riesgo === "conservador") { m.atkBonus -= 2; m.defBonus += 3; }
 
   return m;
+}
+
+const LIVE_FORMATION_OPTIONS = Object.keys(MATCH_FORMATIONS);
+
+function positionFamily(position) {
+  if (position === "POR") return "POR";
+  if (["LD","LI","DFC"].includes(position)) return "DEF";
+  if (["MCD","MC","MCO","MD","MI"].includes(position)) return "MED";
+  return "DEL";
+}
+
+function playerPositionScore(player, targetPosition) {
+  if (!player || !targetPosition) return 0;
+  const natural = player.pos;
+  const playerGroup = player.group ?? positionFamily(natural);
+  const targetGroup = positionFamily(targetPosition);
+  if (natural === targetPosition) return 100;
+  if (targetPosition === "POR" || natural === "POR" || playerGroup === "POR") return 0;
+  const closePairs = {
+    LD:["LI","MD","DFC"], LI:["LD","MI","DFC"], DFC:["LD","LI","MCD"],
+    MCD:["MC","DFC"], MC:["MCD","MCO","MD","MI"], MCO:["MC","DC","ED","EI"],
+    MD:["ED","MC","LD","MI"], MI:["EI","MC","LI","MD"],
+    ED:["MD","EI","DC","MCO"], EI:["MI","ED","DC","MCO"], DC:["ED","EI","MCO"],
+  };
+  if (closePairs[natural]?.includes(targetPosition)) return 78;
+  if (playerGroup === targetGroup) return 68;
+  if ((playerGroup === "MED" && targetGroup === "DEL") || (playerGroup === "DEL" && targetGroup === "MED")) return 48;
+  if ((playerGroup === "DEF" && targetGroup === "MED") || (playerGroup === "MED" && targetGroup === "DEF")) return 42;
+  return 24;
+}
+
+function formationModifier(formation) {
+  return {
+    "4-3-3": { atk: 2.4, def: -0.8, possession: 0, fatigue: .08, label:"ofensiva por bandas" },
+    "4-4-2": { atk: .6, def: .4, possession: 0, fatigue: .02, label:"equilibrada" },
+    "4-2-3-1": { atk: 1.2, def: 1.1, possession: 3, fatigue: .04, label:"control entre lineas" },
+    "4-5-1": { atk: -1.3, def: 2.2, possession: 4, fatigue: -.03, label:"control y cierre" },
+    "5-3-2": { atk: -.6, def: 3.1, possession: -1, fatigue: -.02, label:"defensa reforzada" },
+    "5-4-1": { atk: -2.4, def: 4.2, possession: -3, fatigue: -.04, label:"bloque bajo" },
+    "3-5-2": { atk: 1.6, def: -1.2, possession: 3, fatigue: .08, label:"centro del campo" },
+  }[formation] ?? { atk: 0, def: 0, possession: 0, fatigue: 0, label:"equilibrada" };
+}
+
+function rebuildLineupForFormation(currentIds = [], players = [], formation = "4-3-3", blockedIds = []) {
+  const blocked = new Set(blockedIds);
+  const slots = MATCH_FORMATIONS[formation] ?? MATCH_FORMATIONS["4-3-3"];
+  const available = currentIds
+    .map(id => players.find(player => player.id === id))
+    .filter(player => player && !player.injured && !player.suspended && !blocked.has(player.id));
+  const used = new Set();
+  return slots.map(position => {
+    const selected = [...available]
+      .filter(player => !used.has(player.id))
+      .sort((a,b) => {
+        const score = player => playerPositionScore(player, position) + (player.overall ?? 70) * .12 - (player.fatigue ?? 0) * .08;
+        return score(b) - score(a);
+      })[0];
+    if (selected) used.add(selected.id);
+    return selected?.id ?? null;
+  });
+}
+
+function liveFormationStrengthBonus(formation) {
+  const mod = formationModifier(formation);
+  return mod.atk * .65 + mod.def * .35;
 }
 
 // â”€â”€â”€ MOTOR DE PARTIDO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -4513,7 +4578,11 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
   const [matchAutosaveAt, setMatchAutosaveAt] = useState(recoverState.savedAt ?? null);
   // IDs de jugadores ya sustituidos (salieron del campo) â€” no pueden volver a jugar este partido
   const [subbedOutIds, setSubbedOutIds] = useState(recoverState.subbedOutIds ?? []);
-  const [oppCallup] = useState(()=>recoverState.oppCallup ?? buildMatchdaySquad(initialOppPlayers,initialOppFormation,BENCH_SLOTS));
+  const [matchFormation, setMatchFormation] = useState(recoverState.matchFormation ?? baseFormation);
+  const [oppFormation, setOppFormation] = useState(recoverState.oppFormation ?? initialOppFormation);
+  const [selectedFormationSlot, setSelectedFormationSlot] = useState(recoverState.selectedFormationSlot ?? null);
+  const [oppFormationChanged, setOppFormationChanged] = useState(recoverState.oppFormationChanged ?? false);
+  const [oppCallup] = useState(()=>recoverState.oppCallup ?? buildMatchdaySquad(initialOppPlayers,recoverState.oppFormation ?? initialOppFormation,BENCH_SLOTS));
   const [oppLineup, setOppLineup] = useState(()=>recoverState.oppLineup ?? oppCallup.lineup);
   const [oppSubs, setOppSubs] = useState(()=>recoverState.oppSubs ?? oppCallup.bench);
   const [oppSubsUsed, setOppSubsUsed] = useState(recoverState.oppSubsUsed ?? 0);
@@ -4537,7 +4606,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     const state = {
       segment, events, score, finished, tab, livePlayer, liveOppPlayers, subsUsed, pendingInjury, subbingSlot,
       keyEventBanner, possession, sentOffIds, oppSentOffIds, currentMinute, pauseEvent, playing, matchPhase,
-      addedTime, subbedOutIds, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds, liveDecision, dismissedLiveSignals,
+      addedTime, subbedOutIds, matchFormation, oppFormation, selectedFormationSlot, oppFormationChanged, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds, liveDecision, dismissedLiveSignals,
       processedMinutes:[...processedMinuteRef.current], lineup, subs, tactics, savedAt:new Date().toISOString(),
     };
     const session = {
@@ -4556,7 +4625,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     matchSnapshotRef.current = session;
     writeActiveMatchSession(session);
     setMatchAutosaveAt(state.savedAt);
-  }, [fixture?.id, matchId, saveId, segment, events, score, finished, tab, livePlayer, liveOppPlayers, subsUsed, pendingInjury, subbingSlot, keyEventBanner, possession, sentOffIds, oppSentOffIds, currentMinute, pauseEvent, playing, matchPhase, addedTime, subbedOutIds, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds, liveDecision, dismissedLiveSignals, lineup, subs, tactics]);
+  }, [fixture?.id, matchId, saveId, segment, events, score, finished, tab, livePlayer, liveOppPlayers, subsUsed, pendingInjury, subbingSlot, keyEventBanner, possession, sentOffIds, oppSentOffIds, currentMinute, pauseEvent, playing, matchPhase, addedTime, subbedOutIds, matchFormation, oppFormation, selectedFormationSlot, oppFormationChanged, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds, liveDecision, dismissedLiveSignals, lineup, subs, tactics]);
 
   useEffect(() => {
     const flush = () => {
@@ -4642,6 +4711,53 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
   };
 
   // Realizar una sustituciÃ³n: sale outId, entra inId (debe estar en el banco)
+  const addFormationEvent = (formation, side = "user", minute = currentMinute) => {
+    const teamName = side === "user" ? userTeam?.short : oppTeam?.short;
+    return {
+      minute,
+      type: "TACTICAL_SHIFT",
+      team: side,
+      teamId: side === "user" ? teamId : oppTeamId,
+      description: `${teamName ?? "El equipo"} cambia el dibujo a ${formation}.`,
+    };
+  };
+
+  const applyMatchFormation = (newFormation) => {
+    if (!MATCH_FORMATIONS[newFormation] || newFormation === matchFormation) return;
+    const activeIds = lineup.filter(id => id && !sentOffIds.includes(id) && !livePlayer.find(player=>player.id===id)?.injured);
+    const rebuilt = rebuildLineupForFormation(activeIds, livePlayer, newFormation, sentOffIds);
+    setLineup(normalizeSlots(rebuilt, STARTERS_SLOTS));
+    setMatchFormation(newFormation);
+    setSelectedFormationSlot(null);
+    setEvents(current => [...current, addFormationEvent(newFormation, "user")]);
+    if (liveDecision) acknowledgeLiveDecision();
+  };
+
+  const swapFormationSlots = (fromIndex, toIndex) => {
+    if (fromIndex === toIndex || fromIndex == null || toIndex == null) return;
+    setLineup(current => {
+      const next = [...current];
+      [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+      return next;
+    });
+    setSelectedFormationSlot(null);
+  };
+
+  const maybeOpponentFormationShift = (minute, oppGoalsNow, userGoalsNow) => {
+    if (oppFormationChanged || minute < 55) return null;
+    let nextFormation = null;
+    if (oppSentOffIds.length > 0) nextFormation = "5-4-1";
+    else if (oppGoalsNow < userGoalsNow && minute >= 70) nextFormation = "4-3-3";
+    else if (oppGoalsNow > userGoalsNow && minute >= 75) nextFormation = "5-4-1";
+    else if (minute >= 65 && oppFormation === "4-4-2" && Math.random() < .12) nextFormation = "4-2-3-1";
+    if (!nextFormation || nextFormation === oppFormation || !MATCH_FORMATIONS[nextFormation]) return null;
+    const activeIds = oppLineup.filter(id => id && !oppSentOffIds.includes(id) && !liveOppPlayers.find(player=>player.id===id)?.injured);
+    setOppLineup(normalizeSlots(rebuildLineupForFormation(activeIds, liveOppPlayers, nextFormation, oppSentOffIds), STARTERS_SLOTS));
+    setOppFormation(nextFormation);
+    setOppFormationChanged(true);
+    return addFormationEvent(nextFormation, "opp", minute);
+  };
+
   const doSubstitution = (outId, inId) => {
     if (subsUsed >= MAX_SUBS) return;
     if (subbedOutIds.includes(outId)) return; // ya estaba fuera, no deberÃ­a poder "salir" otra vez
@@ -4743,6 +4859,8 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     sentOffIds,
     opponentSentOffIds: oppSentOffIds,
     tactics,
+    formation: matchFormation,
+    opponentFormation: oppFormation,
     subsUsed,
     maxSubs: MAX_SUBS,
   });
@@ -4784,9 +4902,11 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     const userGoalsNow = isHome ? score.home : score.away;
     const oppGoalsNow = isHome ? score.away : score.home;
     const oppTactics = opponentMatchTactics({ minute:intervalEnd, opponentGoals:oppGoalsNow, userGoals:userGoalsNow });
-    const userStr=strengthWithPlayerCount(calcTeamStrength(starterPlayers,isHome,tactics),starterPlayers.length);
+    const userFormationMod = formationModifier(matchFormation);
+    const oppFormationMod = formationModifier(oppFormation);
+    const userStr=strengthWithPlayerCount(calcTeamStrength(starterPlayers,isHome,tactics)+liveFormationStrengthBonus(matchFormation),starterPlayers.length);
     const oppCount=Math.max(7,oppSquad.length);
-    const oppStr=strengthWithPlayerCount(calcTeamStrength(oppSquad,!isHome,oppTactics)+(Math.random()*4-2),oppCount);
+    const oppStr=strengthWithPlayerCount(calcTeamStrength(oppSquad,!isHome,oppTactics)+liveFormationStrengthBonus(oppFormation)+(Math.random()*4-2),oppCount);
     const yellowCounts={user:{},opp:{}};
     events.filter(event=>event.type==="YELLOW").forEach(event=>{const side=event.team==="user"||event.team==="opp"?event.team:null;if(side&&event.playerId)yellowCounts[side][event.playerId]=(yellowCounts[side][event.playerId]??0)+1;});
     const generated=generateSegmentEvents(currentSegment,starterPlayers,userStr,oppStr,score,tactics,isHome,oppSquad,{
@@ -4795,10 +4915,12 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     }).filter(event=>(event.minute??intervalEnd)<=intervalEnd);
     const flow=eventsUntilExtraordinary(generated);
     const newEvs=flow.events;
+    const rivalFormationEvent = maybeOpponentFormationShift(intervalEnd, oppGoalsNow, userGoalsNow);
+    if (rivalFormationEvent) newEvs.push(rivalFormationEvent);
 
     // Calcular posesiÃ³n del tramo segÃºn fuerza relativa, estilo tÃ¡ctico y algo de variaciÃ³n
     const strDiff = userStr - oppStr;
-    let basePoss = 50 + strDiff * 1.1;
+    let basePoss = 50 + strDiff * 1.1 + (userFormationMod.possession - oppFormationMod.possession);
     if (tactics.estilo === "posesion") basePoss += 8;
     if (tactics.estilo === "directo" || tactics.estilo === "contraataque") basePoss -= 6;
     const segmentPoss = Math.max(28, Math.min(78, Math.round(basePoss + (Math.random() * 10 - 5))));
@@ -4845,7 +4967,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
         // Solo los jugadores en el campo se cansan; los porteros apenas se cansan; los que no juegan descansan
         fatigue: p.injured ? p.fatigue
           : onField
-            ? Math.min(100, Number(((p.fatigue??0) + matchFatigueDelta(p, tactics, elapsedMinutes)).toFixed(2)))
+            ? Math.min(100, Number(((p.fatigue??0) + matchFatigueDelta(p, tactics, elapsedMinutes) * (1 + userFormationMod.fatigue)).toFixed(2)))
             : Math.max(0, Number(((p.fatigue??0) - benchRecoveryDelta(elapsedMinutes)).toFixed(2))),
       };
       const injuryEvent = newEvs.find(e => e.type === "INJURY" && e.playerId === p.id);
@@ -4859,7 +4981,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
         ...player,
         fatigue: player.injured ? player.fatigue
           : onField
-            ? Math.min(100, Number(((player.fatigue ?? 18) + matchFatigueDelta(player, oppTactics, elapsedMinutes)).toFixed(2)))
+            ? Math.min(100, Number(((player.fatigue ?? 18) + matchFatigueDelta(player, oppTactics, elapsedMinutes) * (1 + oppFormationMod.fatigue)).toFixed(2)))
             : Math.max(0, Number(((player.fatigue ?? 18) - benchRecoveryDelta(elapsedMinutes)).toFixed(2))),
       };
       return injuryEvent ? applyInjury(updated, injuryEvent, game.season ?? "2025", fixture.matchday) : updated;
@@ -4899,7 +5021,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     if (!playing || finished || pauseEvent || pendingInjury) return;
     const timer = setTimeout(() => simNext(), 1000);
     return () => clearTimeout(timer);
-  }, [playing, finished, pauseEvent, pendingInjury, currentMinute, segment, matchPhase, addedTime.first, addedTime.second]);
+  }, [playing, finished, pauseEvent, pendingInjury, currentMinute, segment, matchPhase, addedTime.first, addedTime.second, matchFormation, oppFormation, lineup, oppLineup, tactics]);
 
   const togglePlay = () => {
     if (playing) {
@@ -4944,8 +5066,8 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
       teamId: game.teamId,
       starters: baseLineup.filter(Boolean),
       finishers: lineup.filter(id=>id&&!sentOffIds.includes(id)&&!livePlayer.find(player=>player.id===id)?.injured),
-      userFormation:baseFormation,
-      opponentFormation:initialOppFormation,
+      userFormation:matchFormation,
+      opponentFormation:oppFormation,
       opponentStarters:oppCallup.lineup.filter(Boolean),
       opponentBench:oppCallup.bench.filter(Boolean),
       opponentFinishers:oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)),
@@ -5254,8 +5376,8 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
         )}
         {tab === "alineaciones" && (
           <div style={{padding:12}}>
-            <LiveLineupPanel team={userTeam} formation={baseFormation} playerIds={lineup.filter(Boolean)} players={livePlayer} events={events} sentOffIds={sentOffIds} side="user" eventTeam={isHome?"home":"away"} currentMinute={currentMinute}/>
-            <LiveLineupPanel team={oppTeam} formation={initialOppFormation} playerIds={oppLineup.filter(Boolean)} players={liveOppPlayers} events={events} sentOffIds={oppSentOffIds} side="opp" eventTeam={isHome?"away":"home"} currentMinute={currentMinute}/>
+            <LiveLineupPanel team={userTeam} formation={matchFormation} playerIds={lineup.filter(Boolean)} players={livePlayer} events={events} sentOffIds={sentOffIds} side="user" eventTeam={isHome?"home":"away"} currentMinute={currentMinute}/>
+            <LiveLineupPanel team={oppTeam} formation={oppFormation} playerIds={oppLineup.filter(Boolean)} players={liveOppPlayers} events={events} sentOffIds={oppSentOffIds} side="opp" eventTeam={isHome?"away":"home"} currentMinute={currentMinute}/>
           </div>
         )}
         {tab === "tacticas" && (
@@ -5263,7 +5385,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
             <div style={{ fontSize: 11, color: "#f59e0b", background: "#f59e0b11", border: "1px solid #f59e0b33", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
               Los cambios se aplican al siguiente tramo simulado.
             </div>
-            <TacticsInMatch tactics={tactics} setTactics={setTactics} />
+            <TacticsInMatch tactics={tactics} setTactics={setTactics} formation={matchFormation} onFormationChange={applyMatchFormation} lineup={lineup} subs={subs} players={livePlayer} selectedSlot={selectedFormationSlot} setSelectedSlot={setSelectedFormationSlot} onSwapSlots={swapFormationSlots} onSubstituteSlot={(slot,pid)=>doSubstitution(lineup[slot],pid)} />
           </div>
         )}
       </div>
@@ -5306,7 +5428,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
 }
 
 // Mini vista de tÃ¡cticas dentro del partido (sin setTactics â€” sÃ³lo lectura)
-function TacticsInMatch({ tactics, setTactics }) {
+function TacticsInMatch({ tactics, setTactics, formation, onFormationChange, lineup = [], subs = [], players = [], selectedSlot = null, setSelectedSlot = () => {}, onSwapSlots = () => {}, onSubstituteSlot = () => {} }) {
   const fields = [
     ["mentalidad", "Mentalidad", [["defensiva","Defensiva"],["equilibrada","Equilibrada"],["ofensiva","Ofensiva"]]],
     ["presion",    "PresiÃ³n",    [["baja","Baja"],["media","Media"],["alta","Alta"]]],
@@ -5315,8 +5437,75 @@ function TacticsInMatch({ tactics, setTactics }) {
     ["riesgo",     "Riesgo",     [["conservador","Conservador"],["normal","Normal"],["agresivo","Agresivo"]]],
   ];
   const mod = tacticModifiers(tactics);
+  const formationSlots = MATCH_FORMATIONS[formation] ?? MATCH_FORMATIONS["4-3-3"];
   return (
     <div>
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 6 }}>FORMACION EN DIRECTO</div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {LIVE_FORMATION_OPTIONS.map(option => {
+            const active = formation === option;
+            return (
+              <button key={option} onClick={() => onFormationChange(option)}
+                style={{ background: active ? "#c9a84c" : "#1e2330", color: active ? "#1a1200" : "#e8eaf0",
+                  border: `1px solid ${active ? "#c9a84c" : "rgba(255,255,255,.1)"}`, padding: "8px 11px",
+                  borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                {option}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: 8, fontSize: 10, color: "#9aa0b4" }}>
+          Al cambiar, el once se recoloca automaticamente. Puedes tocar dos posiciones para intercambiarlas.
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 14, background:"#0d0f14", border:"1px solid rgba(255,255,255,.06)", borderRadius:10, padding:10 }}>
+        <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 8 }}>AJUSTE MANUAL</div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:7 }}>
+          {formationSlots.map((position, index) => {
+            const player = players.find(item => item.id === lineup[index]);
+            const score = playerPositionScore(player, position);
+            const selected = selectedSlot === index;
+            const warning = player && score < 55;
+            return (
+              <button key={`${position}-${index}`} onClick={() => selectedSlot === index ? setSelectedSlot(null) : selectedSlot == null ? setSelectedSlot(index) : onSwapSlots(selectedSlot, index)}
+                style={{ textAlign:"left", background:selected?"rgba(201,168,76,.18)":"#161a24", border:`1px solid ${selected?"#c9a84c":warning?"rgba(245,158,11,.45)":"rgba(255,255,255,.06)"}`,
+                  borderRadius:8, padding:"8px 9px", cursor:"pointer", minHeight:58 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", gap:6, marginBottom:3 }}>
+                  <span style={{ fontSize:11, color:"#c9a84c", fontWeight:800 }}>{position}</span>
+                  {warning && <span style={{ fontSize:10, color:"#f59e0b" }}>fuera pos.</span>}
+                </div>
+                <div style={{ fontSize:12, color:"#e8eaf0", fontWeight:650, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                  {player?.name ?? "Sin jugador"}
+                </div>
+                {player && <div style={{ fontSize:10, color:"#6b7280" }}>{player.pos} · Cansancio {Math.round(player.fatigue??0)}</div>}
+              </button>
+            );
+          })}
+        </div>
+        {selectedSlot != null && (
+          <div style={{ marginTop:10, borderTop:"1px solid rgba(255,255,255,.06)", paddingTop:9 }}>
+            <div style={{ fontSize:10, color:"#9aa0b4", marginBottom:7 }}>SUPLENTES COMPATIBLES PARA {formationSlots[selectedSlot]}</div>
+            <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:2 }}>
+              {subs.filter(Boolean).map(pid => {
+                const player = players.find(item => item.id === pid);
+                if (!player || player.injured || player.suspended) return null;
+                const score = playerPositionScore(player, formationSlots[selectedSlot]);
+                return (
+                  <button key={pid} onClick={() => onSubstituteSlot(selectedSlot, pid)}
+                    style={{ flex:"0 0 auto", background:"#1e2330", color:"#e8eaf0", border:`1px solid ${score>=55?"rgba(34,197,94,.35)":"rgba(245,158,11,.4)"}`,
+                      borderRadius:8, padding:"7px 9px", fontSize:11, cursor:"pointer", minWidth:110, textAlign:"left" }}>
+                    <div style={{ fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{player.name}</div>
+                    <div style={{ color:score>=55?"#22c55e":"#f59e0b", fontSize:10 }}>{player.pos} · encaje {Math.round(score)}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
       {fields.map(([field, label, options]) => (
         <div key={field} style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, marginBottom: 6 }}>{label.toUpperCase()}</div>
