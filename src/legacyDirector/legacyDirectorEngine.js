@@ -81,7 +81,66 @@ function normalizeOwnerId(value) {
   return value ?? "assistantCoach";
 }
 
-function subjectId(candidate) {
+function normalizeText(value = "") {
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function candidateText(candidate) {
+  return [
+    candidate.title,
+    candidate.summary,
+    candidate.topicKey,
+    candidate.origin,
+    candidate.issue?.title,
+    candidate.issue?.message,
+    candidate.issue?.actionRequired,
+    candidate.issue?.person?.name,
+    candidate.issue?.payload?.playerName,
+    candidate.attention?.title,
+    candidate.attention?.summary,
+    candidate.attention?.playerName,
+    candidate.playerName,
+    candidate.conversation?.title,
+    candidate.conversation?.opening,
+    candidate.conversation?.actorName,
+  ].filter(Boolean).join(" ");
+}
+
+function isContractText(candidate) {
+  const text = normalizeText(candidateText(candidate));
+  return text.includes("contrato")
+    || text.includes("contract")
+    || text.includes("renov")
+    || text.includes("ultimo ano")
+    || text.includes("ultimo año")
+    || text.includes("claridad contractual")
+    || text.includes("situacion contractual");
+}
+
+function playerFromText(candidate, game) {
+  const text = normalizeText(candidateText(candidate));
+  if (!text) return null;
+  const players = game?.players ?? [];
+  return players.find(player => {
+    const full = normalizeText(player.name ?? "");
+    if (!full) return false;
+    const parts = full.split(/\s+/).filter(part => part.length > 2);
+    const firstName = parts[0];
+    const firstNameIsUnique = firstName
+      ? players.filter(item => normalizeText(item.name).split(/\s+/)[0] === firstName).length === 1
+      : false;
+    return text.includes(full)
+      || parts.every(part => text.includes(part))
+      || (firstNameIsUnique && firstName.length > 3 && text.includes(firstName));
+  }) ?? null;
+}
+
+function subjectId(candidate, game) {
+  const player = playerFromText(candidate, game);
+  if (isContractText(candidate) && player?.id) return player.id;
   return candidate.issue?.payload?.playerId
     ?? candidate.issue?.person?.id
     ?? candidate.attention?.playerId
@@ -89,11 +148,13 @@ function subjectId(candidate) {
     ?? candidate.conversation?.actorId
     ?? candidate.playerId
     ?? candidate.payload?.playerId
+    ?? player?.id
     ?? null;
 }
 
 function ownerActorId(candidate) {
   const origin = candidate.origin ?? candidate.category ?? "";
+  if (isContractText(candidate)) return "sportingDirector";
   if (["contracts", "contract", "market", "transfers"].includes(origin)) return "sportingDirector";
   if (origin === "medical") return "doctor";
   if (origin === "training") return "fitnessCoach";
@@ -107,6 +168,7 @@ function ownerActorId(candidate) {
 
 function issueType(candidate) {
   const origin = candidate.origin ?? candidate.category ?? "";
+  if (isContractText(candidate)) return "contract_renewal";
   if (["contracts", "contract"].includes(origin)) return "contract_renewal";
   if (origin === "medical") return "medical_risk";
   if (origin === "training") return "physical_load";
@@ -120,20 +182,32 @@ function issueType(candidate) {
   return origin || candidate.source || "general_issue";
 }
 
-function subjectName(candidate) {
+function subjectName(candidate, game) {
+  const player = playerFromText(candidate, game);
+  if (isContractText(candidate) && player?.name) return player.name;
   return candidate.issue?.person?.name
     ?? candidate.issue?.payload?.playerName
     ?? candidate.attention?.playerName
     ?? candidate.conversation?.actorName
+    ?? player?.name
     ?? null;
 }
 
-function narrativeIssueKey(candidate) {
-  if (candidate.issueKey) return candidate.issueKey;
+function narrativeIssueKey(candidate, game) {
   const type = issueType(candidate);
-  const subject = subjectId(candidate);
+  const subject = subjectId(candidate, game);
+  if (candidate.issueKey && !(type === "contract_renewal" && subject)) return candidate.issueKey;
   if (["locker_room", "lineup_preparation", "match_recovery", "press_message", "institutional_pressure"].includes(type)) return type;
   return `${type}:${subject ?? candidate.issue?.payload?.offerId ?? candidate.attention?.action?.offerId ?? candidate.rawId ?? groupKey(candidate)}`;
+}
+
+function cleanTitle(title = "", ownerId = "") {
+  let text = String(title);
+  if (ownerId === "sportingDirector") {
+    text = text.replace(/^director deportivo\s*:\s*/i, "");
+    text = text.replace(/^dirección deportiva\s*:\s*/i, "");
+  }
+  return text.trim() || "Asunto pendiente";
 }
 
 function humanSummary(candidate, ownerId) {
@@ -153,13 +227,13 @@ function humanSummary(candidate, ownerId) {
 function normalizeCandidateToIssue(candidate, game) {
   const ownerId = ownerActorId(candidate);
   const type = issueType(candidate);
-  const subject = subjectId(candidate) ?? candidate.rawId ?? candidate.id;
-  const key = narrativeIssueKey({ ...candidate, actorId:ownerId });
+  const subject = subjectId(candidate, game) ?? candidate.rawId ?? candidate.id;
+  const key = narrativeIssueKey({ ...candidate, actorId:ownerId }, game);
   const owner = ownerId === "player" && candidate.conversation?.actorType === "player"
     ? { ...OWNER_PROFILES.player, id:candidate.conversation.actorId, name:candidate.conversation.actorName, role:candidate.conversation.role, portrait:candidate.conversation.portrait }
     : OWNER_PROFILES[ownerId] ?? OWNER_PROFILES.assistantCoach;
-  const title = candidate.issue?.title ?? candidate.attention?.title ?? candidate.conversation?.title ?? candidate.title ?? "Asunto pendiente";
-  const subjectLabel = subjectName(candidate);
+  const title = cleanTitle(candidate.issue?.title ?? candidate.attention?.title ?? candidate.conversation?.title ?? candidate.title ?? "Asunto pendiente", owner.id);
+  const subjectLabel = subjectName(candidate, game);
   return {
     id: key,
     sourceItemId: candidate.id,
@@ -188,7 +262,7 @@ function normalizeCandidateToIssue(candidate, game) {
 
 function isIssueBlocked(candidate, game, directorState) {
   if (!game) return false;
-  const issueState = directorState.issueStates[narrativeIssueKey(candidate)];
+  const issueState = directorState.issueStates[narrativeIssueKey(candidate, game)];
   if (!issueState) return false;
   if (["in_scene", "in_progress", "archived"].includes(issueState.status)) return true;
   const currentMatchday = game.matchday ?? 1;
@@ -241,7 +315,7 @@ function shouldConsiderForGame(candidate, game, directorState) {
   if (!candidate?.id) return false;
   if (["resolved", "dismissed", "ignored"].includes(candidate.status)) return false;
   if (directorState.resolved[candidate.id]) {
-    const issueState = game ? directorState.issueStates[narrativeIssueKey(candidate)] : null;
+    const issueState = game ? directorState.issueStates[narrativeIssueKey(candidate, game)] : null;
     if (!issueState || isIssueBlocked(candidate, game, directorState)) return false;
   }
   if (game && isIssueBlocked(candidate, game, directorState)) return false;
