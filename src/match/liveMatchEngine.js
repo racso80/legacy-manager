@@ -63,16 +63,18 @@ export function buildLiveMatchState({
 
   const userGoalsCount = countEvents(events, isHome, "user", ["GOAL", "PENALTY"]);
   const opponentGoalsCount = countEvents(events, isHome, "opponent", ["GOAL", "PENALTY"]);
-  const userBigChances = countEvents(events, isHome, "user", ["BIG_CHANCE"]);
-  const opponentBigChances = countEvents(events, isHome, "opponent", ["BIG_CHANCE"]);
+  const userBigChances = countEvents(events, isHome, "user", ["BIG_CHANCE", "DANGEROUS_CROSS", "CORNER"]);
+  const opponentBigChances = countEvents(events, isHome, "opponent", ["BIG_CHANCE", "DANGEROUS_CROSS", "CORNER"]);
+  const userBlockedShots = countEvents(events, isHome, "user", ["BLOCKED_SHOT"]);
+  const opponentBlockedShots = countEvents(events, isHome, "opponent", ["BLOCKED_SHOT"]);
   const userSaves = countEvents(events, isHome, "user", ["SAVE"]);
   const opponentSaves = countEvents(events, isHome, "opponent", ["SAVE"]);
 
   const stats = {
     userGoals,
     opponentGoals,
-    userShots: userGoalsCount + userBigChances + opponentSaves,
-    opponentShots: opponentGoalsCount + opponentBigChances + userSaves,
+    userShots: userGoalsCount + userBigChances + userBlockedShots + opponentSaves,
+    opponentShots: opponentGoalsCount + opponentBigChances + opponentBlockedShots + userSaves,
     userBigChances,
     opponentBigChances,
     userSaves,

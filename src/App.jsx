@@ -798,23 +798,61 @@ function goalDesc(scorer, tactics, team) {
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
+function opponentMatchTactics({ minute = 0, opponentGoals = 0, userGoals = 0 } = {}) {
+  if (opponentGoals < userGoals && minute >= 70) return { ...DEFAULT_TACTICS, mentalidad:"ofensiva", presion:"alta", ritmo:"rapido", riesgo:"agresivo" };
+  if (opponentGoals < userGoals && minute >= 55) return { ...DEFAULT_TACTICS, mentalidad:"ofensiva", ritmo:"rapido" };
+  if (opponentGoals > userGoals && minute >= 70) return { ...DEFAULT_TACTICS, mentalidad:"defensiva", presion:"media", ritmo:"lento", riesgo:"conservador" };
+  return DEFAULT_TACTICS;
+}
+
+function fatiguePositionFactor(player) {
+  if (player.group === "POR") return .22;
+  if (["LD","LI","ED","EI","MD","MI"].includes(player.pos)) return 1.35;
+  if (["MC","MCD","MCO"].includes(player.pos) || player.group === "MED") return 1.15;
+  if (player.group === "DEL") return 1.05;
+  return .85;
+}
+
+function matchFatigueDelta(player, tactics = DEFAULT_TACTICS, elapsedMinutes = 1) {
+  const mod = tacticModifiers(tactics);
+  const basePer15 = 5.2 + mod.fatigueExtra * .75;
+  const positionFactor = fatiguePositionFactor(player);
+  const ageFactor = player.age >= 34 ? 1.20 : player.age >= 31 ? 1.12 : player.age <= 22 ? .92 : 1;
+  const stamina = player.attrs?.fisico ?? player.attrs?.ritmo ?? 72;
+  const staminaFactor = Math.max(.82, Math.min(1.22, 1 + (72 - stamina) * .008));
+  const loadFactor = 1 + Math.max(0, getAccumulatedLoad(player) - 60) * .004;
+  const noise = Math.random() * (player.group === "POR" ? .35 : 1.25) * (elapsedMinutes / 15);
+  return ((basePer15 * positionFactor * ageFactor * staminaFactor * loadFactor) * (elapsedMinutes / 15)) + noise;
+}
+
+function benchRecoveryDelta(elapsedMinutes = 1) {
+  return elapsedMinutes / 18;
+}
+
 function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics = DEFAULT_TACTICS, userIsHome = true, oppSquad = [], medicalContext = {}) {
   const events = [];
   const mod    = tacticModifiers(tactics);
+  const oppTactics = medicalContext.oppTactics ?? DEFAULT_TACTICS;
+  const oppMod = tacticModifiers(oppTactics);
   const diff   = userStr - oppStr;
   const minuteStart=Math.max(segment*15+1,medicalContext.minuteStart??segment*15+1);
   const minuteEnd=Math.min((segment+1)*15,medicalContext.minuteEnd??(segment+1)*15);
   const intervalMinutes=Math.max(1,minuteEnd-minuteStart+1);
+  const userGoalsNow = userIsHome ? (score.home ?? 0) : (score.away ?? 0);
+  const oppGoalsNow = userIsHome ? (score.away ?? 0) : (score.home ?? 0);
+  const isLate = minuteEnd >= 75;
+  const avgUserFatigue = players.length ? players.reduce((sum, player)=>sum+(player.fatigue??0),0)/players.length : 0;
+  const avgOppFatigue = oppSquad.length ? oppSquad.reduce((sum, player)=>sum+(player.fatigue??18),0)/oppSquad.length : 18;
 
   // Probabilidades base ajustadas por tácticas y diferencia de fuerza
   const hChanceProb = Math.min(0.75, Math.max(0.08, 0.24 + diff * 0.008 + mod.chancesRate));
-  const aChanceProb = Math.min(0.65, Math.max(0.06, 0.18 - diff * 0.008));
+  const aChanceProb = Math.min(0.68, Math.max(0.08, 0.20 - diff * 0.008 + oppMod.chancesRate));
 
   // Defensa rival reduce conversión de gol del usuario
   const oppDefStr   = calcDefStrength(oppSquad);
   const userDefStr  = calcDefStrength(players,tactics);
   const hGoalConv   = Math.min(0.78, Math.max(0.30, 0.52 + mod.goalConvRate - (oppDefStr - 65) * 0.003));
-  const aGoalConv   = Math.min(0.65, Math.max(0.25, 0.42 - (userDefStr - 65) * 0.004));
+  const aGoalConv   = Math.min(0.68, Math.max(0.25, 0.42 + oppMod.goalConvRate - (userDefStr - 65) * 0.004));
 
   const attackers = players.filter(p => p.group === "DEL" && !p.injured && !p.suspended);
   const mids      = players.filter(p => p.group === "MED" && !p.injured && !p.suspended);
@@ -827,8 +865,67 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   const oppAttackers = oppSquad.filter(p => p.group === "DEL");
   const oppMids      = oppSquad.filter(p => p.group === "MED");
   const oppGk        = oppSquad.find(p => p.group === "POR");
+  const oppFieldPlayers = oppSquad.filter(p => p.group !== "POR");
   const oppScorerPool = oppAttackers.length ? oppAttackers : (oppMids.length ? oppMids : oppSquad);
   const pickOppScorer = () => oppScorerPool.length ? pick(oppScorerPool) : null;
+  const addNarrativeEvent = (team, type, description, playerId = null) => {
+    events.push({ minute:min(), type, team, playerId:playerId ?? undefined, description });
+  };
+  const narrativeBase = .32 + Math.abs(diff) * .002 + ((tactics.presion==="alta" || oppTactics.presion==="alta") ? .05 : 0) + ((avgUserFatigue>55 || avgOppFatigue>55) ? .04 : 0);
+  if(Math.random()<intervalProbability(narrativeBase,intervalMinutes)){
+    const userDominates = diff > 5;
+    const team = userDominates ? "user" : diff < -5 ? "opp" : (Math.random()<.5?"user":"opp");
+    const actor = team==="user" ? pick([...mids,...attackers,...defs].filter(Boolean)) : pick(oppSquad.filter(player=>player.group!=="POR"));
+    const style = team==="user" ? tactics.estilo : oppTactics.estilo;
+    const options = [
+      { type:"CORNER", text: style==="bandas" ? `${actor?.name ?? "El equipo"} fuerza un corner tras un centro peligroso.` : `${actor?.name ?? "El equipo"} provoca un corner despues de una buena llegada.` },
+      { type:"DANGEROUS_CROSS", text: `${actor?.name ?? "El atacante"} pone un centro tenso que obliga a despejar a la defensa.` },
+      { type:"BLOCKED_SHOT", text: `${actor?.name ?? "El jugador"} prueba el disparo, pero la defensa lo bloquea.` },
+      { type:"OFFSIDE", text: `${actor?.name ?? "El delantero"} cae en fuera de juego cuando buscaba la espalda de la defensa.` },
+    ];
+    const selected = pick(options);
+    if(actor)addNarrativeEvent(team,selected.type,selected.text,actor.id);
+  }
+
+  if(Math.random()<intervalProbability(.13 + Math.max(mod.yellowRisk,oppMod.yellowRisk),intervalMinutes)){
+    const userSide=Math.random()<.5;const pool=userSide?allField:oppFieldPlayers;
+    const actor=pool.length?pick(pool):null;
+    if(actor)addNarrativeEvent(userSide?"user":"opp","DANGEROUS_FOUL",`${actor.name} comete una falta peligrosa. El arbitro le advierte verbalmente.`,actor.id);
+  }
+
+  if(Math.random()<intervalProbability(.10,intervalMinutes)){
+    const team = Math.random()<.5 ? "user" : "opp";
+    const actor = team==="user" ? pick(allField) : pick(oppFieldPlayers);
+    const type = Math.random()<.45 ? "REF_WARNING" : "PROTEST";
+    if(actor)addNarrativeEvent(team,type,type==="REF_WARNING" ? `${actor.name} recibe una advertencia del arbitro tras una accion al limite.` : `${actor.name} protesta una decision y el arbitro le pide calma.`,actor.id);
+  }
+
+  if(Math.random()<intervalProbability(.08 + (isLate ? .04 : 0),intervalMinutes)){
+    const team = userGoalsNow < oppGoalsNow ? "user" : userGoalsNow > oppGoalsNow ? "opp" : (Math.random()<.5?"user":"opp");
+    addNarrativeEvent(team,"BENCH_WARMUP",team==="user" ? "El banquillo empieza a calentar. El segundo entrenador mira de reojo la zona de cambios." : "El rival manda calentar a varios suplentes. Se prepara movimiento en el banquillo.");
+  }
+
+  if(Math.random()<intervalProbability(.055 + (Math.abs(diff)>8?.025:0),intervalMinutes)){
+    const team = diff >= 0 ? "opp" : "user";
+    addNarrativeEvent(team,"TACTICAL_SHIFT",team==="user" ? "El equipo reajusta posiciones para protegerse mejor entre lineas." : "El rival modifica su dibujo sin hacer cambios. Busca corregir el dominio del partido.");
+  }
+
+  if(Math.random()<intervalProbability(.045 + (isLate && userGoalsNow !== oppGoalsNow ? .035 : 0),intervalMinutes)){
+    addNarrativeEvent(userIsHome ? "user" : "opp","CROWD_PRESSURE","La grada aprieta y sube el ruido del estadio. El partido gana temperatura.");
+  }
+
+  if(isLate && userGoalsNow !== oppGoalsNow && Math.random()<intervalProbability(.16,intervalMinutes)){
+    const winningUser = userGoalsNow > oppGoalsNow;
+    const actor = winningUser ? pick(players.filter(player=>player.group!=="POR")) : pick(oppSquad.filter(player=>player.group!=="POR"));
+    if(actor)addNarrativeEvent(winningUser?"user":"opp","TIME_WASTING",`${actor.name} intenta enfriar el partido y arañar unos segundos al reloj.`,actor.id);
+  }
+
+  if((avgUserFatigue>58||avgOppFatigue>58) && Math.random()<intervalProbability(.12,intervalMinutes)){
+    const tiredUser = avgUserFatigue >= avgOppFatigue;
+    const pool = tiredUser ? allField : oppSquad.filter(player=>player.group!=="POR");
+    const actor = pool.length ? [...pool].sort((a,b)=>(b.fatigue??0)-(a.fatigue??0))[0] : null;
+    if(actor)addNarrativeEvent(tiredUser?"user":"opp","PLAYER_KNOCK",`${actor.name} se queda unos segundos tocado. Parece cansancio acumulado, pero sigue en el campo.`,actor.id);
+  }
 
   // ── ATAQUE LOCAL ──
   if (Math.random() < intervalProbability(hChanceProb,intervalMinutes)) {
@@ -921,8 +1018,8 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   }
 
   // ── TARJETA AMARILLA VISITANTE ──
-  const oppFieldPlayers = oppSquad.filter(p => p.group !== "POR");
-  if (Math.random() < intervalProbability(0.14,intervalMinutes)) {
+  const yellowBaseOpp = 0.15 + oppMod.yellowRisk + (oppTactics.presion === "alta" ? 0.05 : 0);
+  if (Math.random() < intervalProbability(yellowBaseOpp,intervalMinutes)) {
     const oppCarded = oppFieldPlayers.length ? pick(oppFieldPlayers) : null;
     const yellow={
       minute: min(), type: "YELLOW", team: "opp", playerId: oppCarded?.id,
@@ -4682,14 +4779,17 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     ).filter(p => !sentOffIds.includes(p.id)&&!p.injured); // expulsados y lesionados no participan
     const fullOppSquad = liveOppPlayers;
     const oppSquad=oppLineup.map(id=>fullOppSquad.find(player=>player.id===id)).filter(player=>player&&!oppSentOffIds.includes(player.id));
+    const userGoalsNow = isHome ? score.home : score.away;
+    const oppGoalsNow = isHome ? score.away : score.home;
+    const oppTactics = opponentMatchTactics({ minute:intervalEnd, opponentGoals:oppGoalsNow, userGoals:userGoalsNow });
     const userStr=strengthWithPlayerCount(calcTeamStrength(starterPlayers,isHome,tactics),starterPlayers.length);
     const oppCount=Math.max(7,oppSquad.length);
-    const oppStr=strengthWithPlayerCount(calcTeamStrength(oppSquad,!isHome,DEFAULT_TACTICS)+(Math.random()*4-2),oppCount);
+    const oppStr=strengthWithPlayerCount(calcTeamStrength(oppSquad,!isHome,oppTactics)+(Math.random()*4-2),oppCount);
     const yellowCounts={user:{},opp:{}};
     events.filter(event=>event.type==="YELLOW").forEach(event=>{const side=event.team==="user"||event.team==="opp"?event.team:null;if(side&&event.playerId)yellowCounts[side][event.playerId]=(yellowCounts[side][event.playerId]??0)+1;});
     const generated=generateSegmentEvents(currentSegment,starterPlayers,userStr,oppStr,score,tactics,isHome,oppSquad,{
       fixtures:game.fixtures,teamId:game.teamId,matchday:fixture.matchday,game,
-      minuteStart:intervalEnd,minuteEnd:intervalEnd,yellowCounts,
+      minuteStart:intervalEnd,minuteEnd:intervalEnd,yellowCounts,oppTactics,
     }).filter(event=>(event.minute??intervalEnd)<=intervalEnd);
     const flow=eventsUntilExtraordinary(generated);
     const newEvs=flow.events;
@@ -4725,42 +4825,32 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     const autoOppSub=maybeOpponentAutoSub(reachedMinute);
     if(autoOppSub)newEvs.push(autoOppSub);
     const elapsedMinutes=Math.max(1,reachedMinute-currentMinute);
-    const fatDelta = fatigueDeltaPerSegment(tactics)*(elapsedMinutes/15);
     const debugMatch=typeof window!=="undefined"&&window.localStorage?.getItem("legacyDebugMatch")==="1";
-    if(debugMatch)console.debug("[LegacyMatch]",{minute:intervalEnd,reachedMinute,elapsedMinutes,phase:matchPhase,eventsTriggered:newEvs.map(event=>({minute:event.minute,type:event.type,desc:event.description})),fatigueDelta:fatDelta,alreadyProcessed:processedMinuteRef.current.has(intervalEnd),playing});
-    const randomFatigueNoise=(isGK=false)=>Math.random()*(isGK ? 0.5 : 2)*(elapsedMinutes/15);
+    if(debugMatch)console.debug("[LegacyMatch]",{minute:intervalEnd,reachedMinute,elapsedMinutes,phase:matchPhase,eventsTriggered:newEvs.map(event=>({minute:event.minute,type:event.type,desc:event.description})),alreadyProcessed:processedMinuteRef.current.has(intervalEnd),playing});
     const onFieldIds = new Set(starterPlayers.map(p => p.id));
     setLivePlayers(prev => prev.map(p => {
       const onField = onFieldIds.has(p.id);
-      const isGK = p.group === "POR";
-      const ageFactor = p.age >= 32 ? 1.18 : p.age <= 22 ? .92 : 1;
-      const loadFactor = 1 + Math.max(0, getAccumulatedLoad(p) - 60) * .004;
       const updated = {
         ...p,
         // Solo los jugadores en el campo se cansan; los porteros apenas se cansan; los que no juegan descansan
         fatigue: p.injured ? p.fatigue
           : onField
-            ? Math.min(100, Number(((p.fatigue??0) + ((isGK ? fatDelta * 0.25 : fatDelta) * ageFactor * loadFactor) + randomFatigueNoise(isGK)).toFixed(2)))
-            : Math.max(0, Number(((p.fatigue??0) - elapsedMinutes/15).toFixed(2))),
+            ? Math.min(100, Number(((p.fatigue??0) + matchFatigueDelta(p, tactics, elapsedMinutes)).toFixed(2)))
+            : Math.max(0, Number(((p.fatigue??0) - benchRecoveryDelta(elapsedMinutes)).toFixed(2))),
       };
       const injuryEvent = newEvs.find(e => e.type === "INJURY" && e.playerId === p.id);
       return injuryEvent ? applyInjury(updated, injuryEvent, game.season ?? "2025", fixture.matchday) : updated;
     }));
     const oppOnFieldIds = new Set(oppSquad.map(player=>player.id));
-    const oppFatDelta = fatigueDeltaPerSegment(DEFAULT_TACTICS)*(elapsedMinutes/15);
-    const oppRandomFatigueNoise=(isGK=false)=>Math.random()*(isGK ? .5 : 2)*(elapsedMinutes/15);
     setLiveOppPlayers(prev => prev.map(player => {
       const onField = oppOnFieldIds.has(player.id);
-      const isGK = player.group === "POR";
-      const ageFactor = player.age >= 32 ? 1.18 : player.age <= 22 ? .92 : 1;
-      const loadFactor = 1 + Math.max(0, getAccumulatedLoad(player) - 60) * .004;
       const injuryEvent = newEvs.find(event => event.type === "INJURY" && event.team === "opp" && event.playerId === player.id);
       const updated = {
         ...player,
         fatigue: player.injured ? player.fatigue
           : onField
-            ? Math.min(100, Number(((player.fatigue ?? 18) + ((isGK ? oppFatDelta * .25 : oppFatDelta) * ageFactor * loadFactor) + oppRandomFatigueNoise(isGK)).toFixed(2)))
-            : Math.max(0, Number(((player.fatigue ?? 18) - elapsedMinutes/15).toFixed(2))),
+            ? Math.min(100, Number(((player.fatigue ?? 18) + matchFatigueDelta(player, oppTactics, elapsedMinutes)).toFixed(2)))
+            : Math.max(0, Number(((player.fatigue ?? 18) - benchRecoveryDelta(elapsedMinutes)).toFixed(2))),
       };
       return injuryEvent ? applyInjury(updated, injuryEvent, game.season ?? "2025", fixture.matchday) : updated;
     }));
@@ -4859,8 +4949,8 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     onAbandonMatch?.();
   };
 
-  const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",DEFENSIVE_ACTION:"#60a5fa",INJURY:"#f97316",SUBSTITUTION:"#a855f7",ADDED_TIME:"#c9a84c",HALFTIME:"#c9a84c",LIVE_DECISION:"#60a5fa" };
-  const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÓN",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",DEFENSIVE_ACTION:"DEFENSA",INJURY:"LESIÓN",SUBSTITUTION:"CAMBIO",ADDED_TIME:"DESCUENTO",HALFTIME:"DESCANSO",LIVE_DECISION:"DECISION" };
+  const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",DEFENSIVE_ACTION:"#60a5fa",INJURY:"#f97316",SUBSTITUTION:"#a855f7",ADDED_TIME:"#c9a84c",HALFTIME:"#c9a84c",LIVE_DECISION:"#60a5fa",CORNER:"#c9a84c",DANGEROUS_CROSS:"#f59e0b",BLOCKED_SHOT:"#60a5fa",OFFSIDE:"#9aa0b4",DANGEROUS_FOUL:"#f97316",TIME_WASTING:"#a855f7",PLAYER_KNOCK:"#f97316",REF_WARNING:"#f59e0b",PROTEST:"#f97316",BENCH_WARMUP:"#a855f7",TACTICAL_SHIFT:"#60a5fa",CROWD_PRESSURE:"#c9a84c" };
+  const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÓN",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",DEFENSIVE_ACTION:"DEFENSA",INJURY:"LESIÓN",SUBSTITUTION:"CAMBIO",ADDED_TIME:"DESCUENTO",HALFTIME:"DESCANSO",LIVE_DECISION:"DECISION",CORNER:"CÓRNER",DANGEROUS_CROSS:"CENTRO",BLOCKED_SHOT:"BLOQUEO",OFFSIDE:"FUERA J.",DANGEROUS_FOUL:"FALTA",TIME_WASTING:"TIEMPO",PLAYER_KNOCK:"TOCADO",REF_WARNING:"AVISO",PROTEST:"PROTESTA",BENCH_WARMUP:"BANQUILLO",TACTICAL_SHIFT:"TACTICA",CROWD_PRESSURE:"GRADA" };
 
   const avgFatigue = Math.round(livePlayer.filter(p=>!p.injured).reduce((s,p)=>s+p.fatigue,0) / Math.max(1,livePlayer.filter(p=>!p.injured).length));
   const fatColor   = avgFatigue <= 40 ? "#22c55e" : avgFatigue <= 65 ? "#f59e0b" : "#ef4444";
