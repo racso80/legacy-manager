@@ -132,6 +132,53 @@ function firstName(name = "") {
   return String(name).split(" ")[0] || "el jugador";
 }
 
+function sceneIssueKey(item) {
+  return item?.normalizedIssue?.id ?? item?.issueKey ?? item?.attention?.issueKey ?? item?.groupKey ?? item?.topicKey ?? item?.id ?? "";
+}
+
+function sceneSubjectId(item) {
+  return item?.normalizedIssue?.subjectId
+    ?? item?.attention?.playerId
+    ?? item?.attention?.action?.playerId
+    ?? item?.issue?.person?.id
+    ?? item?.issue?.payload?.playerId
+    ?? item?.conversation?.actorId
+    ?? item?.rawId
+    ?? null;
+}
+
+function storyKeyFromItem(item) {
+  const key = String(sceneIssueKey(item));
+  const subject = sceneSubjectId(item);
+  if ((key.startsWith("contract_renewal_pending:") || key.startsWith("contract_renewal_response:")) && subject) {
+    return `contract_renewal:${subject}`;
+  }
+  if ((key.startsWith("injury:") || key.startsWith("injury_risk:")) && subject) {
+    return `medical:${subject}`;
+  }
+  if (key.startsWith("youth_high_potential:") && subject) {
+    return `youth:${subject}`;
+  }
+  return key;
+}
+
+function previousStoryLog(game, storyKey, sourceItemId) {
+  if (!storyKey) return null;
+  return (game?.scenes?.log ?? []).find(item => item.storyKey === storyKey && item.sourceItemId !== sourceItemId) ?? null;
+}
+
+function continuityIntro(item, game) {
+  const storyKey = storyKeyFromItem(item);
+  const previous = previousStoryLog(game, storyKey, item?.id);
+  if (!previous) return "";
+  const currentMatchday = game?.matchday ?? 1;
+  const days = Math.max(1, currentMatchday - (previous.matchday ?? currentMatchday));
+  if (storyKey.startsWith("contract_renewal:")) return days >= 5 ? "Como hablamos la semana pasada..." : "Como comentamos hace unos dias...";
+  if (storyKey.startsWith("medical:")) return "Traigo novedades desde el ultimo informe.";
+  if (storyKey.startsWith("youth:")) return "He seguido mirando al chico desde la ultima vez.";
+  return "Hay novedades desde nuestra ultima conversacion.";
+}
+
 function naturalFallback(text = "") {
   return String(text)
     .replace(/Debe revisarse/gi, "Conviene mirarlo con calma")
@@ -231,16 +278,17 @@ function isClubLifeMoment(item) {
   return String(item.normalizedIssue?.id ?? item.issueKey ?? item.attention?.issueKey ?? "").startsWith("club_life_moment:");
 }
 
-function clubLifeMomentMessage(item, actor) {
+function clubLifeMomentMessage(item, actor, game) {
   const issue = item.normalizedIssue ?? item.attention ?? {};
+  const intro = continuityIntro(item, game);
   const subject = issue.subjectName ?? issue.playerName ?? "el chico";
   const shortSubject = firstName(subject);
   const type = issue.momentType ?? item.attention?.momentType;
   if (type === "captain_gratitude") {
-    return `Mister...\n\nSolo queria decirtelo antes de que empiece el ruido de la semana.\n\nEl grupo esta contigo. Han agradecido como gestionaste los ultimos dias; no todos lo dicen en voz alta, pero se nota en el vestuario.\n\nNo venia a pedir nada. A veces tambien conviene saber cuando algo esta saliendo bien.`;
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Solo queria decirtelo antes de que empiece el ruido de la semana.\n\nEl grupo esta contigo. Han agradecido como gestionaste los ultimos dias; no todos lo dicen en voz alta, pero se nota en el vestuario.\n\nNo venia a pedir nada. A veces tambien conviene saber cuando algo esta saliendo bien.`;
   }
   if (type === "academy_hope") {
-    return `Mister...\n\nPerdone que venga con esta cara, pero creo que tenemos algo bonito entre manos.\n\n${shortSubject} tiene detalles que no se entrenan facilmente. Todavia hay que protegerlo, claro, pero cuando un chico mira asi el juego... merece que no lo perdamos de vista.\n\nNo le pido que lo suba ya. Solo que lo mire con calma.`;
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}${intro ? "" : "Perdone que venga con esta cara, pero creo que tenemos algo bonito entre manos.\n\n"}${shortSubject} tiene detalles que no se entrenan facilmente. Todavia hay que protegerlo, claro, pero cuando un chico mira asi el juego... merece que no lo perdamos de vista.\n\nNo le pido que lo suba ya. Solo que lo mire con calma.`;
   }
   if (type === "medical_good_news") {
     return `Mister...\n\nHoy traigo una buena noticia, que tampoco esta mal variar un poco.\n\n${shortSubject} esta respondiendo mejor de lo esperado. No quiero correr, ya me conoce, pero la recuperacion va por buen camino.\n\nSi seguimos sin precipitarnos, podemos ganar un jugador sin pagar el precio dos veces.`;
@@ -254,26 +302,27 @@ function clubLifeMomentMessage(item, actor) {
   return `Mister...\n\nSolo queria comentarle una cosa. No es un problema, pero si una de esas pequenas senales que hacen que el club parezca vivo.\n\n${issue.summary ?? "La semana ha dejado una sensacion positiva."}`;
 }
 
-function renewalResponseMessage(item) {
+function renewalResponseMessage(item, game) {
   const issue = item.normalizedIssue ?? item.attention ?? {};
+  const intro = continuityIntro(item, game);
   const subject = issue.subjectName ?? issue.playerName ?? "el jugador";
   const shortSubject = firstName(subject);
   const kind = renewalResponseKind(item);
   if (kind === "RenewalAccepted") {
-    return `Mister...\n\nYa tenemos respuesta del entorno de ${shortSubject}.\n\nHan aceptado la base de la renovacion. Todavia quedan algunos detalles, pero creo que estamos cerca de cerrarlo.\n\nAhora toca decidir si firmamos, revisamos el contrato o dejamos unos dias de margen.`;
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Ya tenemos respuesta del entorno de ${shortSubject}.\n\nHan aceptado la base de la renovacion. Todavia quedan algunos detalles, pero creo que estamos cerca de cerrarlo.\n\nAhora toca decidir si firmamos, revisamos el contrato o dejamos unos dias de margen.`;
   }
   if (kind === "RenewalRejected") {
-    return `Mister...\n\nYa tenemos respuesta del entorno de ${shortSubject}.\n\nNo aceptan las condiciones actuales. Creen que merece un contrato mejor y, si no nos movemos, la negociacion puede enfriarse rapido.\n\nTenemos que decidir si mejoramos la oferta, mantenemos postura o retiramos la propuesta.`;
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Ya tenemos respuesta del entorno de ${shortSubject}.\n\nNo aceptan las condiciones actuales. Creen que merece un contrato mejor y, si no nos movemos, la negociacion puede enfriarse rapido.\n\nTenemos que decidir si mejoramos la oferta, mantenemos postura o retiramos la propuesta.`;
   }
   if (kind === "RenewalCounterOffer") {
-    return `Mister...\n\nNos han enviado una contraoferta por ${shortSubject}.\n\nNo han rechazado la renovacion, pero quieren mejores condiciones antes de avanzar.\n\nPodemos aceptar la peticion, revisar los detalles o ganar unos dias antes de responder.`;
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Nos han enviado una contraoferta por ${shortSubject}.\n\nNo han rechazado la renovacion, pero quieren mejores condiciones antes de avanzar.\n\nPodemos aceptar la peticion, revisar los detalles o ganar unos dias antes de responder.`;
   }
-  return `Mister...\n\nYa tenemos respuesta del entorno de ${shortSubject}.\n\nLa negociacion ha cambiado de fase y necesita una decision concreta antes de seguir avanzando.`;
+  return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Ya tenemos respuesta del entorno de ${shortSubject}.\n\nLa negociacion ha cambiado de fase y necesita una decision concreta antes de seguir avanzando.`;
 }
 
-function sceneMessage(item, actor) {
-  if (isClubLifeMoment(item)) return clubLifeMomentMessage(item, actor);
-  if (isRenewalResponseIssue(item)) return renewalResponseMessage(item);
+function sceneMessage(item, actor, game) {
+  if (isClubLifeMoment(item)) return clubLifeMomentMessage(item, actor, game);
+  if (isRenewalResponseIssue(item)) return renewalResponseMessage(item, game);
   if (item.normalizedIssue) {
     return clubLifeMessage({
       title: item.normalizedIssue.title,
@@ -437,11 +486,14 @@ export function buildSceneFromDirectorItem(item, game) {
   const actor = actorFromItem(item);
   const issue = item.normalizedIssue ?? item.issue ?? item.conversation ?? item.attention ?? {};
   const matchday = game?.matchday ?? 1;
+  const issueKey = sceneIssueKey(item);
+  const storyKey = storyKeyFromItem(item);
   return {
     id: `scene:${item.id}`,
     sourceItemId: item.id,
     rawId: item.rawId,
-    issueKey: item.normalizedIssue?.id ?? item.issueKey ?? item.groupKey ?? item.topicKey ?? item.id,
+    issueKey,
+    storyKey,
     ownerActorId: item.normalizedIssue?.ownerId ?? actor.id,
     relatedItemIds: item.related ?? [item.id],
     source: item.source,
@@ -451,7 +503,7 @@ export function buildSceneFromDirectorItem(item, game) {
     time: timeOfDay(matchday),
     officeDetail: officeDetail(matchday),
     emotionalState: emotionalLabel(issue.emotionalState ?? issue.priority ?? item.priority),
-    message: sceneMessage(item, actor),
+    message: sceneMessage(item, actor, game),
     consequenceIfIgnored: naturalFallback(issue.consequenceIfIgnored ?? item.consequenceIfIgnored ?? item.consequence ?? "La situación puede volver más adelante con otro tono."),
     expectedOutcome: naturalFallback(issue.goal ?? issue.expectedOutcome ?? "Que el entrenador marque una línea clara."),
     options: sceneOptions(item, actor),
@@ -482,6 +534,8 @@ export function recordSceneDecision(game, scene, decision) {
           id: `scene_log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           sceneId: scene.id,
           sourceItemId: scene.sourceItemId,
+          issueKey: scene.issueKey ?? null,
+          storyKey: scene.storyKey ?? null,
           actorName: scene.actor?.name,
           decisionId: decision.id,
           decisionLabel: decision.label,
