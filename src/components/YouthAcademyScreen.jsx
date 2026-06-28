@@ -3,7 +3,7 @@ import { getAcademyMetrics, getTalentCategory } from "../youth/youthEngine.js";
 import Button from "./ui/Button.jsx";
 import { SwipeTabs } from "./SwipeNavigation.jsx";
 
-const fmt = value => value >= 1000 ? `â‚¬${(value / 1000).toFixed(1)}M` : `â‚¬${value}K`;
+const fmt = value => value >= 1000 ? `€${(value / 1000).toFixed(1)}M` : `€${value}K`;
 
 export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
   const [tab, setTab] = useState("current");
@@ -26,8 +26,8 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <div style={{ display:"flex", background:"#161a24", borderBottom:"1px solid rgba(255,255,255,.06)" }}>
         {[
-          ["current", "ðŸŒ± Juveniles"],
-          ["history", "ðŸ› HistÃ³ricos"],
+          ["current", "🌱 Juveniles"],
+          ["history", "🏛 Históricos"],
         ].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{ flex:1, background:"transparent", border:"none", borderBottom:tab === id ? "2px solid #c9a84c" : "2px solid transparent", color:tab === id ? "#c9a84c" : "#9aa0b4", padding:10, fontSize:11, fontWeight:800, cursor:"pointer" }}>
             {label}
@@ -40,9 +40,9 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
           {tab === "current" && (
             <>
               <div style={{ background:"linear-gradient(135deg,rgba(34,197,94,.13),#161a24)", border:"1px solid rgba(34,197,94,.22)", borderRadius:11, padding:14, marginBottom:14 }}>
-                <div style={{ fontSize:11, color:"#22c55e", fontWeight:800, letterSpacing:".5px" }}>ðŸ“‹ INFORME DEL JEFE DE CANTERA</div>
+                <div style={{ fontSize:11, color:"#22c55e", fontWeight:800, letterSpacing:".5px" }}>📋 INFORME DEL JEFE DE CANTERA</div>
                 <div style={{ fontSize:12, color:"#c9ced8", lineHeight:1.55, marginTop:7 }}>
-                  {standout ? `La hornada cuenta con ${youth.players.length} juveniles. ${standout.name}, ${standout.pos} de ${standout.age} aÃ±os, destaca con un potencial estimado de ${standout.potential}.` : "No hay juveniles disponibles actualmente."}
+                  {standout ? `La hornada cuenta con ${youth.players.length} juveniles. ${standout.name}, ${standout.pos} de ${standout.age} años, destaca con un potencial estimado de ${standout.potential}.` : "No hay juveniles disponibles actualmente."}
                 </div>
               </div>
 
@@ -81,7 +81,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                             <span style={{ color:"#e8eaf0", fontSize:12, fontWeight:700, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{player.name}</span>
                             {intakeIds.has(player.id) && <span style={{ fontSize:8, color:"#22c55e", background:"rgba(34,197,94,.1)", padding:"2px 5px", borderRadius:4 }}>NUEVO</span>}
                           </div>
-                          <div style={{ color:"#8b92a3", fontSize:9, marginTop:3 }}>{player.pos} Â· {player.age} aÃ±os Â· {player.nat} Â· {player.academyData?.region}</div>
+                          <div style={{ color:"#8b92a3", fontSize:9, marginTop:3 }}>{player.pos} · {player.age} años · {player.nat} · {player.academyData?.region}</div>
                           <div style={{ color:category.color, fontSize:9, marginTop:3 }}>{category.icon} {category.label}</div>
                         </div>
                         <div style={{ textAlign:"center" }}>
@@ -92,7 +92,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
 
                       {progress && (
                         <div style={{ marginTop:8, color:progress.changes.length ? "#22c55e" : "#8b92a3", fontSize:9 }}>
-                          {progress.changes.length ? `ðŸ“ˆ ${progress.changes.map(change => `${change.label} +${change.delta}`).join(" Â· ")}` : progress.progress?.[0] ? `${progress.progress[0].label}: ${progress.progress[0].value}% hacia la mejora` : "Desarrollo estable"}
+                          {progress.changes.length ? `📈 ${progress.changes.map(change => `${change.label} +${change.delta}`).join(" · ")}` : progress.progress?.[0] ? `${progress.progress[0].label}: ${progress.progress[0].value}% hacia la mejora` : "Desarrollo estable"}
                         </div>
                       )}
 
@@ -101,7 +101,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                           Ver perfil
                         </Button>
                         <Button data-swipe-ignore="true" variant={canPromote ? "primary" : "secondary"} onClick={() => promotePlayer(player)} style={{ flex:1, minHeight:38, padding:8, fontSize:10 }}>
-                          {canPromote ? "â¬† Promocionar" : "Plantilla llena"}
+                          {canPromote ? "⬆ Promocionar" : "Plantilla llena"}
                         </Button>
                       </div>
                       {!canPromote && (
@@ -118,7 +118,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                 <>
                   <div style={{ fontSize:10, color:"#8b92a3", fontWeight:800, letterSpacing:".6px", margin:"18px 0 8px" }}>INFORME ANUAL {report.season}/{String(Number(report.season) + 1).slice(-2)}</div>
                   <div style={{ background:"#161a24", borderRadius:9, padding:12, fontSize:11, color:"#9aa0b4", lineHeight:1.7 }}>
-                    {report.promoted} jugadores promocionados Â· {report.sold} vendidos<br />
+                    {report.promoted} jugadores promocionados · {report.sold} vendidos<br />
                     Valor generado: <strong style={{ color:"#c9a84c" }}>{fmt(report.generatedValue)}</strong>
                     {report.standout && (
                       <>
@@ -142,7 +142,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                         <div style={{ width:36, height:36, borderRadius:8, background:"rgba(201,168,76,.1)", color:"#c9a84c", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800 }}>{player.overall}</div>
                         <div style={{ flex:1 }}>
                           <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:700 }}>{player.name}</div>
-                          <div style={{ color:"#8b92a3", fontSize:9, marginTop:3 }}>Ingreso T. {player.academyData?.joinedSeason} Â· Debut {player.academyData?.debutSeason ? `T. ${player.academyData.debutSeason}` : "pendiente"}</div>
+                          <div style={{ color:"#8b92a3", fontSize:9, marginTop:3 }}>Ingreso T. {player.academyData?.joinedSeason} · Debut {player.academyData?.debutSeason ? `T. ${player.academyData.debutSeason}` : "pendiente"}</div>
                         </div>
                         <div style={{ textAlign:"right", fontSize:9, color:"#c9ced8" }}>PJ {stats.appearances ?? 0}<br />G {stats.goals ?? 0}</div>
                       </button>
