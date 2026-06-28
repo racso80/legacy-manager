@@ -2168,7 +2168,7 @@ function SavesScreen({ saves, onLoad, onDelete, onNew, onBack }) {
             <div key={s.id} style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:10, padding:"14px", marginBottom:10 }}>
               <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
                 <div style={{ width:44, height:44, borderRadius:"50%", background:`${team?.color??'#c9a84c'}22`, border:`2px solid ${team?.color??'#c9a84c'}55`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, fontWeight:800, color:team?.color??'#c9a84c', flexShrink:0 }}>
-                  {team?.short ?? "??"}
+                  {team?.short ?? "LM"}
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:14, fontWeight:700, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name ?? team?.name ?? "Partida"}</div>
@@ -2638,7 +2638,7 @@ const STAFF_PERSONAS = {
   "Presidente": { emoji:"🏛️", color:"#a78bfa", role:"Presidente", personality:"exigente" },
   "Responsable de prensa": { emoji:"🎙️", color:"#f97316", role:"Jefa de prensa", personality:"mide cada palabra" },
   "Psicólogo": { emoji:"🧠", color:"#38bdf8", role:"Psicólogo", personality:"lee el vestuario" },
-  "Jefe de gabinete": { emoji:"??️", color:"#94a3b8", role:"Asistente personal del entrenador", personality:"discreto y ordenado" },
+  "Jefe de gabinete": { emoji:"🗂️", color:"#94a3b8", role:"Asistente personal del entrenador", personality:"discreto y ordenado" },
 };
 
 function emotionMeta(state = "neutral") {
@@ -3082,7 +3082,7 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
         </div>
         {latestNews.length ? latestNews.map((item,index)=>(
           <button key={item.id} onClick={()=>setScreen("news")} style={{ width:"100%", display:"flex", alignItems:"flex-start", gap:9, textAlign:"left", background:item.featured?"rgba(239,68,68,.06)":"transparent", border:item.featured?"1px solid rgba(239,68,68,.14)":"none", borderTop:!item.featured&&index?"1px solid rgba(255,255,255,.05)":item.featured?"1px solid rgba(239,68,68,.14)":"none", borderRadius:item.featured?8:0, padding:item.featured?10:"8px 0", marginBottom:item.featured?5:0, cursor:"pointer" }}>
-            <span style={{ color:item.importance==="critical"?"#ef4444":item.importance==="high"?"#f97316":"#c9a84c", fontSize:item.featured?15:12 }}>{item.featured?"🔥":"?"}</span>
+            <span style={{ color:item.importance==="critical"?"#ef4444":item.importance==="high"?"#f97316":"#c9a84c", fontSize:item.featured?15:12 }}>{item.featured?"🔥":"\u25cf"}</span>
             <span style={{flex:1}}><strong style={{display:"block",color:"#dfe3ec",fontSize:item.featured?12:11,lineHeight:1.4}}>{item.title}</strong>{item.featured&&item.summary&&<small style={{display:"block",color:"#72798a",fontSize:9,lineHeight:1.45,marginTop:3}}>{item.summary}</small>}</span>
           </button>
         )) : <div style={{ color:"#6b7280", fontSize:11, lineHeight:1.5, marginTop:7 }}>Todavía no hay novedades relevantes en tu club.</div>}
@@ -3990,7 +3990,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
 
       {/* Tabs */}
       <div style={{ display:"flex", background:"#161a24", borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
-        {[["todos","??️ Todos"],["mi_equipo","⚽ Mi partido"]].map(([id,label])=>(
+        {[["todos","🗓️ Todos"],["mi_equipo","⚽ Mi partido"]].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)}
             style={{ flex:1, background:"transparent", border:"none", borderBottom:tab===id?"2px solid #c9a84c":"2px solid transparent", color:tab===id?"#c9a84c":"#6b7280", padding:"9px 8px", fontSize:12, fontWeight:tab===id?700:500, cursor:"pointer" }}>
             {label}
@@ -5573,7 +5573,7 @@ function MatchSummaryScreen({ summary, onContinue }) {
       if (found) return found.name;
     }
     // Fallback: extraer nombre de la descripción (texto entre "GOL — " y el verbo)
-    const m = e.description?.match(/GOL\s*(?:VISITANTE)?\s*[?-]\s*([A-Z??????][\w????????????'.]*(?:\s[A-Z??????][\w????????????'.]*){0,2})/);
+    const m = e.description?.match(/GOL\s*(?:VISITANTE)?\s*[\u2014-]\s*([A-Z\u00c1\u00c9\u00cd\u00d3\u00da\u00d1][\w\u00c1\u00c9\u00cd\u00d3\u00da\u00d1\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1'.]*(?:\s[A-Z\u00c1\u00c9\u00cd\u00d3\u00da\u00d1][\w\u00c1\u00c9\u00cd\u00d3\u00da\u00d1\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1'.]*){0,2})/);
     return m ? m[1] : "Jugador rival";
   };
   const oppScorerMap = {};
