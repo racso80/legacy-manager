@@ -9,6 +9,7 @@ import LegacyMuseumScreen from "./components/LegacyMuseumScreen.jsx";
 import ScoutingScreen from "./components/ScoutingScreen.jsx";
 import TeamCrest from "./components/TeamCrest.jsx";
 import { buildMatchdaySquad, buildStartingEleven, calculateMatchRatings, chooseOpponentFormation, eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
+import { buildLiveMatchState } from "./match/liveMatchEngine.js";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
@@ -4420,6 +4421,8 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
   const [oppSubs, setOppSubs] = useState(()=>recoverState.oppSubs ?? oppCallup.bench);
   const [oppSubsUsed, setOppSubsUsed] = useState(recoverState.oppSubsUsed ?? 0);
   const [oppSubbedOutIds, setOppSubbedOutIds] = useState(recoverState.oppSubbedOutIds ?? []);
+  const [liveDecision, setLiveDecision] = useState(recoverState.liveDecision ?? null);
+  const [dismissedLiveSignals, setDismissedLiveSignals] = useState(recoverState.dismissedLiveSignals ?? []);
   const processedMinuteRef = useRef(new Set(recoverState.processedMinutes ?? []));
   const matchSnapshotRef = useRef(null);
 
@@ -4437,7 +4440,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     const state = {
       segment, events, score, finished, tab, livePlayer, liveOppPlayers, subsUsed, pendingInjury, subbingSlot,
       keyEventBanner, possession, sentOffIds, oppSentOffIds, currentMinute, pauseEvent, playing, matchPhase,
-      addedTime, subbedOutIds, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds,
+      addedTime, subbedOutIds, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds, liveDecision, dismissedLiveSignals,
       processedMinutes:[...processedMinuteRef.current], lineup, subs, tactics, savedAt:new Date().toISOString(),
     };
     const session = {
@@ -4456,7 +4459,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     matchSnapshotRef.current = session;
     writeActiveMatchSession(session);
     setMatchAutosaveAt(state.savedAt);
-  }, [fixture?.id, matchId, saveId, segment, events, score, finished, tab, livePlayer, liveOppPlayers, subsUsed, pendingInjury, subbingSlot, keyEventBanner, possession, sentOffIds, oppSentOffIds, currentMinute, pauseEvent, playing, matchPhase, addedTime, subbedOutIds, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds, lineup, subs, tactics]);
+  }, [fixture?.id, matchId, saveId, segment, events, score, finished, tab, livePlayer, liveOppPlayers, subsUsed, pendingInjury, subbingSlot, keyEventBanner, possession, sentOffIds, oppSentOffIds, currentMinute, pauseEvent, playing, matchPhase, addedTime, subbedOutIds, oppCallup, oppLineup, oppSubs, oppSubsUsed, oppSubbedOutIds, liveDecision, dismissedLiveSignals, lineup, subs, tactics]);
 
   useEffect(() => {
     const flush = () => {
@@ -4569,6 +4572,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     }]);
     setSubbingSlot(null);
     setPendingInjury(null);
+    if (liveDecision) acknowledgeLiveDecision();
   };
 
   const doOpponentSubstitution = (outId, inId, minute, reason = "") => {
@@ -4628,9 +4632,45 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     return doOpponentSubstitution(outP.id, inP.id, minute, reason);
   };
 
+  const getLiveMatchState = () => buildLiveMatchState({
+    minute: currentMinute,
+    events,
+    score,
+    isHome,
+    userPlayers: livePlayer,
+    opponentPlayers: liveOppPlayers,
+    lineup,
+    opponentLineup: oppLineup,
+    sentOffIds,
+    opponentSentOffIds: oppSentOffIds,
+    tactics,
+    subsUsed,
+    maxSubs: MAX_SUBS,
+  });
+
+  const acknowledgeLiveDecision = (targetTab = null) => {
+    if (liveDecision?.key) {
+      setDismissedLiveSignals(current => current.includes(liveDecision.key) ? current : [...current, liveDecision.key]);
+    }
+    if (targetTab) setTab(targetTab);
+    setLiveDecision(null);
+    if (pauseEvent?.type === "LIVE_DECISION") setPauseEvent(null);
+    if (keyEventBanner?.type === "LIVE_DECISION") setKeyEventBanner(null);
+  };
+
   const simNext = () => {
     if (finished || ["firstAddedReady","halftime","secondAddedReady"].includes(matchPhase)) return;
     if(triggerBoundaryPause(currentMinute))return;
+    const nextLiveDecision = getLiveMatchState().signals.find(signal => signal.requiresDecision && !dismissedLiveSignals.includes(signal.key));
+    if (nextLiveDecision && currentMinute >= 35) {
+      const decisionEvent = { minute: currentMinute, type: "LIVE_DECISION", description: nextLiveDecision.message };
+      setLiveDecision(nextLiveDecision);
+      setPauseEvent(decisionEvent);
+      setKeyEventBanner(decisionEvent);
+      setPlaying(false);
+      setTab(nextLiveDecision.targetTab ?? "eventos");
+      return;
+    }
     const intervalEnd=Math.min(currentMinute+1,matchTargetMinute);
     if(processedMinuteRef.current.has(intervalEnd))return;
     processedMinuteRef.current.add(intervalEnd);
@@ -4767,6 +4807,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
       return;
     }
     if (pendingInjury) return;
+    if (liveDecision) acknowledgeLiveDecision();
     if (matchPhase==="firstAddedReady") {
       const added=addedTime.first??0;
       setPauseEvent(null);setKeyEventBanner(null);
@@ -4818,12 +4859,15 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     onAbandonMatch?.();
   };
 
-  const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",DEFENSIVE_ACTION:"#60a5fa",INJURY:"#f97316",SUBSTITUTION:"#a855f7",ADDED_TIME:"#c9a84c",HALFTIME:"#c9a84c" };
-  const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÓN",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",DEFENSIVE_ACTION:"DEFENSA",INJURY:"LESIÓN",SUBSTITUTION:"CAMBIO",ADDED_TIME:"DESCUENTO",HALFTIME:"DESCANSO" };
+  const eventColors  = { GOAL:"#22c55e",PENALTY:"#22c55e",BIG_CHANCE:"#f59e0b",YELLOW:"#fbbf24",RED:"#ef4444",SAVE:"#3b82f6",DEFENSIVE_ACTION:"#60a5fa",INJURY:"#f97316",SUBSTITUTION:"#a855f7",ADDED_TIME:"#c9a84c",HALFTIME:"#c9a84c",LIVE_DECISION:"#60a5fa" };
+  const eventLabels  = { GOAL:"GOL",PENALTY:"PENALTI",BIG_CHANCE:"OCASIÓN",YELLOW:"AMARILLA",RED:"ROJA",SAVE:"PARADA",DEFENSIVE_ACTION:"DEFENSA",INJURY:"LESIÓN",SUBSTITUTION:"CAMBIO",ADDED_TIME:"DESCUENTO",HALFTIME:"DESCANSO",LIVE_DECISION:"DECISION" };
 
   const avgFatigue = Math.round(livePlayer.filter(p=>!p.injured).reduce((s,p)=>s+p.fatigue,0) / Math.max(1,livePlayer.filter(p=>!p.injured).length));
   const fatColor   = avgFatigue <= 40 ? "#22c55e" : avgFatigue <= 65 ? "#f59e0b" : "#ef4444";
   const activeUserCount=lineup.filter(id=>id&&!sentOffIds.includes(id)&&!livePlayer.find(player=>player.id===id)?.injured).length;
+  const liveMatchState = getLiveMatchState();
+  const liveStats = liveMatchState.stats;
+  const visibleLiveSignals = liveMatchState.signals.filter(signal => !dismissedLiveSignals.includes(signal.key)).slice(0, 2);
 
   // El equipo LOCAL siempre a la IZQUIERDA, VISITANTE a la DERECHA
   // score.home = goles del equipo que juega en casa (fixture.homeTeamId)
@@ -4911,7 +4955,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
       </div>
 
       {/* Aviso de evento clave (gol/tarjeta) del último tramo */}
-      {keyEventBanner && !pendingInjury && (
+      {keyEventBanner && !pendingInjury && !liveDecision && (
         <div className="bounce-in" style={{
           background: keyEventBanner.type==="RED" ? "#ef444422" : keyEventBanner.type==="YELLOW" ? "#fbbf2422" : "#22c55e22",
           borderBottom: `1px solid ${keyEventBanner.type==="RED"?"#ef444455":keyEventBanner.type==="YELLOW"?"#fbbf2455":"#22c55e55"}`,
@@ -4939,6 +4983,28 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
       )}
 
       {/* Tabs eventos / cambios / tácticas */}
+      {liveDecision && !pendingInjury && (
+        <div style={{ background: liveDecision.severity==="urgent" ? "#ef444422" : "#60a5fa22", borderBottom: `1px solid ${liveDecision.severity==="urgent"?"#ef444455":"#60a5fa55"}`, padding: "12px 14px", flexShrink: 0 }}>
+          <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+            <div style={{ width:34, height:34, borderRadius:10, background:"rgba(255,255,255,.08)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color:"#e8eaf0", fontWeight:900 }}>
+              {liveDecision.source==="doctor" ? "MD" : "2E"}
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:12, fontWeight:900, color:"#e8eaf0" }}>{liveDecision.title}</div>
+              <div style={{ fontSize:11, color:"#cfd4df", lineHeight:1.45, marginTop:4 }}>{liveDecision.message}</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:10 }}>
+                <button onClick={() => acknowledgeLiveDecision(liveDecision.targetTab)} className="btn-gold" style={{ padding:9, borderRadius:8, fontSize:11 }}>
+                  {liveDecision.action}
+                </button>
+                <button onClick={() => acknowledgeLiveDecision()} className="btn-ghost" style={{ padding:9, borderRadius:8, fontSize:11 }}>
+                  Continuar igual
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", overflowX:"auto", background: "#161a24", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
         {[["eventos","📋 Eventos"],["alineaciones","👥 Alineaciones"],["cambios",`🔄 Cambios (${subsUsed}/${MAX_SUBS})`],["tacticas","⚙️ Tácticas"]].map(([id,label]) => (
           <button data-swipe-ignore="true" key={id} onClick={() => setTab(id)}
@@ -4953,6 +5019,30 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
       <div style={{ flex: 1, overflowY: "auto" }}>
         {tab === "eventos" && (
           <div style={{ padding: 12 }}>
+            <div style={{ background:"#161a24", border:"1px solid rgba(96,165,250,.18)", borderRadius:10, padding:11, marginBottom:10 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:9 }}>
+                <div style={{ fontSize:10, color:"#60a5fa", fontWeight:900, letterSpacing:".5px" }}>PARTIDO VIVO</div>
+                <div style={{ fontSize:9, color:"#6b7280", fontWeight:800 }}>{liveMatchState.mood==="chasing"?"TOCA REACCIONAR":liveMatchState.mood==="control"?"BAJO CONTROL":liveMatchState.mood==="warning"?"RIVAL PELIGROSO":"EQUILIBRADO"}</div>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6 }}>
+                {[["Tiros",`${liveStats.userShots}-${liveStats.opponentShots}`],["Ocas.",`${liveStats.userBigChances}-${liveStats.opponentBigChances}`],["Paradas",`${liveStats.userSaves}-${liveStats.opponentSaves}`],["Tarj.",`${liveStats.userYellows + liveStats.userReds}-${liveStats.opponentYellows + liveStats.opponentReds}`]].map(([label,value])=>(
+                  <div key={label} style={{ background:"#0d0f14", borderRadius:7, padding:"7px 5px", textAlign:"center" }}>
+                    <div style={{ fontSize:8, color:"#6b7280", fontWeight:800 }}>{label.toUpperCase()}</div>
+                    <div style={{ fontSize:14, color:"#e8eaf0", fontWeight:900, marginTop:2 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+              {visibleLiveSignals.length > 0 && (
+                <div style={{ marginTop:9, display:"flex", flexDirection:"column", gap:6 }}>
+                  {visibleLiveSignals.map(signal => (
+                    <button key={signal.key} onClick={() => { setLiveDecision(signal); setPlaying(false); setTab(signal.targetTab ?? "eventos"); }} style={{ textAlign:"left", background: signal.severity==="urgent" ? "rgba(239,68,68,.12)" : "rgba(96,165,250,.1)", border:`1px solid ${signal.severity==="urgent"?"rgba(239,68,68,.3)":"rgba(96,165,250,.25)"}`, borderRadius:8, padding:"8px 9px", cursor:"pointer" }}>
+                      <div style={{ fontSize:10, color:signal.severity==="urgent"?"#ef4444":"#60a5fa", fontWeight:900 }}>{signal.source==="doctor"?"Medico":"Segundo entrenador"} · {signal.action}</div>
+                      <div style={{ fontSize:11, color:"#e8eaf0", marginTop:2 }}>{signal.title}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             {events.length === 0 && !finished && (
               <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13, marginTop: 40, lineHeight: 1.7 }}>
                 Configura tus tácticas y pulsa<br />"Play" para comenzar
