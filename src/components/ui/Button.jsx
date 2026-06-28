@@ -10,6 +10,7 @@ export default function Button({
   variant = "secondary",
   className = "",
   disabled = false,
+  type = "button",
   children,
   ...props
 }) {
@@ -17,6 +18,7 @@ export default function Button({
   return (
     <button
       {...props}
+      type={type}
       disabled={disabled}
       className={`lm-btn ${variantClass} ${className}`.trim()}
     >

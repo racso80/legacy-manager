@@ -6659,9 +6659,23 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   };
 
   const handleYouthPromotion = (playerId) => {
+    const currentProspect=game?.youth?.players?.find(player=>player.id===playerId);
+    const alreadyInFirstTeam=game?.players?.some(player=>player.id===playerId);
+    if(alreadyInFirstTeam){
+      setGame(prev=>{
+        if(!prev)return prev;
+        const updated={...prev,youth:{...prev.youth,players:(prev.youth?.players??[]).filter(player=>player.id!==playerId)}};
+        saveGame(updated,lineup,formation,subs);
+        autosaveCloud(updated,"youth",{lineup,formation,subs});
+        return updated;
+      });
+      return { ok:true, message:"El jugador ya estaba en el primer equipo. Se ha actualizado la cantera." };
+    }
+    if(!currentProspect)return { ok:false, message:"No se ha encontrado el canterano. Recarga la partida y vuelve a intentarlo." };
+    if((game?.players?.length??0)>=30)return { ok:false, message:"No se puede promocionar: la plantilla del primer equipo tiene el maximo de 30 jugadores." };
     setGame(prev=>{
       const prospect=prev?.youth?.players?.find(player=>player.id===playerId);
-      if(!prospect||prev.players.length>=30)return prev;
+      if(!prospect||prev.players.some(player=>player.id===playerId)||prev.players.length>=30)return prev;
       const category=getTalentCategory(prospect.potential);
       const promoted=normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle({...prospect,academyStatus:"firstTeam",isYouth:false,salary:Math.max(4,prospect.salary??2),academyData:{...prospect.academyData,promotedSeason:String(prev.season),promotedMatchday:prev.matchday}},prev.season,prev.matchday),prev.season));
       const promotion={playerId:promoted.id,name:promoted.name,season:String(prev.season),matchday:prev.matchday,potential:promoted.potential};
@@ -6677,6 +6691,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       autosaveCloud(updated,"youth",{lineup,formation,subs});
       return updated;
     });
+    return { ok:true, message:`${currentProspect.name} promocionado al primer equipo.` };
   };
 
   const openPlayerProfile = (player, teamId = game?.teamId) => {
