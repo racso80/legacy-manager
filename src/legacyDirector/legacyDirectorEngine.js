@@ -12,6 +12,18 @@ const ACTOR_ROTATION = [
   "player",
 ];
 
+const OWNER_PROFILES = {
+  sportingDirector: { id:"sportingDirector", name:"Director deportivo", role:"Dirección deportiva", emoji:"👔", color:"#60a5fa", personality:"piensa en el largo plazo" },
+  assistantCoach: { id:"assistantCoach", name:"Segundo entrenador", role:"Cuerpo técnico", emoji:"👥", color:"#c9a84c", personality:"directo y práctico" },
+  doctor: { id:"doctor", name:"Médico", role:"Área médica", emoji:"👨‍⚕️", color:"#22c55e", personality:"prudente" },
+  fitnessCoach: { id:"fitnessCoach", name:"Preparador físico", role:"Preparación física", emoji:"🏋️", color:"#f59e0b", personality:"protector con la carga" },
+  captain: { id:"captain", name:"Capitán", role:"Voz del vestuario", emoji:"❤️", color:"#ef4444", personality:"protege al grupo" },
+  president: { id:"president", name:"Presidente", role:"Directiva", emoji:"🏛️", color:"#a78bfa", personality:"exigente" },
+  academyChief: { id:"academyChief", name:"Jefe de cantera", role:"Cantera", emoji:"🌱", color:"#84cc16", personality:"protege el futuro" },
+  pressOfficer: { id:"pressOfficer", name:"Responsable de prensa", role:"Comunicación", emoji:"🎙️", color:"#f97316", personality:"mide cada palabra" },
+  player: { id:"player", name:"Jugador", role:"Plantilla", emoji:"👤", color:"#c9a84c", personality:"habla de su situación" },
+};
+
 const DEFAULT_DIRECTOR_STATE = {
   shown: {},
   resolved: {},
@@ -55,6 +67,20 @@ function normalizePriority(priority) {
   return "normal";
 }
 
+function normalizeOwnerId(value) {
+  const key = String(value ?? "").toLowerCase();
+  if (key.includes("director deportivo") || key === "sportingdirector") return "sportingDirector";
+  if (key.includes("segundo entrenador") || key === "assistantcoach") return "assistantCoach";
+  if (key.includes("médico") || key.includes("medico") || key === "doctor") return "doctor";
+  if (key.includes("preparador") || key === "fitnesscoach") return "fitnessCoach";
+  if (key.includes("capitán") || key.includes("capitan") || key === "captain") return "captain";
+  if (key.includes("presidente") || key === "president") return "president";
+  if (key.includes("cantera") || key === "academychief") return "academyChief";
+  if (key.includes("prensa") || key.includes("comunicación") || key.includes("comunicacion") || key === "pressofficer") return "pressOfficer";
+  if (key.includes("jugador") || key === "player") return "player";
+  return value ?? "assistantCoach";
+}
+
 function subjectId(candidate) {
   return candidate.issue?.payload?.playerId
     ?? candidate.issue?.person?.id
@@ -76,31 +102,95 @@ function ownerActorId(candidate) {
   if (["press", "news"].includes(origin)) return "pressOfficer";
   if (["fans", "board", "career"].includes(origin)) return "president";
   if (["youth", "academy"].includes(origin)) return "academyChief";
-  return candidate.actorId ?? candidate.actorName ?? candidate.actorType ?? "assistantCoach";
+  return normalizeOwnerId(candidate.actorId ?? candidate.actorName ?? candidate.actorType ?? "assistantCoach");
+}
+
+function issueType(candidate) {
+  const origin = candidate.origin ?? candidate.category ?? "";
+  if (["contracts", "contract"].includes(origin)) return "contract_renewal";
+  if (origin === "medical") return "medical_risk";
+  if (origin === "training") return "physical_load";
+  if (["lockerRoom", "morale"].includes(origin)) return "locker_room";
+  if (["lineup", "match"].includes(origin)) return candidate.topicKey === "match-recovery" ? "match_recovery" : "lineup_preparation";
+  if (["market", "transfers"].includes(origin)) return "market_decision";
+  if (["press", "news"].includes(origin)) return "press_message";
+  if (["fans", "board", "career"].includes(origin)) return "institutional_pressure";
+  if (["youth", "academy"].includes(origin)) return "academy_pathway";
+  if (candidate.source === "conversation" && candidate.conversation?.actorType === "player") return "player_request";
+  return origin || candidate.source || "general_issue";
+}
+
+function subjectName(candidate) {
+  return candidate.issue?.person?.name
+    ?? candidate.issue?.payload?.playerName
+    ?? candidate.attention?.playerName
+    ?? candidate.conversation?.actorName
+    ?? null;
 }
 
 function narrativeIssueKey(candidate) {
   if (candidate.issueKey) return candidate.issueKey;
-  const origin = candidate.origin ?? candidate.category ?? "";
+  const type = issueType(candidate);
   const subject = subjectId(candidate);
-  if (["contracts", "contract"].includes(origin)) return `contract:${subject ?? groupKey(candidate)}`;
-  if (origin === "medical") return `medical:${subject ?? groupKey(candidate)}`;
-  if (origin === "training") return `physical:${subject ?? groupKey(candidate)}`;
-  if (["lockerRoom", "morale"].includes(origin)) return "locker-room";
-  if (["lineup", "match"].includes(origin)) return "match-preparation";
-  if (["market", "transfers"].includes(origin)) return `market:${candidate.issue?.payload?.offerId ?? candidate.attention?.action?.offerId ?? candidate.rawId ?? groupKey(candidate)}`;
-  if (["press", "news"].includes(origin)) return "press-message";
-  if (["fans", "board", "career"].includes(origin)) return "club-pressure";
-  if (["youth", "academy"].includes(origin)) return `academy:${subject ?? groupKey(candidate)}`;
-  if (candidate.source === "conversation" && candidate.conversation?.actorType === "player") return `player:${candidate.conversation.actorId}:${candidate.conversation.motive ?? candidate.topicKey ?? candidate.rawId}`;
-  return candidate.topicKey ?? candidate.groupKey ?? groupKey(candidate);
+  if (["locker_room", "lineup_preparation", "match_recovery", "press_message", "institutional_pressure"].includes(type)) return type;
+  return `${type}:${subject ?? candidate.issue?.payload?.offerId ?? candidate.attention?.action?.offerId ?? candidate.rawId ?? groupKey(candidate)}`;
+}
+
+function humanSummary(candidate, ownerId) {
+  const issue = candidate.issue;
+  const attention = candidate.attention;
+  const conversation = candidate.conversation;
+  if (conversation?.opening) return conversation.opening;
+  if (issue?.origin === "contracts" && issue?.person?.name) {
+    return `He hablado con su entorno. Empiezan a preguntar demasiado por el futuro.`;
+  }
+  if (issue?.origin === "lineup") return "Míster, todavía no hemos preparado el once para el próximo partido.";
+  if (issue?.origin === "medical" && issue?.payload?.playerId) return `${issue.person?.name ?? issue.title} está acumulando señales de riesgo. Prefiero mirarlo antes de forzar.`;
+  if (ownerId === "sportingDirector" && (issue?.message || attention?.summary)) return issue?.message ?? attention?.summary;
+  return issue?.message ?? attention?.summary ?? candidate.summary ?? candidate.title ?? "Hay una decisión pendiente.";
+}
+
+function normalizeCandidateToIssue(candidate, game) {
+  const ownerId = ownerActorId(candidate);
+  const type = issueType(candidate);
+  const subject = subjectId(candidate) ?? candidate.rawId ?? candidate.id;
+  const key = narrativeIssueKey({ ...candidate, actorId:ownerId });
+  const owner = ownerId === "player" && candidate.conversation?.actorType === "player"
+    ? { ...OWNER_PROFILES.player, id:candidate.conversation.actorId, name:candidate.conversation.actorName, role:candidate.conversation.role, portrait:candidate.conversation.portrait }
+    : OWNER_PROFILES[ownerId] ?? OWNER_PROFILES.assistantCoach;
+  const title = candidate.issue?.title ?? candidate.attention?.title ?? candidate.conversation?.title ?? candidate.title ?? "Asunto pendiente";
+  const subjectLabel = subjectName(candidate);
+  return {
+    id: key,
+    sourceItemId: candidate.id,
+    rawId: candidate.rawId,
+    type,
+    subjectId: subject,
+    subjectName: subjectLabel,
+    ownerId: owner.id,
+    ownerRole: owner.role,
+    owner,
+    participants: [subjectLabel].filter(Boolean),
+    priority: normalizePriority(candidate.priority),
+    status: candidate.status ?? "pending",
+    createdAt: candidate.date ?? { season:String(game?.season ?? "2025"), matchday:game?.matchday ?? 1 },
+    updatedAt: { season:String(game?.season ?? "2025"), matchday:game?.matchday ?? 1 },
+    expiresAt: candidate.issue?.expiresAt ?? null,
+    nextReviewAt: null,
+    title,
+    summary: humanSummary(candidate, owner.id),
+    consequenceIfIgnored: candidate.consequenceIfIgnored ?? candidate.issue?.consequenceIfIgnored ?? candidate.attention?.summary ?? candidate.consequence,
+    goal: candidate.issue?.expectedOutcome ?? "Tomar una decisión clara.",
+    availableActions: [candidate.issue?.actionLabel ?? candidate.attention?.actionLabel ?? "Revisar"],
+    history: [],
+  };
 }
 
 function isIssueBlocked(candidate, game, directorState) {
   if (!game) return false;
   const issueState = directorState.issueStates[narrativeIssueKey(candidate)];
   if (!issueState) return false;
-  if (["in_progress", "archived"].includes(issueState.status)) return true;
+  if (["in_scene", "in_progress", "archived"].includes(issueState.status)) return true;
   const currentMatchday = game.matchday ?? 1;
   const sameSeason = !issueState.nextAvailableAt?.season || issueState.nextAvailableAt.season === String(game.season ?? "2025");
   const blockedByDate = sameSeason && (issueState.nextAvailableAt?.matchday ?? 0) > currentMatchday;
@@ -232,8 +322,8 @@ export function getLegacyDirectorSelection(game, candidates = []) {
       .filter(Boolean)
       .map(candidate => {
         const owner = ownerActorId(candidate);
-        const issueKey = narrativeIssueKey(candidate);
-        return { ...candidate, actorId: owner, ownerActorId: owner, issueKey };
+        const normalizedIssue = normalizeCandidateToIssue({ ...candidate, actorId:owner }, safeGame);
+        return { ...candidate, actorId: owner, ownerActorId: owner, issueKey: normalizedIssue.id, normalizedIssue };
       })
       .filter(candidate => shouldConsiderForGame(candidate, safeGame, directorState))
       .map(candidate => ({
@@ -245,6 +335,15 @@ export function getLegacyDirectorSelection(game, candidates = []) {
     const quality = filterNoise(grouped, safeGame, directorState);
     return avoidSameActorSpam(quality, safeGame, directorState)
       .sort((a, b) => compareCandidates(a, b, safeGame, directorState))
+      .map(item => ({
+        ...item,
+        issueCard: {
+          ...item.normalizedIssue,
+          priority: item.priority,
+          mergedCount: item.mergedCount ?? 1,
+          protagonistOfDay: item.protagonistOfDay ?? false,
+        },
+      }))
       .slice(0, 3);
   } catch (error) {
     console.warn("[LegacyDirector] Selection skipped to keep Home stable", error);

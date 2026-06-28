@@ -2705,6 +2705,7 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
   const priorityColor = priority => priority==="urgent"||priority==="critical" ? "#ef4444" : priority==="important" ? "#f59e0b" : "#22c55e";
   const priorityRank = priority => priority==="urgent"||priority==="critical" ? 0 : priority==="important" ? 1 : 2;
   const waitingPeople = directorItems.map(item=>{
+    if(item.issueCard){const issue=item.issueCard;return{kind:"issue",id:issue.id,priority:issue.priority,person:{...(issue.owner??{}),emotionalState:item.issue?.emotionalState??item.conversation?.emotionalState??item.attention?.emotionalState??"neutral",line:issue.summary,action:issue.availableActions?.[0]??"Revisar",consequence:issue.consequenceIfIgnored,subjectName:issue.subjectName,title:issue.title},onClick:()=>onOpenScene?.(item)};}
     if(item.source==="clubLife")return{kind:"clubLife",id:item.rawId,priority:item.priority,person:{...clubLifePersona(item.issue),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
     if(item.source==="conversation")return{kind:"conversation",id:item.rawId,priority:item.priority,person:{...conversationPersona(item.conversation),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
     return{kind:"attention",id:item.rawId,priority:item.priority,person:{...attentionPersona(item.attention),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
@@ -2744,8 +2745,8 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, marginBottom:10 }}>
             <div>
               <div style={{ fontSize:10, color:"#6b7280", fontWeight:900, letterSpacing:".8px" }}>REQUIERE TU ATENCIÓN</div>
-              <div style={{ fontSize:17, color:waitingPeople.length?"#f3f4f6":"#22c55e", fontWeight:900, marginTop:3 }}>{waitingPeople.length?`${waitingPeople.length} persona${waitingPeople.length===1?"":"s"} esperando fuera`:"No hay nadie esperando"}</div>
-              <div style={{ fontSize:10, color:"#8b92a3", marginTop:3 }}>{waitingPeople.length?"El club ha seguido trabajando. Ahora necesita una decisión.":"El despacho está tranquilo por ahora."}</div>
+              <div style={{ fontSize:17, color:waitingPeople.length?"#f3f4f6":"#22c55e", fontWeight:900, marginTop:3 }}>{waitingPeople.length?`${waitingPeople.length} persona${waitingPeople.length===1?"":"s"} esperando fuera`:"No hay asuntos urgentes"}</div>
+              <div style={{ fontSize:10, color:"#8b92a3", marginTop:3 }}>{waitingPeople.length?"El club ha seguido trabajando. Ahora necesita una decisión.":"No hay asuntos urgentes ahora mismo. El club sigue trabajando."}</div>
             </div>
             <span style={{ fontSize:20 }}>🚪</span>
           </div>
@@ -2759,10 +2760,10 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
                     <small style={{ color:priorityColor(item.priority), fontSize:8, fontWeight:900 }}>{priorityLabel(item.priority).toUpperCase()}</small>
                     <small style={{ color:mood.color, fontSize:10 }}>{mood.icon}</small>
                   </span>
+                  {person.title && <span style={{ display:"block", color:"#f3f4f6", fontSize:11, fontWeight:850, lineHeight:1.35, marginBottom:3 }}>{person.title}</span>}
+                  {person.subjectName && <span style={{ display:"block", color:"#c9a84c", fontSize:9, fontWeight:800, lineHeight:1.35, marginBottom:3 }}>Sobre: {person.subjectName}</span>}
                   <span style={{ display:"block", color:"#c9ced8", fontSize:11, lineHeight:1.42 }}>"{person.line}"</span>
                   <span style={{ display:"block", color:"#6b7280", fontSize:9, marginTop:4, lineHeight:1.35 }}>{person.role} · {mood.label} · {person.personality ?? "necesita una decisión"}</span>
-                  {person.mergedCount>1 && <span style={{ display:"block", color:"#c9a84c", fontSize:8, marginTop:4, lineHeight:1.35 }}>Legacy Director ha agrupado {person.mergedCount} asuntos relacionados en una sola decisión.</span>}
-                  {person.protagonistOfDay && <span style={{ display:"block", color:"#38bdf8", fontSize:8, marginTop:4, lineHeight:1.35 }}>Protagonista del día.</span>}
                   {person.consequence && <span style={{ display:"block", color:"#a16207", fontSize:8, marginTop:4, lineHeight:1.35 }}>Si se ignora: {person.consequence}</span>}
                 </span>
                 <span style={{ color:"#c9a84c", fontSize:10, fontWeight:900, whiteSpace:"nowrap" }}>{person.action} →</span>
@@ -6622,7 +6623,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     if (scene) {
       setGame(prev => {
         if (!prev) return prev;
-        const updated = markLegacyDirectorItem(prev, directorItem.id, "in_progress", {
+        const updated = markLegacyDirectorItem(prev, directorItem.id, "in_scene", {
           item: directorItem,
           issueKey: scene.issueKey,
           ownerActorId: scene.ownerActorId,

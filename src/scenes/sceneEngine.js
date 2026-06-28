@@ -90,6 +90,9 @@ function officeDetail(matchday = 1) {
 }
 
 function actorFromItem(item) {
+  if (item.normalizedIssue?.owner) {
+    return item.normalizedIssue.owner;
+  }
   if (item.source === "conversation") {
     const conversation = item.conversation;
     if (conversation.actorType === "player") {
@@ -217,6 +220,15 @@ function attentionMessage(attention, actor) {
 }
 
 function sceneMessage(item, actor) {
+  if (item.normalizedIssue) {
+    return clubLifeMessage({
+      title: item.normalizedIssue.title,
+      message: item.normalizedIssue.summary,
+      origin: item.normalizedIssue.type,
+      person: item.normalizedIssue.subjectName ? { name:item.normalizedIssue.subjectName } : null,
+      payload: { playerId:item.normalizedIssue.subjectId },
+    }, actor);
+  }
   if (item.source === "conversation") return conversationOpening(item.conversation);
   if (item.source === "clubLife") return clubLifeMessage(item.issue, actor);
   return attentionMessage(item.attention, actor);
@@ -282,7 +294,7 @@ function reactionFor(actor, option = {}) {
   if (actor.id === "captain") return "El capitán respira hondo. Agradece que le hayas hablado claro; eso, en el vestuario, pesa.";
   if (actor.id === "pressOfficer") return "La responsable de prensa desbloquea el móvil y empieza a ordenar el mensaje antes de salir.";
   if (actor.id === "player") return `${actor.name} levanta la mirada. No se marcha con todas las respuestas, pero sí con la sensación de haber sido escuchado.`;
-  return `${actor.name} asiente. La escena termina sin certezas absolutas, pero con una decisión tomada.`;
+  return `${actor.name} asiente. "De acuerdo, míster. Me pongo con ello y te mantengo informado."`;
 }
 
 function sceneOptions(item, actor) {
@@ -333,14 +345,14 @@ function sceneOptions(item, actor) {
 export function buildSceneFromDirectorItem(item, game) {
   if (!item) return null;
   const actor = actorFromItem(item);
-  const issue = item.issue ?? item.conversation ?? item.attention ?? {};
+  const issue = item.normalizedIssue ?? item.issue ?? item.conversation ?? item.attention ?? {};
   const matchday = game?.matchday ?? 1;
   return {
     id: `scene:${item.id}`,
     sourceItemId: item.id,
     rawId: item.rawId,
-    issueKey: item.issueKey ?? item.groupKey ?? item.topicKey ?? item.id,
-    ownerActorId: actor.id,
+    issueKey: item.normalizedIssue?.id ?? item.issueKey ?? item.groupKey ?? item.topicKey ?? item.id,
+    ownerActorId: item.normalizedIssue?.ownerId ?? actor.id,
     relatedItemIds: item.related ?? [item.id],
     source: item.source,
     actor,
@@ -351,7 +363,7 @@ export function buildSceneFromDirectorItem(item, game) {
     emotionalState: emotionalLabel(issue.emotionalState ?? issue.priority ?? item.priority),
     message: sceneMessage(item, actor),
     consequenceIfIgnored: naturalFallback(issue.consequenceIfIgnored ?? item.consequenceIfIgnored ?? item.consequence ?? "La situación puede volver más adelante con otro tono."),
-    expectedOutcome: naturalFallback(issue.expectedOutcome ?? "Que el entrenador marque una línea clara."),
+    expectedOutcome: naturalFallback(issue.goal ?? issue.expectedOutcome ?? "Que el entrenador marque una línea clara."),
     options: sceneOptions(item, actor),
     original: item,
   };
