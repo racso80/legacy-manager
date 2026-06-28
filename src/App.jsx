@@ -41,6 +41,7 @@ import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, app
 import { advanceConversationMemory, ensureConversationState, getActiveConversations, respondToConversation } from "./conversations/conversationEngine.js";
 import { advanceClubLife, ensureClubLifeState, getClubLifeIssues, resolveClubLifeIssue } from "./clubLife/clubLifeEngine.js";
 import { ensureLegacyDirectorState, getLegacyDirectorSelection, markLegacyDirectorItem, rememberLegacyDirectorSelection } from "./legacyDirector/legacyDirectorEngine.js";
+import { buildLegacyDirectorEvents, dedupeAttentionItems, legacyDirectorEventsToAttentionItems } from "./legacyDirector/legacyDirectorEventSystem.js";
 import { buildSceneFromDirectorItem, ensureSceneState, recordSceneDecision } from "./scenes/sceneEngine.js";
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
 
@@ -6743,7 +6744,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     actionLabel:"Continuar partido",
   }] : [];
   const baseAttentionItems = game ? getAttentionItems(game, { lineup }) : [];
-  const attentionItems = game ? [...clubLifeAttention, ...conversationAttention, ...activeMatchAttention, ...baseAttentionItems] : [];
+  const legacyDirectorEvents = game ? buildLegacyDirectorEvents(game, { lineup }) : [];
+  const eventAttentionItems = game ? legacyDirectorEventsToAttentionItems(game, legacyDirectorEvents) : [];
+  const systemAttentionItems = game ? dedupeAttentionItems([...eventAttentionItems, ...baseAttentionItems], game) : [];
+  const attentionItems = game ? dedupeAttentionItems([...clubLifeAttention, ...conversationAttention, ...activeMatchAttention, ...systemAttentionItems], game) : [];
   const directorCandidates = game ? [
     ...clubLifeIssues.map(issue=>({
       id:`clubLife:${issue.id}`,
@@ -6785,13 +6789,14 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       consequenceIfIgnored:"El partido no podrá cerrarse correctamente hasta retomarlo o abandonarlo.",
       attention:item,
     })),
-    ...baseAttentionItems.map(item=>({
+    ...systemAttentionItems.map(item=>({
       id:`attention:${item.id}`,
       rawId:item.id,
       source:"attention",
-      actorId:item.category==="medical"?"doctor":item.category==="market"||item.category==="contracts"?"sportingDirector":item.category==="fans"||item.category==="board"?"president":item.category==="youth"?"academyChief":item.category==="training"?"fitnessCoach":"assistantCoach",
+      actorId:item.ownerActorId ?? (item.category==="medical"?"doctor":item.category==="market"||item.category==="contracts"?"sportingDirector":item.category==="fans"||item.category==="board"?"president":item.category==="youth"?"academyChief":item.category==="training"?"fitnessCoach":"assistantCoach"),
       origin:item.category,
       topicKey:item.category==="match"?"match-preparation":item.category==="contracts"?"contract-planning":item.category==="medical"||item.category==="training"?"physical-management":item.category==="market"?"market-decision":item.category==="fans"||item.category==="board"?"club-pressure":item.category==="youth"?"academy-pathway":item.category,
+      issueKey:item.issueKey,
       priority:item.priority,
       status:item.status,
       requiresDecision:item.priority!=="info",
