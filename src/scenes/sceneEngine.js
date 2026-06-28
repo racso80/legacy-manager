@@ -400,6 +400,81 @@ function reactionFor(actor, option = {}) {
   return `${actor.name} asiente. "De acuerdo, míster. Me pongo con ello y te mantengo informado."`;
 }
 
+function expectationDelay(scene, decision, game) {
+  const base = game?.matchday ?? 1;
+  if (scene?.storyKey?.startsWith("contract_renewal:")) return 1 + (base % 3);
+  if (scene?.storyKey?.startsWith("medical:")) return 1 + (base % 2);
+  if (scene?.storyKey?.startsWith("youth:")) return 2 + (base % 3);
+  if (decision?.type === "postpone") return 1 + (base % 2);
+  if (decision?.type === "delegate") return 2 + (base % 3);
+  return 0;
+}
+
+function expectationCopy(scene) {
+  const actorName = scene?.actor?.name ?? "alguien";
+  const subject = scene?.original?.normalizedIssue?.subjectName ?? scene?.original?.attention?.playerName ?? scene?.actor?.name;
+  if (scene?.storyKey?.startsWith("contract_renewal:")) {
+    return {
+      reminder: `${actorName} dijo que volvería cuando tuviera novedades${subject ? ` de ${subject}` : ""}.`,
+      returnTitle: `${subject ?? "El jugador"} tiene novedades contractuales`,
+      returnSummary: "He vuelto a hablar con su entorno. Ya hay movimiento y necesitamos decidir el siguiente paso.",
+      expectedOutcome: "Revisar la novedad contractual.",
+      priority: "important",
+      origin: "contracts",
+    };
+  }
+  if (scene?.storyKey?.startsWith("medical:")) {
+    return {
+      reminder: "El médico quería observar la evolución antes de tomar una decisión definitiva.",
+      returnTitle: "El médico trae novedades",
+      returnSummary: "Ya tenemos una lectura más clara de la evolución física. Conviene revisarla antes de forzar.",
+      expectedOutcome: "Valorar el regreso o el descanso.",
+      priority: "important",
+      origin: "medical",
+    };
+  }
+  if (scene?.storyKey?.startsWith("youth:")) {
+    return {
+      reminder: "El jefe de cantera quedó en seguir observando al chico.",
+      returnTitle: "La cantera vuelve con un informe",
+      returnSummary: "He seguido mirando su evolución. Creo que ya podemos hablar con más criterio.",
+      expectedOutcome: "Decidir el siguiente paso del canterano.",
+      priority: "normal",
+      origin: "youth",
+    };
+  }
+  return {
+    reminder: `${actorName} dejó este asunto en seguimiento.`,
+    returnTitle: "Hay novedades sobre una conversación pendiente",
+    returnSummary: "He revisado lo que hablamos. No quería dejarlo parado sin volver a pasar por tu despacho.",
+    expectedOutcome: "Escuchar la novedad y decidir.",
+    priority: "normal",
+    origin: scene?.source ?? "legacyDirector",
+  };
+}
+
+export function buildSceneExpectation(scene, decision, game) {
+  if (!scene || !decision) return null;
+  const shouldWait = decision.type === "postpone"
+    || decision.type === "delegate"
+    || (decision.id && ["hold_position", "review_contract", "negotiate_terms", "improve_detail"].includes(decision.id));
+  if (!shouldWait) return null;
+  const delay = expectationDelay(scene, decision, game);
+  if (!delay) return null;
+  const season = String(game?.season ?? "2025");
+  const matchday = (game?.matchday ?? 1) + delay;
+  const copy = expectationCopy(scene);
+  return {
+    ...copy,
+    ownerActorId: scene.ownerActorId ?? scene.actor?.id,
+    subjectId: scene.original?.normalizedIssue?.subjectId ?? scene.original?.attention?.playerId ?? null,
+    subjectName: scene.original?.normalizedIssue?.subjectName ?? scene.original?.attention?.playerName ?? null,
+    nextAvailableAt: { season, matchday },
+    responseType: scene.original?.normalizedIssue?.responseType ?? null,
+    promiseLine: "Volveré cuando tenga novedades.",
+  };
+}
+
 function sceneOptions(item, actor) {
   if (item.source === "conversation") {
     return (item.conversation.options ?? []).map(option => {

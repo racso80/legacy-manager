@@ -34,6 +34,20 @@ const DEFAULT_DIRECTOR_STATE = {
   lastProtagonistActorId: null,
 };
 
+function isDue(date, game) {
+  if (!date) return false;
+  const season = String(game?.season ?? "2025");
+  const matchday = game?.matchday ?? 1;
+  return String(date.season ?? season) < season || (String(date.season ?? season) === season && (date.matchday ?? 0) <= matchday);
+}
+
+function isSoon(date, game) {
+  if (!date) return false;
+  const season = String(game?.season ?? "2025");
+  const matchday = game?.matchday ?? 1;
+  return String(date.season ?? season) === season && (date.matchday ?? 0) <= matchday + 1;
+}
+
 function normalizeState(state = {}) {
   return {
     ...DEFAULT_DIRECTOR_STATE,
@@ -59,6 +73,10 @@ function stamp(game) {
 function protagonistForDay(game) {
   const matchday = game?.matchday ?? 1;
   return ACTOR_ROTATION[(matchday - 1) % ACTOR_ROTATION.length];
+}
+
+function actorNameFromId(actorId) {
+  return OWNER_PROFILES[actorId]?.name ?? "alguien del club";
 }
 
 function normalizePriority(priority) {
@@ -398,12 +416,37 @@ function avoidSameActorSpam(candidates, game, directorState) {
   return selected;
 }
 
+function waitingExpectationCandidates(game, directorState) {
+  return Object.values(directorState.issueStates ?? {})
+    .filter(state => state?.status === "waiting" && state.expectation && isDue(state.nextAvailableAt, game))
+    .map(state => ({
+      id: `expectation:${state.issueKey}:${state.updatedAt?.matchday ?? 0}`,
+      rawId: state.issueKey,
+      source: "expectation",
+      origin: state.expectation.origin ?? "legacyDirector",
+      category: state.expectation.origin ?? "legacyDirector",
+      issueKey: state.issueKey,
+      actorId: state.ownerActorId ?? state.expectation.ownerActorId ?? "assistantCoach",
+      ownerActorId: state.ownerActorId ?? state.expectation.ownerActorId ?? "assistantCoach",
+      priority: state.expectation.priority ?? "important",
+      title: state.expectation.returnTitle ?? "Hay novedades en una historia abierta",
+      summary: state.expectation.returnSummary ?? `${actorNameFromId(state.ownerActorId)} vuelve con novedades.`,
+      consequenceIfIgnored: state.expectation.consequenceIfIgnored ?? "Si no lo atiendes, la historia seguira avanzando sin una decision clara.",
+      expectedOutcome: state.expectation.expectedOutcome ?? "Escuchar la novedad y decidir el siguiente paso.",
+      payload: { playerId: state.expectation.subjectId },
+      playerName: state.expectation.subjectName,
+      responseType: state.expectation.responseType ?? null,
+      reappearedFromExpectation: true,
+    }));
+}
+
 export function getLegacyDirectorSelection(game, candidates = []) {
   if (!game) return [];
   try {
     const safeGame = ensureLegacyDirectorState(game);
     const directorState = normalizeState(safeGame.legacyDirector);
-    const viable = (candidates ?? [])
+    const availableCandidates = [...(candidates ?? []), ...waitingExpectationCandidates(safeGame, directorState)];
+    const viable = availableCandidates
       .filter(Boolean)
       .map(candidate => {
         const owner = ownerActorId(candidate);
@@ -466,6 +509,24 @@ export function rememberLegacyDirectorSelection(game, selection = []) {
   };
 }
 
+export function getLegacyDirectorExpectations(game) {
+  if (!game) return [];
+  const safeGame = ensureLegacyDirectorState(game);
+  const state = normalizeState(safeGame.legacyDirector);
+  return Object.values(state.issueStates ?? {})
+    .filter(item => item?.status === "waiting" && item.expectation && isSoon(item.nextAvailableAt, safeGame))
+    .sort((a,b)=>(a.nextAvailableAt?.matchday ?? 999)-(b.nextAvailableAt?.matchday ?? 999))
+    .map(item => ({
+      issueKey: item.issueKey,
+      ownerActorId: item.ownerActorId ?? item.expectation.ownerActorId,
+      ownerName: actorNameFromId(item.ownerActorId ?? item.expectation.ownerActorId),
+      subjectName: item.expectation.subjectName,
+      reminder: item.expectation.reminder,
+      expectedToday: isDue(item.nextAvailableAt, safeGame),
+    }))
+    .slice(0, 3);
+}
+
 export function markLegacyDirectorItem(game, itemId, status = "resolved", meta = {}) {
   const safeGame = ensureLegacyDirectorState(game);
   const state = normalizeState(safeGame.legacyDirector);
@@ -490,6 +551,7 @@ export function markLegacyDirectorItem(game, itemId, status = "resolved", meta =
       updatedAt: today,
       nextAvailableAt,
       relatedIds: related,
+      expectation: meta.expectation ?? state.issueStates[issueKey]?.expectation ?? null,
       history: [
         { status, at: today, decisionId: meta.decisionId ?? null },
         ...((state.issueStates[issueKey]?.history ?? []).slice(0, 19)),

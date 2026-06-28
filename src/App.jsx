@@ -41,9 +41,9 @@ import { createCoachCareer, ensureCoachCareer, finalizeCoachSeason, recordCoachM
 import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, applyFanYouthReaction, ensureFanbaseState, estimateFanAttendance, generateFanNews } from "./fans/fanEngine.js";
 import { advanceConversationMemory, ensureConversationState, getActiveConversations, respondToConversation } from "./conversations/conversationEngine.js";
 import { advanceClubLife, ensureClubLifeState, getClubLifeIssues, resolveClubLifeIssue } from "./clubLife/clubLifeEngine.js";
-import { ensureLegacyDirectorState, getLegacyDirectorSelection, markLegacyDirectorItem, rememberLegacyDirectorSelection } from "./legacyDirector/legacyDirectorEngine.js";
+import { ensureLegacyDirectorState, getLegacyDirectorExpectations, getLegacyDirectorSelection, markLegacyDirectorItem, rememberLegacyDirectorSelection } from "./legacyDirector/legacyDirectorEngine.js";
 import { buildLegacyDirectorEvents, dedupeAttentionItems, legacyDirectorEventsToAttentionItems } from "./legacyDirector/legacyDirectorEventSystem.js";
-import { buildSceneFromDirectorItem, ensureSceneState, recordSceneDecision } from "./scenes/sceneEngine.js";
+import { buildSceneExpectation, buildSceneFromDirectorItem, ensureSceneState, recordSceneDecision } from "./scenes/sceneEngine.js";
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
 
 const STARTERS_SLOTS = 11;
@@ -2697,6 +2697,11 @@ function InteractiveSceneScreen({ scene, onChoose, onBack }) {
   if (!scene) return <div style={{ flex:1, padding:18, color:"#9aa0b4" }}>No hay escena disponible.</div>;
   const actor = scene.actor ?? {};
   const emotion = emotionMeta(scene.emotionalState);
+  const leavesExpectation = chosenOption
+    ? chosenOption.type === "postpone"
+      || chosenOption.type === "delegate"
+      || ["hold_position","review_contract","negotiate_terms","improve_detail"].includes(chosenOption.id)
+    : false;
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14, background:"radial-gradient(circle at top,rgba(201,168,76,.08),transparent 38%)" }}>
       <div className="bounce-in" style={{ background:"linear-gradient(145deg,#1a1f2e,#11141c)", border:`1px solid ${(actor.color??"#c9a84c")}44`, borderRadius:18, padding:18, marginBottom:13, boxShadow:"0 18px 45px rgba(0,0,0,.32)" }}>
@@ -2754,6 +2759,11 @@ function InteractiveSceneScreen({ scene, onChoose, onBack }) {
           <div style={{ fontSize:15, color:"#f3f4f6", lineHeight:1.5, fontWeight:700, marginBottom:10 }}>
             {chosenOption.reaction ?? `${actor.name ?? "La persona"} asiente. La conversación no cierra todas las dudas, pero deja una decisión sobre la mesa.`}
           </div>
+          {leavesExpectation && (
+            <div style={{ background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.08)", borderRadius:12, padding:11, color:"#cfd4df", fontSize:12, lineHeight:1.45, marginBottom:10 }}>
+              Volveré cuando tenga novedades.
+            </div>
+          )}
           <button onClick={()=>onChoose(chosenOption)} className="btn-primary" style={{ width:"100%", padding:12, borderRadius:12, fontSize:13 }}>Continuar</button>
         </div>
       )}
@@ -2906,13 +2916,19 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
     if(item.source==="conversation")return{kind:"conversation",id:item.rawId,priority:item.priority,person:{...conversationPersona(item.conversation),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
     return{kind:"attention",id:item.rawId,priority:item.priority,person:{...attentionPersona(item.attention),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
   }).sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)).slice(0,3);
+  const expectationItems = getLegacyDirectorExpectations(game);
+  const expectationReminder = expectationItems[0]
+    ? expectationItems[0].expectedToday
+      ? `${expectationItems[0].ownerName} podria pasar hoy con novedades${expectationItems[0].subjectName ? ` sobre ${expectationItems[0].subjectName}` : ""}.`
+      : expectationItems[0].reminder
+    : null;
   const chiefOfStaff = { ...STAFF_PERSONAS["Jefe de gabinete"], name:"Jefe de gabinete", emotionalState:"neutral" };
   const urgentWaiting = waitingPeople.filter(item=>item.priority==="urgent"||item.priority==="critical").length;
   const firstWaiting = waitingPeople[0]?.person;
-  const shouldShowChiefOfStaff = game.matchday <= 2 || waitingPeople.length !== 1 || game.matchday % 4 === 0 || allPlayed;
+  const shouldShowChiefOfStaff = expectationReminder || game.matchday <= 2 || waitingPeople.length !== 1 || game.matchday % 4 === 0 || allPlayed;
   const chiefBriefing = waitingPeople.length
-    ? `Buenos dias, mister. Hay ${waitingPeople.length} persona${waitingPeople.length===1?"":"s"} esperando fuera${urgentWaiting?`, ${urgentWaiting} con prioridad urgente`:""}. Primero tiene cita ${firstWaiting?.name ? `con ${firstWaiting.name}` : "con el asunto principal"}. El resto puede ir despues, sin mezclar decisiones.`
-    : `Buenos dias, mister. Hoy parece un dia tranquilo. No hay asuntos urgentes en la puerta; puede preparar el proximo partido con calma.`;
+    ? `Buenos dias, mister. Hay ${waitingPeople.length} persona${waitingPeople.length===1?"":"s"} esperando fuera${urgentWaiting?`, ${urgentWaiting} con prioridad urgente`:""}. Primero tiene cita ${firstWaiting?.name ? `con ${firstWaiting.name}` : "con el asunto principal"}. ${expectationReminder ? `${expectationReminder} ` : ""}El resto puede ir despues, sin mezclar decisiones.`
+    : `Buenos dias, mister. Hoy parece un dia tranquilo. ${expectationReminder ? `${expectationReminder} ` : "No hay asuntos urgentes en la puerta; "}Puede preparar el proximo partido con calma.`;
 
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
@@ -7253,12 +7269,15 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const conversationId = selectedScene.rawId;
       setGame(prev => {
         if (!prev) return prev;
+        const expectation = buildSceneExpectation(selectedScene, decision, prev);
         const result = respondToConversation(recordSceneDecision(prev, selectedScene, decision), conversationId, decision.responseId, { lineup });
-        const updated = markLegacyDirectorItem(result.game, `conversation:${conversationId}`, "resolved", {
+        const updated = markLegacyDirectorItem(result.game, `conversation:${conversationId}`, expectation ? "waiting" : "resolved", {
           issueKey: selectedScene.issueKey,
           ownerActorId: selectedScene.ownerActorId,
           related: selectedScene.relatedItemIds,
           decisionId: decision.id,
+          expectation,
+          nextAvailableAt: expectation?.nextAvailableAt,
         });
         saveGame(updated, lineup, formation, subs);
         autosaveCloud(updated, "scene", { lineup, formation, subs });
@@ -7272,15 +7291,18 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const issue = selectedScene.original?.issue;
       setGame(prev => {
         if (!prev || !issue) return prev;
+        const expectation = buildSceneExpectation(selectedScene, decision, prev);
         const withScene = recordSceneDecision(prev, selectedScene, decision);
-        const issueOutcome = decision.type === "postpone" ? "waiting" : decision.type === "delegate" ? "delegated" : "resolved";
-        const directorOutcome = decision.type === "postpone" ? "waiting" : issueOutcome;
+        const issueOutcome = expectation ? "waiting" : decision.type === "postpone" ? "waiting" : decision.type === "delegate" ? "delegated" : "resolved";
+        const directorOutcome = expectation ? "waiting" : decision.type === "postpone" ? "waiting" : issueOutcome;
         const resolvedIssue = resolveClubLifeIssue(withScene, issue.id, issueOutcome);
         const resolved = markLegacyDirectorItem(resolvedIssue, `clubLife:${issue.id}`, directorOutcome, {
           issueKey: selectedScene.issueKey,
           ownerActorId: selectedScene.ownerActorId,
           related: selectedScene.relatedItemIds,
           decisionId: decision.id,
+          expectation,
+          nextAvailableAt: expectation?.nextAvailableAt,
         });
         saveGame(resolved, lineup, formation, subs);
         autosaveCloud(resolved, "scene", { lineup, formation, subs });
@@ -7294,13 +7316,16 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     if (attention) {
       setGame(prev => {
         if (!prev) return prev;
+        const expectation = buildSceneExpectation(selectedScene, decision, prev);
         const withScene = recordSceneDecision(prev, selectedScene, decision);
-        const outcome = decision.type === "postpone" || decision.type === "delegate" ? "waiting" : "resolved";
+        const outcome = expectation ? "waiting" : decision.type === "postpone" || decision.type === "delegate" ? "waiting" : "resolved";
         let updated = markLegacyDirectorItem(withScene, selectedScene.sourceItemId, outcome, {
           issueKey: selectedScene.issueKey,
           ownerActorId: selectedScene.ownerActorId,
           related: selectedScene.relatedItemIds,
           decisionId: decision.id,
+          expectation,
+          nextAvailableAt: expectation?.nextAvailableAt,
         });
         updated = markAttentionItem(updated, attention.id, outcome);
         saveGame(updated, lineup, formation, subs);
@@ -7309,6 +7334,28 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       });
       setSelectedScene(null);
       setScreen(decision.type === "act" ? (decision.navigateTo ?? attention.action?.screen ?? "dashboard") : "dashboard");
+      return;
+    }
+    if (selectedScene.original?.normalizedIssue || selectedScene.source === "expectation") {
+      setGame(prev => {
+        if (!prev) return prev;
+        const expectation = buildSceneExpectation(selectedScene, decision, prev);
+        const withScene = recordSceneDecision(prev, selectedScene, decision);
+        const outcome = expectation ? "waiting" : decision.type === "postpone" || decision.type === "delegate" ? "waiting" : "resolved";
+        const updated = markLegacyDirectorItem(withScene, selectedScene.sourceItemId, outcome, {
+          issueKey: selectedScene.issueKey,
+          ownerActorId: selectedScene.ownerActorId,
+          related: selectedScene.relatedItemIds,
+          decisionId: decision.id,
+          expectation,
+          nextAvailableAt: expectation?.nextAvailableAt,
+        });
+        saveGame(updated, lineup, formation, subs);
+        autosaveCloud(updated, "scene", { lineup, formation, subs });
+        return updated;
+      });
+      setSelectedScene(null);
+      setScreen(decision.type === "act" ? (decision.navigateTo ?? "dashboard") : "dashboard");
       return;
     }
     setSelectedScene(null);
