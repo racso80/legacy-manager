@@ -42,6 +42,13 @@ function renewalLabel(status) {
   }[status] ?? "ha respondido a la oferta de renovacion";
 }
 
+function renewalResponseKind(status) {
+  if (status === "accepted") return "RenewalAccepted";
+  if (status === "rejected") return "RenewalRejected";
+  if (["salaryCounter", "yearsCounter", "roleCounter"].includes(status)) return "RenewalCounterOffer";
+  return "RenewalOfferAnswered";
+}
+
 function transferLabel(status) {
   return {
     clubCounter: "el club pide mejorar la oferta",
@@ -60,8 +67,11 @@ export function getAttentionIssueKey(item = {}) {
   const category = item.category ?? "";
   const title = String(item.title ?? "").toLowerCase();
   const playerId = item.playerId ?? item.action?.playerId;
+  if (category === "contracts" && playerId && String(item.id ?? "").includes("renewal-response")) {
+    return `contract_renewal_response:${playerId}`;
+  }
   if (category === "contracts" && playerId && (title.includes("renov") || title.includes("contrato") || title.includes("contract"))) {
-    return `contract_renewal:${playerId}`;
+    return `contract_renewal_pending:${playerId}`;
   }
   if (category === "medical" && playerId && (title.includes("riesgo") || title.includes("fatiga"))) return `injury_risk:${playerId}`;
   if (category === "medical" && playerId) return `injury:${playerId}`;
@@ -74,6 +84,14 @@ export function getAttentionIssueKey(item = {}) {
 
 export function dedupeAttentionItems(items = [], game = null) {
   const grouped = new Map();
+  const renewalResponseSubjects = new Set();
+  items.forEach(item => {
+    if (!item || isClosedStatus(item.status)) return;
+    const key = getAttentionIssueKey(item);
+    const centralState = game ? attentionState(game, `legacy-event:${key}`) : null;
+    if (centralState && isClosedStatus(centralState.status)) return;
+    if (key.startsWith("contract_renewal_response:")) renewalResponseSubjects.add(key.replace("contract_renewal_response:", ""));
+  });
   const score = item => {
     const priority = item.priority === "critical" ? 100 : item.priority === "important" ? 60 : 20;
     const eventBoost = item.source === "legacyDirectorEvent" ? 12 : 0;
@@ -85,6 +103,7 @@ export function dedupeAttentionItems(items = [], game = null) {
     const key = getAttentionIssueKey(item);
     const centralState = game ? attentionState(game, `legacy-event:${key}`) : null;
     if (centralState && isClosedStatus(centralState.status)) return;
+    if (key.startsWith("contract_renewal_pending:") && renewalResponseSubjects.has(key.replace("contract_renewal_pending:", ""))) return;
     const current = grouped.get(key);
     if (!current || score(item) > score(current)) {
       grouped.set(key, { ...item, issueKey:key });
@@ -117,16 +136,19 @@ export function buildLegacyDirectorEvents(game, context = {}) {
   }
 
   const renewalStatuses = new Set(["accepted", "rejected", "salaryCounter", "yearsCounter", "roleCounter"]);
+  const playersWithRenewalResponse = new Set();
   for (const offer of game.contracts?.renewals ?? []) {
     if (!renewalStatuses.has(offer.status)) continue;
+    playersWithRenewalResponse.add(offer.playerId);
     const title = `${firstName(offer.playerName)} ha respondido a la oferta de renovacion`;
     pushEvent(events, {
       id:`RenewalOfferAnswered:${offer.id}:${offer.status}`,
       type:"RenewalOfferAnswered",
-      issueKey:`contract_renewal:${offer.playerId}`,
+      responseType:renewalResponseKind(offer.status),
+      issueKey:`contract_renewal_response:${offer.playerId}`,
       category:"contracts",
       ownerActorId:"sportingDirector",
-      priority:offer.status === "rejected" ? "critical" : "important",
+      priority:["accepted", "rejected", "salaryCounter", "yearsCounter", "roleCounter"].includes(offer.status) ? "critical" : "important",
       title,
       summary:`Mister, ya tenemos respuesta del entorno de ${firstName(offer.playerName)}: ${renewalLabel(offer.status)}. Tenemos que decidir el siguiente paso.`,
       subjectId:offer.playerId,
@@ -138,11 +160,11 @@ export function buildLegacyDirectorEvents(game, context = {}) {
   }
 
   for (const player of game.players ?? []) {
-    if (Number(player.contractEnd ?? 9999) <= Number(game.season ?? 2025) + 1) {
+    if (!playersWithRenewalResponse.has(player.id) && Number(player.contractEnd ?? 9999) <= Number(game.season ?? 2025) + 1) {
       pushEvent(events, {
         id:`ContractExpiringSoon:${player.id}:${player.contractEnd ?? "unknown"}`,
         type:"ContractExpiringSoon",
-        issueKey:`contract_renewal:${player.id}`,
+        issueKey:`contract_renewal_pending:${player.id}`,
         category:"contracts",
         ownerActorId:"sportingDirector",
         priority:Number(player.contractEnd ?? 9999) <= Number(game.season ?? 2025) ? "critical" : "important",
@@ -318,7 +340,8 @@ export function legacyDirectorEventsToAttentionItems(game, events = []) {
         firstSeenAt:saved.firstSeenAt ?? null,
         updatedAt:saved.updatedAt ?? null,
       };
-      logEvent("Event converted to Issue", { event:event.type, issueKey:event.issueKey, attentionId:id });
+      logEvent("Event converted to Issue", { event:event.type, responseType:event.responseType ?? null, issueKey:event.issueKey, attentionId:id });
+      logEvent("Issue created", { issueKey:event.issueKey, ownerActorId:event.ownerActorId, subjectId:event.subjectId ?? null });
       return item;
     })
     .filter(item => !isClosedStatus(item.status));

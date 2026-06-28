@@ -196,7 +196,7 @@ function subjectName(candidate, game) {
 function narrativeIssueKey(candidate, game) {
   const type = issueType(candidate);
   const subject = subjectId(candidate, game);
-  if (candidate.issueKey && !(type === "contract_renewal" && subject)) return candidate.issueKey;
+  if (candidate.issueKey && !(type === "contract_renewal" && subject && !String(candidate.issueKey).startsWith("contract_renewal_"))) return candidate.issueKey;
   if (["locker_room", "lineup_preparation", "match_recovery", "press_message", "institutional_pressure"].includes(type)) return type;
   return `${type}:${subject ?? candidate.issue?.payload?.offerId ?? candidate.attention?.action?.offerId ?? candidate.rawId ?? groupKey(candidate)}`;
 }
