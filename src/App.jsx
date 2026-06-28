@@ -2475,6 +2475,7 @@ const STAFF_PERSONAS = {
   "Presidente": { emoji:"🏛️", color:"#a78bfa", role:"Presidente", personality:"exigente" },
   "Responsable de prensa": { emoji:"🎙️", color:"#f97316", role:"Jefa de prensa", personality:"mide cada palabra" },
   "Psicólogo": { emoji:"🧠", color:"#38bdf8", role:"Psicólogo", personality:"lee el vestuario" },
+  "Jefe de gabinete": { emoji:"🗂️", color:"#94a3b8", role:"Asistente personal del entrenador", personality:"discreto y ordenado" },
 };
 
 function emotionMeta(state = "neutral") {
@@ -2711,6 +2712,13 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
     if(item.source==="conversation")return{kind:"conversation",id:item.rawId,priority:item.priority,person:{...conversationPersona(item.conversation),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
     return{kind:"attention",id:item.rawId,priority:item.priority,person:{...attentionPersona(item.attention),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
   }).sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)).slice(0,3);
+  const chiefOfStaff = { ...STAFF_PERSONAS["Jefe de gabinete"], name:"Jefe de gabinete", emotionalState:"neutral" };
+  const urgentWaiting = waitingPeople.filter(item=>item.priority==="urgent"||item.priority==="critical").length;
+  const firstWaiting = waitingPeople[0]?.person;
+  const shouldShowChiefOfStaff = game.matchday <= 2 || waitingPeople.length !== 1 || game.matchday % 4 === 0 || allPlayed;
+  const chiefBriefing = waitingPeople.length
+    ? `Buenos dias, mister. Hay ${waitingPeople.length} persona${waitingPeople.length===1?"":"s"} esperando fuera${urgentWaiting?`, ${urgentWaiting} con prioridad urgente`:""}. Primero tiene cita ${firstWaiting?.name ? `con ${firstWaiting.name}` : "con el asunto principal"}. El resto puede ir despues, sin mezclar decisiones.`
+    : `Buenos dias, mister. Hoy parece un dia tranquilo. No hay asuntos urgentes en la puerta; puede preparar el proximo partido con calma.`;
 
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
@@ -2741,6 +2749,22 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
           </div>
         )}
       </div>
+
+      {shouldShowChiefOfStaff && (
+        <div style={{ background:"linear-gradient(145deg,rgba(148,163,184,.12),#161a24 55%)", border:"1px solid rgba(148,163,184,.22)", borderRadius:14, padding:13, marginBottom:12 }}>
+          <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+            <PersonAvatar person={chiefOfStaff} size={42}/>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }}>
+                <strong style={{ color:"#e8eaf0", fontSize:12 }}>Jefe de gabinete</strong>
+                <small style={{ color:"#94a3b8", fontSize:8, fontWeight:900, letterSpacing:".5px" }}>BRIEFING DEL DIA</small>
+              </div>
+              <div style={{ color:"#c9ced8", fontSize:11, lineHeight:1.5 }}>"{chiefBriefing}"</div>
+              <div style={{ color:"#6b7280", fontSize:9, marginTop:5, lineHeight:1.35 }}>Organiza la jornada. No toma decisiones deportivas.</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ background:waitingPeople.length?"linear-gradient(145deg,rgba(201,168,76,.15),#161a24 50%)":"linear-gradient(145deg,rgba(34,197,94,.11),#161a24 50%)", border:`1px solid ${waitingPeople.length?"rgba(201,168,76,.30)":"rgba(34,197,94,.22)"}`, borderRadius:14, padding:15, marginBottom:12 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, marginBottom:10 }}>
