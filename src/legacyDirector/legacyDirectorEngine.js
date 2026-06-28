@@ -97,6 +97,7 @@ function narrativeIssueKey(candidate) {
 }
 
 function isIssueBlocked(candidate, game, directorState) {
+  if (!game) return false;
   const issueState = directorState.issueStates[narrativeIssueKey(candidate)];
   if (!issueState) return false;
   if (["in_progress", "archived"].includes(issueState.status)) return true;
@@ -224,25 +225,31 @@ function avoidSameActorSpam(candidates, game, directorState) {
 
 export function getLegacyDirectorSelection(game, candidates = []) {
   if (!game) return [];
-  const safeGame = ensureLegacyDirectorState(game);
-  const directorState = normalizeState(safeGame.legacyDirector);
-  const viable = candidates
-    .map(candidate => {
-      const owner = ownerActorId(candidate);
-      const issueKey = narrativeIssueKey(candidate);
-      return { ...candidate, actorId: owner, ownerActorId: owner, issueKey };
-    })
-    .filter(candidate => shouldConsiderForGame(candidate, safeGame, directorState))
-    .map(candidate => ({
-      ...candidate,
-      priority: normalizePriority(candidate.priority),
-      score: sourceScore(candidate, safeGame, directorState),
-    }));
-  const grouped = ensureProtagonistPresence(pickBestPerGroup(viable, safeGame, directorState), safeGame, directorState);
-  const quality = filterNoise(grouped, safeGame, directorState);
-  return avoidSameActorSpam(quality, safeGame, directorState)
-    .sort((a, b) => compareCandidates(a, b, safeGame, directorState))
-    .slice(0, 3);
+  try {
+    const safeGame = ensureLegacyDirectorState(game);
+    const directorState = normalizeState(safeGame.legacyDirector);
+    const viable = (candidates ?? [])
+      .filter(Boolean)
+      .map(candidate => {
+        const owner = ownerActorId(candidate);
+        const issueKey = narrativeIssueKey(candidate);
+        return { ...candidate, actorId: owner, ownerActorId: owner, issueKey };
+      })
+      .filter(candidate => shouldConsiderForGame(candidate, safeGame, directorState))
+      .map(candidate => ({
+        ...candidate,
+        priority: normalizePriority(candidate.priority),
+        score: sourceScore(candidate, safeGame, directorState),
+      }));
+    const grouped = ensureProtagonistPresence(pickBestPerGroup(viable, safeGame, directorState), safeGame, directorState);
+    const quality = filterNoise(grouped, safeGame, directorState);
+    return avoidSameActorSpam(quality, safeGame, directorState)
+      .sort((a, b) => compareCandidates(a, b, safeGame, directorState))
+      .slice(0, 3);
+  } catch (error) {
+    console.warn("[LegacyDirector] Selection skipped to keep Home stable", error);
+    return [];
+  }
 }
 
 export function rememberLegacyDirectorSelection(game, selection = []) {
