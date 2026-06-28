@@ -58,8 +58,11 @@ function weeklyPreparationMoment(game, fixture, context = {}, activeEvents = [])
   const userPos = standingPosition(game, game.teamId);
   const isImportantMatch = matchday >= 31 || (opponentPos && opponentPos <= 6) || (userPos && userPos <= 6);
   const tiredPlayer = [...(game.players ?? [])].sort((a, b) => (b.fatigue ?? 0) - (a.fatigue ?? 0))[0];
+  const avgFatigue = (game.players ?? []).length ? (game.players ?? []).reduce((sum, player) => sum + (player.fatigue ?? 0), 0) / (game.players ?? []).length : 20;
   const bestYouth = [...(game.youth?.players ?? [])].sort((a, b) => (b.potential ?? 0) - (a.potential ?? 0))[0];
   const trainingLoad = game.trainingPlan?.load ?? "medium";
+  const recommendedFocus = avgFatigue >= 48 ? "recovery" : isImportantMatch ? "defensiveShape" : trainingLoad === "low" ? "highPress" : "balanced";
+  const recommendedLoad = recommendedFocus === "recovery" ? "low" : recommendedFocus === "highPress" ? "high" : "medium";
   const phase = Math.abs((matchday + Number(stamp.season ?? 2025)) % 6);
   const base = { season:stamp.season, matchday, priority:"normal" };
   const commonId = `${stamp.season}:${matchday}`;
@@ -86,7 +89,9 @@ function weeklyPreparationMoment(game, fixture, context = {}, activeEvents = [])
       category:"training",
       ownerActorId:"fitnessCoach",
       title:"El preparador fisico propone enfocar la semana",
-      summary:`La carga actual es ${trainingLoad}. Puede ser buen momento para decidir si priorizamos intensidad, recuperacion o trabajo especifico.`,
+      summary:`La carga actual es ${trainingLoad}. Recomienda una semana de ${recommendedFocus === "recovery" ? "recuperacion" : recommendedFocus === "highPress" ? "presion alta" : recommendedFocus === "defensiveShape" ? "organizacion defensiva" : "trabajo equilibrado"}.`,
+      recommendedFocus,
+      recommendedLoad,
       action:{ screen:"training" },
       actionLabel:"Revisar entrenamiento",
       expectedOutcome:"Elegir el enfoque de trabajo antes del partido.",
@@ -783,6 +788,8 @@ export function legacyDirectorEventsToAttentionItems(game, events = []) {
         actionLabel:event.actionLabel ?? "Revisar",
         expectedOutcome:event.expectedOutcome ?? null,
         momentType:event.momentType ?? null,
+        recommendedFocus:event.recommendedFocus ?? null,
+        recommendedLoad:event.recommendedLoad ?? null,
         status:saved.status ?? "new",
         firstSeenAt:saved.firstSeenAt ?? null,
         updatedAt:saved.updatedAt ?? null,

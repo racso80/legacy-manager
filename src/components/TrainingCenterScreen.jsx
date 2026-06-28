@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { calculateInjuryRisk, getAccumulatedLoad, getLoadLevel, getRiskLevel } from "../medical/medicalEngine.js";
-import { ATTRIBUTE_LABELS, DEFAULT_TRAINING_PLAN, INDIVIDUAL_FOCUSES, normalizeTrainingPlan, TRAINING_DAYS, TRAINING_LOADS, TRAINING_TYPES } from "../training/trainingEngine.js";
+import { ATTRIBUTE_LABELS, DEFAULT_TRAINING_PLAN, INDIVIDUAL_FOCUSES, WEEKLY_TRAINING_FOCUSES, applyTrainingFocusPreset, normalizeTrainingPlan, TRAINING_DAYS, TRAINING_LOADS, TRAINING_TYPES } from "../training/trainingEngine.js";
 
 export default function TrainingCenterScreen({ game, onPlanChange, onOpenPlayer }) {
   const plan = normalizeTrainingPlan(game.trainingPlan ?? DEFAULT_TRAINING_PLAN);
@@ -12,11 +12,13 @@ export default function TrainingCenterScreen({ game, onPlanChange, onOpenPlayer 
   const loadLevel=getLoadLevel(avgLoad);
   const riskLevel=getRiskLevel(avgRisk);
   const selectedPlayer=game.players.find(p=>p.id===selectedPlayerId);
+  const weeklyFocus=WEEKLY_TRAINING_FOCUSES[plan.weeklyFocus] ?? WEEKLY_TRAINING_FOCUSES.balanced;
   const changesByPlayer=Object.fromEntries((report?.changes??[]).map(item=>[item.playerId,item]));
   const improved=(report?.improved??[]).map(id=>game.players.find(p=>p.id===id)).filter(Boolean).slice(0,5);
   const prospects=game.players.filter(p=>p.age<=23&&(p.potential??p.overall)-p.overall>=3).sort((a,b)=>(b.potential-b.overall)-(a.potential-a.overall)).slice(0,5);
 
   const setDay=(index,type)=>{const days=[...plan.days];days[index]=type;onPlanChange({...plan,days});};
+  const setWeeklyFocus=focusId=>onPlanChange(applyTrainingFocusPreset(plan,focusId));
   const setFocus=(playerId,focus)=>onPlanChange({...plan,individual:{...plan.individual,[playerId]:focus||undefined}});
 
   return <div style={{flex:1,overflowY:"auto",padding:14}}>
@@ -25,7 +27,10 @@ export default function TrainingCenterScreen({ game, onPlanChange, onOpenPlayer 
       <div style={{fontSize:12,color:"#c9ced8",lineHeight:1.55,marginTop:7}}>{improved.length?`${improved[0].name} lidera la progresión de esta semana.`:prospects.length?`${prospects[0].name} tiene margen para crecer hasta ${prospects[0].potential}. Se recomiendan minutos y continuidad.`:"La plantilla trabaja cerca de su techo actual."}</div>
     </div>
 
-    <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:7,marginBottom:16}}>{[["PLAN",TRAINING_LOADS[plan.load].name,TRAINING_LOADS[plan.load].icon,"#c9a84c"],["ENERGÍA MEDIA",`${avgEnergy}%`,avgEnergy>=65?"🟢":"🟠",avgEnergy>=65?"#22c55e":"#f97316"],["CARGA ACUM.",`${avgLoad}%`,loadLevel.icon,loadLevel.color],["RIESGO MEDIO",`${avgRisk}%`,riskLevel.icon,riskLevel.color]].map(([label,value,icon,color])=><div key={label} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:9,padding:10}}><div style={{fontSize:8,color:"#6b7280",fontWeight:700}}>{label}</div><div style={{fontSize:15,color,fontWeight:800,marginTop:4}}>{icon} {value}</div></div>)}</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:7,marginBottom:16}}>{[["ENFOQUE",weeklyFocus.name,weeklyFocus.icon,"#c9a84c"],["ENERGÍA MEDIA",`${avgEnergy}%`,avgEnergy>=65?"🟢":"🟠",avgEnergy>=65?"#22c55e":"#f97316"],["CARGA ACUM.",`${avgLoad}%`,loadLevel.icon,loadLevel.color],["RIESGO MEDIO",`${avgRisk}%`,riskLevel.icon,riskLevel.color]].map(([label,value,icon,color])=><div key={label} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:9,padding:10}}><div style={{fontSize:8,color:"#6b7280",fontWeight:700}}>{label}</div><div style={{fontSize:15,color,fontWeight:800,marginTop:4}}>{icon} {value}</div></div>)}</div>
+
+    <div style={{fontSize:10,color:"#6b7280",fontWeight:800,letterSpacing:".6px",marginBottom:8}}>ENFOQUE DE LA SEMANA</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:7,marginBottom:16}}>{Object.values(WEEKLY_TRAINING_FOCUSES).map(focus=><button key={focus.id} onClick={()=>setWeeklyFocus(focus.id)} style={{textAlign:"left",background:plan.weeklyFocus===focus.id?"rgba(201,168,76,.14)":"#161a24",border:plan.weeklyFocus===focus.id?"1px solid #c9a84c":"1px solid rgba(255,255,255,.06)",borderRadius:9,padding:10,cursor:"pointer"}}><div style={{color:plan.weeklyFocus===focus.id?"#c9a84c":"#e8eaf0",fontSize:11,fontWeight:800}}>{focus.icon} {focus.name}</div><div style={{color:"#6b7280",fontSize:9,lineHeight:1.35,marginTop:4}}>{focus.description}</div></button>)}</div>
 
     <div style={{fontSize:10,color:"#6b7280",fontWeight:800,letterSpacing:".6px",marginBottom:8}}>CARGA SEMANAL</div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:16}}>{Object.values(TRAINING_LOADS).map(load=><button key={load.id} onClick={()=>onPlanChange({...plan,load:load.id})} style={{background:plan.load===load.id?"rgba(201,168,76,.14)":"#161a24",border:plan.load===load.id?"1px solid #c9a84c":"1px solid rgba(255,255,255,.06)",color:plan.load===load.id?"#c9a84c":"#9aa0b4",borderRadius:8,padding:"9px 3px",fontSize:9,fontWeight:700,cursor:"pointer"}}>{load.icon}<br/>{load.name}</button>)}</div>

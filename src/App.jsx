@@ -27,7 +27,7 @@ import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generate
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
 import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle, lifecycleNews, processBirthdays } from "./players/lifecycle.js";
 import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getAccumulatedLoad, getLoadLevel, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
-import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, normalizeTrainingPlan } from "./training/trainingEngine.js";
+import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, getTrainingMatchModifiers, normalizeTrainingPlan } from "./training/trainingEngine.js";
 import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason } from "./legacy/legacyEngine.js";
 import { createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
 import { advanceScouting, bootstrapScouting, cancelScoutingMission, createScoutingMission, ensureScoutingState, refreshScoutingRecommendations, registerScoutingSigning, toggleScoutingWatch } from "./scouting/scoutingEngine.js";
@@ -789,9 +789,18 @@ function liveFormationStrengthBonus(formation) {
   return mod.atk * .65 + mod.def * .35;
 }
 
+function opponentTrainingPlanForMatch(tactics = DEFAULT_TACTICS, formation = "4-3-3") {
+  if (tactics.presion === "alta") return { ...DEFAULT_TRAINING_PLAN, weeklyFocus:"highPress" };
+  if (tactics.mentalidad === "defensiva" || String(formation).startsWith("5-")) return { ...DEFAULT_TRAINING_PLAN, weeklyFocus:"defensiveShape" };
+  if (tactics.estilo === "bandas") return { ...DEFAULT_TRAINING_PLAN, weeklyFocus:"wingAttack" };
+  if (tactics.estilo === "posesion") return { ...DEFAULT_TRAINING_PLAN, weeklyFocus:"possession" };
+  if (tactics.estilo === "contraataque" || tactics.estilo === "directo") return { ...DEFAULT_TRAINING_PLAN, weeklyFocus:"transitions" };
+  return { ...DEFAULT_TRAINING_PLAN, weeklyFocus:"balanced" };
+}
+
 // ─── MOTOR DE PARTIDO ────────────────────────────────────────────────────────
 
-function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS) {
+function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS, trainingPlan = null) {
   const available = players.filter(p => !p.injured && !p.suspended);
   const starters = available.slice(0, 11);
   if (starters.length === 0) return 60;
@@ -818,6 +827,7 @@ function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS) {
   const homeBon        = isHome ? 3 : 0;
 
   const mod = tacticModifiers(tactics);
+  const trainingMod = getTrainingMatchModifiers(trainingPlan ?? DEFAULT_TRAINING_PLAN);
 
   const lineStrength =
     avg        * 0.40 +
@@ -827,10 +837,10 @@ function calcTeamStrength(players, isHome, tactics = DEFAULT_TACTICS) {
     gkStr      * 0.10 +
     moraleBonus * 0.05;
 
-  return Math.max(35, lineStrength - fatiguePenalty - loadPenalty + homeBon + mod.atkBonus * 0.5 + tacticalSharpness * .6);
+  return Math.max(35, lineStrength - fatiguePenalty - loadPenalty + homeBon + mod.atkBonus * 0.5 + tacticalSharpness * .6 + (trainingMod.attack ?? 0) + (trainingMod.defense ?? 0) * .35);
 }
 
-function calcDefStrength(players, tactics = DEFAULT_TACTICS) {
+function calcDefStrength(players, tactics = DEFAULT_TACTICS, trainingPlan = null) {
   const available = players.filter(p => !p.injured && !p.suspended).slice(0, 11);
   if (!available.length) return 60;
   const defList = available.filter(p => p.group === "DEF");
@@ -838,7 +848,8 @@ function calcDefStrength(players, tactics = DEFAULT_TACTICS) {
   const defAvg  = defList.length ? defList.reduce((s,p)=>s+p.attrs.defensa,0)/defList.length : 65;
   const gkAvg   = gkList.length  ? gkList.reduce((s,p)=>s+p.attrs.porteria,0)/gkList.length  : 65;
   const mod     = tacticModifiers(tactics);
-  return Math.max(40, defAvg * 0.6 + gkAvg * 0.4 + mod.defBonus);
+  const trainingMod = getTrainingMatchModifiers(trainingPlan ?? DEFAULT_TRAINING_PLAN);
+  return Math.max(40, defAvg * 0.6 + gkAvg * 0.4 + mod.defBonus + (trainingMod.defense ?? 0));
 }
 
 function simAIGame(homeTeam, awayTeam) {
@@ -930,6 +941,8 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   const mod    = tacticModifiers(tactics);
   const oppTactics = medicalContext.oppTactics ?? DEFAULT_TACTICS;
   const oppMod = tacticModifiers(oppTactics);
+  const trainingMod = getTrainingMatchModifiers(medicalContext.trainingPlan ?? medicalContext.game?.trainingPlan ?? DEFAULT_TRAINING_PLAN);
+  const oppTrainingMod = getTrainingMatchModifiers(medicalContext.oppTrainingPlan ?? opponentTrainingPlanForMatch(oppTactics, medicalContext.oppFormation));
   const diff   = userStr - oppStr;
   const minuteStart=Math.max(segment*15+1,medicalContext.minuteStart??segment*15+1);
   const minuteEnd=Math.min((segment+1)*15,medicalContext.minuteEnd??(segment+1)*15);
@@ -941,14 +954,14 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   const avgOppFatigue = oppSquad.length ? oppSquad.reduce((sum, player)=>sum+(player.fatigue??18),0)/oppSquad.length : 18;
 
   // Probabilidades base ajustadas por tácticas y diferencia de fuerza
-  const hChanceProb = Math.min(0.75, Math.max(0.08, 0.24 + diff * 0.008 + mod.chancesRate));
-  const aChanceProb = Math.min(0.68, Math.max(0.08, 0.20 - diff * 0.008 + oppMod.chancesRate));
+  const hChanceProb = Math.min(0.75, Math.max(0.08, 0.24 + diff * 0.008 + mod.chancesRate + trainingMod.chanceRate + Math.max(trainingMod.wingBonus, trainingMod.transition) - Math.max(0, oppTrainingMod.setPieceDefense * .18) + (oppTrainingMod.opponentChanceRate ?? 0)));
+  const aChanceProb = Math.min(0.68, Math.max(0.08, 0.20 - diff * 0.008 + oppMod.chancesRate + oppTrainingMod.chanceRate + Math.max(oppTrainingMod.wingBonus, oppTrainingMod.transition) - Math.max(0, trainingMod.setPieceDefense * .18) + (trainingMod.opponentChanceRate ?? 0)));
 
   // Defensa rival reduce conversión de gol del usuario
-  const oppDefStr   = calcDefStrength(oppSquad);
-  const userDefStr  = calcDefStrength(players,tactics);
-  const hGoalConv   = Math.min(0.78, Math.max(0.30, 0.52 + mod.goalConvRate - (oppDefStr - 65) * 0.003));
-  const aGoalConv   = Math.min(0.68, Math.max(0.25, 0.42 + oppMod.goalConvRate - (userDefStr - 65) * 0.004));
+  const oppDefStr   = calcDefStrength(oppSquad, oppTactics, medicalContext.oppTrainingPlan);
+  const userDefStr  = calcDefStrength(players,tactics,medicalContext.trainingPlan);
+  const hGoalConv   = Math.min(0.78, Math.max(0.30, 0.52 + mod.goalConvRate + trainingMod.goalConv - (oppDefStr - 65) * 0.003));
+  const aGoalConv   = Math.min(0.68, Math.max(0.25, 0.42 + oppMod.goalConvRate + oppTrainingMod.goalConv - (userDefStr - 65) * 0.004));
 
   const attackers = players.filter(p => p.group === "DEL" && !p.injured && !p.suspended);
   const mids      = players.filter(p => p.group === "MED" && !p.injured && !p.suspended);
@@ -967,14 +980,14 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   const addNarrativeEvent = (team, type, description, playerId = null) => {
     events.push({ minute:min(), type, team, playerId:playerId ?? undefined, description });
   };
-  const narrativeBase = .32 + Math.abs(diff) * .002 + ((tactics.presion==="alta" || oppTactics.presion==="alta") ? .05 : 0) + ((avgUserFatigue>55 || avgOppFatigue>55) ? .04 : 0);
+  const narrativeBase = .32 + Math.abs(diff) * .002 + ((tactics.presion==="alta" || oppTactics.presion==="alta") ? .05 : 0) + trainingMod.pressure + oppTrainingMod.pressure + ((avgUserFatigue>55 || avgOppFatigue>55) ? .04 : 0);
   if(Math.random()<intervalProbability(narrativeBase,intervalMinutes)){
     const userDominates = diff > 5;
     const team = userDominates ? "user" : diff < -5 ? "opp" : (Math.random()<.5?"user":"opp");
     const actor = team==="user" ? pick([...mids,...attackers,...defs].filter(Boolean)) : pick(oppSquad.filter(player=>player.group!=="POR"));
     const style = team==="user" ? tactics.estilo : oppTactics.estilo;
     const options = [
-      { type:"CORNER", text: style==="bandas" ? `${actor?.name ?? "El equipo"} fuerza un corner tras un centro peligroso.` : `${actor?.name ?? "El equipo"} provoca un corner despues de una buena llegada.` },
+      { type:"CORNER", text: trainingMod.setPieceAttack>.03 && team==="user" ? `${actor?.name ?? "El equipo"} fuerza un corner. Se nota el trabajo de balon parado de esta semana.` : style==="bandas" ? `${actor?.name ?? "El equipo"} fuerza un corner tras un centro peligroso.` : `${actor?.name ?? "El equipo"} provoca un corner despues de una buena llegada.` },
       { type:"DANGEROUS_CROSS", text: `${actor?.name ?? "El atacante"} pone un centro tenso que obliga a despejar a la defensa.` },
       { type:"BLOCKED_SHOT", text: `${actor?.name ?? "El jugador"} prueba el disparo, pero la defensa lo bloquea.` },
       { type:"OFFSIDE", text: `${actor?.name ?? "El delantero"} cae en fuera de juego cuando buscaba la espalda de la defensa.` },
@@ -4909,6 +4922,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     tactics,
     formation: matchFormation,
     opponentFormation: oppFormation,
+    trainingPlan: game.trainingPlan,
     subsUsed,
     maxSubs: MAX_SUBS,
   });
@@ -4952,14 +4966,17 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     const oppTactics = opponentMatchTactics({ minute:intervalEnd, opponentGoals:oppGoalsNow, userGoals:userGoalsNow });
     const userFormationMod = formationModifier(matchFormation);
     const oppFormationMod = formationModifier(oppFormation);
-    const userStr=strengthWithPlayerCount(calcTeamStrength(starterPlayers,isHome,tactics)+liveFormationStrengthBonus(matchFormation),starterPlayers.length);
+    const trainingMod = getTrainingMatchModifiers(game.trainingPlan ?? DEFAULT_TRAINING_PLAN);
+    const oppTrainingPlan = opponentTrainingPlanForMatch(oppTactics, oppFormation);
+    const oppTrainingMod = getTrainingMatchModifiers(oppTrainingPlan);
+    const userStr=strengthWithPlayerCount(calcTeamStrength(starterPlayers,isHome,tactics,game.trainingPlan)+liveFormationStrengthBonus(matchFormation),starterPlayers.length);
     const oppCount=Math.max(7,oppSquad.length);
-    const oppStr=strengthWithPlayerCount(calcTeamStrength(oppSquad,!isHome,oppTactics)+liveFormationStrengthBonus(oppFormation)+(Math.random()*4-2),oppCount);
+    const oppStr=strengthWithPlayerCount(calcTeamStrength(oppSquad,!isHome,oppTactics,oppTrainingPlan)+liveFormationStrengthBonus(oppFormation)+(Math.random()*4-2),oppCount);
     const yellowCounts={user:{},opp:{}};
     events.filter(event=>event.type==="YELLOW").forEach(event=>{const side=event.team==="user"||event.team==="opp"?event.team:null;if(side&&event.playerId)yellowCounts[side][event.playerId]=(yellowCounts[side][event.playerId]??0)+1;});
     const generated=generateSegmentEvents(currentSegment,starterPlayers,userStr,oppStr,score,tactics,isHome,oppSquad,{
       fixtures:game.fixtures,teamId:game.teamId,matchday:fixture.matchday,game,
-      minuteStart:intervalEnd,minuteEnd:intervalEnd,yellowCounts,oppTactics,
+      minuteStart:intervalEnd,minuteEnd:intervalEnd,yellowCounts,oppTactics,trainingPlan:game.trainingPlan,oppTrainingPlan,oppFormation,
     }).filter(event=>(event.minute??intervalEnd)<=intervalEnd);
     const flow=eventsUntilExtraordinary(generated);
     const newEvs=flow.events;
@@ -4968,7 +4985,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
 
     // Calcular posesión del tramo según fuerza relativa, estilo táctico y algo de variación
     const strDiff = userStr - oppStr;
-    let basePoss = 50 + strDiff * 1.1 + (userFormationMod.possession - oppFormationMod.possession);
+    let basePoss = 50 + strDiff * 1.1 + (userFormationMod.possession - oppFormationMod.possession) + (trainingMod.possession - oppTrainingMod.possession);
     if (tactics.estilo === "posesion") basePoss += 8;
     if (tactics.estilo === "directo" || tactics.estilo === "contraataque") basePoss -= 6;
     const segmentPoss = Math.max(28, Math.min(78, Math.round(basePoss + (Math.random() * 10 - 5))));
@@ -5015,7 +5032,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
         // Solo los jugadores en el campo se cansan; los porteros apenas se cansan; los que no juegan descansan
         fatigue: p.injured ? p.fatigue
           : onField
-            ? Math.min(100, Number(((p.fatigue??0) + matchFatigueDelta(p, tactics, elapsedMinutes) * (1 + userFormationMod.fatigue)).toFixed(2)))
+            ? Math.min(100, Number(((p.fatigue??0) + matchFatigueDelta(p, tactics, elapsedMinutes) * (1 + userFormationMod.fatigue) * (trainingMod.fatigueMultiplier ?? 1)).toFixed(2)))
             : Math.max(0, Number(((p.fatigue??0) - benchRecoveryDelta(elapsedMinutes)).toFixed(2))),
       };
       const injuryEvent = newEvs.find(e => e.type === "INJURY" && e.playerId === p.id);
@@ -5029,7 +5046,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
         ...player,
         fatigue: player.injured ? player.fatigue
           : onField
-            ? Math.min(100, Number(((player.fatigue ?? 18) + matchFatigueDelta(player, oppTactics, elapsedMinutes) * (1 + oppFormationMod.fatigue)).toFixed(2)))
+            ? Math.min(100, Number(((player.fatigue ?? 18) + matchFatigueDelta(player, oppTactics, elapsedMinutes) * (1 + oppFormationMod.fatigue) * (oppTrainingMod.fatigueMultiplier ?? 1)).toFixed(2)))
             : Math.max(0, Number(((player.fatigue ?? 18) - benchRecoveryDelta(elapsedMinutes)).toFixed(2))),
       };
       return injuryEvent ? applyInjury(updated, injuryEvent, game.season ?? "2025", fixture.matchday) : updated;
@@ -7265,12 +7282,19 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
 
   const handleSceneDecision = (decision) => {
     if (!selectedScene || !decision) return;
+    const applySceneDecisionEffects = (baseGame) => {
+      if (!baseGame || !decision.trainingPlan) return baseGame;
+      return {
+        ...baseGame,
+        trainingPlan:normalizeTrainingPlan({ ...(baseGame.trainingPlan ?? DEFAULT_TRAINING_PLAN), ...decision.trainingPlan }),
+      };
+    };
     if (decision.type === "conversation_response") {
       const conversationId = selectedScene.rawId;
       setGame(prev => {
         if (!prev) return prev;
         const expectation = buildSceneExpectation(selectedScene, decision, prev);
-        const result = respondToConversation(recordSceneDecision(prev, selectedScene, decision), conversationId, decision.responseId, { lineup });
+        const result = respondToConversation(applySceneDecisionEffects(recordSceneDecision(prev, selectedScene, decision)), conversationId, decision.responseId, { lineup });
         const updated = markLegacyDirectorItem(result.game, `conversation:${conversationId}`, expectation ? "waiting" : "resolved", {
           issueKey: selectedScene.issueKey,
           ownerActorId: selectedScene.ownerActorId,
@@ -7292,7 +7316,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       setGame(prev => {
         if (!prev || !issue) return prev;
         const expectation = buildSceneExpectation(selectedScene, decision, prev);
-        const withScene = recordSceneDecision(prev, selectedScene, decision);
+        const withScene = applySceneDecisionEffects(recordSceneDecision(prev, selectedScene, decision));
         const issueOutcome = expectation ? "waiting" : decision.type === "postpone" ? "waiting" : decision.type === "delegate" ? "delegated" : "resolved";
         const directorOutcome = expectation ? "waiting" : decision.type === "postpone" ? "waiting" : issueOutcome;
         const resolvedIssue = resolveClubLifeIssue(withScene, issue.id, issueOutcome);
@@ -7317,7 +7341,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       setGame(prev => {
         if (!prev) return prev;
         const expectation = buildSceneExpectation(selectedScene, decision, prev);
-        const withScene = recordSceneDecision(prev, selectedScene, decision);
+        const withScene = applySceneDecisionEffects(recordSceneDecision(prev, selectedScene, decision));
         const outcome = expectation ? "waiting" : decision.type === "postpone" || decision.type === "delegate" ? "waiting" : "resolved";
         let updated = markLegacyDirectorItem(withScene, selectedScene.sourceItemId, outcome, {
           issueKey: selectedScene.issueKey,
@@ -7340,7 +7364,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       setGame(prev => {
         if (!prev) return prev;
         const expectation = buildSceneExpectation(selectedScene, decision, prev);
-        const withScene = recordSceneDecision(prev, selectedScene, decision);
+        const withScene = applySceneDecisionEffects(recordSceneDecision(prev, selectedScene, decision));
         const outcome = expectation ? "waiting" : decision.type === "postpone" || decision.type === "delegate" ? "waiting" : "resolved";
         const updated = markLegacyDirectorItem(withScene, selectedScene.sourceItemId, outcome, {
           issueKey: selectedScene.issueKey,

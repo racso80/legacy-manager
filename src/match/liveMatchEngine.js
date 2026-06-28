@@ -1,4 +1,5 @@
 import { getAccumulatedLoad } from "../medical/medicalEngine.js";
+import { getTrainingMatchModifiers } from "../training/trainingEngine.js";
 
 const EVENT_SIDE = {
   user: "user",
@@ -54,6 +55,7 @@ export function buildLiveMatchState({
   tactics = {},
   formation = "4-3-3",
   opponentFormation = "4-3-3",
+  trainingPlan = null,
   subsUsed = 0,
   maxSubs = 5,
 }) {
@@ -74,6 +76,7 @@ export function buildLiveMatchState({
     .map(id => opponentPlayers.find(player => player.id === id))
     .filter(Boolean);
   const yellowMap = yellowsByPlayer(events, isHome, "user", sideContext);
+  const trainingMod = getTrainingMatchModifiers(trainingPlan);
 
   const userGoalsCount = countEvents(events, isHome, "user", ["GOAL", "PENALTY"], sideContext);
   const opponentGoalsCount = countEvents(events, isHome, "opponent", ["GOAL", "PENALTY"], sideContext);
@@ -226,6 +229,29 @@ export function buildLiveMatchState({
       targetTab: "tacticas",
       requiresDecision: true,
     });
+  }
+
+  if (minute >= 25 && trainingMod.focusId && trainingMod.focusId !== "balanced") {
+    const setPieceEvents = countEvents(events, isHome, "user", ["CORNER", "DANGEROUS_FOUL"], sideContext);
+    const pressureEvents = countEvents(events, isHome, "user", ["DANGEROUS_FOUL", "BLOCKED_SHOT", "DEFENSIVE_ACTION"], sideContext);
+    const shouldMention =
+      (trainingMod.setPieceAttack > 0 && setPieceEvents >= 1)
+      || (trainingMod.pressure > 0 && pressureEvents >= 1)
+      || (trainingMod.goalConv > 0 && stats.userShotsOnTarget >= 1)
+      || (trainingMod.defense > 0 && stats.opponentBigChances <= stats.userBigChances + 1)
+      || (trainingMod.possession > 0 && stats.userShots >= stats.opponentShots);
+    if (shouldMention) {
+      signals.push({
+        key: `training-focus:${trainingMod.focusId}`,
+        source: "assistant",
+        severity: "info",
+        title: `Se nota el trabajo de ${trainingMod.focusName}`,
+        message: "El segundo entrenador apunta que parte de lo trabajado esta semana empieza a aparecer en el partido. No garantiza nada, pero el equipo reconoce el plan.",
+        action: "Seguir observando",
+        targetTab: "eventos",
+        requiresDecision: false,
+      });
+    }
   }
 
   const mood = userGoals > opponentGoals

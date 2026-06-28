@@ -599,6 +599,41 @@ function sceneOptions(item, actor) {
     if (String(momentType ?? "").startsWith("weekly_")) {
       const target = item.attention?.action?.screen ?? item.normalizedIssue?.action?.screen ?? "dashboard";
       const actionLabel = item.attention?.actionLabel ?? item.normalizedIssue?.availableActions?.[0] ?? "Revisar";
+      if (momentType === "weekly_training_focus") {
+        const recommendedFocus = item.attention?.recommendedFocus ?? "recovery";
+        const recommendedLoad = item.attention?.recommendedLoad ?? (recommendedFocus === "recovery" ? "low" : "medium");
+        return [
+          {
+            id:"follow_training_recommendation",
+            label:"Seguir recomendacion",
+            tone:"preparacion",
+            type:"act",
+            navigateTo:"dashboard",
+            trainingPlan:{ weeklyFocus:recommendedFocus, load:recommendedLoad },
+            consequence:"El cuerpo tecnico adapta la semana sin pedirte mas gestion.",
+            reaction:`${actor.name} asiente. El staff ya sabe hacia donde orientar el trabajo diario.`,
+          },
+          {
+            id:"keep_training_plan",
+            label:"Mantener plan",
+            tone:"sereno",
+            type:"act",
+            navigateTo:"dashboard",
+            consequence:"No cambias el rumbo de la semana.",
+            reaction:`${actor.name} toma nota. Mantener una idea tambien es preparar el partido.`,
+          },
+          {
+            id:"very_intense_training",
+            label:"Entrenamiento muy intenso",
+            tone:"exigente",
+            type:"act",
+            navigateTo:"dashboard",
+            trainingPlan:{ weeklyFocus:"highPress", load:"veryHigh" },
+            consequence:"Aumenta la intensidad, pero tambien la carga y el riesgo fisico.",
+            reaction:`${actor.name} no discute, pero deja claro que vigilara las piernas de cerca.`,
+          },
+        ];
+      }
       return [
         {
           id:"continue_plan",
