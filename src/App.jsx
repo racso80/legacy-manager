@@ -7009,6 +7009,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         trainingTacticalBonus:trainingResult.tacticalBonus,
         legacy:legacyEvaluation.legacy,
         youth:{...(prev.youth??{}),players:youthTrainingResult.players},standingsMovement };
+      try {
       const beforeFanbase=prev.fanbase;
       newGame=applyFanMatchReaction(newGame,{team:userTeamData,fixture,won,drew,goalsFor:userGoals,goalsAgainst:oppGoals,income:incomeResult,position:leaguePos});
       newGame=advanceAiFanbases(newGame,TEAMS,matchday);
@@ -7037,6 +7038,9 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       newGame=maybeCreateAITransfer(newGame,TEAMS,REAL_SQUADS);
       if((newGame.transferMarket?.aiTransfers?.length??0)>aiCountBefore){const move=newGame.transferMarket.aiTransfers[0];const from=TEAMS.find(team=>team.id===move.fromTeamId);const to=TEAMS.find(team=>team.id===move.toTeamId);const renewal=move.type==="renewal",loan=move.type==="loan",young=move.type==="youth";newGame={...newGame,news:mergeNews(newGame.news??[],[{id:`news-${move.id}`,type:"transfer",importance:young?"high":"medium",title:renewal?`${move.player.name} renueva con ${from?.name}`:loan?`${move.player.name}, cedido al ${to?.name}`:young?`${to?.name} apuesta por el joven ${move.player.name}`:`${move.player.name} ficha por ${to?.name}`,summary:renewal?`${from?.name} asegura la continuidad del jugador.`:loan?`${from?.name} busca minutos para el futbolista.`:`${from?.name} y ${to?.name} cierran la operación por €${(move.value/1000).toFixed(1)}M.${move.reason?` ${move.reason}.`:""}`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:move.id}])};newGame=refreshTransferListings(newGame,TEAMS,REAL_SQUADS,true);}
       newGame=ensureSceneState(ensureLegacyDirectorState(advanceClubLife(advanceConversationMemory(ensureConversationState(ensureClubLifeState(newGame))),{lineup})));
+      } catch (error) {
+        console.error("[LegacyMatch] Sistema postpartido omitido para no bloquear el cierre", error);
+      }
       saveGame(newGame);
       autosaveCloud(newGame,"match-end");
       if (participation?.matchId) clearActiveMatchSession(participation.matchId);
