@@ -1,4 +1,5 @@
 import { calculateInjuryRisk, formatMedicalDuration } from "../medical/medicalEngine.js";
+import { getPlayerPersonality } from "../morale/moraleEngine.js";
 
 const DEBUG_EVENTS = true;
 
@@ -695,7 +696,9 @@ export function buildLegacyDirectorEvents(game, context = {}) {
       });
     }
 
-    if ((player.morale ?? 70) <= 35 || (player.happiness ?? 70) <= 38) {
+    const personality = getPlayerPersonality(player);
+    const unrestLimit = personality.id === "conflictive" || personality.id === "ambitious" || personality.id === "selfish" ? 45 : personality.id === "professional" || personality.id === "dressingRoomModel" ? 32 : 38;
+    if ((player.morale ?? 70) <= unrestLimit || (player.happiness ?? 70) <= unrestLimit) {
       pushEvent(events, {
         id:`PlayerUnhappy:${player.id}:${Math.floor(Math.min(player.morale ?? 70, player.happiness ?? 70) / 10)}`,
         type:"PlayerUnhappy",
@@ -704,9 +707,10 @@ export function buildLegacyDirectorEvents(game, context = {}) {
         ownerActorId:"captain",
         priority:Math.min(player.morale ?? 70, player.happiness ?? 70) <= 25 ? "critical" : "important",
         title:`${player.name} necesita una conversacion`,
-        summary:"El vestuario empieza a notar su malestar. Conviene hablar antes de que crezca.",
+        summary:`${personality.label}: ${personality.line} Conviene hablar antes de que el malestar crezca.`,
         subjectId:player.id,
         subjectName:player.name,
+        personalityId:personality.id,
         action:{ screen:"lockerRoom", playerId:player.id },
         actionLabel:"Abrir vestuario",
         ...stamp,

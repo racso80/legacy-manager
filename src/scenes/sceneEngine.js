@@ -191,7 +191,19 @@ function naturalFallback(text = "") {
 function conversationOpening(conversation) {
   const opening = naturalFallback(conversation.opening);
   if (conversation.actorType === "player") {
-    return `${opening}\n\nNo quiero montar ruido, míster. Pero necesitaba decírtelo a la cara. Puede que me equivoque, pero ahora mismo es lo que siento.`;
+    const profileId = conversation.personality?.id ?? conversation.personality?.profileId;
+    const tails = {
+      professional: "No quiero poner excusas. Seguiré trabajando, pero necesitaba hablarlo con usted.",
+      ambitious: "No me conformo con estar de paso. Quiero un sitio importante y creo que puedo ganármelo.",
+      conflictive: "Prefiero decirlo claro antes de que esto se enquiste. Ahora mismo no lo entiendo.",
+      reserved: "No suelo pedir estas conversaciones, míster. Por eso quería hacerlo con calma.",
+      leader: "Si esto afecta al grupo, prefiero que lo hablemos de frente y sin ruido.",
+      hardWorker: "Voy a seguir apretando cada día, pero necesitaba saber si vamos en la misma dirección.",
+      insecureYoung: "Igual me estoy equivocando, pero necesitaba escucharlo de usted.",
+      selfish: "Necesito sentir que soy importante. Si no, será difícil que todo siga igual.",
+      dressingRoomModel: "No quiero que mi situación pese más que el equipo, pero también necesito claridad.",
+    };
+    return `${opening}\n\n${tails[profileId] ?? "No quiero montar ruido, míster. Pero necesitaba decírtelo a la cara. Puede que me equivoque, pero ahora mismo es lo que siento."}`;
   }
   if (conversation.actorName === "Médico") {
     return `${opening}\n\nNo te puedo asegurar que vaya a pasar algo. Precisamente por eso prefiero venir antes de que tengamos que lamentarlo.`;

@@ -1,5 +1,5 @@
 import { calculateInjuryRisk } from "../medical/medicalEngine.js";
-import { getLockerRoomSummary } from "../morale/moraleEngine.js";
+import { getLockerRoomSummary, getPlayerPersonality, personalityLine } from "../morale/moraleEngine.js";
 
 const PRIORITY_ORDER = { urgent: 0, important: 1, info: 2 };
 
@@ -70,6 +70,7 @@ function alreadyClosed(game, id) {
 }
 
 function playerConversation(player, overrides) {
+  const personality = getPlayerPersonality(player);
   return {
     actorType: "player",
     actorId: player.id,
@@ -79,6 +80,9 @@ function playerConversation(player, overrides) {
     emotionalState: "inquieto",
     priority: "important",
     context: "Plantilla",
+    personality,
+    personalityLabel: personality.label,
+    tone: personality.tone,
     ...overrides,
   };
 }
@@ -106,15 +110,20 @@ function buildGeneratedConversations(game, context = {}) {
 
   const unhappy = [...players]
     .filter(player => !player.injured && ((player.morale ?? 70) <= 42 || (player.happiness ?? 70) <= 42 || (player.managerTrust ?? 70) <= 42))
-    .sort((a, b) => (a.morale ?? 70) - (b.morale ?? 70))[0];
+    .sort((a, b) => {
+      const aPersonality = getPlayerPersonality(a);
+      const bPersonality = getPlayerPersonality(b);
+      return ((a.morale ?? 70) / aPersonality.frequency) - ((b.morale ?? 70) / bPersonality.frequency);
+    })[0];
   if (unhappy) {
+    const personality = getPlayerPersonality(unhappy);
     const id = `player-minutes:${unhappy.id}:${season}:${Math.floor((unhappy.morale ?? 70) / 10)}`;
     conversations.push(playerConversation(unhappy, {
       id,
       title: `${unhappy.name} quiere hablar contigo`,
-      opening: "Míster, ¿podemos hablar? Siento que mi situación no está siendo justa.",
-      motive: "Quiere entender su papel y necesita una respuesta clara.",
-      emotionalState: (unhappy.managerTrust ?? 70) < 35 ? "dolido" : "inquieto",
+      opening: personalityLine(unhappy, "minutes"),
+      motive: `${personality.label}: ${personality.negotiation === "estatus" ? "necesita sentirse importante" : personality.negotiation === "estabilidad" ? "valora claridad y estabilidad" : "quiere entender su papel y necesita una respuesta clara"}.`,
+      emotionalState: (unhappy.managerTrust ?? 70) < 35 ? (personality.id === "conflictive" ? "enfadado" : "dolido") : personality.id === "reserved" ? "contenido" : "inquieto",
       priority: (unhappy.morale ?? 70) <= 30 ? "urgent" : "important",
       options: [
         { id: "promise_minutes", label: "Tendrás más minutos.", tone: "cercano", effects: { morale: 5, trust: 6 }, memory: { type: "promise_minutes", dueInMatchdays: 2 } },
@@ -203,7 +212,7 @@ function buildGeneratedConversations(game, context = {}) {
     conversations.push(playerConversation(grateful, {
       id: `player-thanks:${grateful.id}:${season}:${Math.floor(matchday / 4)}`,
       title: `${grateful.name} pasa por el despacho`,
-      opening: "Míster, quería darte las gracias. Me siento importante y eso se nota en el campo.",
+      opening: personalityLine(grateful, "thanks"),
       motive: "No todas las conversaciones son problemas. También hay vínculos que cuidar.",
       emotionalState: "agradecido",
       priority: "info",

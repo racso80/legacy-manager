@@ -1,6 +1,7 @@
 import { getPlayerSeasonStats } from "../players/playerProfile.js";
 import { getAccumulatedLoad } from "../medical/medicalEngine.js";
 import { staffModifier } from "../staff/staffEngine.js";
+import { getPlayerPersonality, personalityModifier } from "../morale/moraleEngine.js";
 
 export const TRAINING_TYPES = {
   recovery:{ id:"recovery", icon:"💆", name:"Recuperación", description:"Reduce fatiga y riesgo, sin mejora deportiva.", fatigue:-5, attrs:{} },
@@ -118,7 +119,10 @@ export function applyWeeklyTraining(players, game, rawPlan) {
     const stats = getPlayerSeasonStats(original, game, game.teamId);
     const isUnavailable = original.injured || ["injured","recovery"].includes(original.medical?.phase);
     const youthBoost = original.age <= 23 ? (focus.youthBoost ?? 0) : 0;
-    const factor = developmentFactor(original,stats) * load.development * fitnessDevelopmentBoost * (1 + youthBoost);
+    const personality = getPlayerPersonality(original);
+    const personalityTraining = personalityModifier(original, "trainingResponse", 1);
+    const confidenceBoost = personality.id === "insecureYoung" && focus.id === "youth" ? 1.12 : 1;
+    const factor = developmentFactor(original,stats) * load.development * fitnessDevelopmentBoost * (1 + youthBoost) * personalityTraining * confidenceBoost;
     const xp = { ...(original.developmentXP ?? {}) };
     const attrs = { ...(original.attrs ?? {}) };
     const playerChanges = [];
@@ -182,6 +186,9 @@ export function applyWeeklyTraining(players, game, rawPlan) {
     morale += focus.moraleDelta ?? 0;
     if (!playedLast && original.overall >= 78) morale -= 1;
     if (plan.load === "veryHigh" && 100-(original.fatigue??0)<55) morale -= 1;
+    if (personality.id === "professional" || personality.id === "hardWorker") morale += plan.load === "veryHigh" ? 1 : 0;
+    if (personality.id === "conflictive" && plan.load === "veryHigh") morale -= 2;
+    if (personality.id === "veteran" && plan.load === "low") morale += 1;
 
     const player = {
       ...original, attrs, overall, developmentXP:xp, overallDevelopmentXP:overallXP, declineXP,
@@ -192,7 +199,7 @@ export function applyWeeklyTraining(players, game, rawPlan) {
       morale:clamp(morale,10,100), trainingFocus:plan.individual[original.id] ?? null, weeklyTrainingFocus:focus.id,
     };
     result.push(player);
-    changes.push({ playerId:player.id, name:player.name, overall:player.overall, potential:player.potential, fatigueDelta:Math.round(fatigueDelta), changes:playerChanges, progress:Object.entries(xp).filter(([key])=>key!=="tactical").sort((a,b)=>b[1]-a[1]).slice(0,2).map(([key,value])=>({key,label:ATTRIBUTE_LABELS[key]??key,value:Math.round(value)})) });
+    changes.push({ playerId:player.id, name:player.name, overall:player.overall, potential:player.potential, personalityId:personality.id, personalityLabel:personality.label, fatigueDelta:Math.round(fatigueDelta), changes:playerChanges, progress:Object.entries(xp).filter(([key])=>key!=="tactical").sort((a,b)=>b[1]-a[1]).slice(0,2).map(([key,value])=>({key,label:ATTRIBUTE_LABELS[key]??key,value:Math.round(value)})) });
   });
 
   const improved = changes.filter(item=>item.changes.some(change=>change.delta>0)).sort((a,b)=>b.changes.length-a.changes.length);

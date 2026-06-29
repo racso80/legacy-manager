@@ -1,4 +1,5 @@
 import { staffModifier } from "../staff/staffEngine.js";
+import { getPlayerPersonality } from "../morale/moraleEngine.js";
 
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 
@@ -11,12 +12,23 @@ export function ensureContractState(game){
 
 export function suggestedRenewalSalary(player, game = null){
   const current=player.salary??16;
+  const personality=getPlayerPersonality(player);
   const base=player.overall>=88?260:player.overall>=84?170:player.overall>=80?105:player.overall>=76?65:player.overall>=72?38:player.overall>=68?20:10;
   const ageMod=player.age<=22?1.08:player.age>=32?.78:1;
   const roleMod={Estrella:1.28,Titular:1.08,Rotación:.92,Promesa:.72,Suplente:.62}[player.squadRole??"Rotación"]??1;
   const moodMod=((player.happiness??70)<45||(player.managerTrust??70)<45)?1.12:((player.morale??70)>=80?.96:1);
+  const personalityMod={
+    ambitious:1.12,
+    selfish:1.16,
+    conflictive:1.10,
+    dressingRoomModel:.94,
+    professional:.98,
+    veteran:.96,
+    insecureYoung:.93,
+    hardWorker:.97,
+  }[personality.id]??1;
   const negotiationMod=Math.max(.94,1-Math.max(0,staffModifier(game,"sportingDirector","negotiation",.08)));
-  return Math.max(current,Math.round(base*ageMod*roleMod*moodMod*negotiationMod));
+  return Math.max(current,Math.round(base*ageMod*roleMod*moodMod*personalityMod*negotiationMod));
 }
 
 export function getActiveRenewal(game,playerId){
@@ -74,19 +86,23 @@ export function advanceRenewals(game){
     if(item.status!=="pending"||item.resolveMatchday>matchday)return item;
     const player=current.players.find(p=>p.id===item.playerId);
     if(!player)return {...item,status:"rejected"};
+    const personality=getPlayerPersonality(player);
     const expected= suggestedRenewalSalary(player,current);
     const negotiationBoost=Math.max(0,staffModifier(current,"sportingDirector","negotiation",.08));
     const salaryRatio=((item.salary??0)/Math.max(1,expected))+negotiationBoost;
-    const yearsWanted=player.age>=31?2:player.age<=23?4:3;
+    const yearsWanted=personality.id==="veteran"?2:personality.id==="insecureYoung"||personality.id==="dressingRoomModel"?4:player.age>=31?2:player.age<=23?4:personality.id==="ambitious"?3:3;
     const roleRank=ROLE_RANK[item.role]??2;
     const desiredRole=player.overall>=84?"Estrella":player.overall>=78?"Titular":player.age<=21?"Promesa":"Rotación";
+    const personalityRole=personality.id==="ambitious"&&player.overall>=76?"Titular":personality.id==="selfish"&&player.overall>=78?"Estrella":desiredRole;
     const moodPenalty=((player.happiness??70)<40||(player.managerTrust??70)<38)?.06:0;
-    if(salaryRatio>=.98+moodPenalty&&item.years>=Math.min(yearsWanted,3)&&roleRank>=(ROLE_RANK[desiredRole]??2))return {...item,status:"accepted"};
-    if(salaryRatio<.78)return {...item,status:"rejected"};
-    if(salaryRatio<.96)return {...item,status:"salaryCounter",counterSalary:Math.round(expected*(1+Math.random()*.08))};
+    const patiencePenalty=(1-(personality.traits?.patience??55)/100)*.04;
+    const acceptanceFloor=["professional","dressingRoomModel","veteran"].includes(personality.id) ? .94 : .98;
+    if(salaryRatio>=acceptanceFloor+moodPenalty&&item.years>=Math.min(yearsWanted,3)&&roleRank>=(ROLE_RANK[personalityRole]??2))return {...item,status:"accepted",personalityId:personality.id};
+    if(salaryRatio<.78-patiencePenalty)return {...item,status:"rejected",personalityId:personality.id};
+    if(salaryRatio<.96+moodPenalty)return {...item,status:"salaryCounter",counterSalary:Math.round(expected*(1+Math.random()*.08)),personalityId:personality.id};
     if(item.years<yearsWanted&&player.age<30)return {...item,status:"yearsCounter",counterYears:yearsWanted};
-    if(roleRank<(ROLE_RANK[desiredRole]??2))return {...item,status:"roleCounter",counterRole:desiredRole};
-    return Math.random()<.85?{...item,status:"accepted"}:{...item,status:"rejected"};
+    if(roleRank<(ROLE_RANK[personalityRole]??2))return {...item,status:"roleCounter",counterRole:personalityRole,personalityId:personality.id};
+    return Math.random()<(personality.id==="conflictive" ? .72 : .87)?{...item,status:"accepted",personalityId:personality.id}:{...item,status:"rejected",personalityId:personality.id};
   });
   return {...current,contracts:{...current.contracts,renewals}};
 }
