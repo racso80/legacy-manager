@@ -2694,6 +2694,7 @@ const STAFF_PERSONAS = {
   "Presidente": { emoji:"🏛️", color:"#a78bfa", role:"Presidente", personality:"exigente" },
   "Responsable de prensa": { emoji:"🎙️", color:"#f97316", role:"Jefa de prensa", personality:"mide cada palabra" },
   "Psicólogo": { emoji:"🧠", color:"#38bdf8", role:"Psicólogo", personality:"lee el vestuario" },
+  "Analista": { emoji:"📊", color:"#38bdf8", role:"Analista", personality:"detecta patrones" },
   "Jefe de gabinete": { emoji:"🗂️", color:"#94a3b8", role:"Asistente personal del entrenador", personality:"discreto y ordenado" },
 };
 
@@ -2815,6 +2816,9 @@ function attentionPersona(item) {
     return { ...STAFF_PERSONAS.Presidente, name:"Presidente", emotionalState:"exigente", line:item.summary ?? "La afición está hablando y conviene escucharla.", action:item.actionLabel ?? "Responder" };
   }
   if (item.category === "staff" || item.category === "training") {
+    if (item.staff?.role?.toLowerCase().includes("analista") || title.includes("analista") || title.includes("informe del próximo rival")) {
+      return { ...STAFF_PERSONAS["Analista"], name:"Analista", emotionalState:"analítico", line:item.summary ?? "He detectado un patrón que conviene revisar.", action:item.actionLabel ?? "Ver informe" };
+    }
     return { ...STAFF_PERSONAS["Preparador físico"], name:"Preparador físico", emotionalState:"preocupado", line:item.summary ?? "Tengo una recomendación para el trabajo del equipo.", action:item.actionLabel ?? "Revisar" };
   }
   if (item.category === "board" || item.category === "career") {
@@ -2837,6 +2841,7 @@ function clubLifePersona(issue) {
     president: "Presidente",
     academyChief: "Jefe de cantera",
     pressOfficer: "Responsable de prensa",
+    analyst: "Analista",
   };
   const actorName = actorMap[issue.actorId] ?? "Segundo entrenador";
   const base = STAFF_PERSONAS[actorName] ?? { emoji:"👤", color:"#c9a84c", role:actorName, personality:"necesita una decisión" };
@@ -5196,19 +5201,24 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
   };
 
   const endMatch = () => {
-    clearActiveMatchSession(matchId);
-    onMatchEnd(fixture.id, score.home, score.away, events, livePlayer, {
-      teamId: game.teamId,
-      starters: baseLineup.filter(Boolean),
-      finishers: lineup.filter(id=>id&&!sentOffIds.includes(id)&&!livePlayer.find(player=>player.id===id)?.injured),
-      userFormation:matchFormation,
-      opponentFormation:oppFormation,
-      opponentStarters:oppCallup.lineup.filter(Boolean),
-      opponentBench:oppCallup.bench.filter(Boolean),
-      opponentFinishers:oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)),
-      opponentPlayers:liveOppPlayers,
-      matchId,
-    });
+    try {
+      onMatchEnd(fixture.id, score.home, score.away, events, livePlayer, {
+        teamId: game.teamId,
+        starters: baseLineup.filter(Boolean),
+        finishers: lineup.filter(id=>id&&!sentOffIds.includes(id)&&!livePlayer.find(player=>player.id===id)?.injured),
+        userFormation:matchFormation,
+        opponentFormation:oppFormation,
+        opponentStarters:oppCallup.lineup.filter(Boolean),
+        opponentBench:oppCallup.bench.filter(Boolean),
+        opponentFinishers:oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)),
+        opponentPlayers:liveOppPlayers,
+        matchId,
+      });
+    } catch (error) {
+      console.error("[LegacyMatch] Error cerrando partido", error);
+      writeActiveMatchSession(matchSnapshotRef.current);
+      setKeyEventBanner({ minute:currentMinute, type:"LIVE_DECISION", description:"No se pudo cerrar el partido. El estado se ha conservado para intentarlo de nuevo." });
+    }
   };
 
   const abandonMatch = () => {
@@ -6819,8 +6829,6 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
 
   const handleMatchEnd = (fixtureId, homeGoals, awayGoals, events, livePlayer, participation) => {
     let summaryData = null;
-    if (participation?.matchId) clearActiveMatchSession(participation.matchId);
-    setRecoverableMatch(null);
     setGame(prev => {
       const fixture  = prev.fixtures.find(f => f.id === fixtureId);
       if (!fixture || fixture.played) return prev;
@@ -7031,6 +7039,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       newGame=ensureSceneState(ensureLegacyDirectorState(advanceClubLife(advanceConversationMemory(ensureConversationState(ensureClubLifeState(newGame))),{lineup})));
       saveGame(newGame);
       autosaveCloud(newGame,"match-end");
+      if (participation?.matchId) clearActiveMatchSession(participation.matchId);
+      setRecoverableMatch(null);
 
       // Detectar fin de temporada (última jornada jugada)
       const allPlayed = finalFixtures.every(f => f.played);
@@ -7052,6 +7062,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         setTimeout(() => { setSeasonSummary(endData); setScreen("seasonEnd"); }, 0);
         saveGame(finalSeasonGame);
         autosaveCloud(finalSeasonGame,"season-end");
+        if (participation?.matchId) clearActiveMatchSession(participation.matchId);
+        setRecoverableMatch(null);
         return finalSeasonGame;
       }
 
@@ -7059,8 +7071,12 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     });
     setTimeout(() => {
       if (summaryData?._seasonEnd) return; // season end handled separately
-      if (summaryData) setMatchSummary(summaryData);
-      setScreen("summary");
+      if (summaryData) {
+        setMatchSummary(summaryData);
+        setScreen("summary");
+      } else {
+        setScreen("dashboard");
+      }
     }, 0);
   };
 

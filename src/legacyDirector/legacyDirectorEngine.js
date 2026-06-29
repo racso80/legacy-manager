@@ -9,6 +9,7 @@ const ACTOR_ROTATION = [
   "assistantCoach",
   "doctor",
   "fitnessCoach",
+  "analyst",
   "player",
 ];
 
@@ -17,6 +18,7 @@ const OWNER_PROFILES = {
   assistantCoach: { id:"assistantCoach", name:"Segundo entrenador", role:"Cuerpo técnico", emoji:"👥", color:"#c9a84c", personality:"directo y práctico" },
   doctor: { id:"doctor", name:"Médico", role:"Área médica", emoji:"👨‍⚕️", color:"#22c55e", personality:"prudente" },
   fitnessCoach: { id:"fitnessCoach", name:"Preparador físico", role:"Preparación física", emoji:"🏋️", color:"#f59e0b", personality:"protector con la carga" },
+  analyst: { id:"analyst", name:"Analista", role:"Análisis de rendimiento", emoji:"📊", color:"#38bdf8", personality:"detecta patrones" },
   captain: { id:"captain", name:"Capitán", role:"Voz del vestuario", emoji:"❤️", color:"#ef4444", personality:"protege al grupo" },
   president: { id:"president", name:"Presidente", role:"Directiva", emoji:"🏛️", color:"#a78bfa", personality:"exigente" },
   academyChief: { id:"academyChief", name:"Jefe de cantera", role:"Cantera", emoji:"🌱", color:"#84cc16", personality:"protege el futuro" },
@@ -91,6 +93,7 @@ function normalizeOwnerId(value) {
   if (key.includes("segundo entrenador") || key === "assistantcoach") return "assistantCoach";
   if (key.includes("médico") || key.includes("medico") || key === "doctor") return "doctor";
   if (key.includes("preparador") || key === "fitnesscoach") return "fitnessCoach";
+  if (key.includes("analista") || key === "analyst") return "analyst";
   if (key.includes("capitán") || key.includes("capitan") || key === "captain") return "captain";
   if (key.includes("presidente") || key === "president") return "president";
   if (key.includes("cantera") || key === "academychief") return "academyChief";
@@ -176,12 +179,13 @@ function ownerActorId(candidate) {
   if (["contracts", "contract", "market", "transfers"].includes(origin)) return "sportingDirector";
   if (origin === "medical") return "doctor";
   if (origin === "training") return "fitnessCoach";
+  if (origin === "staff") return normalizeOwnerId(candidate.ownerActorId ?? candidate.actorId ?? candidate.actorName ?? "assistantCoach");
   if (["lockerRoom", "morale"].includes(origin)) return "captain";
   if (["lineup", "match"].includes(origin)) return "assistantCoach";
   if (["press", "news"].includes(origin)) return "pressOfficer";
   if (["fans", "board", "career"].includes(origin)) return "president";
   if (["youth", "academy"].includes(origin)) return "academyChief";
-  return normalizeOwnerId(candidate.actorId ?? candidate.actorName ?? candidate.actorType ?? "assistantCoach");
+  return normalizeOwnerId(candidate.ownerActorId ?? candidate.actorId ?? candidate.actorName ?? candidate.actorType ?? "assistantCoach");
 }
 
 function issueType(candidate) {

@@ -20,6 +20,7 @@ function StaffCard({ member }) {
           <div style={{ color:"#fff", fontSize:14, fontWeight:900 }}>{member.name}</div>
           <div style={{ color:level.color, fontSize:10, fontWeight:800, marginTop:3 }}>{member.icon} {member.roleTitle} · {level.label}</div>
           <div style={{ color:muted, fontSize:9, marginTop:3 }}>{member.age} años · {member.nationality} · contrato hasta {member.contractEnd}</div>
+          <div style={{ color:"#9aa0b4", fontSize:9, marginTop:3 }}>{member.personality?.label ?? "Profesional"} · {member.personality?.style ?? "ordenado"}</div>
         </div>
         <div style={{ textAlign:"right" }}>
           <div style={{ color:level.color, fontSize:22, fontWeight:950 }}>{member.overall}</div>
@@ -50,6 +51,14 @@ function StaffCard({ member }) {
         <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
           <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>ÁREA</div>
           <div style={{ color:"#e8eaf0", fontSize:11, fontWeight:850, marginTop:2 }}>{role?.area}</div>
+        </div>
+        <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
+          <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>CONFIANZA</div>
+          <div style={{ color:"#22c55e", fontSize:11, fontWeight:850, marginTop:2 }}>{member.trust ?? 60}/100</div>
+        </div>
+        <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
+          <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>INICIATIVA</div>
+          <div style={{ color:"#60a5fa", fontSize:11, fontWeight:850, marginTop:2 }}>{member.initiative ?? 60}/100</div>
         </div>
       </div>
     </div>
@@ -102,4 +111,3 @@ export default function StaffScreen({ game, onNavigate }) {
     </div>
   );
 }
-

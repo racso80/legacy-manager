@@ -1,5 +1,6 @@
 import { calculateInjuryRisk, formatMedicalDuration } from "../medical/medicalEngine.js";
 import { getPlayerPersonality } from "../morale/moraleEngine.js";
+import { buildStaffRecommendations, getStaffMember } from "../staff/staffEngine.js";
 
 const DEBUG_EVENTS = true;
 
@@ -558,8 +559,9 @@ export function getAttentionIssueKey(item = {}) {
   if (category === "training" && playerId && (title.includes("riesgo") || title.includes("fisico") || title.includes("fisico"))) return `injury_risk:${playerId}`;
   if (category === "youth" && playerId) return `youth_high_potential:${playerId}`;
   if (category === "market" && item.action?.offerId) return `market_decision:${item.action.offerId}`;
+  if (category === "staff" && String(item.id ?? "").startsWith("staff-")) return `staff_recommendation:${item.id}`;
   if (category === "match" && title.includes("alineaci")) return "lineup_preparation";
-  return item.id;
+  return String(item.id ?? `${category || "attention"}:${title || item.type || "unknown"}`);
 }
 
 export function dedupeAttentionItems(items = [], game = null) {
@@ -790,6 +792,30 @@ export function buildLegacyDirectorEvents(game, context = {}) {
       summary:`La confianza esta en ${Math.round(confidence)}/100. La directiva necesita una senal clara.`,
       action:{ screen:"board" },
       actionLabel:"Ver directiva",
+      ...stamp,
+    });
+  }
+
+  for (const rec of buildStaffRecommendations(game).filter(item => item.priority !== "info").slice(0, 3)) {
+    const member = getStaffMember(game, rec.roleId);
+    pushEvent(events, {
+      id:`StaffRecommendation:${rec.id}`,
+      type:"StaffRecommendation",
+      issueKey:`staff_recommendation:${rec.id}`,
+      category:"staff",
+      ownerActorId:rec.roleId === "medicalDirector" ? "doctor" : rec.roleId,
+      priority:rec.priority,
+      title:rec.title,
+      summary:rec.quote,
+      subjectId:rec.action?.playerId,
+      subjectName:(game.players ?? []).find(player => player.id === rec.action?.playerId)?.name,
+      staffRoleId:rec.roleId,
+      staffName:member.name,
+      staffTrust:member.trust,
+      staffPersonality:member.personality,
+      action:rec.action,
+      actionLabel:rec.actionLabel,
+      expectedOutcome:"Valorar el criterio del especialista y decidir si actuar.",
       ...stamp,
     });
   }

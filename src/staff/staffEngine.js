@@ -46,6 +46,23 @@ export const STAFF_ROLES = {
     attributes: ["talentDiscovery", "reportQuality", "coverage", "potentialAssessment"],
     labels: { talentDiscovery: "Descubrimiento", reportQuality: "Calidad de informes", coverage: "Cobertura", potentialAssessment: "Potencial" },
   },
+  analyst: {
+    id: "analyst",
+    icon: "📊",
+    title: "Analista",
+    area: "Análisis",
+    attributes: ["opponentAnalysis", "dataReading", "patternDetection", "setPieceAnalysis"],
+    labels: { opponentAnalysis: "Análisis rival", dataReading: "Lectura de datos", patternDetection: "Detección de patrones", setPieceAnalysis: "Balón parado" },
+  },
+};
+
+const STAFF_PERSONALITIES = {
+  medicalDirector: { label:"Prudente", criterion:"prioriza la salud", style:"sereno y preventivo", initiative:72 },
+  fitnessCoach: { label:"Metódico", criterion:"protege la carga semanal", style:"técnico y directo", initiative:76 },
+  assistantCoach: { label:"Futbolístico", criterion:"piensa en rendimiento inmediato", style:"claro y de campo", initiative:70 },
+  sportingDirector: { label:"Planificador", criterion:"mira contratos, valor y futuro", style:"empresarial y frío", initiative:68 },
+  scoutingChief: { label:"Explorador", criterion:"busca oportunidades y talento", style:"observador y paciente", initiative:58 },
+  analyst: { label:"Analítico", criterion:"detecta patrones del rival", style:"preciso y basado en datos", initiative:66 },
 };
 
 const FIRST_NAMES = ["Aitor", "Mikel", "Iñigo", "Xabier", "Unai", "Gorka", "Ander", "Jon", "Beñat", "Asier", "Luis", "Carlos", "Rubén", "Sergio", "Pablo"];
@@ -79,8 +96,13 @@ function createStaffMember(teamId, roleId, teamQuality = 72, prestige = 45) {
     contractEnd: 2026 + (seed % 4),
     salary: Math.round((overall * 1.9 + prestige * .55 + (seed % 28)) / 5) * 5,
     avatar: role.icon,
+    personality: STAFF_PERSONALITIES[roleId] ?? { label:"Profesional", criterion:"trabaja en su área", style:"ordenado", initiative:60 },
+    trust: clamp(58 + Math.round((overall - 70) * .25) + (seed % 9) - 4, 35, 88),
+    initiative: STAFF_PERSONALITIES[roleId]?.initiative ?? 60,
+    accuracy: clamp(55 + Math.round((overall - 70) * .35) + (seed % 11) - 5, 35, 92),
+    delegation: { enabled:false, scope:[] },
     recommendations: [],
-    history: [{ season: "2025", text: `Se incorpora como ${role.title}.` }],
+    history: [{ season: "2025", type:"arrival", outcome:"neutral", text: `Se incorpora como ${role.title}.` }],
   };
 }
 
@@ -122,10 +144,38 @@ export function normalizeStaffMember(member) {
     roleTitle: member.roleTitle ?? role.title,
     icon: member.icon ?? role.icon,
     overall,
+    personality: member.personality ?? STAFF_PERSONALITIES[member.roleId] ?? { label:"Profesional", criterion:"trabaja en su área", style:"ordenado", initiative:60 },
+    trust: clamp(member.trust ?? 58 + Math.round((overall - 70) * .25), 0, 100),
+    initiative: clamp(member.initiative ?? STAFF_PERSONALITIES[member.roleId]?.initiative ?? 60, 0, 100),
+    accuracy: clamp(member.accuracy ?? 55 + Math.round((overall - 70) * .35), 0, 100),
+    delegation: member.delegation ?? { enabled:false, scope:[] },
     attributes,
     specialties: member.specialties?.length ? member.specialties : Object.entries(attributes).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([key]) => role.labels[key] ?? key),
     recommendations: member.recommendations ?? [],
     history: member.history ?? [],
+  };
+}
+
+function staffMemoryLine(member) {
+  const recent = (member.history ?? []).filter(item => item.type === "recommendation").slice(0, 3);
+  const hits = recent.filter(item => item.outcome === "hit").length;
+  const misses = recent.filter(item => item.outcome === "miss").length;
+  if (hits >= 2) return "Sus últimas recomendaciones han funcionado bien.";
+  if (misses >= 2) return "Viene de varias recomendaciones discutibles; conviene contrastarlo.";
+  return "No hay una tendencia clara todavía.";
+}
+
+function recommendationBase(member, extra = {}) {
+  return {
+    roleId: member.roleId,
+    staffName: member.name,
+    icon: member.icon,
+    staffPersonality: member.personality,
+    trust: member.trust,
+    initiative: member.initiative,
+    accuracy: member.accuracy,
+    memoryLine: staffMemoryLine(member),
+    ...extra,
   };
 }
 
@@ -161,77 +211,106 @@ export function buildStaffRecommendations(game) {
   const assistant = getStaffMember(ensured, "assistantCoach");
   const sporting = getStaffMember(ensured, "sportingDirector");
   const scouting = getStaffMember(ensured, "scoutingChief");
+  const analyst = getStaffMember(ensured, "analyst");
   const tired = [...players].sort((a, b) => ((b.accumulatedFatigue ?? b.medical?.accumulatedFatigue ?? 0) + (b.fatigue ?? 0) * .45) - ((a.accumulatedFatigue ?? a.medical?.accumulatedFatigue ?? 0) + (a.fatigue ?? 0) * .45))[0];
   const unhappy = players.find(player => (player.happiness ?? 70) < 42 || (player.managerTrust ?? 70) < 42);
   const expiring = players.find(player => Number(player.contractEnd ?? 9999) <= Number(ensured.season ?? 2025) + 1);
+  const inFormSub = [...players].filter(player => !player.injured && !player.suspended && !["Estrella","Titular"].includes(player.squadRole ?? "") && (player.morale ?? 70) >= 76 && (player.fatigue ?? 0) < 45).sort((a,b)=>(b.overall??0)-(a.overall??0))[0];
   const prospect = [...(ensured.youth?.players ?? [])].sort((a, b) => (b.potential ?? 0) - (a.potential ?? 0))[0];
   const activeMissions = ensured.scouting?.missions?.filter(item => item.status === "active").length ?? 0;
+  const fixture = (ensured.fixtures ?? []).find(item => !item.played && (item.homeTeamId === ensured.teamId || item.awayTeamId === ensured.teamId));
+  const opponentId = fixture ? (fixture.homeTeamId === ensured.teamId ? fixture.awayTeamId : fixture.homeTeamId) : null;
 
   if (tired && ((tired.accumulatedFatigue ?? tired.medical?.accumulatedFatigue ?? 0) >= 55 || (tired.fatigue ?? 0) >= 62)) {
-    recommendations.push({
+    recommendations.push(recommendationBase(medical, {
       id: `staff-medical-load:${tired.id}:${Math.floor(((tired.accumulatedFatigue ?? 0) + (tired.fatigue ?? 0)) / 10)}`,
-      roleId: "medicalDirector",
-      staffName: medical.name,
-      icon: medical.icon,
       priority: (tired.accumulatedFatigue ?? 0) >= 75 ? "critical" : "important",
       title: `${medical.roleTitle}: riesgo físico en ${tired.name}`,
-      quote: `Míster, ${tired.name} empieza a mostrar señales de sobrecarga. Recomiendo valorar descanso esta jornada.`,
+      quote: `Míster, ${tired.name} empieza a mostrar señales de sobrecarga. Recomiendo valorar descanso esta jornada. ${staffMemoryLine(medical)}`,
       action: { screen: "medical", playerId: tired.id },
       actionLabel: "Abrir médico",
-    });
+    }));
   }
   if ((ensured.trainingPlan?.load === "high" || ensured.trainingPlan?.load === "veryHigh") && players.some(player => (player.fatigue ?? 0) > 55)) {
-    recommendations.push({
+    recommendations.push(recommendationBase(fitness, {
       id: `staff-fitness-load:${ensured.season}:${ensured.matchday}:${ensured.trainingPlan?.load}`,
-      roleId: "fitnessCoach",
-      staffName: fitness.name,
-      icon: fitness.icon,
       priority: ensured.trainingPlan?.load === "veryHigh" ? "critical" : "important",
       title: `${fitness.roleTitle}: carga semanal elevada`,
-      quote: "La carga del equipo empieza a ser alta. Conviene reducir intensidad o introducir más recuperación.",
+      quote: `La carga del equipo empieza a ser alta. Yo bajaría intensidad o metería más recuperación. ${staffMemoryLine(fitness)}`,
       action: { screen: "training" },
       actionLabel: "Ajustar entreno",
-    });
+    }));
   }
   if (unhappy) {
-    recommendations.push({
+    recommendations.push(recommendationBase(assistant, {
       id: `staff-assistant-morale:${unhappy.id}:${Math.floor((unhappy.happiness ?? unhappy.managerTrust ?? 0) / 10)}`,
-      roleId: "assistantCoach",
-      staffName: assistant.name,
-      icon: assistant.icon,
       priority: "important",
       title: `${assistant.roleTitle}: situación de vestuario`,
       quote: `Creo que deberíamos hablar con ${unhappy.name}. Su rol o sus minutos empiezan a pesar en el grupo.`,
       action: { screen: "lockerRoom", playerId: unhappy.id },
       actionLabel: "Abrir vestuario",
-    });
+    }));
+  }
+  if (inFormSub && (assistant.initiative ?? 60) >= 55) {
+    recommendations.push(recommendationBase(assistant, {
+      id: `staff-assistant-form:${inFormSub.id}:${ensured.season}:${Math.floor((ensured.matchday ?? 1) / 3)}`,
+      priority: "important",
+      title: `${assistant.roleTitle}: ${inFormSub.name} pide paso`,
+      quote: `Míster, ${inFormSub.name} está entrenando bien y llega fresco. Creo que esta semana merece entrar en la conversación del once.`,
+      action: { screen: "lineup", playerId: inFormSub.id },
+      actionLabel: "Revisar once",
+    }));
   }
   if (expiring) {
-    recommendations.push({
+    recommendations.push(recommendationBase(sporting, {
       id: `staff-sporting-contract:${expiring.id}:${expiring.contractEnd}`,
-      roleId: "sportingDirector",
-      staffName: sporting.name,
-      icon: sporting.icon,
       priority: Number(expiring.contractEnd ?? 9999) <= Number(ensured.season ?? 2025) ? "critical" : "important",
       title: `${sporting.roleTitle}: renovación prioritaria`,
       quote: `Recomiendo revisar cuanto antes el contrato de ${expiring.name}. Estamos perdiendo margen negociador.`,
       action: { screen: "contracts", playerId: expiring.id },
       actionLabel: "Abrir contratos",
-    });
+    }));
+  }
+  if (fixture && opponentId && (analyst.initiative ?? 60) >= 55) {
+    recommendations.push(recommendationBase(analyst, {
+      id: `staff-analyst-rival:${opponentId}:${ensured.season}:${ensured.matchday}`,
+      priority: "important",
+      title: `${analyst.roleTitle}: informe del próximo rival`,
+      quote: "He detectado patrones del rival que pueden condicionar el plan: conviene revisar el once, la presión y el balón parado antes del partido.",
+      action: { screen: "lineup" },
+      actionLabel: "Preparar partido",
+    }));
   }
   if (!activeMissions && (ensured.matchday ?? 1) <= 30) {
-    recommendations.push({
+    recommendations.push(recommendationBase(scouting, {
       id: `staff-scouting-idle:${ensured.season}:${ensured.matchday}`,
-      roleId: "scoutingChief",
-      staffName: scouting.name,
-      icon: scouting.icon,
       priority: "info",
       title: `${scouting.roleTitle}: red de scouting disponible`,
       quote: prospect ? `Podemos comparar el mercado con la cantera. ${prospect.name} marca el nivel de potencial interno.` : "La red está disponible para iniciar una misión de seguimiento.",
       action: { screen: "scouting" },
       actionLabel: "Abrir scouting",
-    });
+    }));
   }
   return recommendations;
 }
 
+export function recordStaffRecommendationOutcome(game, roleId, outcome = "neutral", text = "") {
+  const ensured = ensureStaffState(game, []);
+  return {
+    ...ensured,
+    staff: {
+      ...ensured.staff,
+      members: ensured.staff.members.map(member => {
+        if (member.roleId !== roleId) return member;
+        const trustDelta = outcome === "hit" ? 3 : outcome === "miss" ? -3 : 0;
+        const accuracyDelta = outcome === "hit" ? 1 : outcome === "miss" ? -1 : 0;
+        return normalizeStaffMember({
+          ...member,
+          trust: clamp((member.trust ?? 60) + trustDelta, 0, 100),
+          accuracy: clamp((member.accuracy ?? 60) + accuracyDelta, 0, 100),
+          history: [{ season:String(ensured.season ?? "2025"), matchday:ensured.matchday ?? 1, type:"recommendation", outcome, text }, ...(member.history ?? [])].slice(0, 12),
+        });
+      }),
+    },
+  };
+}

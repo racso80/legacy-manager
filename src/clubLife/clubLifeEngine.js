@@ -112,6 +112,18 @@ export const CLUB_LIFE_ACTORS = {
     insistence: 64,
     frequency: "media",
   },
+  analyst: {
+    id: "analyst",
+    name: "Analista",
+    role: "Análisis de rendimiento",
+    emoji: "📊",
+    color: "#38bdf8",
+    personality: "detecta patrones",
+    speakingStyle: "preciso y basado en datos",
+    priorities: ["rival", "patrones", "balón parado"],
+    insistence: 56,
+    frequency: "media",
+  },
 };
 
 function currentStamp(game) {

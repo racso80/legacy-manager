@@ -63,6 +63,14 @@ const STAFF_SCENE_ACTORS = {
     color: "#f97316",
     voice: "Cuida la imagen pública, los titulares, las declaraciones y los rumores.",
   },
+  analyst: {
+    id: "analyst",
+    name: "Analista",
+    role: "Análisis de rendimiento",
+    emoji: "📊",
+    color: "#38bdf8",
+    voice: "Habla de patrones, rival, datos, balón parado y tendencias. Complementa al segundo entrenador.",
+  },
   player: {
     id: "player",
     name: "Jugador",
@@ -240,6 +248,10 @@ function clubLifeMessage(issue, actor) {
 
   if (actor.id === "fitnessCoach") {
     return `Míster...\n\nLa carga de algunos jugadores empieza a pesar. Desde fuera parecen bien, pero los datos y las caras después del trabajo cuentan otra cosa.\n\nPuede que aguanten un partido más. La duda es qué precio pagamos después.`;
+  }
+
+  if (actor.id === "analyst") {
+    return `Míster...\n\nHe cruzado los últimos partidos del rival con nuestros datos de la semana. Hay un patrón que se repite y creo que podemos prepararlo.\n\nNo es una corazonada. Si ajustamos bien el plan, podemos llegar al partido con una ventaja pequeña, pero real.`;
   }
 
   if (actor.id === "captain") {
@@ -453,6 +465,7 @@ function actionLabelFor(actor, actionLabel) {
   if (actor.id === "sportingDirector") return "💼 Déjame hablar con su representante.";
   if (actor.id === "doctor" || actor.id === "fitnessCoach") return "🧊 Prefiero proteger al jugador.";
   if (actor.id === "assistantCoach") return "📋 Vamos a prepararlo ahora.";
+  if (actor.id === "analyst") return "📊 Enséñame ese informe.";
   if (actor.id === "captain") return "🤝 Hablaré con el grupo.";
   if (actor.id === "pressOfficer") return "🎙️ Vamos a cuidar el mensaje.";
   if (actor.id === "president") return "🏛️ Lo hablamos con calma, pero hoy.";
@@ -476,6 +489,7 @@ function reactionFor(actor, option = {}) {
   if (actor.id === "sportingDirector") return "El director deportivo cierra la carpeta y asiente. Ya está pensando en la llamada siguiente.";
   if (actor.id === "captain") return "El capitán respira hondo. Agradece que le hayas hablado claro; eso, en el vestuario, pesa.";
   if (actor.id === "pressOfficer") return "La responsable de prensa desbloquea el móvil y empieza a ordenar el mensaje antes de salir.";
+  if (actor.id === "analyst") return "El analista asiente sin alargar la reunión. Sale con la libreta abierta, ya pensando en el siguiente patrón.";
   if (actor.id === "player") return `${actor.name} levanta la mirada. No se marcha con todas las respuestas, pero sí con la sensación de haber sido escuchado.`;
   return `${actor.name} asiente. "De acuerdo, míster. Me pongo con ello y te mantengo informado."`;
 }
