@@ -34,6 +34,34 @@ function signalRank(signal) {
   return { urgent: 4, important: 3, warning: 2, info: 1 }[signal.severity] ?? 0;
 }
 
+function signalFamily(signal = {}) {
+  const key = String(signal.key ?? "");
+  if (key.startsWith("tactical:losing") || key.startsWith("formation:attack")) return "chasing_match";
+  if (key.startsWith("tactical:protect") || key.startsWith("formation:protect")) return "protect_lead";
+  if (key.startsWith("formation:red")) return "red_card_reaction";
+  if (key.startsWith("fatigue:")) return key.split(":").slice(0, 2).join(":");
+  if (key.startsWith("yellow:")) return key.split(":").slice(0, 2).join(":");
+  return key || `${signal.source}:${signal.title}`;
+}
+
+function filterSignalsForGameFeel(signals = []) {
+  const byFamily = new Map();
+  signals.forEach(signal => {
+    const family = signalFamily(signal);
+    const current = byFamily.get(family);
+    if (!current) {
+      byFamily.set(family, signal);
+      return;
+    }
+    const currentRank = signalRank(current);
+    const nextRank = signalRank(signal);
+    if (nextRank > currentRank || (nextRank === currentRank && signal.requiresDecision && !current.requiresDecision)) {
+      byFamily.set(family, signal);
+    }
+  });
+  return [...byFamily.values()].sort((a, b) => signalRank(b) - signalRank(a));
+}
+
 function activePlayerIds(ids = [], blockedIds = []) {
   const blocked = new Set(blockedIds);
   return ids.filter(id => id && !blocked.has(id));
@@ -264,7 +292,7 @@ export function buildLiveMatchState({
 
   return {
     stats,
-    signals: signals.sort((a, b) => signalRank(b) - signalRank(a)),
+    signals: filterSignalsForGameFeel(signals),
     mood,
   };
 }

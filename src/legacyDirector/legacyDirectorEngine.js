@@ -1,3 +1,5 @@
+import { rhythmProfile, scoreIssueFreshness, selectionLimit, shouldSurfaceCandidate } from "../balance/gameFeelEngine.js";
+
 const PRIORITY_WEIGHT = { urgent: 100, critical: 100, important: 72, normal: 42, info: 16 };
 
 const ACTOR_ROTATION = [
@@ -303,16 +305,15 @@ function isIssueBlocked(candidate, game, directorState) {
 
 function sourceScore(candidate, game, directorState) {
   const priority = normalizePriority(candidate.priority);
+  const rhythm = rhythmProfile(game);
   const priorityScore = PRIORITY_WEIGHT[priority] ?? 20;
-  const age = Math.max(0, (game.matchday ?? 1) - (candidate.date?.matchday ?? game.matchday ?? 1));
   const ignored = directorState.ignored[candidate.id]?.count ?? 0;
-  const shownCount = directorState.shown[candidate.id]?.count ?? 0;
   const protagonist = protagonistForDay(game);
-  const protagonistBoost = candidate.actorId === protagonist || (protagonist === "player" && candidate.actorType === "player") ? 16 : 0;
+  const protagonistBoost = candidate.actorId === protagonist || (protagonist === "player" && candidate.actorType === "player") ? rhythm.protagonistBoost : 0;
   const consequenceBoost = candidate.consequenceIfIgnored || candidate.consequence ? 10 : 0;
-  const stalePenalty = shownCount > 0 && priority !== "urgent" ? Math.min(24, shownCount * 8) : 0;
-  const lastActorPenalty = directorState.lastProtagonistActorId === actorKey(candidate) && priority !== "urgent" ? 12 : 0;
-  return priorityScore + age * 5 + ignored * 8 + protagonistBoost + consequenceBoost - stalePenalty - lastActorPenalty;
+  const freshnessScore = priority !== "urgent" ? scoreIssueFreshness(candidate, game, directorState) : 0;
+  const lastActorPenalty = directorState.lastProtagonistActorId === actorKey(candidate) && priority !== "urgent" ? rhythm.repeatedActorPenalty : 0;
+  return priorityScore + freshnessScore + ignored * 8 + protagonistBoost + consequenceBoost - lastActorPenalty;
 }
 
 function groupKey(candidate) {
@@ -390,9 +391,7 @@ function filterNoise(candidates, game, directorState) {
   return candidates.filter(candidate => {
     const priority = normalizePriority(candidate.priority);
     const score = candidate.score ?? sourceScore(candidate, game, directorState);
-    if (priority === "urgent") return true;
-    if (candidate.consequenceIfIgnored || candidate.consequence) return score >= 38;
-    return score >= 55;
+    return shouldSurfaceCandidate(candidate, score, priority, game);
   });
 }
 
@@ -474,7 +473,7 @@ export function getLegacyDirectorSelection(game, candidates = []) {
           protagonistOfDay: item.protagonistOfDay ?? false,
         },
       }))
-      .slice(0, 3);
+      .slice(0, selectionLimit(safeGame, quality));
   } catch (error) {
     console.warn("[LegacyDirector] Selection skipped to keep Home stable", error);
     return [];

@@ -1,3 +1,4 @@
+import { shouldShowLowPriorityStaff, staffRecommendationLimit } from "../balance/gameFeelEngine.js";
 import { buildYouthDirectorRecommendations } from "../youth/youthEngine.js";
 
 const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(value)));
@@ -351,10 +352,18 @@ export function buildStaffRecommendations(game) {
     }));
   });
 
-  return recommendations
-    .sort((a, b) => {
-      const rank = { critical:4, important:3, normal:2, info:1 };
-      return (rank[b.priority] ?? 0) - (rank[a.priority] ?? 0);
-    })
-    .slice(0, 6);
+  const sorted = recommendations.sort((a, b) => {
+    const rank = { critical:4, important:3, normal:2, info:1 };
+    return (rank[b.priority] ?? 0) - (rank[a.priority] ?? 0);
+  });
+  const limit = staffRecommendationLimit(ensured);
+  const meaningful = sorted.filter(item => item.priority !== "info");
+  const lowPriority = sorted.filter(item => item.priority === "info");
+  const selected = [...meaningful];
+
+  if (selected.length < limit && shouldShowLowPriorityStaff(ensured, selected.length)) {
+    selected.push(...lowPriority);
+  }
+
+  return selected.slice(0, limit);
 }
