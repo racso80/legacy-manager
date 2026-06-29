@@ -386,6 +386,131 @@ function externalWorldMoment(game, activeEvents = []) {
   return candidates[0] ?? null;
 }
 
+function lockerRoomLifeMoment(game, activeEvents = []) {
+  if (!game) return null;
+  const stamp = currentStamp(game);
+  const matchday = stamp.matchday ?? 1;
+  if (matchday <= 1 || matchday > 39) return null;
+  if (activeEvents.some(event => event.priority === "critical")) return null;
+  if (activeEvents.filter(event => event.priority === "important").length >= 3) return null;
+
+  const squad = game.players ?? [];
+  if (!squad.length) return null;
+  const recent = recentUserFixtures(game);
+  const lastResult = userFixtureResult(game, recent[0]);
+  const leaders = [...squad].sort((a, b) => ((b.personality?.traits?.leadership ?? 50) + (b.overall ?? 70) * .2) - ((a.personality?.traits?.leadership ?? 50) + (a.overall ?? 70) * .2));
+  const leader = leaders[0];
+  const mentor = leaders.find(player => (player.age ?? 0) >= 30) ?? leader;
+  const young = [...squad].filter(player => (player.age ?? 99) <= 21 || player.academyData).sort((a, b) => (b.potential ?? 0) - (a.potential ?? 0))[0];
+  const substitute = [...squad].filter(player => ["Suplente", "Rotación", "Promesa"].includes(player.squadRole ?? "") && (player.morale ?? 70) >= 58 && !(player.injured || player.medical?.phase === "injured")).sort((a, b) => (b.professionalism ?? b.personality?.traits?.professionalism ?? 50) - (a.professionalism ?? a.personality?.traits?.professionalism ?? 50))[0];
+  const recovered = squad.find(player => player.medical?.phase === "available" && (player.medical?.recoveryProgress ?? player.medical?.recovery ?? 0) >= 80);
+  const newSigning = [...squad].find(player => Number(player.joinedMatchday ?? player.transferMatchday ?? 0) >= matchday - 4);
+  const commonId = `${stamp.season}:${matchday}`;
+  const phase = Math.abs((matchday + Number(stamp.season ?? 2025)) % 6);
+  const base = { season:stamp.season, matchday, category:"training", priority:"normal", action:{ screen:"lockerRoom" }, actionLabel:"Escuchar vestuario" };
+  const candidates = [
+    mentor && young && mentor.id !== young.id && {
+      id:`LockerLife:Mentor:${mentor.id}:${young.id}:${commonId}`,
+      type:"LockerRoomLifeMoment",
+      momentType:"locker_mentor_young",
+      issueKey:`locker_life:mentor:${mentor.id}:${young.id}:${commonId}`,
+      ownerActorId:"captain",
+      title:`${mentor.name} esta ayudando a ${young.name}`,
+      summary:"Un veterano se ha acercado a un joven durante la semana. No es una crisis; es vestuario creciendo.",
+      subjectId:young.id,
+      subjectName:young.name,
+      mentorId:mentor.id,
+      mentorName:mentor.name,
+      expectedOutcome:"Reconocer la dinamica o dejar que el grupo la gestione.",
+      ...base,
+    },
+    leader && lastResult?.lost && {
+      id:`LockerLife:LeaderAfterLoss:${leader.id}:${commonId}`,
+      type:"LockerRoomLifeMoment",
+      momentType:"locker_leader_after_loss",
+      issueKey:`locker_life:leader_loss:${leader.id}:${commonId}`,
+      ownerActorId:"captain",
+      title:`${leader.name} ha reunido al grupo`,
+      summary:"Tras la derrota, uno de los lideres ha intentado proteger el ambiente antes de que se tuerza.",
+      subjectId:leader.id,
+      subjectName:leader.name,
+      expectedOutcome:"Decidir si reforzar el mensaje del lider o dejar que el vestuario respire.",
+      ...base,
+      priority:"important",
+    },
+    leader && lastResult?.won && (game.players ?? []).filter(player => (player.morale ?? 70) >= 75).length >= Math.max(4, Math.floor(squad.length / 4)) && {
+      id:`LockerLife:GoodMood:${leader.id}:${commonId}`,
+      type:"LockerRoomLifeMoment",
+      momentType:"locker_good_mood",
+      issueKey:`locker_life:good_mood:${commonId}`,
+      ownerActorId:"captain",
+      title:"El grupo respira confianza",
+      summary:"El vestuario ha celebrado la semana con naturalidad. Hay buen ambiente sin necesidad de forzarlo.",
+      subjectId:leader.id,
+      subjectName:leader.name,
+      expectedOutcome:"Reconocer el buen momento sin relajar la exigencia.",
+      ...base,
+    },
+    young && {
+      id:`LockerLife:YoungNervous:${young.id}:${commonId}`,
+      type:"LockerRoomLifeMoment",
+      momentType:"locker_young_nervous",
+      issueKey:`locker_life:young:${young.id}:${commonId}`,
+      ownerActorId:"captain",
+      title:`${young.name} vive una semana especial`,
+      summary:"El joven esta impresionado por entrenar con el primer equipo. Quiere estar a la altura.",
+      subjectId:young.id,
+      subjectName:young.name,
+      expectedOutcome:"Proteger al joven, acercarte a el o dejar que el grupo lo arrope.",
+      ...base,
+    },
+    substitute && {
+      id:`LockerLife:Substitute:${substitute.id}:${commonId}`,
+      type:"LockerRoomLifeMoment",
+      momentType:"locker_substitute_positive",
+      issueKey:`locker_life:substitute:${substitute.id}:${commonId}`,
+      ownerActorId:"captain",
+      title:`${substitute.name} esta trabajando muy bien`,
+      summary:"Un suplente esta aceptando su rol y aprieta sin romper el ambiente. Ese tipo de profesionalidad sostiene un grupo.",
+      subjectId:substitute.id,
+      subjectName:substitute.name,
+      expectedOutcome:"Reconocer su actitud o guardar el mensaje para el momento adecuado.",
+      ...base,
+    },
+    recovered && {
+      id:`LockerLife:RecoveryMood:${recovered.id}:${commonId}`,
+      type:"LockerRoomLifeMoment",
+      momentType:"locker_recovery_mood",
+      issueKey:`locker_life:recovery:${recovered.id}:${commonId}`,
+      ...base,
+      ownerActorId:"doctor",
+      category:"medical",
+      title:`${recovered.name} vuelve con otro animo`,
+      summary:"La recuperacion tambien se nota en la cabeza. El jugador esta mas integrado y con ganas de sentirse futbolista otra vez.",
+      subjectId:recovered.id,
+      subjectName:recovered.name,
+      action:{ screen:"medical", playerId:recovered.id },
+      actionLabel:"Escuchar informe",
+      expectedOutcome:"Acompanhar el regreso sin precipitarlo.",
+    },
+    newSigning && {
+      id:`LockerLife:NewSigning:${newSigning.id}:${commonId}`,
+      type:"LockerRoomLifeMoment",
+      momentType:"locker_new_signing",
+      issueKey:`locker_life:new_signing:${newSigning.id}:${commonId}`,
+      ownerActorId:"captain",
+      title:`${newSigning.name} empieza a integrarse`,
+      summary:"Los nuevos tambien necesitan sitio en el vestuario. El grupo parece estar haciendole hueco.",
+      subjectId:newSigning.id,
+      subjectName:newSigning.name,
+      expectedOutcome:"Acompanhar la integracion o dejar que los lideres hagan su trabajo.",
+      ...base,
+    },
+  ].filter(Boolean);
+
+  return candidates[phase] ?? pickByDay(game, candidates);
+}
+
 function renewalLabel(status) {
   return {
     accepted: "ha respondido positivamente a la oferta de renovacion",
@@ -668,7 +793,9 @@ export function buildLegacyDirectorEvents(game, context = {}) {
   const externalMoment = externalWorldMoment(game, events);
   if (externalMoment) pushEvent(events, externalMoment);
   const hasCritical = events.some(event => event.priority === "critical");
-  const weeklyMoment = externalMoment ? null : weeklyPreparationMoment(game, fixture, context, events);
+  const lockerMoment = externalMoment ? null : lockerRoomLifeMoment(game, events);
+  if (lockerMoment) pushEvent(events, lockerMoment);
+  const weeklyMoment = externalMoment || lockerMoment ? null : weeklyPreparationMoment(game, fixture, context, events);
   if (weeklyMoment) pushEvent(events, weeklyMoment);
   const shouldBreathe = !weeklyMoment && !hasCritical && (stamp.matchday ?? 1) > 1 && (stamp.matchday ?? 1) % 4 === 0;
   if (shouldBreathe) {
@@ -790,6 +917,8 @@ export function legacyDirectorEventsToAttentionItems(game, events = []) {
         momentType:event.momentType ?? null,
         recommendedFocus:event.recommendedFocus ?? null,
         recommendedLoad:event.recommendedLoad ?? null,
+        mentorId:event.mentorId ?? null,
+        mentorName:event.mentorName ?? null,
         status:saved.status ?? "new",
         firstSeenAt:saved.firstSeenAt ?? null,
         updatedAt:saved.updatedAt ?? null,

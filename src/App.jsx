@@ -3216,9 +3216,11 @@ function LockerRoomScreen({ game, onOpenPlayer, onGoContracts, onGoLineup, onGoT
   }).sort((a,b)=>(a.morale??70)-(b.morale??70));
   const atmosphereColor=summary.atmosphere==="positivo"?"#22c55e":summary.atmosphere==="tenso"?"#ef4444":"#c9a84c";
   const roleColor=role=>({Estrella:"#c9a84c",Titular:"#22c55e","Rotación":"#60a5fa",Promesa:"#84cc16",Suplente:"#9ca3af",Emergencia:"#6b7280"}[role]??"#9ca3af");
+  const recentLockerMoments=squad.flatMap(player=>(player.moraleEvents??[]).map(event=>({player,event}))).sort((a,b)=>(b.event.matchday??0)-(a.event.matchday??0)).slice(0,3);
   return <div style={{flex:1,overflowY:"auto",padding:14}}>
     <div style={{background:"linear-gradient(135deg,rgba(201,168,76,.16),#161a24)",border:"1px solid rgba(201,168,76,.25)",borderRadius:13,padding:15,marginBottom:13}}><div style={{fontSize:10,color:"#c9a84c",fontWeight:900,letterSpacing:".8px"}}>VESTUARIO</div><div style={{fontSize:22,color:"#fff",fontWeight:900,marginTop:5,textTransform:"capitalize"}}>Ambiente {summary.atmosphere}</div><div style={{height:6,background:"#252a36",borderRadius:999,overflow:"hidden",marginTop:11}}><div style={{width:`${summary.avgMorale}%`,height:"100%",background:atmosphereColor}}/></div></div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:13}}>{[["MORAL",summary.avgMorale,"#22c55e"],["FELICIDAD",summary.avgHappiness,"#c9a84c"],["CONFIANZA",summary.avgTrust,"#60a5fa"]].map(([label,value,color])=><div key={label} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:10,padding:10}}><div style={{fontSize:8,color:"#6b7280",fontWeight:800}}>{label}</div><div style={{fontSize:21,color,fontWeight:900,marginTop:4}}>{value}</div></div>)}</div>
+    {recentLockerMoments.length>0&&<><div style={{fontSize:10,color:"#6b7280",fontWeight:900,letterSpacing:".6px",marginBottom:8}}>MOMENTOS RECIENTES</div><div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:14}}>{recentLockerMoments.map(({player,event})=><button key={`${player.id}-${event.id}`} onClick={()=>onOpenPlayer(player,game.teamId)} style={{background:"#161a24",border:"1px solid rgba(201,168,76,.14)",borderRadius:10,padding:10,textAlign:"left",cursor:"pointer"}}><div style={{fontSize:11,color:"#e8eaf0",fontWeight:800}}>{player.name}</div><div style={{fontSize:10,color:"#9aa0b4",marginTop:3,lineHeight:1.35}}>{event.label}</div></button>)}</div></>}
     <div style={{fontSize:10,color:"#6b7280",fontWeight:900,letterSpacing:".6px",marginBottom:8}}>LÍDERES DEL GRUPO</div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:14}}>{summary.leaders.map(player=><button key={player.id} onClick={()=>onOpenPlayer(player,game.teamId)} style={{background:"#161a24",border:"1px solid rgba(201,168,76,.18)",borderRadius:10,padding:10,textAlign:"left",cursor:"pointer"}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>⭐ {player.name}</div><div style={{fontSize:9,color:"#6b7280",marginTop:3}}>{player.personality?.profileLabel} · Liderazgo {player.personality?.traits?.leadership}</div></button>)}</div>
     <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:10}}>{[["all","Todos"],["concerns",`Preocupados (${summary.unhappy.length})`],["leaders","Líderes"],["young","Jóvenes"]].map(([id,label])=><button key={id} onClick={()=>setFilter(id)} style={{flex:"0 0 auto",background:filter===id?"#c9a84c":"#1e2330",color:filter===id?"#1a1200":"#8b92a3",border:"none",borderRadius:15,padding:"7px 10px",fontSize:10,fontWeight:900}}>{label}</button>)}</div>
@@ -7283,11 +7285,39 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   const handleSceneDecision = (decision) => {
     if (!selectedScene || !decision) return;
     const applySceneDecisionEffects = (baseGame) => {
-      if (!baseGame || !decision.trainingPlan) return baseGame;
-      return {
-        ...baseGame,
-        trainingPlan:normalizeTrainingPlan({ ...(baseGame.trainingPlan ?? DEFAULT_TRAINING_PLAN), ...decision.trainingPlan }),
+      if (!baseGame) return baseGame;
+      let updated = baseGame;
+      if (decision.trainingPlan) updated = {
+        ...updated,
+        trainingPlan:normalizeTrainingPlan({ ...(updated.trainingPlan ?? DEFAULT_TRAINING_PLAN), ...decision.trainingPlan }),
       };
+      if (decision.lockerEffect) {
+        const effect = decision.lockerEffect;
+        const stamp = { season:String(updated.season ?? "2025"), matchday:updated.matchday ?? 1 };
+        updated = {
+          ...updated,
+          players:(updated.players ?? []).map(player => {
+            const isSubject = effect.subjectId && player.id === effect.subjectId;
+            const appliesToTeam = !effect.subjectId && effect.teamMorale;
+            if (!isSubject && !appliesToTeam) return player;
+            const moraleDelta = isSubject ? (effect.morale ?? 0) : (effect.teamMorale ?? 0);
+            const trustDelta = isSubject ? (effect.trust ?? 0) : 0;
+            const event = effect.eventLabel ? {
+              id:`locker-life-${stamp.season}-${stamp.matchday}-${player.id}-${decision.id}`,
+              type:"lockerLife",
+              label:effect.eventLabel,
+              ...stamp,
+            } : null;
+            return {
+              ...player,
+              morale:Math.max(1, Math.min(100, Math.round((player.morale ?? 70) + moraleDelta))),
+              managerTrust:Math.max(1, Math.min(100, Math.round((player.managerTrust ?? 70) + trustDelta))),
+              moraleEvents:event ? [event, ...(player.moraleEvents ?? [])].slice(0, 8) : player.moraleEvents,
+            };
+          }),
+        };
+      }
+      return updated;
     };
     if (decision.type === "conversation_response") {
       const conversationId = selectedScene.rawId;

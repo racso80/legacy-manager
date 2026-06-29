@@ -276,7 +276,7 @@ function isRenewalResponseIssue(item) {
 
 function isClubLifeMoment(item) {
   const key = String(item.normalizedIssue?.id ?? item.issueKey ?? item.attention?.issueKey ?? "");
-  return key.startsWith("club_life_moment:") || key.startsWith("weekly_preparation:") || key.startsWith("external_world:");
+  return key.startsWith("club_life_moment:") || key.startsWith("weekly_preparation:") || key.startsWith("external_world:") || key.startsWith("locker_life:");
 }
 
 function clubLifeMomentMessage(item, actor, game) {
@@ -285,6 +285,28 @@ function clubLifeMomentMessage(item, actor, game) {
   const subject = issue.subjectName ?? issue.playerName ?? "el chico";
   const shortSubject = firstName(subject);
   const type = issue.momentType ?? item.attention?.momentType;
+  const mentorName = item.attention?.mentorName ?? item.mentorName;
+  if (type === "locker_mentor_young") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}No vengo por un problema. Vengo por algo que me gusta ver.\n\n${mentorName ?? "Un veterano"} ha estado muy encima de ${shortSubject} durante los entrenamientos. Correcciones pequeñas, gestos, consejos de esos que no salen en ningun informe.\n\nEl chico lo agradece. Y el grupo tambien nota cuando los mayores cuidan a los jovenes.`;
+  }
+  if (type === "locker_leader_after_loss") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Despues de la derrota, ${shortSubject} ha juntado al grupo.\n\nNo ha sido un discurso de pelicula. Ha sido algo mas importante: cerrar la puerta, mirarse a la cara y recordar que esto sigue.\n\nSi quiere intervenir, este es buen momento. Si no, tambien puede dejar que el vestuario respire por si mismo.`;
+  }
+  if (type === "locker_good_mood") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}El grupo esta bien.\n\nNo perfecto, porque un vestuario nunca lo esta, pero si unido. Se nota en como entrenan, en como se hablan y en como los suplentes empujan sin romper.\n\nA veces tambien conviene que el entrenador sepa cuando no tiene que apagar ningun fuego.`;
+  }
+  if (type === "locker_young_nervous") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}${shortSubject} esta viviendo una semana grande.\n\nSe le nota ilusionado, pero tambien algo encogido. Entrenar con el primer equipo impone. Los mayores le estan ayudando, pero una palabra suya puede pesar mucho.\n\nNo hace falta prometerle nada. Solo decidir como acompanarlo.`;
+  }
+  if (type === "locker_substitute_positive") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Queria hablarle de ${shortSubject}.\n\nNo esta jugando todo lo que querria, pero esta trabajando muy bien. No se ha borrado, no se ha quejado y esta apretando a los titulares.\n\nEse tipo de actitud sostiene un vestuario. Si lo reconocemos bien, puede contagiar.`;
+  }
+  if (type === "locker_recovery_mood") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}${shortSubject} ha vuelto con otra cara.\n\nTodavia hay que medir el regreso, pero animicamente se le ve mejor. Volver a sentirse parte del grupo tambien forma parte de la recuperacion.\n\nMi consejo es acompanar el proceso sin convertirlo en una carrera.`;
+  }
+  if (type === "locker_new_signing") {
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}${shortSubject} empieza a encontrar sitio.\n\nLos primeros dias no siempre se ven desde fuera: bromas, rutinas, donde sentarse, con quien hablar. El grupo le esta abriendo hueco poco a poco.\n\nNo hace falta forzarlo, pero un gesto del entrenador puede acelerar mucho la integracion.`;
+  }
   if (type === "world_big_win") {
     return `${intro ? `${intro}\n\n` : "Mister...\n\n"}La victoria no se ha quedado dentro del vestuario.\n\nLos periodistas empiezan a hablar del equipo con otro tono. La aficion tambien. Eso puede ayudarnos, pero si lo alimentamos demasiado pronto, mañana nos lo van a exigir como obligacion.\n\nSolo necesito una linea: ilusion o prudencia.`;
   }
@@ -563,6 +585,51 @@ function sceneOptions(item, actor) {
   }
   if (isClubLifeMoment(item)) {
     const momentType = item.normalizedIssue?.momentType ?? item.attention?.momentType;
+    if (String(momentType ?? "").startsWith("locker_")) {
+      const subjectId = item.normalizedIssue?.subjectId ?? item.attention?.playerId ?? item.attention?.subjectId ?? null;
+      const subjectName = item.normalizedIssue?.subjectName ?? item.attention?.playerName ?? item.attention?.subjectName ?? "el jugador";
+      return [
+        {
+          id:"praise_locker_moment",
+          label:"Felicitar",
+          tone:"cercano",
+          type:"act",
+          navigateTo:"dashboard",
+          lockerEffect:{ subjectId, subjectName, morale:2, trust:1, eventLabel:"El mister reconocio su actitud" },
+          consequence:"Refuerzas una dinamica positiva sin convertirla en una reunion grande.",
+          reaction:`${actor.name} sonrie un poco. A veces una frase corta del entrenador vale mas que una charla larga.`,
+        },
+        {
+          id:"talk_player_locker",
+          label:"Hablar con el jugador",
+          tone:"personal",
+          type:"act",
+          navigateTo:"lockerRoom",
+          lockerEffect:{ subjectId, subjectName, morale:1, trust:3, eventLabel:"El mister se acerco a hablar con el" },
+          consequence:"Te acercas al jugador y haces que se sienta visto.",
+          reaction:`${actor.name} asiente. No era un problema, pero el gesto puede quedarse dentro del grupo.`,
+        },
+        {
+          id:"captain_handles_locker",
+          label:"Que lo gestione el capitan",
+          tone:"delegar",
+          type:"act",
+          navigateTo:"dashboard",
+          lockerEffect:{ teamMorale:1, eventLabel:"El capitan reforzo el ambiente del grupo" },
+          consequence:"Das espacio a los lideres del vestuario para construir grupo.",
+          reaction:`${actor.name} lo entiende enseguida. Hay cosas que, si las lleva el vestuario, pesan mas.`,
+        },
+        {
+          id:"do_not_intervene_locker",
+          label:"No intervenir",
+          tone:"prudente",
+          type:"act",
+          navigateTo:"dashboard",
+          consequence:"Dejas que el momento siga su curso sin convertirlo en una orden.",
+          reaction:`${actor.name} acepta la decision. A veces el entrenador tambien dirige dejando respirar.`,
+        },
+      ];
+    }
     if (String(momentType ?? "").startsWith("world_")) {
       const target = item.attention?.action?.screen ?? item.normalizedIssue?.action?.screen ?? "dashboard";
       const actorName = actor.name ?? "La persona";
