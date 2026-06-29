@@ -1,4 +1,5 @@
 const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(value)));
+const PLAYER_PERSONALITIES_ENABLED = true;
 
 const TRAIT_KEYS = ["professionalism","ambition","leadership","loyalty","patience","ego","competitiveness","mediaPressure","adaptability","character"];
 export const PLAYER_PERSONALITY_PROFILES = {
@@ -58,6 +59,11 @@ export function buildPersonality(player) {
 }
 
 export function getPlayerPersonality(player) {
+  if (!PLAYER_PERSONALITIES_ENABLED) {
+    const traits = player?.personality?.traits ?? {};
+    const profile = PLAYER_PERSONALITY_PROFILES.balanced;
+    return { ...profile, profileId:profile.id, profileLabel:profile.label, label:profile.label, traits };
+  }
   const personality = player?.personality?.traits ? player.personality : buildPersonality(player ?? {});
   const legacyMap = { temperamental:"conflictive", loyal:"dressingRoomModel", quiet:"reserved" };
   const profileId = PLAYER_PERSONALITY_PROFILES[personality.profileId] ? personality.profileId : legacyMap[personality.profileId] ?? "balanced";

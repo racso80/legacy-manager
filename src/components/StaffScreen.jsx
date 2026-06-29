@@ -5,7 +5,11 @@ const gold = "#c9a84c";
 const muted = "#7b8293";
 
 function Meter({ value, color = gold }) {
-  return <div style={{ height:5, background:"#252a36", borderRadius:4, overflow:"hidden" }}><div style={{ width:`${Math.max(0, Math.min(100, value))}%`, height:"100%", background:color }} /></div>;
+  return (
+    <div style={{ height:5, background:"#252a36", borderRadius:4, overflow:"hidden" }}>
+      <div style={{ width:`${Math.max(0, Math.min(100, value))}%`, height:"100%", background:color }} />
+    </div>
+  );
 }
 
 function StaffCard({ member }) {
@@ -20,7 +24,6 @@ function StaffCard({ member }) {
           <div style={{ color:"#fff", fontSize:14, fontWeight:900 }}>{member.name}</div>
           <div style={{ color:level.color, fontSize:10, fontWeight:800, marginTop:3 }}>{member.icon} {member.roleTitle} · {level.label}</div>
           <div style={{ color:muted, fontSize:9, marginTop:3 }}>{member.age} años · {member.nationality} · contrato hasta {member.contractEnd}</div>
-          <div style={{ color:"#9aa0b4", fontSize:9, marginTop:3 }}>{member.personality?.label ?? "Profesional"} · {member.personality?.style ?? "ordenado"}</div>
         </div>
         <div style={{ textAlign:"right" }}>
           <div style={{ color:level.color, fontSize:22, fontWeight:950 }}>{member.overall}</div>
@@ -30,6 +33,21 @@ function StaffCard({ member }) {
 
       <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:11 }}>
         {(member.specialties ?? []).map(item => <span key={item} style={{ border:`1px solid ${level.color}22`, background:`${level.color}10`, color:"#cfd4df", borderRadius:999, padding:"4px 7px", fontSize:9, fontWeight:750 }}>{item}</span>)}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginTop:10 }}>
+        <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
+          <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>PERSONALIDAD</div>
+          <div style={{ color:"#e8eaf0", fontSize:11, fontWeight:850, marginTop:2 }}>{member.personalityLabel ?? "Equilibrado"}</div>
+        </div>
+        <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
+          <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>CONFIANZA</div>
+          <div style={{ color:"#e8eaf0", fontSize:11, fontWeight:850, marginTop:2 }}>{member.confidence ?? 65}/100</div>
+        </div>
+        <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
+          <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>INICIATIVA</div>
+          <div style={{ color:"#e8eaf0", fontSize:11, fontWeight:850, marginTop:2 }}>{member.initiative ?? 60}/100</div>
+        </div>
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:12 }}>
@@ -52,14 +70,6 @@ function StaffCard({ member }) {
           <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>ÁREA</div>
           <div style={{ color:"#e8eaf0", fontSize:11, fontWeight:850, marginTop:2 }}>{role?.area}</div>
         </div>
-        <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
-          <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>CONFIANZA</div>
-          <div style={{ color:"#22c55e", fontSize:11, fontWeight:850, marginTop:2 }}>{member.trust ?? 60}/100</div>
-        </div>
-        <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
-          <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>INICIATIVA</div>
-          <div style={{ color:"#60a5fa", fontSize:11, fontWeight:850, marginTop:2 }}>{member.initiative ?? 60}/100</div>
-        </div>
       </div>
     </div>
   );
@@ -75,8 +85,8 @@ export default function StaffScreen({ game, onNavigate }) {
     <div style={{ flex:1, overflowY:"auto", padding:"14px 14px 24px" }}>
       <div style={{ background:"radial-gradient(circle at 90% 0%,rgba(201,168,76,.22),transparent 42%),linear-gradient(145deg,#1b1a16,#11141b)", border:"1px solid rgba(201,168,76,.25)", borderRadius:15, padding:16, marginBottom:14 }}>
         <div style={{ color:gold, fontSize:10, fontWeight:950, letterSpacing:"1px" }}>🏢 ESTRUCTURA DEL CLUB</div>
-        <div style={{ color:"#fff", fontSize:22, fontWeight:950, marginTop:5 }}>Staff Técnico</div>
-        <div style={{ color:muted, fontSize:11, lineHeight:1.5, marginTop:5 }}>Tu cuerpo técnico convierte datos en recomendaciones: médico, carga física, táctica, contratos y scouting.</div>
+        <div style={{ color:"#fff", fontSize:22, fontWeight:950, marginTop:5 }}>Staff técnico</div>
+        <div style={{ color:muted, fontSize:11, lineHeight:1.5, marginTop:5 }}>Tu cuerpo técnico convierte datos en recomendaciones: médico, carga física, táctica, contratos, scouting y análisis del rival.</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:7, marginTop:13 }}>
           {[["MEDIA", avg || "-", gold], ["FORTALEZA", best?.roleTitle ?? "-", "#22c55e"], ["A REFORZAR", weak?.roleTitle ?? "-", "#f59e0b"]].map(([label, value, color]) => (
             <div key={label} style={{ background:"rgba(0,0,0,.22)", borderRadius:9, padding:9, textAlign:"center" }}>
@@ -96,6 +106,7 @@ export default function StaffScreen({ game, onNavigate }) {
               <div style={{ flex:1 }}>
                 <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:850 }}>{item.title}</div>
                 <div style={{ color:muted, fontSize:10, lineHeight:1.45, marginTop:4 }}>"{item.quote}"</div>
+                <div style={{ color:"#4b5563", fontSize:8, fontWeight:850, marginTop:5 }}>Confianza {item.staffConfidence ?? "-"} · {item.staffPersonality ?? "Staff"}</div>
               </div>
             </div>
           </button>)}

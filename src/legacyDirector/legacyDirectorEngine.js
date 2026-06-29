@@ -16,16 +16,15 @@ const ACTOR_ROTATION = [
 const OWNER_PROFILES = {
   sportingDirector: { id:"sportingDirector", name:"Director deportivo", role:"Dirección deportiva", emoji:"👔", color:"#60a5fa", personality:"piensa en el largo plazo" },
   assistantCoach: { id:"assistantCoach", name:"Segundo entrenador", role:"Cuerpo técnico", emoji:"👥", color:"#c9a84c", personality:"directo y práctico" },
-  doctor: { id:"doctor", name:"Médico", role:"Área médica", emoji:"👨‍⚕️", color:"#22c55e", personality:"prudente" },
+  doctor: { id:"doctor", name:"Médico", role:"Área médica", emoji:"🧑‍⚕️", color:"#22c55e", personality:"prudente" },
   fitnessCoach: { id:"fitnessCoach", name:"Preparador físico", role:"Preparación física", emoji:"🏋️", color:"#f59e0b", personality:"protector con la carga" },
-  analyst: { id:"analyst", name:"Analista", role:"Análisis de rendimiento", emoji:"📊", color:"#38bdf8", personality:"detecta patrones" },
+  analyst: { id:"analyst", name:"Analista", role:"Análisis del rival", emoji:"📊", color:"#38bdf8", personality:"preciso y analítico" },
   captain: { id:"captain", name:"Capitán", role:"Voz del vestuario", emoji:"❤️", color:"#ef4444", personality:"protege al grupo" },
   president: { id:"president", name:"Presidente", role:"Directiva", emoji:"🏛️", color:"#a78bfa", personality:"exigente" },
   academyChief: { id:"academyChief", name:"Jefe de cantera", role:"Cantera", emoji:"🌱", color:"#84cc16", personality:"protege el futuro" },
   pressOfficer: { id:"pressOfficer", name:"Responsable de prensa", role:"Comunicación", emoji:"🎙️", color:"#f97316", personality:"mide cada palabra" },
   player: { id:"player", name:"Jugador", role:"Plantilla", emoji:"👤", color:"#c9a84c", personality:"habla de su situación" },
 };
-
 const DEFAULT_DIRECTOR_STATE = {
   shown: {},
   resolved: {},
@@ -179,7 +178,6 @@ function ownerActorId(candidate) {
   if (["contracts", "contract", "market", "transfers"].includes(origin)) return "sportingDirector";
   if (origin === "medical") return "doctor";
   if (origin === "training") return "fitnessCoach";
-  if (origin === "staff") return normalizeOwnerId(candidate.ownerActorId ?? candidate.actorId ?? candidate.actorName ?? "assistantCoach");
   if (["lockerRoom", "morale"].includes(origin)) return "captain";
   if (["lineup", "match"].includes(origin)) return "assistantCoach";
   if (["press", "news"].includes(origin)) return "pressOfficer";

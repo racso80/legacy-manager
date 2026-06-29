@@ -1,4 +1,4 @@
-import { Component, useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { resolvePlayerPhoto } from "./data/dataLoader.js";
 import NewsScreen from "./components/NewsScreen.jsx";
 import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
@@ -2147,45 +2147,6 @@ function ScreenWrapper({ children, animKey }) {
   );
 }
 
-function SummaryFallbackScreen({ onContinue }) {
-  return (
-    <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:18 }}>
-      <div style={{ width:"100%", maxWidth:420, background:"#161a24", border:"1px solid rgba(239,68,68,.25)", borderRadius:14, padding:18, textAlign:"center" }}>
-        <div style={{ fontSize:12, color:"#ef4444", fontWeight:900, letterSpacing:".6px", marginBottom:8 }}>RESUMEN NO DISPONIBLE</div>
-        <div style={{ fontSize:18, color:"#f3f4f6", fontWeight:900, marginBottom:8 }}>El partido se ha cerrado, pero no se pudo preparar la pantalla de resumen.</div>
-        <div style={{ fontSize:12, color:"#9aa0b4", lineHeight:1.5, marginBottom:14 }}>
-          Puedes volver al despacho y continuar la partida. El resultado ya no deberia quedar atrapado como partido recuperable.
-        </div>
-        <button onClick={onContinue} className="btn-gold" style={{ width:"100%", padding:13, borderRadius:10, fontSize:14 }}>
-          Volver al despacho
-        </button>
-      </div>
-    </div>
-  );
-}
-
-class SummaryErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError:false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError:true };
-  }
-  componentDidCatch(error) {
-    console.error("[LegacyMatch] Error renderizando resumen postpartido", error);
-  }
-  componentDidUpdate(prevProps) {
-    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
-      this.setState({ hasError:false });
-    }
-  }
-  render() {
-    if (this.state.hasError) return <SummaryFallbackScreen onContinue={this.props.onRecover} />;
-    return this.props.children;
-  }
-}
-
 function MainMenu({ onNew, onSaves, onCloud, savesCount }) {
   const [hovNew, setHovNew] = useState(false);
   const [hovCont, setHovCont] = useState(false);
@@ -2733,7 +2694,6 @@ const STAFF_PERSONAS = {
   "Presidente": { emoji:"🏛️", color:"#a78bfa", role:"Presidente", personality:"exigente" },
   "Responsable de prensa": { emoji:"🎙️", color:"#f97316", role:"Jefa de prensa", personality:"mide cada palabra" },
   "Psicólogo": { emoji:"🧠", color:"#38bdf8", role:"Psicólogo", personality:"lee el vestuario" },
-  "Analista": { emoji:"📊", color:"#38bdf8", role:"Analista", personality:"detecta patrones" },
   "Jefe de gabinete": { emoji:"🗂️", color:"#94a3b8", role:"Asistente personal del entrenador", personality:"discreto y ordenado" },
 };
 
@@ -2855,9 +2815,6 @@ function attentionPersona(item) {
     return { ...STAFF_PERSONAS.Presidente, name:"Presidente", emotionalState:"exigente", line:item.summary ?? "La afición está hablando y conviene escucharla.", action:item.actionLabel ?? "Responder" };
   }
   if (item.category === "staff" || item.category === "training") {
-    if (item.staff?.role?.toLowerCase().includes("analista") || title.includes("analista") || title.includes("informe del próximo rival")) {
-      return { ...STAFF_PERSONAS["Analista"], name:"Analista", emotionalState:"analítico", line:item.summary ?? "He detectado un patrón que conviene revisar.", action:item.actionLabel ?? "Ver informe" };
-    }
     return { ...STAFF_PERSONAS["Preparador físico"], name:"Preparador físico", emotionalState:"preocupado", line:item.summary ?? "Tengo una recomendación para el trabajo del equipo.", action:item.actionLabel ?? "Revisar" };
   }
   if (item.category === "board" || item.category === "career") {
@@ -2880,7 +2837,6 @@ function clubLifePersona(issue) {
     president: "Presidente",
     academyChief: "Jefe de cantera",
     pressOfficer: "Responsable de prensa",
-    analyst: "Analista",
   };
   const actorName = actorMap[issue.actorId] ?? "Segundo entrenador";
   const base = STAFF_PERSONAS[actorName] ?? { emoji:"👤", color:"#c9a84c", role:actorName, personality:"necesita una decisión" };
@@ -5240,24 +5196,19 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
   };
 
   const endMatch = () => {
-    try {
-      onMatchEnd(fixture.id, score.home, score.away, events, livePlayer, {
-        teamId: game.teamId,
-        starters: baseLineup.filter(Boolean),
-        finishers: lineup.filter(id=>id&&!sentOffIds.includes(id)&&!livePlayer.find(player=>player.id===id)?.injured),
-        userFormation:matchFormation,
-        opponentFormation:oppFormation,
-        opponentStarters:oppCallup.lineup.filter(Boolean),
-        opponentBench:oppCallup.bench.filter(Boolean),
-        opponentFinishers:oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)),
-        opponentPlayers:liveOppPlayers,
-        matchId,
-      });
-    } catch (error) {
-      console.error("[LegacyMatch] Error cerrando partido", error);
-      writeActiveMatchSession(matchSnapshotRef.current);
-      setKeyEventBanner({ minute:currentMinute, type:"LIVE_DECISION", description:"No se pudo cerrar el partido. El estado se ha conservado para intentarlo de nuevo." });
-    }
+    clearActiveMatchSession(matchId);
+    onMatchEnd(fixture.id, score.home, score.away, events, livePlayer, {
+      teamId: game.teamId,
+      starters: baseLineup.filter(Boolean),
+      finishers: lineup.filter(id=>id&&!sentOffIds.includes(id)&&!livePlayer.find(player=>player.id===id)?.injured),
+      userFormation:matchFormation,
+      opponentFormation:oppFormation,
+      opponentStarters:oppCallup.lineup.filter(Boolean),
+      opponentBench:oppCallup.bench.filter(Boolean),
+      opponentFinishers:oppLineup.filter(id=>id&&!oppSentOffIds.includes(id)),
+      opponentPlayers:liveOppPlayers,
+      matchId,
+    });
   };
 
   const abandonMatch = () => {
@@ -6868,36 +6819,11 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
 
   const handleMatchEnd = (fixtureId, homeGoals, awayGoals, events, livePlayer, participation) => {
     let summaryData = null;
+    if (participation?.matchId) clearActiveMatchSession(participation.matchId);
+    setRecoverableMatch(null);
     setGame(prev => {
       const fixture  = prev.fixtures.find(f => f.id === fixtureId);
-      if (!fixture) {
-        setTimeout(() => setScreen("dashboard"), 0);
-        return prev;
-      }
-      if (fixture.played) {
-        const isHome = fixture.homeTeamId === prev.teamId;
-        const oppTeamId = isHome ? fixture.awayTeamId : fixture.homeTeamId;
-        const recoveredSummary = {
-          userTeam: TEAMS.find(t => t.id === prev.teamId),
-          oppTeam: TEAMS.find(t => t.id === oppTeamId),
-          isHome,
-          userGoals: isHome ? fixture.homeGoals ?? homeGoals : fixture.awayGoals ?? awayGoals,
-          oppGoals: isHome ? fixture.awayGoals ?? awayGoals : fixture.homeGoals ?? homeGoals,
-          matchday: fixture.matchday,
-          events: fixture.events ?? events ?? [],
-          players: prev.players ?? [],
-          opponentPlayers: participation?.opponentPlayers ?? REAL_SQUADS[oppTeamId] ?? [],
-          participation: fixture.participation ?? participation ?? {},
-          jornadaResults: (prev.fixtures ?? []).filter(f => f.matchday === fixture.matchday),
-          newStandings: prev.standings ?? [],
-          teamId: prev.teamId,
-          income: null,
-        };
-        if (participation?.matchId) clearActiveMatchSession(participation.matchId);
-        setRecoverableMatch(null);
-        setTimeout(() => { setMatchSummary(recoveredSummary); setScreen("summary"); }, 0);
-        return prev;
-      }
+      if (!fixture || fixture.played) return prev;
       const newFixtures = prev.fixtures.map(f =>
         f.id === fixtureId ? { ...f, played: true, homeGoals, awayGoals, events, participation } : f
       );
@@ -6906,7 +6832,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         if (f.matchday === matchday && !f.played) {
           const ht = TEAMS.find(t => t.id === f.homeTeamId);
           const at = TEAMS.find(t => t.id === f.awayTeamId);
-          const res = simAIGame(ht, at, finalFixtures);
+          const res = simAIGame(ht, at, newFixtures);
           applyAiPhysicalAfterMatch(f.homeTeamId, chooseOpponentFormation(f.homeTeamId));
           applyAiPhysicalAfterMatch(f.awayTeamId, chooseOpponentFormation(f.awayTeamId));
           return { ...f, played: true, homeGoals: res.homeGoals, awayGoals: res.awayGoals, events: res.events ?? [] };
@@ -7075,7 +7001,6 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         trainingTacticalBonus:trainingResult.tacticalBonus,
         legacy:legacyEvaluation.legacy,
         youth:{...(prev.youth??{}),players:youthTrainingResult.players},standingsMovement };
-      try {
       const beforeFanbase=prev.fanbase;
       newGame=applyFanMatchReaction(newGame,{team:userTeamData,fixture,won,drew,goalsFor:userGoals,goalsAgainst:oppGoals,income:incomeResult,position:leaguePos});
       newGame=advanceAiFanbases(newGame,TEAMS,matchday);
@@ -7104,13 +7029,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       newGame=maybeCreateAITransfer(newGame,TEAMS,REAL_SQUADS);
       if((newGame.transferMarket?.aiTransfers?.length??0)>aiCountBefore){const move=newGame.transferMarket.aiTransfers[0];const from=TEAMS.find(team=>team.id===move.fromTeamId);const to=TEAMS.find(team=>team.id===move.toTeamId);const renewal=move.type==="renewal",loan=move.type==="loan",young=move.type==="youth";newGame={...newGame,news:mergeNews(newGame.news??[],[{id:`news-${move.id}`,type:"transfer",importance:young?"high":"medium",title:renewal?`${move.player.name} renueva con ${from?.name}`:loan?`${move.player.name}, cedido al ${to?.name}`:young?`${to?.name} apuesta por el joven ${move.player.name}`:`${move.player.name} ficha por ${to?.name}`,summary:renewal?`${from?.name} asegura la continuidad del jugador.`:loan?`${from?.name} busca minutos para el futbolista.`:`${from?.name} y ${to?.name} cierran la operación por €${(move.value/1000).toFixed(1)}M.${move.reason?` ${move.reason}.`:""}`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:move.id}])};newGame=refreshTransferListings(newGame,TEAMS,REAL_SQUADS,true);}
       newGame=ensureSceneState(ensureLegacyDirectorState(advanceClubLife(advanceConversationMemory(ensureConversationState(ensureClubLifeState(newGame))),{lineup})));
-      } catch (error) {
-        console.error("[LegacyMatch] Sistema postpartido omitido para no bloquear el cierre", error);
-      }
       saveGame(newGame);
       autosaveCloud(newGame,"match-end");
-      if (participation?.matchId) clearActiveMatchSession(participation.matchId);
-      setRecoverableMatch(null);
 
       // Detectar fin de temporada (última jornada jugada)
       const allPlayed = finalFixtures.every(f => f.played);
@@ -7132,17 +7052,16 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         setTimeout(() => { setSeasonSummary(endData); setScreen("seasonEnd"); }, 0);
         saveGame(finalSeasonGame);
         autosaveCloud(finalSeasonGame,"season-end");
-        if (participation?.matchId) clearActiveMatchSession(participation.matchId);
-        setRecoverableMatch(null);
         return finalSeasonGame;
       }
 
-      setTimeout(() => {
-        setMatchSummary(summaryData);
-        setScreen("summary");
-      }, 0);
       return newGame;
     });
+    setTimeout(() => {
+      if (summaryData?._seasonEnd) return; // season end handled separately
+      if (summaryData) setMatchSummary(summaryData);
+      setScreen("summary");
+    }, 0);
   };
 
   const handleNewSeason = () => {
@@ -7862,11 +7781,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "conversation" && game && <ConversationScreen conversation={selectedConversation} onRespond={handleConversationResponse} onBack={()=>setScreen("dashboard")} />}
           {screen === "scene" && game && <InteractiveSceneScreen scene={selectedScene} onChoose={handleSceneDecision} onBack={()=>setScreen("dashboard")} />}
           {screen === "match"     && game && <MatchScreen game={game} saveId={activeSaveId} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} onAbandonMatch={()=>{setRecoverableMatch(null);setScreen("dashboard");}} />}
-          {screen === "summary"   && (
-            <SummaryErrorBoundary resetKey={`${matchSummary?.matchday ?? "empty"}:${matchSummary?.userGoals ?? "-"}:${matchSummary?.oppGoals ?? "-"}`} onRecover={() => setScreen("dashboard")}>
-              {matchSummary ? <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} /> : <SummaryFallbackScreen onContinue={() => setScreen("dashboard")} />}
-            </SummaryErrorBoundary>
-          )}
+          {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
           {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"preseason-start",{lineup,formation,subs});return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}
         </ScreenWrapper>

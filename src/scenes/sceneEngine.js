@@ -2,91 +2,75 @@ const STAFF_SCENE_ACTORS = {
   sportingDirector: {
     id: "sportingDirector",
     name: "Director deportivo",
-    role: "Dirección deportiva",
-    emoji: "👔",
+    role: "DirecciÃ³n deportiva",
+    emoji: "ðŸ‘”",
     color: "#60a5fa",
-    voice: "Piensa en proyecto, agentes, mercado y futuro. Nunca entra en táctica.",
+    voice: "Piensa en proyecto, agentes, mercado y futuro. Nunca entra en tÃ¡ctica.",
   },
   assistantCoach: {
     id: "assistantCoach",
     name: "Segundo entrenador",
-    role: "Cuerpo técnico",
-    emoji: "👥",
+    role: "Cuerpo tÃ©cnico",
+    emoji: "ðŸ‘¥",
     color: "#c9a84c",
-    voice: "Habla de fútbol, entrenamiento, rival, sistema y presión competitiva.",
+    voice: "Habla de fÃºtbol, entrenamiento, rival, sistema y presiÃ³n competitiva.",
   },
   doctor: {
     id: "doctor",
-    name: "Médico",
-    role: "Área médica",
-    emoji: "👨‍⚕️",
+    name: "MÃ©dico",
+    role: "Ãrea mÃ©dica",
+    emoji: "ðŸ‘¨â€âš•ï¸",
     color: "#22c55e",
-    voice: "Es prudente, habla de molestias, riesgo y recuperación. Nunca promete certezas.",
+    voice: "Es prudente, habla de molestias, riesgo y recuperaciÃ³n. Nunca promete certezas.",
   },
   fitnessCoach: {
     id: "fitnessCoach",
-    name: "Preparador físico",
-    role: "Preparación física",
-    emoji: "🏋️",
+    name: "Preparador fÃ­sico",
+    role: "PreparaciÃ³n fÃ­sica",
+    emoji: "ðŸ‹ï¸",
     color: "#f59e0b",
-    voice: "Protege la carga física y mira el rendimiento a medio plazo.",
+    voice: "Protege la carga fÃ­sica y mira el rendimiento a medio plazo.",
   },
   captain: {
     id: "captain",
-    name: "Capitán",
+    name: "CapitÃ¡n",
     role: "Voz del vestuario",
-    emoji: "❤️",
+    emoji: "â¤ï¸",
     color: "#ef4444",
-    voice: "Habla del grupo, ambiente, liderazgo y vestuario. Nunca habla de economía.",
+    voice: "Habla del grupo, ambiente, liderazgo y vestuario. Nunca habla de economÃ­a.",
   },
   president: {
     id: "president",
     name: "Presidente",
     role: "Directiva",
-    emoji: "🏛️",
+    emoji: "ðŸ›ï¸",
     color: "#a78bfa",
-    voice: "Habla de resultados, objetivos, imagen, afición y economía global.",
+    voice: "Habla de resultados, objetivos, imagen, aficiÃ³n y economÃ­a global.",
   },
   academyChief: {
     id: "academyChief",
     name: "Jefe de cantera",
     role: "Cantera",
-    emoji: "🌱",
+    emoji: "ðŸŒ±",
     color: "#84cc16",
-    voice: "Piensa en el futuro de los jóvenes y en no quemar etapas.",
+    voice: "Piensa en el futuro de los jÃ³venes y en no quemar etapas.",
   },
   pressOfficer: {
     id: "pressOfficer",
     name: "Responsable de prensa",
-    role: "Comunicación",
-    emoji: "🎙️",
+    role: "ComunicaciÃ³n",
+    emoji: "ðŸŽ™ï¸",
     color: "#f97316",
-    voice: "Cuida la imagen pública, los titulares, las declaraciones y los rumores.",
-  },
-  analyst: {
-    id: "analyst",
-    name: "Analista",
-    role: "Análisis de rendimiento",
-    emoji: "📊",
-    color: "#38bdf8",
-    voice: "Habla de patrones, rival, datos, balón parado y tendencias. Complementa al segundo entrenador.",
-  },
-  player: {
-    id: "player",
-    name: "Jugador",
-    role: "Plantilla",
-    emoji: "👤",
-    color: "#c9a84c",
-    voice: "Habla de sí mismo: minutos, confianza, carrera, futuro y lugar en el equipo.",
+    voice: "Cuida la imagen pÃºblica, los titulares, las declaraciones y los rumores.",
   },
 };
 
 const OFFICE_DETAILS = [
-  "La mañana entra fría por la ventana del despacho. Alguien llama dos veces y espera tu permiso.",
+  "La maÃ±ana entra frÃ­a por la ventana del despacho. Alguien llama dos veces y espera tu permiso.",
   "Se oye movimiento en el pasillo de Lezama. La puerta se abre despacio, sin prisa.",
-  "Hay un café a medio tomar sobre la mesa. Quien entra mira primero al suelo y luego a ti.",
+  "Hay un cafÃ© a medio tomar sobre la mesa. Quien entra mira primero al suelo y luego a ti.",
   "Fuera empieza el entrenamiento. Dentro, el despacho se queda en silencio unos segundos.",
-  "La lluvia golpea suave el cristal. La conversación no parece improvisada; venía pensada de antes.",
+  "La lluvia golpea suave el cristal. La conversaciÃ³n no parece improvisada; venÃ­a pensada de antes.",
 ];
 
 function timeOfDay(matchday = 1) {
@@ -190,9 +174,9 @@ function continuityIntro(item, game) {
 function naturalFallback(text = "") {
   return String(text)
     .replace(/Debe revisarse/gi, "Conviene mirarlo con calma")
-    .replace(/Se recomienda/gi, "Yo preferiría")
-    .replace(/No existe margen/gi, "No sé si nos queda demasiado margen")
-    .replace(/requiere atención/gi, "no deberíamos dejarlo pasar")
+    .replace(/Se recomienda/gi, "Yo preferirÃ­a")
+    .replace(/No existe margen/gi, "No sÃ© si nos queda demasiado margen")
+    .replace(/requiere atenciÃ³n/gi, "no deberÃ­amos dejarlo pasar")
     .trim();
 }
 
@@ -201,28 +185,28 @@ function conversationOpening(conversation) {
   if (conversation.actorType === "player") {
     const profileId = conversation.personality?.id ?? conversation.personality?.profileId;
     const tails = {
-      professional: "No quiero poner excusas. Seguiré trabajando, pero necesitaba hablarlo con usted.",
-      ambitious: "No me conformo con estar de paso. Quiero un sitio importante y creo que puedo ganármelo.",
+      professional: "No quiero poner excusas. SeguirÃ© trabajando, pero necesitaba hablarlo con usted.",
+      ambitious: "No me conformo con estar de paso. Quiero un sitio importante y creo que puedo ganÃ¡rmelo.",
       conflictive: "Prefiero decirlo claro antes de que esto se enquiste. Ahora mismo no lo entiendo.",
-      reserved: "No suelo pedir estas conversaciones, míster. Por eso quería hacerlo con calma.",
+      reserved: "No suelo pedir estas conversaciones, mÃ­ster. Por eso querÃ­a hacerlo con calma.",
       leader: "Si esto afecta al grupo, prefiero que lo hablemos de frente y sin ruido.",
-      hardWorker: "Voy a seguir apretando cada día, pero necesitaba saber si vamos en la misma dirección.",
+      hardWorker: "Voy a seguir apretando cada dÃ­a, pero necesitaba saber si vamos en la misma direcciÃ³n.",
       insecureYoung: "Igual me estoy equivocando, pero necesitaba escucharlo de usted.",
-      selfish: "Necesito sentir que soy importante. Si no, será difícil que todo siga igual.",
-      dressingRoomModel: "No quiero que mi situación pese más que el equipo, pero también necesito claridad.",
+      selfish: "Necesito sentir que soy importante. Si no, serÃ¡ difÃ­cil que todo siga igual.",
+      dressingRoomModel: "No quiero que mi situaciÃ³n pese mÃ¡s que el equipo, pero tambiÃ©n necesito claridad.",
     };
-    return `${opening}\n\n${tails[profileId] ?? "No quiero montar ruido, míster. Pero necesitaba decírtelo a la cara. Puede que me equivoque, pero ahora mismo es lo que siento."}`;
+    return `${opening}\n\n${tails[profileId] ?? "No quiero montar ruido, mÃ­ster. Pero necesitaba decÃ­rtelo a la cara. Puede que me equivoque, pero ahora mismo es lo que siento."}`;
   }
-  if (conversation.actorName === "Médico") {
+  if (conversation.actorName === "MÃ©dico") {
     return `${opening}\n\nNo te puedo asegurar que vaya a pasar algo. Precisamente por eso prefiero venir antes de que tengamos que lamentarlo.`;
   }
   if (conversation.actorName === "Director deportivo") {
-    return `${opening}\n\nQuizá todavía tengamos margen, pero en estas cosas llegar tarde suele salir caro.`;
+    return `${opening}\n\nQuizÃ¡ todavÃ­a tengamos margen, pero en estas cosas llegar tarde suele salir caro.`;
   }
   if (conversation.actorName === "Responsable de prensa") {
-    return `${opening}\n\nSi no damos una frase clara, alguien escribirá la historia por nosotros.`;
+    return `${opening}\n\nSi no damos una frase clara, alguien escribirÃ¡ la historia por nosotros.`;
   }
-  return `${opening}\n\nNo estoy del todo seguro de que sea grave, pero sí creo que conviene hablarlo hoy.`;
+  return `${opening}\n\nNo estoy del todo seguro de que sea grave, pero sÃ­ creo que conviene hablarlo hoy.`;
 }
 
 function clubLifeMessage(issue, actor) {
@@ -231,63 +215,59 @@ function clubLifeMessage(issue, actor) {
   const detail = naturalFallback(issue.message ?? issue.summary ?? "");
 
   if (actor.id === "player") {
-    return `Míster...\n\nLlevo varios días dándole vueltas a mi situación. No es solo una cuestión de minutos o de contrato; es saber dónde estoy de verdad dentro del equipo.\n\n${detail ? `${detail}\n\n` : ""}No quiero tomar una decisión en caliente, pero necesito sentir que hay un plan conmigo.`;
+    return `MÃ­ster...\n\nLlevo varios dÃ­as dÃ¡ndole vueltas a mi situaciÃ³n. No es solo una cuestiÃ³n de minutos o de contrato; es saber dÃ³nde estoy de verdad dentro del equipo.\n\n${detail ? `${detail}\n\n` : ""}No quiero tomar una decisiÃ³n en caliente, pero necesito sentir que hay un plan conmigo.`;
   }
 
   if (actor.id === "sportingDirector") {
-    return `Míster...\n\nAcabo de hablar con el entorno de ${shortSubject}. No han cerrado ninguna puerta, pero empiezan a preguntar demasiado por el futuro.\n\nPuede que todavía tengamos tiempo. O puede que estemos llegando justo al punto en el que otros clubes empiezan a moverse. Yo no lo dejaría dormir mucho más.`;
+    return `MÃ­ster...\n\nAcabo de hablar con el entorno de ${shortSubject}. No han cerrado ninguna puerta, pero empiezan a preguntar demasiado por el futuro.\n\nPuede que todavÃ­a tengamos tiempo. O puede que estemos llegando justo al punto en el que otros clubes empiezan a moverse. Yo no lo dejarÃ­a dormir mucho mÃ¡s.`;
   }
 
   if (actor.id === "assistantCoach") {
-    return `Míster...\n\nHe estado mirando el próximo partido otra vez. Hay algo que no me termina de convencer.\n\nNo te digo que tengamos que cambiarlo todo, pero si llegamos al encuentro sin decidir esto, el equipo lo va a notar. En el campo las dudas se pagan rápido.`;
+    return `MÃ­ster...\n\nHe estado mirando el prÃ³ximo partido otra vez. Hay algo que no me termina de convencer.\n\nNo te digo que tengamos que cambiarlo todo, pero si llegamos al encuentro sin decidir esto, el equipo lo va a notar. En el campo las dudas se pagan rÃ¡pido.`;
   }
 
   if (actor.id === "doctor") {
-    return `Míster...\n\nHe visto a ${shortSubject} moverse con cuidado. No quiero alarmarte, porque puede quedarse en nada, pero hay señales que prefiero no ignorar.\n\nSi forzamos, quizá salga bien. O quizá dentro de unos días estemos hablando de una baja más seria.`;
+    return `MÃ­ster...\n\nHe visto a ${shortSubject} moverse con cuidado. No quiero alarmarte, porque puede quedarse en nada, pero hay seÃ±ales que prefiero no ignorar.\n\nSi forzamos, quizÃ¡ salga bien. O quizÃ¡ dentro de unos dÃ­as estemos hablando de una baja mÃ¡s seria.`;
   }
 
   if (actor.id === "fitnessCoach") {
-    return `Míster...\n\nLa carga de algunos jugadores empieza a pesar. Desde fuera parecen bien, pero los datos y las caras después del trabajo cuentan otra cosa.\n\nPuede que aguanten un partido más. La duda es qué precio pagamos después.`;
-  }
-
-  if (actor.id === "analyst") {
-    return `Míster...\n\nHe cruzado los últimos partidos del rival con nuestros datos de la semana. Hay un patrón que se repite y creo que podemos prepararlo.\n\nNo es una corazonada. Si ajustamos bien el plan, podemos llegar al partido con una ventaja pequeña, pero real.`;
+    return `MÃ­ster...\n\nLa carga de algunos jugadores empieza a pesar. Desde fuera parecen bien, pero los datos y las caras despuÃ©s del trabajo cuentan otra cosa.\n\nPuede que aguanten un partido mÃ¡s. La duda es quÃ© precio pagamos despuÃ©s.`;
   }
 
   if (actor.id === "captain") {
-    return `Míster...\n\nEl grupo está hablando más de lo normal. No vengo a exagerar nada, pero en el vestuario se nota cuando algo empieza a torcerse.\n\nSi lo cogemos ahora, quizá quede en una conversación. Si lo dejamos, puede crecer.`;
+    return `MÃ­ster...\n\nEl grupo estÃ¡ hablando mÃ¡s de lo normal. No vengo a exagerar nada, pero en el vestuario se nota cuando algo empieza a torcerse.\n\nSi lo cogemos ahora, quizÃ¡ quede en una conversaciÃ³n. Si lo dejamos, puede crecer.`;
   }
 
   if (actor.id === "president") {
-    return `Quería verte un momento.\n\nLa imagen del club también se juega estos días. No hablo solo del marcador; hablo de lo que transmitimos, de la afición y de si seguimos pareciendo un club con rumbo.\n\nNo quiero precipitarme, pero tampoco mirar hacia otro lado.`;
+    return `QuerÃ­a verte un momento.\n\nLa imagen del club tambiÃ©n se juega estos dÃ­as. No hablo solo del marcador; hablo de lo que transmitimos, de la aficiÃ³n y de si seguimos pareciendo un club con rumbo.\n\nNo quiero precipitarme, pero tampoco mirar hacia otro lado.`;
   }
 
   if (actor.id === "pressOfficer") {
-    return `Míster...\n\nLos periodistas ya están olfateando el tema. Todavía no hay incendio, pero sí titulares esperando una chispa.\n\nSi salimos con una frase débil, la sala nos va a empujar donde no queremos ir.`;
+    return `MÃ­ster...\n\nLos periodistas ya estÃ¡n olfateando el tema. TodavÃ­a no hay incendio, pero sÃ­ titulares esperando una chispa.\n\nSi salimos con una frase dÃ©bil, la sala nos va a empujar donde no queremos ir.`;
   }
 
   if (actor.id === "academyChief") {
-    return `Míster...\n\nHay un chico que cada vez pregunta menos y trabaja más. Eso suele decirme algo.\n\nNo sé si ya está preparado para todo, pero sí creo que merece que hablemos de su camino antes de que pierda impulso.`;
+    return `MÃ­ster...\n\nHay un chico que cada vez pregunta menos y trabaja mÃ¡s. Eso suele decirme algo.\n\nNo sÃ© si ya estÃ¡ preparado para todo, pero sÃ­ creo que merece que hablemos de su camino antes de que pierda impulso.`;
   }
 
-  return `Míster...\n\n${detail || "Hay algo que no deberíamos dejar pasar."}\n\nPuede que no sea urgente todavía, pero tengo la sensación de que si no lo hablamos ahora volverá con más peso.`;
+  return `MÃ­ster...\n\n${detail || "Hay algo que no deberÃ­amos dejar pasar."}\n\nPuede que no sea urgente todavÃ­a, pero tengo la sensaciÃ³n de que si no lo hablamos ahora volverÃ¡ con mÃ¡s peso.`;
 }
 
 function attentionMessage(attention, actor) {
   const summary = naturalFallback(attention.summary ?? attention.title ?? "");
   if (actor.id === "doctor") {
-    return `Míster...\n\nPaso un momento porque esto me deja dudas. ${summary}\n\nNo digo que sea grave, pero prefiero que lo miremos antes de que el cuerpo nos obligue.`;
+    return `MÃ­ster...\n\nPaso un momento porque esto me deja dudas. ${summary}\n\nNo digo que sea grave, pero prefiero que lo miremos antes de que el cuerpo nos obligue.`;
   }
   if (actor.id === "sportingDirector") {
-    return `Míster...\n\nTengo esto sobre la mesa y no me gusta dejarlo en espera. ${summary}\n\nQuizá podamos manejarlo con calma, pero en el mercado y en los contratos el silencio también habla.`;
+    return `MÃ­ster...\n\nTengo esto sobre la mesa y no me gusta dejarlo en espera. ${summary}\n\nQuizÃ¡ podamos manejarlo con calma, pero en el mercado y en los contratos el silencio tambiÃ©n habla.`;
   }
   if (actor.id === "assistantCoach") {
-    return `Míster...\n\nAntes de salir al campo quería comentarte algo. ${summary}\n\nNo es una alarma, pero sí una de esas cosas que luego aparecen en el partido si no las cerramos.`;
+    return `MÃ­ster...\n\nAntes de salir al campo querÃ­a comentarte algo. ${summary}\n\nNo es una alarma, pero sÃ­ una de esas cosas que luego aparecen en el partido si no las cerramos.`;
   }
   if (actor.id === "captain") {
-    return `Míster...\n\nTe lo digo porque dentro se nota. ${summary}\n\nPuede que sea solo ruido de vestuario, pero el grupo necesita saber que lo tenemos controlado.`;
+    return `MÃ­ster...\n\nTe lo digo porque dentro se nota. ${summary}\n\nPuede que sea solo ruido de vestuario, pero el grupo necesita saber que lo tenemos controlado.`;
   }
-  return `Míster...\n\n${summary}\n\nNo sé si será el asunto más grande del día, pero sí merece que lo miremos antes de seguir.`;
+  return `MÃ­ster...\n\n${summary}\n\nNo sÃ© si serÃ¡ el asunto mÃ¡s grande del dÃ­a, pero sÃ­ merece que lo miremos antes de seguir.`;
 }
 
 function renewalResponseKind(item) {
@@ -311,7 +291,7 @@ function clubLifeMomentMessage(item, actor, game) {
   const type = issue.momentType ?? item.attention?.momentType;
   const mentorName = item.attention?.mentorName ?? item.mentorName;
   if (type === "locker_mentor_young") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}No vengo por un problema. Vengo por algo que me gusta ver.\n\n${mentorName ?? "Un veterano"} ha estado muy encima de ${shortSubject} durante los entrenamientos. Correcciones pequeñas, gestos, consejos de esos que no salen en ningun informe.\n\nEl chico lo agradece. Y el grupo tambien nota cuando los mayores cuidan a los jovenes.`;
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}No vengo por un problema. Vengo por algo que me gusta ver.\n\n${mentorName ?? "Un veterano"} ha estado muy encima de ${shortSubject} durante los entrenamientos. Correcciones pequeÃ±as, gestos, consejos de esos que no salen en ningun informe.\n\nEl chico lo agradece. Y el grupo tambien nota cuando los mayores cuidan a los jovenes.`;
   }
   if (type === "locker_leader_after_loss") {
     return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Despues de la derrota, ${shortSubject} ha juntado al grupo.\n\nNo ha sido un discurso de pelicula. Ha sido algo mas importante: cerrar la puerta, mirarse a la cara y recordar que esto sigue.\n\nSi quiere intervenir, este es buen momento. Si no, tambien puede dejar que el vestuario respire por si mismo.`;
@@ -332,7 +312,7 @@ function clubLifeMomentMessage(item, actor, game) {
     return `${intro ? `${intro}\n\n` : "Mister...\n\n"}${shortSubject} empieza a encontrar sitio.\n\nLos primeros dias no siempre se ven desde fuera: bromas, rutinas, donde sentarse, con quien hablar. El grupo le esta abriendo hueco poco a poco.\n\nNo hace falta forzarlo, pero un gesto del entrenador puede acelerar mucho la integracion.`;
   }
   if (type === "world_big_win") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}La victoria no se ha quedado dentro del vestuario.\n\nLos periodistas empiezan a hablar del equipo con otro tono. La aficion tambien. Eso puede ayudarnos, pero si lo alimentamos demasiado pronto, mañana nos lo van a exigir como obligacion.\n\nSolo necesito una linea: ilusion o prudencia.`;
+    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}La victoria no se ha quedado dentro del vestuario.\n\nLos periodistas empiezan a hablar del equipo con otro tono. La aficion tambien. Eso puede ayudarnos, pero si lo alimentamos demasiado pronto, maÃ±ana nos lo van a exigir como obligacion.\n\nSolo necesito una linea: ilusion o prudencia.`;
   }
   if (type === "world_hard_loss") {
     return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Fuera se esta hablando bastante del resultado.\n\nNo es solo perder. Es la forma en que se interpreta. La sala va a buscar culpables, titulares y una frase que resuma todo.\n\nSi no damos un mensaje claro, lo van a escribir por nosotros.`;
@@ -430,68 +410,66 @@ function sceneMessage(item, actor, game) {
 }
 
 const HUMAN_OPTION_LABELS = {
-  promise_minutes: "🤝 Cuenta conmigo. Vas a tener tu oportunidad.",
-  competition: "📋 Ahora mismo hay mucha competencia, pero te estoy mirando.",
-  earn_it: "⚠️ Te lo tienes que ganar cada semana.",
-  final_decision: "🧱 Por ahora la decisión no cambia.",
-  rest_player: "🧊 Prefiero protegerlo, aunque nos cueste.",
-  lower_load: "📉 Bajamos la carga hoy mismo.",
-  take_risk: "🔥 Lo necesito. Asumimos el riesgo.",
-  listen_group: "🤝 Voy a escuchar al grupo.",
-  captain_help: "❤️ Necesito que me ayudes desde dentro.",
-  performance_first: "⚠️ Primero necesitamos rendir.",
-  review_market: "💼 Lo reviso ahora contigo.",
-  not_for_sale: "🧱 No quiero venderlo.",
-  ask_more: "💰 Si se mueven, que sea con una oferta mejor.",
-  protect_players: "🛡️ La responsabilidad la asumo yo.",
-  demand_reaction: "🔥 El equipo tiene que reaccionar.",
-  calm_message: "🕊️ Vamos a mantener la calma.",
-  keep_working: "🤝 Sigue así. Estás siendo importante.",
-  team_first: "👥 Lo importante es que el equipo crezca contigo.",
-  apologize: "🤝 Tienes razón. Voy a corregirlo.",
-  squad_needs: "🧱 El equipo estaba por encima de la promesa.",
-  earn_back: "⚠️ Necesito verte mejor en los entrenamientos.",
+  promise_minutes: "ðŸ¤ Cuenta conmigo. Vas a tener tu oportunidad.",
+  competition: "ðŸ“‹ Ahora mismo hay mucha competencia, pero te estoy mirando.",
+  earn_it: "âš ï¸ Te lo tienes que ganar cada semana.",
+  final_decision: "ðŸ§± Por ahora la decisiÃ³n no cambia.",
+  rest_player: "ðŸ§Š Prefiero protegerlo, aunque nos cueste.",
+  lower_load: "ðŸ“‰ Bajamos la carga hoy mismo.",
+  take_risk: "ðŸ”¥ Lo necesito. Asumimos el riesgo.",
+  listen_group: "ðŸ¤ Voy a escuchar al grupo.",
+  captain_help: "â¤ï¸ Necesito que me ayudes desde dentro.",
+  performance_first: "âš ï¸ Primero necesitamos rendir.",
+  review_market: "ðŸ’¼ Lo reviso ahora contigo.",
+  not_for_sale: "ðŸ§± No quiero venderlo.",
+  ask_more: "ðŸ’° Si se mueven, que sea con una oferta mejor.",
+  protect_players: "ðŸ›¡ï¸ La responsabilidad la asumo yo.",
+  demand_reaction: "ðŸ”¥ El equipo tiene que reaccionar.",
+  calm_message: "ðŸ•Šï¸ Vamos a mantener la calma.",
+  keep_working: "ðŸ¤ Sigue asÃ­. EstÃ¡s siendo importante.",
+  team_first: "ðŸ‘¥ Lo importante es que el equipo crezca contigo.",
+  apologize: "ðŸ¤ Tienes razÃ³n. Voy a corregirlo.",
+  squad_needs: "ðŸ§± El equipo estaba por encima de la promesa.",
+  earn_back: "âš ï¸ Necesito verte mejor en los entrenamientos.",
 };
 
 function consequenceText(option = {}) {
-  if (option.memory) return "Se lleva una promesa. Si no la cumples, volverá con otra cara.";
-  if (option.tone === "frío" || option.tone === "duro") return "La frase corta la conversación, pero puede dejar marca.";
-  if (option.tone === "arriesgado") return "Acepta la decisión, aunque nadie puede garantizar que salga bien.";
-  if (option.tone === "protector" || option.tone === "prudente") return "Transmitirás calma, aunque quizá pierdas algo inmediato.";
-  return "La persona sale con una respuesta clara, no con un trámite.";
+  if (option.memory) return "Se lleva una promesa. Si no la cumples, volverÃ¡ con otra cara.";
+  if (option.tone === "frÃ­o" || option.tone === "duro") return "La frase corta la conversaciÃ³n, pero puede dejar marca.";
+  if (option.tone === "arriesgado") return "Acepta la decisiÃ³n, aunque nadie puede garantizar que salga bien.";
+  if (option.tone === "protector" || option.tone === "prudente") return "TransmitirÃ¡s calma, aunque quizÃ¡ pierdas algo inmediato.";
+  return "La persona sale con una respuesta clara, no con un trÃ¡mite.";
 }
 
 function actionLabelFor(actor, actionLabel) {
-  if (actor.id === "sportingDirector") return "💼 Déjame hablar con su representante.";
-  if (actor.id === "doctor" || actor.id === "fitnessCoach") return "🧊 Prefiero proteger al jugador.";
-  if (actor.id === "assistantCoach") return "📋 Vamos a prepararlo ahora.";
-  if (actor.id === "analyst") return "📊 Enséñame ese informe.";
-  if (actor.id === "captain") return "🤝 Hablaré con el grupo.";
-  if (actor.id === "pressOfficer") return "🎙️ Vamos a cuidar el mensaje.";
-  if (actor.id === "president") return "🏛️ Lo hablamos con calma, pero hoy.";
-  if (actor.id === "academyChief") return "🌱 Quiero ver ese caso contigo.";
-  if (actor.id === "player") return "🤝 Cuenta con una respuesta clara.";
-  return actionLabel ? `📋 ${actionLabel}` : "📋 Voy a estudiarlo ahora.";
+  if (actor.id === "sportingDirector") return "ðŸ’¼ DÃ©jame hablar con su representante.";
+  if (actor.id === "doctor" || actor.id === "fitnessCoach") return "ðŸ§Š Prefiero proteger al jugador.";
+  if (actor.id === "assistantCoach") return "ðŸ“‹ Vamos a prepararlo ahora.";
+  if (actor.id === "captain") return "ðŸ¤ HablarÃ© con el grupo.";
+  if (actor.id === "pressOfficer") return "ðŸŽ™ï¸ Vamos a cuidar el mensaje.";
+  if (actor.id === "president") return "ðŸ›ï¸ Lo hablamos con calma, pero hoy.";
+  if (actor.id === "academyChief") return "ðŸŒ± Quiero ver ese caso contigo.";
+  if (actor.id === "player") return "ðŸ¤ Cuenta con una respuesta clara.";
+  return actionLabel ? `ðŸ“‹ ${actionLabel}` : "ðŸ“‹ Voy a estudiarlo ahora.";
 }
 
 function reactionFor(actor, option = {}) {
   if (option.type === "postpone") {
     if (actor.id === "player") return `${actor.name} aprieta los labios y asiente sin discutir. No se va enfadado del todo, pero tampoco tranquilo.`;
     if (actor.id === "president") return "El presidente guarda silencio un segundo. Acepta esperar, aunque su mirada deja claro que no por mucho tiempo.";
-    return `${actor.name} asiente despacio. La conversación queda aparcada, pero no cerrada.`;
+    return `${actor.name} asiente despacio. La conversaciÃ³n queda aparcada, pero no cerrada.`;
   }
   if (option.type === "delegate") {
-    return `${actor.name} toma nota y baja un poco la tensión. Sale del despacho con una tarea clara, aunque espera que esta vez haya seguimiento.`;
+    return `${actor.name} toma nota y baja un poco la tensiÃ³n. Sale del despacho con una tarea clara, aunque espera que esta vez haya seguimiento.`;
   }
-  if (option.id === "take_risk") return "La respuesta deja el aire más pesado. Nadie discute, pero todos entienden que la decisión tiene precio.";
-  if (option.id === "final_decision" || option.id === "not_for_sale") return `${actor.name} acepta la firmeza. No parece convencido del todo, pero entiende que no habrá debate ahora.`;
-  if (actor.id === "doctor") return "El médico asiente, todavía prudente. No sonríe, pero parece aliviado de que no lo hayas tomado como una simple nota.";
-  if (actor.id === "sportingDirector") return "El director deportivo cierra la carpeta y asiente. Ya está pensando en la llamada siguiente.";
-  if (actor.id === "captain") return "El capitán respira hondo. Agradece que le hayas hablado claro; eso, en el vestuario, pesa.";
-  if (actor.id === "pressOfficer") return "La responsable de prensa desbloquea el móvil y empieza a ordenar el mensaje antes de salir.";
-  if (actor.id === "analyst") return "El analista asiente sin alargar la reunión. Sale con la libreta abierta, ya pensando en el siguiente patrón.";
-  if (actor.id === "player") return `${actor.name} levanta la mirada. No se marcha con todas las respuestas, pero sí con la sensación de haber sido escuchado.`;
-  return `${actor.name} asiente. "De acuerdo, míster. Me pongo con ello y te mantengo informado."`;
+  if (option.id === "take_risk") return "La respuesta deja el aire mÃ¡s pesado. Nadie discute, pero todos entienden que la decisiÃ³n tiene precio.";
+  if (option.id === "final_decision" || option.id === "not_for_sale") return `${actor.name} acepta la firmeza. No parece convencido del todo, pero entiende que no habrÃ¡ debate ahora.`;
+  if (actor.id === "doctor") return "El mÃ©dico asiente, todavÃ­a prudente. No sonrÃ­e, pero parece aliviado de que no lo hayas tomado como una simple nota.";
+  if (actor.id === "sportingDirector") return "El director deportivo cierra la carpeta y asiente. Ya estÃ¡ pensando en la llamada siguiente.";
+  if (actor.id === "captain") return "El capitÃ¡n respira hondo. Agradece que le hayas hablado claro; eso, en el vestuario, pesa.";
+  if (actor.id === "pressOfficer") return "La responsable de prensa desbloquea el mÃ³vil y empieza a ordenar el mensaje antes de salir.";
+  if (actor.id === "player") return `${actor.name} levanta la mirada. No se marcha con todas las respuestas, pero sÃ­ con la sensaciÃ³n de haber sido escuchado.`;
+  return `${actor.name} asiente. "De acuerdo, mÃ­ster. Me pongo con ello y te mantengo informado."`;
 }
 
 function expectationDelay(scene, decision, game) {
@@ -509,7 +487,7 @@ function expectationCopy(scene) {
   const subject = scene?.original?.normalizedIssue?.subjectName ?? scene?.original?.attention?.playerName ?? scene?.actor?.name;
   if (scene?.storyKey?.startsWith("contract_renewal:")) {
     return {
-      reminder: `${actorName} dijo que volvería cuando tuviera novedades${subject ? ` de ${subject}` : ""}.`,
+      reminder: `${actorName} dijo que volverÃ­a cuando tuviera novedades${subject ? ` de ${subject}` : ""}.`,
       returnTitle: `${subject ?? "El jugador"} tiene novedades contractuales`,
       returnSummary: "He vuelto a hablar con su entorno. Ya hay movimiento y necesitamos decidir el siguiente paso.",
       expectedOutcome: "Revisar la novedad contractual.",
@@ -519,9 +497,9 @@ function expectationCopy(scene) {
   }
   if (scene?.storyKey?.startsWith("medical:")) {
     return {
-      reminder: "El médico quería observar la evolución antes de tomar una decisión definitiva.",
-      returnTitle: "El médico trae novedades",
-      returnSummary: "Ya tenemos una lectura más clara de la evolución física. Conviene revisarla antes de forzar.",
+      reminder: "El mÃ©dico querÃ­a observar la evoluciÃ³n antes de tomar una decisiÃ³n definitiva.",
+      returnTitle: "El mÃ©dico trae novedades",
+      returnSummary: "Ya tenemos una lectura mÃ¡s clara de la evoluciÃ³n fÃ­sica. Conviene revisarla antes de forzar.",
       expectedOutcome: "Valorar el regreso o el descanso.",
       priority: "important",
       origin: "medical",
@@ -529,18 +507,18 @@ function expectationCopy(scene) {
   }
   if (scene?.storyKey?.startsWith("youth:")) {
     return {
-      reminder: "El jefe de cantera quedó en seguir observando al chico.",
+      reminder: "El jefe de cantera quedÃ³ en seguir observando al chico.",
       returnTitle: "La cantera vuelve con un informe",
-      returnSummary: "He seguido mirando su evolución. Creo que ya podemos hablar con más criterio.",
+      returnSummary: "He seguido mirando su evoluciÃ³n. Creo que ya podemos hablar con mÃ¡s criterio.",
       expectedOutcome: "Decidir el siguiente paso del canterano.",
       priority: "normal",
       origin: "youth",
     };
   }
   return {
-    reminder: `${actorName} dejó este asunto en seguimiento.`,
-    returnTitle: "Hay novedades sobre una conversación pendiente",
-    returnSummary: "He revisado lo que hablamos. No quería dejarlo parado sin volver a pasar por tu despacho.",
+    reminder: `${actorName} dejÃ³ este asunto en seguimiento.`,
+    returnTitle: "Hay novedades sobre una conversaciÃ³n pendiente",
+    returnSummary: "He revisado lo que hablamos. No querÃ­a dejarlo parado sin volver a pasar por tu despacho.",
     expectedOutcome: "Escuchar la novedad y decidir.",
     priority: "normal",
     origin: scene?.source ?? "legacyDirector",
@@ -565,7 +543,7 @@ export function buildSceneExpectation(scene, decision, game) {
     subjectName: scene.original?.normalizedIssue?.subjectName ?? scene.original?.attention?.playerName ?? null,
     nextAvailableAt: { season, matchday },
     responseType: scene.original?.normalizedIssue?.responseType ?? null,
-    promiseLine: "Volveré cuando tenga novedades.",
+    promiseLine: "VolverÃ© cuando tenga novedades.",
   };
 }
 
@@ -780,14 +758,14 @@ function sceneOptions(item, actor) {
     },
     {
       id: "postpone",
-      label: "⏳ Necesito un poco más de tiempo.",
+      label: "â³ Necesito un poco mÃ¡s de tiempo.",
       tone: "prudente",
       type: "postpone",
-      consequence: "Ganas margen, pero el asunto puede volver con más tensión.",
+      consequence: "Ganas margen, pero el asunto puede volver con mÃ¡s tensiÃ³n.",
     },
     {
       id: "delegate",
-      label: "🤝 Tú llévalo de cerca y me avisas.",
+      label: "ðŸ¤ TÃº llÃ©valo de cerca y me avisas.",
       tone: "delegar",
       type: "delegate",
       navigateTo: "dashboard",
@@ -814,14 +792,14 @@ export function buildSceneFromDirectorItem(item, game) {
     relatedItemIds: item.related ?? [item.id],
     source: item.source,
     actor,
-    title: issue.title ?? item.attention?.title ?? "Una conversación en el despacho",
+    title: issue.title ?? item.attention?.title ?? "Una conversaciÃ³n en el despacho",
     location: "Despacho del entrenador",
     time: timeOfDay(matchday),
     officeDetail: officeDetail(matchday),
     emotionalState: emotionalLabel(issue.emotionalState ?? issue.priority ?? item.priority),
     message: sceneMessage(item, actor, game),
-    consequenceIfIgnored: naturalFallback(issue.consequenceIfIgnored ?? item.consequenceIfIgnored ?? item.consequence ?? "La situación puede volver más adelante con otro tono."),
-    expectedOutcome: naturalFallback(issue.goal ?? issue.expectedOutcome ?? "Que el entrenador marque una línea clara."),
+    consequenceIfIgnored: naturalFallback(issue.consequenceIfIgnored ?? item.consequenceIfIgnored ?? item.consequence ?? "La situaciÃ³n puede volver mÃ¡s adelante con otro tono."),
+    expectedOutcome: naturalFallback(issue.goal ?? issue.expectedOutcome ?? "Que el entrenador marque una lÃ­nea clara."),
     options: sceneOptions(item, actor),
     original: item,
   };
