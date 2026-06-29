@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { Component, useState, useEffect, useCallback, useRef } from "react";
 import { resolvePlayerPhoto } from "./data/dataLoader.js";
 import NewsScreen from "./components/NewsScreen.jsx";
 import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
@@ -2145,6 +2145,45 @@ function ScreenWrapper({ children, animKey }) {
       {children}
     </div>
   );
+}
+
+function SummaryFallbackScreen({ onContinue }) {
+  return (
+    <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:18 }}>
+      <div style={{ width:"100%", maxWidth:420, background:"#161a24", border:"1px solid rgba(239,68,68,.25)", borderRadius:14, padding:18, textAlign:"center" }}>
+        <div style={{ fontSize:12, color:"#ef4444", fontWeight:900, letterSpacing:".6px", marginBottom:8 }}>RESUMEN NO DISPONIBLE</div>
+        <div style={{ fontSize:18, color:"#f3f4f6", fontWeight:900, marginBottom:8 }}>El partido se ha cerrado, pero no se pudo preparar la pantalla de resumen.</div>
+        <div style={{ fontSize:12, color:"#9aa0b4", lineHeight:1.5, marginBottom:14 }}>
+          Puedes volver al despacho y continuar la partida. El resultado ya no deberia quedar atrapado como partido recuperable.
+        </div>
+        <button onClick={onContinue} className="btn-gold" style={{ width:"100%", padding:13, borderRadius:10, fontSize:14 }}>
+          Volver al despacho
+        </button>
+      </div>
+    </div>
+  );
+}
+
+class SummaryErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError:false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError:true };
+  }
+  componentDidCatch(error) {
+    console.error("[LegacyMatch] Error renderizando resumen postpartido", error);
+  }
+  componentDidUpdate(prevProps) {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError:false });
+    }
+  }
+  render() {
+    if (this.state.hasError) return <SummaryFallbackScreen onContinue={this.props.onRecover} />;
+    return this.props.children;
+  }
 }
 
 function MainMenu({ onNew, onSaves, onCloud, savesCount }) {
@@ -6831,7 +6870,34 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     let summaryData = null;
     setGame(prev => {
       const fixture  = prev.fixtures.find(f => f.id === fixtureId);
-      if (!fixture || fixture.played) return prev;
+      if (!fixture) {
+        setTimeout(() => setScreen("dashboard"), 0);
+        return prev;
+      }
+      if (fixture.played) {
+        const isHome = fixture.homeTeamId === prev.teamId;
+        const oppTeamId = isHome ? fixture.awayTeamId : fixture.homeTeamId;
+        const recoveredSummary = {
+          userTeam: TEAMS.find(t => t.id === prev.teamId),
+          oppTeam: TEAMS.find(t => t.id === oppTeamId),
+          isHome,
+          userGoals: isHome ? fixture.homeGoals ?? homeGoals : fixture.awayGoals ?? awayGoals,
+          oppGoals: isHome ? fixture.awayGoals ?? awayGoals : fixture.homeGoals ?? homeGoals,
+          matchday: fixture.matchday,
+          events: fixture.events ?? events ?? [],
+          players: prev.players ?? [],
+          opponentPlayers: participation?.opponentPlayers ?? REAL_SQUADS[oppTeamId] ?? [],
+          participation: fixture.participation ?? participation ?? {},
+          jornadaResults: (prev.fixtures ?? []).filter(f => f.matchday === fixture.matchday),
+          newStandings: prev.standings ?? [],
+          teamId: prev.teamId,
+          income: null,
+        };
+        if (participation?.matchId) clearActiveMatchSession(participation.matchId);
+        setRecoverableMatch(null);
+        setTimeout(() => { setMatchSummary(recoveredSummary); setScreen("summary"); }, 0);
+        return prev;
+      }
       const newFixtures = prev.fixtures.map(f =>
         f.id === fixtureId ? { ...f, played: true, homeGoals, awayGoals, events, participation } : f
       );
@@ -7071,17 +7137,12 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         return finalSeasonGame;
       }
 
-      return newGame;
-    });
-    setTimeout(() => {
-      if (summaryData?._seasonEnd) return; // season end handled separately
-      if (summaryData) {
+      setTimeout(() => {
         setMatchSummary(summaryData);
         setScreen("summary");
-      } else {
-        setScreen("dashboard");
-      }
-    }, 0);
+      }, 0);
+      return newGame;
+    });
   };
 
   const handleNewSeason = () => {
@@ -7801,7 +7862,11 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "conversation" && game && <ConversationScreen conversation={selectedConversation} onRespond={handleConversationResponse} onBack={()=>setScreen("dashboard")} />}
           {screen === "scene" && game && <InteractiveSceneScreen scene={selectedScene} onChoose={handleSceneDecision} onBack={()=>setScreen("dashboard")} />}
           {screen === "match"     && game && <MatchScreen game={game} saveId={activeSaveId} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} onAbandonMatch={()=>{setRecoverableMatch(null);setScreen("dashboard");}} />}
-          {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
+          {screen === "summary"   && (
+            <SummaryErrorBoundary resetKey={`${matchSummary?.matchday ?? "empty"}:${matchSummary?.userGoals ?? "-"}:${matchSummary?.oppGoals ?? "-"}`} onRecover={() => setScreen("dashboard")}>
+              {matchSummary ? <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} /> : <SummaryFallbackScreen onContinue={() => setScreen("dashboard")} />}
+            </SummaryErrorBoundary>
+          )}
           {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
           {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"preseason-start",{lineup,formation,subs});return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}
         </ScreenWrapper>
