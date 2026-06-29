@@ -10,6 +10,7 @@ import ScoutingScreen from "./components/ScoutingScreen.jsx";
 import TeamCrest from "./components/TeamCrest.jsx";
 import { MATCH_FORMATIONS, buildMatchdaySquad, buildStartingEleven, calculateMatchRatings, chooseOpponentFormation, eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
 import { buildLiveMatchState } from "./match/liveMatchEngine.js";
+import { createGoalEvent, selectAssistant, selectCardedPlayer, selectGoalScorer } from "./match/statisticalEngine.js";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
@@ -45,6 +46,7 @@ import { ensureLegacyDirectorState, getLegacyDirectorExpectations, getLegacyDire
 import { buildLegacyDirectorEvents, dedupeAttentionItems, legacyDirectorEventsToAttentionItems } from "./legacyDirector/legacyDirectorEventSystem.js";
 import { buildSceneExpectation, buildSceneFromDirectorItem, ensureSceneState, recordSceneDecision } from "./scenes/sceneEngine.js";
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
+import { cleanConsequenceText, getMedicalAlerts, getPlayerSmartActions, sanitizeLineupSelection } from "./state/gameStateSelectors.js";
 
 const STARTERS_SLOTS = 11;
 const BENCH_SLOTS = 12;
@@ -852,39 +854,50 @@ function calcDefStrength(players, tactics = DEFAULT_TACTICS, trainingPlan = null
   return Math.max(40, defAvg * 0.6 + gkAvg * 0.4 + mod.defBonus + (trainingMod.defense ?? 0));
 }
 
-function simAIGame(homeTeam, awayTeam) {
+function poissonGoals(expected) {
+  const limit = Math.exp(-Math.max(0.15, expected));
+  let k = 0;
+  let product = 1;
+  do {
+    k++;
+    product *= Math.random();
+  } while (product > limit && k < 8);
+  return Math.max(0, k - 1);
+}
+
+function simAIGame(homeTeam, awayTeam, fixtures = []) {
   const hAvg = homeTeam.avg ?? TEAM_REAL_AVG[homeTeam.id];
   const aAvg = awayTeam.avg ?? TEAM_REAL_AVG[awayTeam.id];
-  const hStr = hAvg + 3 + (Math.random() * 10 - 5);
-  const aStr = aAvg +     (Math.random() * 10 - 5);
+  const hStr = hAvg + 3 + (Math.random() * 6 - 3);
+  const aStr = aAvg +     (Math.random() * 6 - 3);
   const diff = hStr - aStr;
-  const hGoals = Math.min(6, Math.max(0, Math.round(Math.random() * 2.5 + diff * 0.04)));
-  const aGoals = Math.min(6, Math.max(0, Math.round(Math.random() * 2.2 - diff * 0.04)));
+  const homeExpected = Math.max(0.35, Math.min(3.1, 1.42 + diff * 0.035 + (hAvg - 74) * 0.012));
+  const awayExpected = Math.max(0.25, Math.min(2.8, 1.12 - diff * 0.032 + (aAvg - 74) * 0.012));
+  const hGoals = Math.min(6, poissonGoals(homeExpected));
+  const aGoals = Math.min(6, poissonGoals(awayExpected));
 
-  // Generar eventos de gol con goleadores reales para que aparezcan en la clasificación de goleadores
+  // Generar eventos con perfiles realistas: finalizadores, extremos, llegadores y asistentes.
   const events = [];
   const homeSquad = REAL_SQUADS[homeTeam.id] ?? [];
   const awaySquad = REAL_SQUADS[awayTeam.id] ?? [];
-  const scorerWeight = p => p.group === "DEL" ? (p.attrs?.tiro??65)*1.2 : p.group === "MED" ? (p.attrs?.tiro??55)*.58 : p.group === "DEF" ? (p.attrs?.tiro??35)*.13 : 0;
-  const weightedPick = (squad,counts={}) => {
-    const candidates=squad.filter(p=>p.group!=="POR");
-    const weighted=candidates.map(player=>({player,weight:scorerWeight(player)/(1+(counts[player.id]??0)*.7)}));
-    let roll=Math.random()*weighted.reduce((sum,item)=>sum+item.weight,0);
-    return weighted.find(item=>(roll-=item.weight)<=0)?.player??candidates[0]??null;
-  };
-  const homeCounts={},awayCounts={};
 
   for (let i = 0; i < hGoals; i++) {
-    const scorer = weightedPick(homeSquad,homeCounts);if(scorer)homeCounts[scorer.id]=(homeCounts[scorer.id]??0)+1;
-    const assistant = pick(homeSquad.filter(p => p.id !== scorer?.id && p.group !== "POR"));
-    events.push({ minute: 1 + Math.floor(Math.random()*89), type: "GOAL", team: "home", playerId: scorer?.id, assistId: assistant?.id,
-      description: `Gol de ${scorer?.name ?? homeTeam.name}.` });
+    events.push(createGoalEvent({
+      minute: 1 + Math.floor(Math.random()*89),
+      team: "home",
+      squad: homeSquad,
+      teamName: homeTeam.name,
+      fixtures,
+    }));
   }
   for (let i = 0; i < aGoals; i++) {
-    const scorer = weightedPick(awaySquad,awayCounts);if(scorer)awayCounts[scorer.id]=(awayCounts[scorer.id]??0)+1;
-    const assistant = pick(awaySquad.filter(p => p.id !== scorer?.id && p.group !== "POR"));
-    events.push({ minute: 1 + Math.floor(Math.random()*89), type: "GOAL", team: "away", playerId: scorer?.id, assistId: assistant?.id,
-      description: `Gol de ${scorer?.name ?? awayTeam.name}.` });
+    events.push(createGoalEvent({
+      minute: 1 + Math.floor(Math.random()*89),
+      team: "away",
+      squad: awaySquad,
+      teamName: awayTeam.name,
+      fixtures,
+    }));
   }
 
   return { homeGoals: hGoals, awayGoals: aGoals, events };
@@ -975,8 +988,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   const oppMids      = oppSquad.filter(p => p.group === "MED");
   const oppGk        = oppSquad.find(p => p.group === "POR");
   const oppFieldPlayers = oppSquad.filter(p => p.group !== "POR");
-  const oppScorerPool = oppAttackers.length ? oppAttackers : (oppMids.length ? oppMids : oppSquad);
-  const pickOppScorer = () => oppScorerPool.length ? pick(oppScorerPool) : null;
+  const pickOppScorer = () => selectGoalScorer(oppSquad, { tactics:oppTactics, fixtures:medicalContext.game?.fixtures ?? [] }) ?? (oppAttackers.length ? pick(oppAttackers) : (oppMids.length ? pick(oppMids) : pick(oppSquad)));
   const addNarrativeEvent = (team, type, description, playerId = null) => {
     events.push({ minute:min(), type, team, playerId:playerId ?? undefined, description });
   };
@@ -1038,10 +1050,10 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
 
   // ── ATAQUE LOCAL ──
   if (Math.random() < intervalProbability(hChanceProb,intervalMinutes)) {
-    const scorer = pick(attackers.length ? attackers : allField);
+    const scorer = selectGoalScorer(players, { tactics, fixtures:medicalContext.game?.fixtures ?? [] }) ?? pick(attackers.length ? attackers : allField);
     if (Math.random() < hGoalConv) {
       const isPenalty = Math.random() < 0.09;
-      const assistant = isPenalty ? null : pick([...mids, ...attackers].filter(p => p?.id !== scorer?.id));
+      const assistant = isPenalty ? null : selectAssistant(players, scorer, { tactics, fixtures:medicalContext.game?.fixtures ?? [] });
       events.push({
         minute: min(), type: isPenalty ? "PENALTY" : "GOAL", team: "user", playerId: scorer?.id, assistId: assistant?.id,
         description: isPenalty
@@ -1067,7 +1079,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
     if (Math.random() < aGoalConv) {
       const oppScorer = pickOppScorer();
       const isPenalty = Math.random() < 0.09;
-      const assistant = isPenalty ? null : pick(oppSquad.filter(p => p.id !== oppScorer?.id && p.group !== "POR"));
+      const assistant = isPenalty ? null : selectAssistant(oppSquad, oppScorer, { tactics:oppTactics, fixtures:medicalContext.game?.fixtures ?? [] });
       events.push({
         minute: min(), type: isPenalty ? "PENALTY" : "GOAL", team: "opp", playerId: oppScorer?.id, assistId: assistant?.id,
         description: isPenalty
@@ -1113,7 +1125,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   // ── TARJETA AMARILLA LOCAL ──
   const yellowBaseHome = 0.16 + mod.yellowRisk + (tactics.presion === "alta" ? 0.05 : 0);
   if (Math.random() < intervalProbability(yellowBaseHome,intervalMinutes) && allField.length) {
-    const carded = pick(tactics.presion === "alta" ? (defs.length ? defs : allField) : allField);
+    const carded = selectCardedPlayer(tactics.presion === "alta" ? (defs.length ? defs : allField) : allField, { tactics }) ?? pick(allField);
     const yellow={
       minute: min(), type: "YELLOW", team: "user", playerId: carded?.id,
       playerName:carded?.name,
@@ -1129,7 +1141,7 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   // ── TARJETA AMARILLA VISITANTE ──
   const yellowBaseOpp = 0.15 + oppMod.yellowRisk + (oppTactics.presion === "alta" ? 0.05 : 0);
   if (Math.random() < intervalProbability(yellowBaseOpp,intervalMinutes)) {
-    const oppCarded = oppFieldPlayers.length ? pick(oppFieldPlayers) : null;
+    const oppCarded = selectCardedPlayer(oppFieldPlayers, { tactics:oppTactics }) ?? (oppFieldPlayers.length ? pick(oppFieldPlayers) : null);
     const yellow={
       minute: min(), type: "YELLOW", team: "opp", playerId: oppCarded?.id,
       playerName:oppCarded?.name,
@@ -1146,13 +1158,13 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
   if (Math.random() < intervalProbability(0.03,intervalMinutes)) {
     const userRed = Math.random() < 0.4;
     if (userRed && allField.length) {
-      const sent = pick(allField);
+      const sent = selectCardedPlayer(allField, { tactics:{...tactics, riesgo:"agresivo"} }) ?? pick(allField);
       events.push({
         minute: min(), type: "RED", team: "user", playerId: sent?.id,
         description: `🟥 ¡ROJA para ${sent?.name ?? "el local"}! El equipo se queda con diez.`,
       });
     } else {
-      const oppSent = oppFieldPlayers.length ? pick(oppFieldPlayers) : null;
+      const oppSent = selectCardedPlayer(oppFieldPlayers, { tactics:{...oppTactics, riesgo:"agresivo"} }) ?? (oppFieldPlayers.length ? pick(oppFieldPlayers) : null);
       events.push({
         minute: min(), type: "RED", team: "opp", playerId: oppSent?.id,
         description: `🟥 ¡ROJA para ${oppSent?.name ?? "el visitante"}! Entrada temeraria y el árbitro no duda.`,
@@ -2881,12 +2893,13 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
   const allPlayed = game.fixtures.every(f=>f.played);
   const latestNews = getDashboardNews(game.news??[],game,3);
   const urgentAttention = attentionItems.filter(item=>item.priority!=="info");
-  const medicalAlerts = players.map(player=>({player,risk:calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId,game}),status:getPhysicalStatus(player)})).filter(item=>item.player.injured||item.risk>50).sort((a,b)=>b.risk-a.risk).slice(0,3);
+  const allMedicalAlerts = getMedicalAlerts(game);
+  const medicalAlerts = allMedicalAlerts.slice(0,3);
   const clubPrestigeLevel = getPrestigeLevel(game.legacy?.clubPrestige??30);
   const managerPrestigeLevel = getPrestigeLevel(game.legacy?.manager?.prestige??10,true);
   const lockerSummary = getLockerRoomSummary(players);
   const fanSupport = Math.round(game.fanbase?.support ?? game.fanLove ?? 70);
-  const highLoadPlayers = players.filter(player=>(player.accumulatedFatigue??player.medical?.accumulatedFatigue??0)>=55||calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId,game})>=76);
+  const highLoadPlayers = allMedicalAlerts.map(item=>item.player);
   const nextOpponent = nextFixture ? getOpponent(nextFixture) : null;
   const nextOpponentStanding = nextOpponent ? [...game.standings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference||b.goalsFor-a.goalsFor).findIndex(row=>row.teamId===nextOpponent.id)+1 : null;
   const nextOpponentLast = nextOpponent ? game.fixtures.filter(f=>f.played&&(f.homeTeamId===nextOpponent.id||f.awayTeamId===nextOpponent.id)).slice(-5) : [];
@@ -2905,14 +2918,14 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
     lockerSummary.atmosphere==="tenso" && { icon:"⚠️", text:"El vestuario muestra señales de tensión y conviene intervenir." },
     lockerSummary.atmosphere==="positivo" && { icon:"🤝", text:"El vestuario mantiene un clima positivo alrededor del entrenador." },
     fanSupport<45 && { icon:"❤️", text:"La afición está perdiendo confianza y necesita una reacción." },
-    highLoadPlayers[0] && { icon:"🩺", text:`El cuerpo médico recomienda descanso para ${highLoadPlayers[0].name}.` },
+    allMedicalAlerts[0] && { icon:"🩺", text:`El cuerpo médico recomienda descanso para ${allMedicalAlerts[0].player.name}.` },
     latestNews[0] && { icon:"📰", text:latestNews[0].summary || latestNews[0].title },
-  ].filter(Boolean).slice(0,4);
+  ].filter(Boolean).map(item=>({ ...item, text:cleanConsequenceText(item.text) })).slice(0,4);
   const kpiCards = [
     { label:"Vestuario", value:lockerSummary.atmosphere==="tenso"?"Tenso":lockerSummary.atmosphere==="positivo"?"Positivo":"Estable", trend:lockerSummary.unhappy.length?`${lockerSummary.unhappy.length} jugador${lockerSummary.unhappy.length===1?"":"es"} incómodo${lockerSummary.unhappy.length===1?"":"s"}`:"Grupo unido", color:lockerSummary.atmosphere==="tenso"?"#ef4444":lockerSummary.atmosphere==="positivo"?"#22c55e":"#c9a84c", action:"lockerRoom" },
     { label:"Afición", value:`${fanSupport}%`, trend:fanSupport>=70?"Ilusionada":fanSupport>=50?"Exigente":"Preocupada", color:fanSupport>=70?"#22c55e":fanSupport>=50?"#f59e0b":"#ef4444", action:"fans" },
     { label:"Economía", value:fmtBudget(budgetLeft), trend:budgetLeft>0?"Margen para operar":"Sin margen de fichajes", color:budgetLeft>0?"#22c55e":"#ef4444", action:"finances" },
-    { label:"Carga física", value:highLoadPlayers.length?`${highLoadPlayers.length} alertas`:"Controlada", trend:avgFatigue>55?"Fatiga media elevada":"Plantilla recuperando bien", color:highLoadPlayers.length?"#f97316":"#22c55e", action:"medical" },
+    { label:"Carga física", value:allMedicalAlerts.length?`${allMedicalAlerts.length} alertas`:"Controlada", trend:avgFatigue>55?"Fatiga media elevada":"Plantilla recuperando bien", color:allMedicalAlerts.length?"#f97316":"#22c55e", action:"medical" },
   ];
   const objectiveItems = [
     { label:"Liga", value:`${pos}º · ${standing?.points??0} pts`, color:pos<=6?"#22c55e":pos>=17?"#ef4444":"#c9a84c" },
@@ -2923,7 +2936,7 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
   const priorityLabel = priority => priority==="urgent"||priority==="critical" ? "Urgente" : priority==="important" ? "Importante" : "Informativa";
   const priorityColor = priority => priority==="urgent"||priority==="critical" ? "#ef4444" : priority==="important" ? "#f59e0b" : "#22c55e";
   const priorityRank = priority => priority==="urgent"||priority==="critical" ? 0 : priority==="important" ? 1 : 2;
-  const waitingPeople = directorItems.map(item=>{
+  const waitingPeople = directorItems.filter(item=>item.priority!=="info").map(item=>{
     if(item.issueCard){const issue=item.issueCard;return{kind:"issue",id:issue.id,priority:issue.priority,person:{...(issue.owner??{}),emotionalState:item.issue?.emotionalState??item.conversation?.emotionalState??item.attention?.emotionalState??"neutral",line:issue.summary,action:issue.availableActions?.[0]??"Revisar",consequence:issue.consequenceIfIgnored,subjectName:issue.subjectName,title:issue.title},onClick:()=>onOpenScene?.(item)};}
     if(item.source==="clubLife")return{kind:"clubLife",id:item.rawId,priority:item.priority,person:{...clubLifePersona(item.issue),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
     if(item.source==="conversation")return{kind:"conversation",id:item.rawId,priority:item.priority,person:{...conversationPersona(item.conversation),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
@@ -3204,7 +3217,7 @@ function SquadScreen({ game, players, onOpenPlayer }) {
 }
 
 // ─── Helpers de energía/cansancio (documento UX) ─────────────────────────────
-function LockerRoomScreen({ game, onOpenPlayer, onGoContracts, onGoLineup, onGoTraining }) {
+function LockerRoomScreen({ game, onOpenPlayer, onGoContracts, onGoLineup, onGoTraining, onGoMedical }) {
   const [filter,setFilter]=useState("all");
   const squad=ensureSquadMorale(game.players??[],game.season);
   const summary=getLockerRoomSummary(squad);
@@ -3217,6 +3230,14 @@ function LockerRoomScreen({ game, onOpenPlayer, onGoContracts, onGoLineup, onGoT
   const atmosphereColor=summary.atmosphere==="positivo"?"#22c55e":summary.atmosphere==="tenso"?"#ef4444":"#c9a84c";
   const roleColor=role=>({Estrella:"#c9a84c",Titular:"#22c55e","Rotación":"#60a5fa",Promesa:"#84cc16",Suplente:"#9ca3af",Emergencia:"#6b7280"}[role]??"#9ca3af");
   const recentLockerMoments=squad.flatMap(player=>(player.moraleEvents??[]).map(event=>({player,event}))).sort((a,b)=>(b.event.matchday??0)-(a.event.matchday??0)).slice(0,3);
+  const runSmartAction = (action, player) => {
+    if (action.screen === "lineup") return onGoLineup?.();
+    if (action.screen === "contracts") return onGoContracts?.();
+    if (action.screen === "training") return onGoTraining?.();
+    if (action.screen === "medical") return onGoMedical?.();
+    return onOpenPlayer?.(player, game.teamId);
+  };
+
   return <div style={{flex:1,overflowY:"auto",padding:14}}>
     <div style={{background:"linear-gradient(135deg,rgba(201,168,76,.16),#161a24)",border:"1px solid rgba(201,168,76,.25)",borderRadius:13,padding:15,marginBottom:13}}><div style={{fontSize:10,color:"#c9a84c",fontWeight:900,letterSpacing:".8px"}}>VESTUARIO</div><div style={{fontSize:22,color:"#fff",fontWeight:900,marginTop:5,textTransform:"capitalize"}}>Ambiente {summary.atmosphere}</div><div style={{height:6,background:"#252a36",borderRadius:999,overflow:"hidden",marginTop:11}}><div style={{width:`${summary.avgMorale}%`,height:"100%",background:atmosphereColor}}/></div></div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:13}}>{[["MORAL",summary.avgMorale,"#22c55e"],["FELICIDAD",summary.avgHappiness,"#c9a84c"],["CONFIANZA",summary.avgTrust,"#60a5fa"]].map(([label,value,color])=><div key={label} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:10,padding:10}}><div style={{fontSize:8,color:"#6b7280",fontWeight:800}}>{label}</div><div style={{fontSize:21,color,fontWeight:900,marginTop:4}}>{value}</div></div>)}</div>
@@ -3224,7 +3245,27 @@ function LockerRoomScreen({ game, onOpenPlayer, onGoContracts, onGoLineup, onGoT
     <div style={{fontSize:10,color:"#6b7280",fontWeight:900,letterSpacing:".6px",marginBottom:8}}>LÍDERES DEL GRUPO</div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:14}}>{summary.leaders.map(player=><button key={player.id} onClick={()=>onOpenPlayer(player,game.teamId)} style={{background:"#161a24",border:"1px solid rgba(201,168,76,.18)",borderRadius:10,padding:10,textAlign:"left",cursor:"pointer"}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>⭐ {player.name}</div><div style={{fontSize:9,color:"#6b7280",marginTop:3}}>{player.personality?.profileLabel} · Liderazgo {player.personality?.traits?.leadership}</div></button>)}</div>
     <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:10}}>{[["all","Todos"],["concerns",`Preocupados (${summary.unhappy.length})`],["leaders","Líderes"],["young","Jóvenes"]].map(([id,label])=><button key={id} onClick={()=>setFilter(id)} style={{flex:"0 0 auto",background:filter===id?"#c9a84c":"#1e2330",color:filter===id?"#1a1200":"#8b92a3",border:"none",borderRadius:15,padding:"7px 10px",fontSize:10,fontWeight:900}}>{label}</button>)}</div>
-    <div style={{display:"flex",flexDirection:"column",gap:8}}>{filtered.map(player=>{const morale=getMoraleLevel(player.morale);const concern=(player.morale??70)<45||(player.happiness??70)<45||(player.managerTrust??70)<45;return <div key={player.id} style={{background:"#161a24",border:`1px solid ${concern?"rgba(249,115,22,.3)":"rgba(255,255,255,.06)"}`,borderRadius:11,padding:11}}><div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:36,height:36,borderRadius:9,background:`${morale.color}18`,color:morale.color,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900}}>{player.overall}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,color:"#e8eaf0",fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</div><div style={{fontSize:9,color:"#6b7280",marginTop:2}}>{player.personality?.profileLabel} · <span style={{color:roleColor(player.squadRole)}}>{player.squadRole}</span></div></div><button onClick={()=>onOpenPlayer(player,game.teamId)} style={{background:"rgba(201,168,76,.1)",border:"1px solid rgba(201,168,76,.2)",color:"#c9a84c",borderRadius:7,padding:"6px 8px",fontSize:10,fontWeight:800}}>Perfil</button></div><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,marginTop:9}}>{[["Moral",player.morale,morale.color],["Felicidad",player.happiness,(player.happiness??70)>=55?"#22c55e":"#f97316"],["Confianza",player.managerTrust,(player.managerTrust??70)>=55?"#60a5fa":"#ef4444"]].map(([label,value,color])=><div key={label} style={{background:"#0d0f14",borderRadius:7,padding:"6px 5px"}}><div style={{fontSize:7,color:"#6b7280",fontWeight:800}}>{label.toUpperCase()}</div><div style={{fontSize:13,color,fontWeight:900}}>{value}</div></div>)}</div>{player.moraleEvents?.[0]&&<div style={{fontSize:9,color:"#f59e0b",marginTop:8}}>Último acontecimiento: {player.moraleEvents[0].label}</div>}{concern&&<div style={{display:"flex",gap:6,marginTop:9}}><button onClick={onGoLineup} className="btn-gold" style={{flex:1,padding:8,fontSize:10}}>Dar minutos</button><button onClick={onGoContracts} style={{flex:1,background:"#1e2330",border:"1px solid rgba(255,255,255,.1)",color:"#e8eaf0",borderRadius:7,fontSize:10}}>Contrato</button><button onClick={onGoTraining} style={{flex:1,background:"#1e2330",border:"1px solid rgba(255,255,255,.1)",color:"#e8eaf0",borderRadius:7,fontSize:10}}>Carga</button></div>}</div>})}</div>
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>{filtered.map(player=>{
+      const morale=getMoraleLevel(player.morale);
+      const concern=(player.morale??70)<45||(player.happiness??70)<45||(player.managerTrust??70)<45||player.injured||player.suspended;
+      const smartActions=getPlayerSmartActions(player,game);
+      return <div key={player.id} style={{background:"#161a24",border:`1px solid ${concern?"rgba(249,115,22,.3)":"rgba(255,255,255,.06)"}`,borderRadius:11,padding:11}}>
+        <div style={{display:"flex",alignItems:"center",gap:9}}>
+          <div style={{width:36,height:36,borderRadius:9,background:`${morale.color}18`,color:morale.color,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900}}>{player.overall}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13,color:"#e8eaf0",fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</div>
+            <div style={{fontSize:9,color:"#6b7280",marginTop:2}}>{player.personality?.profileLabel} · <span style={{color:roleColor(player.squadRole)}}>{player.squadRole}</span></div>
+          </div>
+          <button onClick={()=>onOpenPlayer(player,game.teamId)} style={{background:"rgba(201,168,76,.1)",border:"1px solid rgba(201,168,76,.2)",color:"#c9a84c",borderRadius:7,padding:"6px 8px",fontSize:10,fontWeight:800}}>Perfil</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,marginTop:9}}>{[["Moral",player.morale,morale.color],["Felicidad",player.happiness,(player.happiness??70)>=55?"#22c55e":"#f97316"],["Confianza",player.managerTrust,(player.managerTrust??70)>=55?"#60a5fa":"#ef4444"]].map(([label,value,color])=><div key={label} style={{background:"#0d0f14",borderRadius:7,padding:"6px 5px"}}><div style={{fontSize:7,color:"#6b7280",fontWeight:800}}>{label.toUpperCase()}</div><div style={{fontSize:13,color,fontWeight:900}}>{value}</div></div>)}</div>
+        {player.moraleEvents?.[0]&&<div style={{fontSize:9,color:"#f59e0b",marginTop:8}}>Último acontecimiento: {player.moraleEvents[0].label}</div>}
+        {concern&&<div style={{marginTop:9}}>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{smartActions.map((action,index)=><button key={action.id} onClick={()=>runSmartAction(action,player)} className={index===0?"btn-gold":"btn-ghost"} style={{flex:"1 1 90px",padding:8,fontSize:10,borderRadius:7}}>{action.label}</button>)}</div>
+          <div style={{fontSize:9,color:"#8b92a3",lineHeight:1.35,marginTop:6}}>Motivo: {smartActions[0]?.reason}</div>
+        </div>}
+      </div>;
+    })}</div>
   </div>;
 }
 
@@ -3249,6 +3290,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   const [savingPreset, setSavingPreset] = useState(false);
   const [presetName, setPresetName] = useState("");
   const [presetIcon, setPresetIcon] = useState("🏠");
+  const [lineupNotice, setLineupNotice] = useState(null);
 
   const formations = {
     "4-3-3":   ["POR","LD","DFC","DFC","LI","MC","MCD","MC","ED","DC","EI"],
@@ -3522,13 +3564,15 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   };
 
   const loadPreset = (preset) => {
-    // Solo asignar jugadores del preset que sigan disponibles (no vendidos/lesionados/sancionados)
-    const validIds = new Set(available.map(p => p.id));
-    const restoredLineup = preset.lineup.map(id => (id && validIds.has(id)) ? id : null);
-    const restoredSubs = normalizeSlots(preset.subs ?? [], BENCH_SLOTS).map(id => (id && validIds.has(id)) ? id : null);
+    // Solo asignar jugadores del preset que sigan disponibles y explicar los huecos generados.
+    const restored = sanitizeLineupSelection(preset.lineup ?? [], preset.subs ?? [], players, { starters:STARTERS_SLOTS, bench:BENCH_SLOTS });
     setFormation(preset.formation);
-    setLineup(restoredLineup);
-    setSubs(restoredSubs);
+    setLineup(restored.lineup);
+    setSubs(restored.subs);
+    setLineupNotice(restored.removed.length ? {
+      title: "Alineación cargada con huecos",
+      detail: `No se han cargado: ${restored.removed.slice(0,4).map(item=>`${item.name} (${item.reason})`).join(", ")}${restored.removed.length>4 ? ` y ${restored.removed.length-4} más` : ""}.`,
+    } : null);
     setShowSavedLineups(false);
   };
 
@@ -3672,6 +3716,13 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
             💾 Guardar actual
           </button>
         </div>
+
+        {lineupNotice && (
+          <div style={{ margin:"0 12px 8px", background:"rgba(249,115,22,.10)", border:"1px solid rgba(249,115,22,.24)", borderRadius:8, padding:"8px 10px" }}>
+            <div style={{ color:"#fed7aa", fontSize:11, fontWeight:900 }}>{lineupNotice.title}</div>
+            <div style={{ color:"#c9ced8", fontSize:10, lineHeight:1.4, marginTop:3 }}>{lineupNotice.detail}</div>
+          </div>
+        )}
 
         {showSavedLineups && (
           <div style={{ padding:"0 12px 10px", display:"flex", flexDirection:"column", gap:6 }}>
@@ -4159,8 +4210,12 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
   const scorerMap = {};  // playerId → { goals, name, teamId, overall, rarity, pos }
   fixtures.filter(f => f.played && f.events?.length).forEach(f => {
     f.events.filter(e => (e.type==="GOAL"||e.type==="PENALTY") && e.playerId).forEach(e => {
-      // team:"home" → fixture.homeTeamId, team:"away" → fixture.awayTeamId (equipo en el momento del gol)
-      const scoringTeamIdAtTime = e.team === "home" ? f.homeTeamId : f.awayTeamId;
+      // Eventos antiguos usan home/away; Partido Vivo usa user/opp.
+      const scoringTeamIdAtTime =
+        e.team === "home" ? f.homeTeamId :
+        e.team === "away" ? f.awayTeamId :
+        e.team === "user" ? teamId :
+        f.homeTeamId === teamId ? f.awayTeamId : f.homeTeamId;
       if (!scorerMap[e.playerId]) {
         // Nombre: buscar primero en la plantilla del usuario (datos en vivo), luego en la plantilla de cuando marcó
         const pl = players?.find(p => p.id===e.playerId)
@@ -6512,7 +6567,6 @@ export default function App({ externalData }) {
         let loadedSubs = emptyBench();
         if (parsed._lineup) {
           loadedLineup = normalizeSlots(parsed._lineup, STARTERS_SLOTS);
-          setLineup(loadedLineup);
           delete parsed._lineup;
         }
         if (parsed._formation) {
@@ -6522,9 +6576,13 @@ export default function App({ externalData }) {
         }
         if (parsed._subs) {
           loadedSubs = normalizeSlots(parsed._subs, BENCH_SLOTS);
-          setSubs(loadedSubs);
           delete parsed._subs;
         }
+        const cleanLoadedSelection = sanitizeLineupSelection(loadedLineup, loadedSubs, parsed.players, { starters:STARTERS_SLOTS, bench:BENCH_SLOTS });
+        loadedLineup = cleanLoadedSelection.lineup;
+        loadedSubs = cleanLoadedSelection.subs;
+        setLineup(cleanLoadedSelection.lineup);
+        setSubs(cleanLoadedSelection.subs);
         // Reaplicar fichajes pasados: quitar de REAL_SQUADS los jugadores ya comprados
         // de su equipo de origen (REAL_SQUADS es estático y se resetea al recargar la página)
         (parsed.transfers ?? []).forEach(t => {
@@ -6774,7 +6832,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         if (f.matchday === matchday && !f.played) {
           const ht = TEAMS.find(t => t.id === f.homeTeamId);
           const at = TEAMS.find(t => t.id === f.awayTeamId);
-          const res = simAIGame(ht, at);
+          const res = simAIGame(ht, at, finalFixtures);
           applyAiPhysicalAfterMatch(f.homeTeamId, chooseOpponentFormation(f.homeTeamId));
           applyAiPhysicalAfterMatch(f.awayTeamId, chooseOpponentFormation(f.awayTeamId));
           return { ...f, played: true, homeGoals: res.homeGoals, awayGoals: res.awayGoals, events: res.events ?? [] };
@@ -7706,7 +7764,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} />}
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
           {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
-          {screen === "lockerRoom" && game && <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} />}
+          {screen === "lockerRoom" && game && <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />}
           {screen === "fans" && game && <FanbaseScreen game={ensureFanbaseState(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} />}
           {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
           {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}

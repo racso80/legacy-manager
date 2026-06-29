@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { calculateInjuryRisk, getAccumulatedLoad, getLoadLevel, getPhysicalStatus, getRiskLevel } from "../medical/medicalEngine.js";
+import { getLoadLevel, getRiskLevel } from "../medical/medicalEngine.js";
+import { getMedicalAlerts } from "../state/gameStateSelectors.js";
 import { SwipeTabs } from "./SwipeNavigation.jsx";
 
 function RiskBar({ risk }) {
@@ -9,12 +10,13 @@ function RiskBar({ risk }) {
 
 export default function MedicalCenterScreen({ game, onOpenPlayer }) {
   const [tab,setTab]=useState("patients");
-  const assessed = game.players.map(player => {
-    const load = getAccumulatedLoad(player);
-    return { player, load, loadLevel:getLoadLevel(load), energy:Math.max(0,Math.round(100-(player.fatigue??0))), risk:calculateInjuryRisk(player,{fixtures:game.fixtures,teamId:game.teamId,game}), status:getPhysicalStatus(player) };
-  }).sort((a,b)=>b.risk-a.risk||b.load-a.load);
-  const patients = assessed.filter(item => ["injured","recovery","limited"].includes(item.status.id));
-  const warnings = assessed.filter(item => !["injured","recovery","limited"].includes(item.status.id) && item.risk > 35).slice(0,5);
+  const assessed = getMedicalAlerts(game, { riskThreshold:35, loadThreshold:55 }).map(item => ({
+    ...item,
+    loadLevel:getLoadLevel(item.load),
+    energy:item.state.energy,
+  }));
+  const patients = assessed.filter(item => item.state.isInjured || item.state.isRecovering);
+  const warnings = assessed.filter(item => !(item.state.isInjured || item.state.isRecovering)).slice(0,5);
 
   const tabs=[["patients",`🏥 Pacientes (${patients.length})`],["prevention",`🛡 Prevención (${warnings.length})`]];
   return <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
