@@ -13,10 +13,62 @@ const pick=(random,list)=>list[Math.floor(random()*list.length)];
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 
 export function getTalentCategory(potential){
-  if(potential>=92)return{id:"historic",icon:"👑",label:"Generación histórica",color:"#f59e0b"};
-  if(potential>=86)return{id:"elite",icon:"💎",label:"Gran talento",color:"#a78bfa"};
-  if(potential>=78)return{id:"prospect",icon:"⭐",label:"Promesa",color:"#c9a84c"};
-  return{id:"project",icon:"🌱",label:"Proyecto",color:"#22c55e"};
+  if(potential>=92)return{id:"historic",icon:"👑",label:"Talento generacional",color:"#f59e0b"};
+  if(potential>=86)return{id:"elite",icon:"💎",label:"Gran promesa",color:"#a78bfa"};
+  if(potential>=78)return{id:"prospect",icon:"⭐",label:"Proyecto interesante",color:"#c9a84c"};
+  return{id:"project",icon:"🌱",label:"Necesita tiempo",color:"#22c55e"};
+}
+
+export function getYouthProjection(player){
+  const room=(player.potential??player.overall)-player.overall;
+  const age=player.age??17;
+  const trend=player.academyData?.trend??"stable";
+  if((player.potential??0)>=92)return{id:"generational",icon:"👑",label:"Talento generacional",color:"#f59e0b"};
+  if((player.potential??0)>=86&&room>=10)return{id:"big_promise",icon:"💎",label:"Gran promesa",color:"#a78bfa"};
+  if(age<=17&&room>=12)return{id:"needs_time",icon:"⏳",label:"Necesita tiempo",color:"#60a5fa"};
+  if(age>=18&&room>=8&&player.overall<68)return{id:"loan",icon:"🧳",label:"Debe salir cedido",color:"#38bdf8"};
+  if(room<=2&&player.overall<66)return{id:"no_future",icon:"⚪",label:"Sin futuro claro",color:"#8b92a3"};
+  if(trend==="rising")return{id:"rising",icon:"📈",label:"En crecimiento",color:"#22c55e"};
+  if(trend==="stalled")return{id:"stalled",icon:"⚠️",label:"Estancado",color:"#f59e0b"};
+  return{id:"project",icon:"🌱",label:"Proyecto interesante",color:"#c9a84c"};
+}
+
+function youthNote(kind, text, season, matchday){
+  return { kind, text, season:String(season??"2025"), matchday:matchday??1, createdAt:Date.now() };
+}
+
+export function normalizeYouthProspect(player, game = {}){
+  const joinedSeason=String(player.academyData?.joinedSeason??game.season??"2025");
+  const joinedMatchday=player.academyData?.joinedMatchday??game.matchday??1;
+  const initialOverall=player.academyData?.initialOverall??player.overall;
+  const initialPotential=player.academyData?.initialPotential??player.potential;
+  const projection=getYouthProjection(player);
+  const category=getTalentCategory(player.potential);
+  const history=player.academyData?.developmentHistory?.length ? player.academyData.developmentHistory : [{
+    season:joinedSeason,
+    matchday:joinedMatchday,
+    overall:player.overall,
+    potential:player.potential,
+    note:"Llegó a la cantera.",
+  }];
+  return {
+    ...player,
+    academyData:{
+      ...(player.academyData??{}),
+      joinedSeason,
+      joinedMatchday,
+      initialOverall,
+      initialPotential,
+      category:category.id,
+      projection:projection.id,
+      projectionLabel:projection.label,
+      trend:player.academyData?.trend??"stable",
+      developmentNotes:player.academyData?.developmentNotes??[],
+      developmentHistory:history,
+      loanPlan:player.academyData?.loanPlan??null,
+      mentorPlan:player.academyData?.mentorPlan??null,
+    },
+  };
 }
 
 function identity(random,team){
@@ -50,18 +102,89 @@ export function generateYouthIntake(team,season,clubPrestige=30){
     const potential=clamp(overall+potentialBoost+Math.floor(random()*7),overall+7,95);
     const category=getTalentCategory(potential);
     const id=`youth_${team?.id}_${season}_${index}_${hash(identityData.name).toString(36).slice(0,4)}`;
-    return{id,...identityData,pos,group,age,overall,potential,rarity:overall>=65?"SILVER":"BRONZE",fatigue:8+Math.floor(random()*15),morale:68+Math.floor(random()*23),salary:2,injured:false,injuryGames:0,suspended:false,suspGames:0,yellowCards:0,attrs:attributes(overall,pos,group,random),academyStatus:"academy",isYouth:true,academyData:{joinedSeason:String(season),joinedMatchday:1,category:category.id,region:identityData.region,discoveredBy:"Jefe de cantera",debutSeason:null,debutMatchday:null,firstGoalMatchday:null}};
+    return normalizeYouthProspect({id,...identityData,pos,group,age,overall,potential,rarity:overall>=65?"SILVER":"BRONZE",fatigue:8+Math.floor(random()*15),morale:68+Math.floor(random()*23),salary:2,injured:false,injuryGames:0,suspended:false,suspGames:0,yellowCards:0,attrs:attributes(overall,pos,group,random),academyStatus:"academy",isYouth:true,academyData:{joinedSeason:String(season),joinedMatchday:1,category:category.id,region:identityData.region,discoveredBy:"Jefe de cantera",debutSeason:null,debutMatchday:null,firstGoalMatchday:null,initialOverall:overall,initialPotential:potential}}, {season, matchday:1});
   });
   const best=[...players].sort((a,b)=>b.potential-a.potential)[0];
-  if(best&&best.potential<80){best.potential=80+(hash(`${team?.id}:${season}:standout`)%5);best.academyData={...best.academyData,category:getTalentCategory(best.potential).id};}
+  if(best&&best.potential<80){
+    best.potential=80+(hash(`${team?.id}:${season}:standout`)%5);
+    best.academyData={...best.academyData,initialPotential:best.potential,category:getTalentCategory(best.potential).id,developmentHistory:[{season:String(season),matchday:1,overall:best.overall,potential:best.potential,note:"Llegó a la cantera."}]};
+  }
   return players;
 }
 
 export function ensureYouthState(game,team){
   const youth=game.youth??{players:[],promotions:[],sales:[],annualReports:[],historical:[],generatedSeasons:[]};
-  if(youth.generatedSeasons.includes(String(game.season)))return{...game,youth};
+  const normalizedYouth={...youth,players:(youth.players??[]).map(player=>normalizeYouthProspect(player,game))};
+  if(normalizedYouth.generatedSeasons.includes(String(game.season)))return{...game,youth:normalizedYouth};
   const intake=generateYouthIntake(team,game.season,game.legacy?.clubPrestige??30);
-  return{...game,youth:{...youth,players:[...youth.players,...intake],generatedSeasons:[...youth.generatedSeasons,String(game.season)],lastIntake:intake.map(player=>player.id)}};
+  return{...game,youth:{...normalizedYouth,players:[...normalizedYouth.players,...intake],generatedSeasons:[...normalizedYouth.generatedSeasons,String(game.season)],lastIntake:intake.map(player=>player.id)}};
+}
+
+export function applyYouthDevelopmentCycle(players = [], game = {}, report = {}){
+  const season=String(game.season??"2025");
+  const matchday=game.matchday??1;
+  const changesByPlayer=Object.fromEntries((report.changes??[]).map(item=>[item.playerId,item]));
+  const stories=[];
+  const evolved=players.map(original=>{
+    const player=normalizeYouthProspect(original,game);
+    const change=changesByPlayer[player.id];
+    const progress=(change?.progress??[])[0]?.value??0;
+    const improved=Boolean(change?.changes?.some(item=>item.delta>0));
+    const seed=hash(`${player.id}:${season}:${matchday}:youth-evolution`);
+    const room=(player.potential??player.overall)-player.overall;
+    const morale=player.morale??70;
+    const fatigue=player.fatigue??15;
+    const personalityId=change?.personalityId??player.personality?.profileId??player.personality?.id;
+    let score=0;
+    if(improved)score+=4;
+    if(progress>=65)score+=2;
+    if((game.trainingPlan?.weeklyFocus??"")==="youth")score+=2;
+    if(["professional","hardWorker","insecureYoung"].includes(personalityId))score+=1;
+    if(morale>=75)score+=1;
+    if(fatigue>=55||player.injured||["injured","recovery"].includes(player.medical?.phase))score-=3;
+    if(progress<18&&!improved)score-=2;
+    if(player.age>=18&&room>=8&&player.overall<68)score-=1;
+
+    let potentialDelta=0;
+    if(score>=6 && seed%100<42)potentialDelta=1;
+    if(score<=-3 && seed%100<38)potentialDelta=-1;
+    const nextPotential=clamp((player.potential??player.overall)+potentialDelta,player.overall,96);
+    const trend=potentialDelta>0||improved?"rising":score<=-3?"stalled":"stable";
+    const notes=[...(player.academyData?.developmentNotes??[])];
+    if(potentialDelta>0)notes.unshift(youthNote("potential_up","El cuerpo técnico cree que su techo puede ser más alto de lo previsto.",season,matchday));
+    if(potentialDelta<0)notes.unshift(youthNote("potential_down","Su evolución se ha frenado y el potencial estimado se ajusta a la baja.",season,matchday));
+    if(improved)notes.unshift(youthNote("training","Ha respondido bien al trabajo semanal y suma una mejora visible.",season,matchday));
+    if(score<=-3&&!potentialDelta)notes.unshift(youthNote("stalled","Necesita competir o cambiar estímulos para no quedarse parado.",season,matchday));
+    const history=[...(player.academyData?.developmentHistory??[])];
+    const last=history[history.length-1];
+    if(!last||last.overall!==player.overall||last.potential!==nextPotential||potentialDelta!==0||improved){
+      history.push({season,matchday,overall:player.overall,potential:nextPotential,note:potentialDelta>0?"Potencial al alza":potentialDelta<0?"Potencial revisado":improved?"Mejora de entrenamiento":"Seguimiento"});
+    }
+    const updated=normalizeYouthProspect({...player,potential:nextPotential,academyData:{...player.academyData,trend,developmentNotes:notes.slice(0,8),developmentHistory:history.slice(-12)}},game);
+    if(potentialDelta>0&&nextPotential>=86)stories.push({title:`${updated.name} ilusiona a la cantera`,summary:`El Jefe de Cantera eleva su informe: ${updated.name} ya aparece como ${updated.academyData.projectionLabel}.`,importance:nextPotential>=92?"high":"medium",playerId:updated.id,fingerprint:`academy-rise:${updated.id}:${season}:${matchday}`});
+    if(trend==="stalled"&&room>=5)stories.push({title:`${updated.name} necesita un nuevo impulso`,summary:"El informe interno apunta a estancamiento. Una cesión o un plan específico puede ayudarle.",importance:"medium",playerId:updated.id,fingerprint:`academy-stalled:${updated.id}:${season}:${matchday}`});
+    return updated;
+  });
+  return { players:evolved, stories };
+}
+
+export function buildYouthDirectorRecommendations(game = {}){
+  const players=(game.youth?.players??[]).map(player=>normalizeYouthProspect(player,game));
+  const items=[];
+  players.forEach(player=>{
+    const projection=getYouthProjection(player);
+    const room=(player.potential??player.overall)-player.overall;
+    if(["generational","big_promise"].includes(projection.id)){
+      items.push({id:`academy_high:${player.id}`,player,projection,priority:projection.id==="generational"?"critical":"important",title:`${player.name} puede marcar una época`,summary:`${player.pos} de ${player.age} años. El informe lo sitúa como ${projection.label.toLowerCase()}. Conviene definir un plan.`});
+    } else if(projection.id==="loan"){
+      items.push({id:`academy_loan:${player.id}`,player,projection,priority:"normal",title:`${player.name} necesita competir`,summary:"Su evolución pide minutos reales. Una cesión con objetivos podría acelerar su desarrollo."});
+    } else if(projection.id==="stalled"){
+      items.push({id:`academy_stalled:${player.id}`,player,projection,priority:"important",title:`${player.name} se está estancando`,summary:"El progreso se ha frenado. El Jefe de Cantera recomienda revisar su plan individual."});
+    } else if(player.overall>=70&&room>=5){
+      items.push({id:`academy_ready:${player.id}`,player,projection,priority:"important",title:`${player.name} llama a la puerta`,summary:"No es solo media: llega en buen momento y puede cubrir una necesidad del primer equipo."});
+    }
+  });
+  return items.sort((a,b)=>({critical:3,important:2,normal:1}[b.priority]??0)-({critical:3,important:2,normal:1}[a.priority]??0)).slice(0,4);
 }
 
 export function createYouthAnnualReport(game){

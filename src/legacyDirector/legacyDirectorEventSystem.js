@@ -623,7 +623,7 @@ export function buildLegacyDirectorEvents(game, context = {}) {
       type:"StaffRecommendation",
       issueKey:`staff_recommendation:${recommendation.id}`,
       category:"staff",
-      ownerActorId:recommendation.roleId,
+      ownerActorId:recommendation.roleId === "academyDirector" ? "academyChief" : recommendation.roleId,
       priority:recommendation.priority ?? "normal",
       title:recommendation.title,
       summary:recommendation.quote,

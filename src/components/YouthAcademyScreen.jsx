@@ -1,9 +1,14 @@
 import { useState } from "react";
-import { getAcademyMetrics, getTalentCategory } from "../youth/youthEngine.js";
+import { getAcademyMetrics, getTalentCategory, getYouthProjection } from "../youth/youthEngine.js";
 import Button from "./ui/Button.jsx";
 import { SwipeTabs } from "./SwipeNavigation.jsx";
 
 const fmt = value => value >= 1000 ? `€${(value / 1000).toFixed(1)}M` : `€${value}K`;
+const trendMeta = {
+  rising:{ icon:"📈", label:"Subiendo", color:"#22c55e" },
+  stalled:{ icon:"⚠️", label:"Estancado", color:"#f59e0b" },
+  stable:{ icon:"➖", label:"Estable", color:"#8b92a3" },
+};
 
 export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
   const [tab, setTab] = useState("current");
@@ -68,6 +73,11 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {[...youth.players].sort((a, b) => b.potential - a.potential).map(player => {
                   const category = getTalentCategory(player.potential);
+                  const projection = getYouthProjection(player);
+                  const trend = trendMeta[player.academyData?.trend ?? "stable"] ?? trendMeta.stable;
+                  const latestNotes = player.academyData?.developmentNotes ?? [];
+                  const initialOverall = player.academyData?.initialOverall ?? player.overall;
+                  const initialPotential = player.academyData?.initialPotential ?? player.potential;
                   const progress = game.lastYouthTrainingReport?.changes?.find(item => item.playerId === player.id);
                   const canPromote = game.players.length < 30;
                   return (
@@ -82,7 +92,10 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                             {intakeIds.has(player.id) && <span style={{ fontSize:8, color:"#22c55e", background:"rgba(34,197,94,.1)", padding:"2px 5px", borderRadius:4 }}>NUEVO</span>}
                           </div>
                           <div style={{ color:"#8b92a3", fontSize:9, marginTop:3 }}>{player.pos} · {player.age} años · {player.nat} · {player.academyData?.region}</div>
-                          <div style={{ color:category.color, fontSize:9, marginTop:3 }}>{category.icon} {category.label}</div>
+                          <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:5 }}>
+                            <span style={{ color:projection.color, background:`${projection.color}14`, border:`1px solid ${projection.color}22`, borderRadius:999, padding:"3px 6px", fontSize:8, fontWeight:850 }}>{projection.icon} {projection.label}</span>
+                            <span style={{ color:trend.color, background:`${trend.color}12`, border:`1px solid ${trend.color}22`, borderRadius:999, padding:"3px 6px", fontSize:8, fontWeight:850 }}>{trend.icon} {trend.label}</span>
+                          </div>
                         </div>
                         <div style={{ textAlign:"center" }}>
                           <div style={{ fontSize:9, color:"#8b92a3" }}>POTENCIAL</div>
@@ -93,6 +106,26 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                       {progress && (
                         <div style={{ marginTop:8, color:progress.changes.length ? "#22c55e" : "#8b92a3", fontSize:9 }}>
                           {progress.changes.length ? `📈 ${progress.changes.map(change => `${change.label} +${change.delta}`).join(" · ")}` : progress.progress?.[0] ? `${progress.progress[0].label}: ${progress.progress[0].value}% hacia la mejora` : "Desarrollo estable"}
+                        </div>
+                      )}
+
+                      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, marginTop:9 }}>
+                        {[["LLEGÓ", initialOverall], ["HOY", player.overall], ["TECHO", `${initialPotential}→${player.potential}`]].map(([label, value]) => (
+                          <div key={label} style={{ background:"rgba(0,0,0,.18)", borderRadius:7, padding:7, textAlign:"center" }}>
+                            <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:900 }}>{value}</div>
+                            <div style={{ color:"#6b7280", fontSize:7, fontWeight:850, marginTop:2 }}>{label}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {latestNotes.length > 0 && (
+                        <div style={{ marginTop:8, background:"rgba(255,255,255,.035)", borderRadius:8, padding:8 }}>
+                          <div style={{ color:"#8b92a3", fontSize:8, fontWeight:850, marginBottom:4 }}>SEGUIMIENTO</div>
+                          {latestNotes.slice(0, 2).map((note, index) => (
+                            <div key={`${note.kind}-${note.matchday}-${index}`} style={{ color:"#c9ced8", fontSize:9, lineHeight:1.45, marginTop:index ? 4 : 0 }}>
+                              J{note.matchday}: {note.text}
+                            </div>
+                          ))}
                         </div>
                       )}
 

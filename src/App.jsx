@@ -30,7 +30,7 @@ import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle,
 import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getAccumulatedLoad, getLoadLevel, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
 import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, getTrainingMatchModifiers, normalizeTrainingPlan } from "./training/trainingEngine.js";
 import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason } from "./legacy/legacyEngine.js";
-import { createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
+import { applyYouthDevelopmentCycle, createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
 import { advanceScouting, bootstrapScouting, cancelScoutingMission, createScoutingMission, ensureScoutingState, refreshScoutingRecommendations, registerScoutingSigning, toggleScoutingWatch } from "./scouting/scoutingEngine.js";
 import { PRIMARY_NAV, SECONDARY_SCREEN_IDS } from "./navigation/navigationConfig.js";
 import { acceptClubCounter, acceptPlayerCounter, acceptRoleCounter, advanceTransferNegotiations, completeOffer, createClubOffer, createContractOffer, createFreeAgentOffer, ensureTransferState, maybeCreateAITransfer, maybeCreateIncomingOffer, refreshTransferListings, resolveIncomingOffer, setUserMarketStatus, withdrawOffer } from "./transfers/transferEngine.js";
@@ -6946,6 +6946,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         return{...player,academyData:{...player.academyData,debutSeason:player.academyData.debutSeason??String(prev.season),debutMatchday:player.academyData.debutMatchday??matchday,firstGoalMatchday:firstGoal?matchday:player.academyData.firstGoalMatchday},academyStats:{...(player.academyStats??{}),appearances:(player.academyStats?.appearances??0)+1,goals:(player.academyStats?.goals??0)+goals}};
       });
       const youthTrainingResult=applyWeeklyTraining(prev.youth?.players??[],{...prev,fixtures:finalFixtures,players:prev.youth?.players??[],matchday},prev.trainingPlan??DEFAULT_TRAINING_PLAN);
+      const youthDevelopmentResult=applyYouthDevelopmentCycle(youthTrainingResult.players,{...prev,fixtures:finalFixtures,players:newPlayers,matchday},youthTrainingResult.report);
       const oppTeamId = isHome ? fixture.awayTeamId : fixture.homeTeamId;
       summaryData = {
         userTeam:       TEAMS.find(t => t.id === prev.teamId),
@@ -6979,7 +6980,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         season:prev.season ?? "2025", matchday,
         userTeamId:prev.teamId, userTeamName:userTeamData?.name ?? prev.name,
       });
-      const youthNews=generateYouthNews({items:youthStoryItems,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
+      const youthNews=generateYouthNews({items:[...youthStoryItems,...(youthDevelopmentResult.stories??[])],season:prev.season??"2025",matchday,userTeamId:prev.teamId});
       const developmentNews=generateDevelopmentNews({report:trainingResult.report,players:newPlayers,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
       const lockerSummary=getLockerRoomSummary(newPlayers);
       const lockerNews=lockerSummary.atmosphere==="tenso"?[{id:`news-locker-${prev.season}-${matchday}`,type:"board",importance:"high",title:"El vestuario muestra señales de tensión",summary:`Hay ${lockerSummary.unhappy.length} jugador${lockerSummary.unhappy.length===1?"":"es"} con preocupación interna. Conviene revisar moral, minutos o contratos.`,season:String(prev.season??"2025"),matchday,createdAt:Date.now(),fingerprint:`locker:tension:${prev.season}:${matchday}`,teamIds:[prev.teamId],metadata:{userClub:true,lockerRoom:true}}]:lockerSummary.atmosphere==="positivo"&&won?[{id:`news-locker-good-${prev.season}-${matchday}`,type:"board",importance:"medium",title:"El vestuario respalda al entrenador",summary:"El ambiente interno es positivo y los líderes mantienen unido al grupo.",season:String(prev.season??"2025"),matchday,createdAt:Date.now(),fingerprint:`locker:positive:${prev.season}:${matchday}`,teamIds:[prev.teamId],metadata:{userClub:true,lockerRoom:true}}]:[];
@@ -7000,7 +7001,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         lastYouthTrainingReport:youthTrainingResult.report,
         trainingTacticalBonus:trainingResult.tacticalBonus,
         legacy:legacyEvaluation.legacy,
-        youth:{...(prev.youth??{}),players:youthTrainingResult.players},standingsMovement };
+        youth:{...(prev.youth??{}),players:youthDevelopmentResult.players},standingsMovement };
       const beforeFanbase=prev.fanbase;
       newGame=applyFanMatchReaction(newGame,{team:userTeamData,fixture,won,drew,goalsFor:userGoals,goalsAgainst:oppGoals,income:incomeResult,position:leaguePos});
       newGame=advanceAiFanbases(newGame,TEAMS,matchday);

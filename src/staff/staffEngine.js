@@ -1,3 +1,5 @@
+import { buildYouthDirectorRecommendations } from "../youth/youthEngine.js";
+
 const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(value)));
 
 const hash = value => {
@@ -59,6 +61,15 @@ export const STAFF_ROLES = {
     attributes: ["talentDiscovery", "reportQuality", "coverage", "potentialAssessment"],
     labels: { talentDiscovery:"Descubrimiento", reportQuality:"Calidad de informes", coverage:"Cobertura", potentialAssessment:"Potencial" },
     defaultPersonality: "proactive",
+  },
+  academyDirector: {
+    id: "academyDirector",
+    icon: "🌱",
+    title: "Director de cantera",
+    area: "Cantera",
+    attributes: ["talentDevelopment", "promotionTiming", "loanPlanning", "academyVision"],
+    labels: { talentDevelopment:"Desarrollo de talento", promotionTiming:"Momento de promoción", loanPlanning:"Plan de cesiones", academyVision:"Visión de cantera" },
+    defaultPersonality: "methodical",
   },
   analyst: {
     id: "analyst",
@@ -241,6 +252,7 @@ export function buildStaffRecommendations(game) {
   const assistant = getStaffMember(ensured, "assistantCoach");
   const sporting = getStaffMember(ensured, "sportingDirector");
   const scouting = getStaffMember(ensured, "scoutingChief");
+  const academy = getStaffMember(ensured, "academyDirector");
   const analyst = getStaffMember(ensured, "analyst");
 
   const tired = [...players].sort((a, b) => ((b.accumulatedFatigue ?? b.medical?.accumulatedFatigue ?? 0) + (b.fatigue ?? 0) * .45) - ((a.accumulatedFatigue ?? a.medical?.accumulatedFatigue ?? 0) + (a.fatigue ?? 0) * .45))[0];
@@ -327,6 +339,17 @@ export function buildStaffRecommendations(game) {
       actionLabel:"Ver informe",
     }));
   }
+
+  buildYouthDirectorRecommendations(ensured).forEach(item => {
+    recommendations.push(recommendationBase(academy, {
+      id:`staff-academy:${item.id}`,
+      priority:item.priority,
+      title:`${academy.roleTitle}: ${item.title}`,
+      quote:item.summary,
+      action:{ screen:"youth", playerId:item.player.id },
+      actionLabel:"Ver cantera",
+    }));
+  });
 
   return recommendations
     .sort((a, b) => {
