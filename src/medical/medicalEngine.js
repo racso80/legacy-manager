@@ -100,13 +100,21 @@ export function rollContextualInjury(players, context = {}) {
   return { player:selected.player, risk:selected.risk, type, totalDays };
 }
 
+function injuryDescription(player, type, totalDays) {
+  const article = type.name.startsWith("Molestias") ? "" : type.name.startsWith("Esguince") ? "un " : "una ";
+  const injury = `${article}${type.name.toLowerCase()}`;
+  if (totalDays <= 7) return `🚑 ${player.name} sufre ${injury} y tendrá que salir del campo.`;
+  if (totalDays <= 42) return `🚑 ${player.name} cae lesionado: ${injury}. No podrá continuar.`;
+  return `🚑 Golpe duro para el equipo: ${player.name} se retira con ${injury}.`;
+}
+
 export function createInjuryEvent(result, minute) {
   if (!result) return null;
   return {
     minute, type:"INJURY", team:"user", playerId:result.player.id,
     injuryType:result.type.name, injuryTypeId:result.type.id,
     injuryDays:result.totalDays, injuryGames:Math.ceil(result.totalDays/7), riskAtInjury:result.risk,
-    description:`🚑 ${result.player.name} sufre ${result.type.name.startsWith("Molestias") ? "" : result.type.name.startsWith("Esguince") ? "un " : "una "}${result.type.name.toLowerCase()} y no puede continuar.`,
+    description:injuryDescription(result.player, result.type, result.totalDays),
   };
 }
 

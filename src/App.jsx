@@ -2853,7 +2853,7 @@ function clubLifePersona(issue) {
 }
 
 function conversationPersona(conversation) {
-  if (conversation.actorType === "player") return { name:conversation.actorName, role:conversation.role, portrait:conversation.portrait, emoji:"👤", color:"#c9a84c", emotionalState:conversation.emotionalState, line:conversation.opening, action:"Hablar" };
+  if (conversation.actorType === "player") return { name:conversation.actorName, role:conversation.role, portrait:conversation.portrait, emoji:"👤", color:"#c9a84c", emotionalState:conversation.emotionalState, line:conversation.opening, action:"Hablar", personality:conversation.personalityLabel };
   const base = STAFF_PERSONAS[conversation.actorName] ?? { emoji:"👤", color:"#c9a84c", role:conversation.role, personality:"profesional" };
   return { ...base, name:conversation.actorName, role:conversation.role ?? base.role, emotionalState:conversation.emotionalState, line:conversation.opening, action:"Hablar" };
 }

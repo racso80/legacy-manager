@@ -69,13 +69,20 @@ function alreadyClosed(game, id) {
   return ["resolved", "dismissed"].includes(saved?.status);
 }
 
+const POSITION_NAMES = {
+  POR: "Portero", DFC: "Defensa central", LD: "Lateral derecho",
+  LI: "Lateral izquierdo", MCD: "Centrocampista defensivo", MC: "Centrocampista",
+  MCO: "Mediapunta", EI: "Extremo izquierdo", ED: "Extremo derecho",
+  DC: "Delantero centro", SD: "Segundo delantero",
+};
+
 function playerConversation(player, overrides) {
   const personality = getPlayerPersonality(player);
   return {
     actorType: "player",
     actorId: player.id,
     actorName: player.name,
-    role: player.pos,
+    role: POSITION_NAMES[player.pos] ?? player.pos,
     portrait: playerFace(player),
     emotionalState: "inquieto",
     priority: "important",
@@ -100,6 +107,21 @@ function staffConversation(actorName, role, overrides) {
   };
 }
 
+const UNHAPPY_MOTIVES = {
+  leader: "Quiere entender su situación para poder ayudar al grupo desde donde le corresponda.",
+  professional: "Necesita claridad sobre su rol para seguir rindiendo al máximo.",
+  ambitious: "Siente que no está aprovechando su potencial aquí y empieza a mirar otras opciones.",
+  reserved: "No suele hablar de estas cosas, pero la situación le pesa más de lo que aparenta.",
+  competitive: "Necesita sentir que el equipo confía en él en los momentos que importan.",
+  veteran: "A estas alturas valora la claridad y el respeto por encima de cualquier otra cosa.",
+  insecureYoung: "Se siente perdido y necesita que alguien le marque el camino con claridad.",
+  selfish: "Necesita sentirse un referente del proyecto, no un jugador más del montón.",
+  hardWorker: "Trabaja duro cada día y siente que ese esfuerzo no se está reconociendo.",
+  conflictive: "Está al límite de su paciencia. Si no se habla claro, la situación puede complicarse.",
+  dressingRoomModel: "Antepondría el grupo a su caso, pero necesita hablarlo antes de que sea tarde.",
+  balanced: "Quiere entender su situación y espera una respuesta honesta.",
+};
+
 function buildGeneratedConversations(game, context = {}) {
   const conversations = [];
   const season = String(game.season ?? "2025");
@@ -122,7 +144,7 @@ function buildGeneratedConversations(game, context = {}) {
       id,
       title: `${unhappy.name} quiere hablar contigo`,
       opening: personalityLine(unhappy, "minutes"),
-      motive: `${personality.label}: ${personality.negotiation === "estatus" ? "necesita sentirse importante" : personality.negotiation === "estabilidad" ? "valora claridad y estabilidad" : "quiere entender su papel y necesita una respuesta clara"}.`,
+      motive: UNHAPPY_MOTIVES[personality.id] ?? UNHAPPY_MOTIVES.balanced,
       emotionalState: (unhappy.managerTrust ?? 70) < 35 ? (personality.id === "conflictive" ? "enfadado" : "dolido") : personality.id === "reserved" ? "contenido" : "inquieto",
       priority: (unhappy.morale ?? 70) <= 30 ? "urgent" : "important",
       options: [
@@ -141,9 +163,13 @@ function buildGeneratedConversations(game, context = {}) {
   if (risky) {
     conversations.push(staffConversation("Preparador físico", "Cuerpo técnico", {
       id: `physio-risk:${risky.player.id}:${season}:${matchday}`,
-      title: `El preparador físico señala a ${risky.player.name}`,
+      title: `El preparador físico quiere hablar sobre ${risky.player.name}`,
       opening: `Míster, ${risky.player.name} está al límite. Si fuerza otra vez, el riesgo se dispara.`,
-      motive: `Riesgo de lesión estimado: ${risky.risk}%.`,
+      motive: risky.risk >= 93
+        ? "La situación es delicada. Un esfuerzo más podría dejarlo varias semanas fuera."
+        : risky.risk >= 85
+        ? "Su riesgo de lesión es alto y conviene vigilarlo de cerca."
+        : "Su cuerpo acusa la carga acumulada. Sería prudente reducir sus minutos esta semana.",
       emotionalState: "preocupado",
       priority: "urgent",
       options: [
@@ -158,8 +184,14 @@ function buildGeneratedConversations(game, context = {}) {
     conversations.push(staffConversation("Capitán", "Voz del vestuario", {
       id: `captain-locker:${season}:${matchday}:${lockerSummary.unhappy.length}`,
       title: "El capitán pide una reunión",
-      opening: "Míster, el grupo necesita una señal. Hay gente que siente que no está siendo escuchada.",
-      motive: `${lockerSummary.unhappy.length} jugador${lockerSummary.unhappy.length === 1 ? "" : "es"} aparecen como foco de malestar.`,
+      opening: [
+        "Míster, el grupo necesita una señal. Hay gente que siente que no está siendo escuchada.",
+        "Perdona que te moleste, pero creo que hay cosas en el vestuario que deberías saber.",
+        "Míster, el ambiente no está bien. Hay jugadores que necesitan sentir que cuentan.",
+      ][matchday % 3],
+      motive: lockerSummary.unhappy.length === 1
+        ? "Hay un compañero que no está en su mejor momento y cree que deberías saberlo."
+        : "Hay varios compañeros que no están bien y quiere que lo sepas antes de que vaya a más.",
       emotionalState: "serio",
       priority: "important",
       options: [
@@ -176,7 +208,7 @@ function buildGeneratedConversations(game, context = {}) {
       id: `sporting-offer:${incomingOffer.id}`,
       title: `Hay una oferta por ${incomingOffer.playerName}`,
       opening: `Ha llegado una propuesta importante por ${incomingOffer.playerName}. No conviene dejarla demasiado tiempo encima de la mesa.`,
-      motive: `Oferta de €${((incomingOffer.amount ?? 0) / 1000).toFixed(1)}M.`,
+      motive: `El director deportivo trae sobre la mesa una oferta de €${((incomingOffer.amount ?? 0) / 1000).toFixed(1)}M.`,
       emotionalState: "expectante",
       priority: "important",
       options: [
@@ -194,7 +226,7 @@ function buildGeneratedConversations(game, context = {}) {
       id: `press-loss:${season}:${lastFixture.id}`,
       title: "La prensa espera explicaciones",
       opening: "Los periodistas quieren una reacción tras la derrota. La sala está llena.",
-      motive: `Último resultado: ${lastResult.userGoals}-${lastResult.oppGoals}.`,
+      motive: `La prensa quiere explicaciones tras la derrota (${lastResult.userGoals}-${lastResult.oppGoals})`,
       emotionalState: "tenso",
       priority: "important",
       options: [
@@ -213,7 +245,12 @@ function buildGeneratedConversations(game, context = {}) {
       id: `player-thanks:${grateful.id}:${season}:${Math.floor(matchday / 4)}`,
       title: `${grateful.name} pasa por el despacho`,
       opening: personalityLine(grateful, "thanks"),
-      motive: "No todas las conversaciones son problemas. También hay vínculos que cuidar.",
+      motive: [
+        "Quería agradecerte la confianza que has depositado en él. Lo está notando.",
+        "Se siente valorado últimamente y quiere que lo sepas.",
+        "Está en un buen momento y dice que el ambiente en el equipo tiene mucho que ver.",
+        "Viene a agradecer el papel que le estás dando. Lo valora más de lo que suele expresar.",
+      ][(grateful.overall + matchday) % 4],
       emotionalState: "agradecido",
       priority: "info",
       options: [
@@ -233,12 +270,19 @@ function buildMemoryConversations(game) {
     .map(memory => {
       const player = (game.players ?? []).find(item => item.id === memory.playerId);
       if (!player) return null;
+      const brokenPersonality = getPlayerPersonality(player);
+      const isConfrontational = ["conflictive", "selfish"].includes(brokenPersonality.id);
+      const isSoftSpoken = ["reserved", "insecureYoung", "dressingRoomModel", "hardWorker"].includes(brokenPersonality.id);
       return playerConversation(player, {
         id: memory.conversationId,
         title: `${player.name} recuerda tu promesa`,
-        opening: "Míster, me dijiste que tendría más minutos. Han pasado los partidos y sigo igual.",
+        opening: isConfrontational
+          ? "No me puedo quedar callado, míster. Me prometiste minutos y no ha pasado nada."
+          : isSoftSpoken
+          ? "Sé que no es fácil decir esto... pero me dijiste que tendría más minutos. Sigo esperando."
+          : "Míster, hace unos partidos me dijiste que tendría más minutos. No ha pasado. Solo quería hablarlo.",
         motive: "Las promesas incumplidas dañan la relación con el jugador.",
-        emotionalState: "enfadado",
+        emotionalState: isConfrontational ? "enfadado" : isSoftSpoken ? "dolido" : "serio",
         priority: "urgent",
         options: [
           { id: "apologize", label: "Tienes razón. Voy a corregirlo.", tone: "honesto", effects: { morale: 2, trust: 1 }, memory: { type: "promise_minutes", dueInMatchdays: 1 } },
