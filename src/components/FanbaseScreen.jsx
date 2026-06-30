@@ -24,7 +24,7 @@ export default function FanbaseScreen({ game, team }) {
       <div style={{ background:"radial-gradient(circle at 86% 0%,rgba(201,168,76,.25),transparent 42%),linear-gradient(145deg,#1d1b16,#11141b)", border:"1px solid rgba(201,168,76,.25)", borderRadius:16, padding:16, marginBottom:14 }}>
         <div style={{ color:gold, fontSize:10, fontWeight:950, letterSpacing:"1px" }}>📣 MASA SOCIAL</div>
         <div style={{ color:"#fff", fontSize:22, fontWeight:950, marginTop:5 }}>{mood.icon} Afición {mood.label}</div>
-        <div style={{ color:muted, fontSize:11, lineHeight:1.5, marginTop:5 }}>{team?.stadium ?? "El estadio"} · Identidad: {fanbase.identity?.label ?? "Fidelidad y resultados"}</div>
+        <div style={{ color:muted, fontSize:11, lineHeight:1.5, marginTop:5 }}>{team?.stadium ?? "El estadio"} · Una afición de {(fanbase.identity?.label ?? "Fidelidad y resultados").toLowerCase()}</div>
         <div style={{ marginTop:13 }}><Meter value={fanbase.support ?? 65} color={mood.color} /></div>
       </div>
 

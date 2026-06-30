@@ -7004,7 +7004,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         legacy:legacyEvaluation.legacy,
         youth:{...(prev.youth??{}),players:youthDevelopmentResult.players},standingsMovement };
       const beforeFanbase=prev.fanbase;
-      newGame=applyFanMatchReaction(newGame,{team:userTeamData,fixture,won,drew,goalsFor:userGoals,goalsAgainst:oppGoals,income:incomeResult,position:leaguePos});
+      newGame=applyFanMatchReaction(newGame,{team:userTeamData,fixture,won,drew,goalsFor:userGoals,goalsAgainst:oppGoals,income:incomeResult,position:leaguePos,opponent:TEAMS.find(t=>t.id===oppTeamId)});
       newGame=advanceAiFanbases(newGame,TEAMS,matchday);
       const fanNews=generateFanNews({game:newGame,before:beforeFanbase,matchday});
       if(fanNews.length)newGame={...newGame,news:mergeNews(newGame.news??[],fanNews)};

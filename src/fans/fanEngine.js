@@ -1,5 +1,8 @@
 const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(value)));
 const number = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+function hash(value){let h=2166136261;for(const c of String(value)){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
+const pickVariant=(seed,list)=>list[seed%list.length];
+const TRANSFER_FEE_THRESHOLD = 20000;
 
 export const FAN_IDENTITIES = {
   athletic: { label: "Cantera y compromiso", academy: 1.45, local: 1.35, style: .75, titles: .75, signings: .7, intensity: 1.15 },
@@ -122,7 +125,7 @@ export function estimateFanAttendance({ game, team, fixture, won = false, drew =
   return { occupancy, attendance, derby, rivalPull, sportPull };
 }
 
-export function applyFanMatchReaction(game, { team, fixture, won, drew, goalsFor = 0, goalsAgainst = 0, income = null, position = null } = {}) {
+export function applyFanMatchReaction(game, { team, fixture, won, drew, goalsFor = 0, goalsAgainst = 0, income = null, position = null, opponent = null } = {}) {
   const seeded = ensureFanbaseState(game, team);
   const fanbase = seeded.fanbase;
   const identity = fanbase.identity ?? getFanIdentity(seeded.teamId);
@@ -143,7 +146,7 @@ export function applyFanMatchReaction(game, { team, fixture, won, drew, goalsFor
   const homeMatches = fanbase.homeMatches + (income?.isHome ? 1 : 0);
   const totalAttendance = fanbase.totalAttendance + (income?.isHome ? attendance : 0);
   const averageAttendance = homeMatches ? Math.round(totalAttendance / homeMatches) : fanbase.averageAttendance;
-  const reaction = buildMatchReaction({ won, drew, goalsFor, goalsAgainst, support, atmosphere, team, fixture, streak });
+  const reaction = buildMatchReaction({ won, drew, goalsFor, goalsAgainst, support, atmosphere, team, fixture, streak, opponent });
   const trendEntry = { season: String(seeded.season), matchday: seeded.matchday, support, coachSupport, atmosphere, attendance: income?.isHome ? attendance : null, result: won ? "win" : drew ? "draw" : "loss" };
   const updated = {
     ...fanbase,
@@ -160,18 +163,73 @@ export function applyFanMatchReaction(game, { team, fixture, won, drew, goalsFor
   return { ...seeded, fanLove: support, fanbase: updated };
 }
 
-function buildMatchReaction({ won, drew, goalsFor, goalsAgainst, support, atmosphere, team, fixture, streak }) {
+function buildMatchReaction({ won, drew, goalsFor, goalsAgainst, support, atmosphere, team, fixture, streak, opponent }) {
   const mood = getFanMood(support);
   const stadium = getStadiumMood(atmosphere);
   const home = fixture?.homeTeamId === team?.id;
-  const title = won
-    ? goalsFor >= 3 ? `${team?.stadium ?? "La grada"} disfruta con una gran victoria` : "La afición celebra el triunfo"
-    : drew ? "La grada queda expectante tras el empate"
-    : goalsAgainst >= 3 ? "Silbidos tras una derrota dolorosa" : "Los aficionados muestran su decepción";
-  const summary = won
-    ? `${stadium.label}. El apoyo al entrenador se mantiene en ${coachSupportText(support)}.`
-    : drew ? `La afición pide continuidad, pero espera una reacción en el próximo partido.`
-    : `${home ? team?.stadium ?? "El estadio" : "La afición desplazada"} termina con sensación amarga. ${streak.winless >= 4 ? "La racha empieza a generar presión." : ""}`;
+  const margin = goalsFor - goalsAgainst;
+  const blowout = Math.abs(margin) >= 3;
+  const derby = Boolean(opponent && team?.city && opponent.city === team.city);
+  const outcome = won ? "win" : drew ? "draw" : "loss";
+  const titleSeed = hash(`${fixture?.matchday ?? 0}:${team?.id ?? ""}:${opponent?.id ?? ""}:${outcome}:title`);
+  const summarySeed = hash(`${fixture?.matchday ?? 0}:${team?.id ?? ""}:${opponent?.id ?? ""}:${outcome}:summary`);
+
+  let titlePool;
+  let summaryPool;
+  if (won) {
+    titlePool = blowout ? [
+      `${team?.stadium ?? "La grada"} disfruta con una gran victoria`,
+      opponent?.name ? `La afición se viene arriba con la goleada a ${opponent.name}` : "La afición se viene arriba con una goleada",
+      derby ? "Triunfo contundente en el derbi: la grada lo celebra por todo lo alto" : "Fiesta en las gradas tras una goleada sin paliativos",
+    ] : [
+      "La afición celebra el triunfo",
+      opponent?.name ? `La grada celebra la victoria ante ${opponent.name}` : "La grada celebra la victoria",
+      derby ? "Victoria en el derbi que la grada celebra con ganas" : "Tres puntos que la afición recibe con satisfacción",
+      "El triunfo deja buen sabor de boca en la grada",
+    ];
+    summaryPool = blowout ? [
+      `${stadium.label}. El respaldo al entrenador sale reforzado tras la goleada.`,
+      opponent?.name ? `La manera de superar a ${opponent.name} ilusiona a la grada.` : "La manera de ganar ilusiona a la grada.",
+      "El equipo se gana el cariño del público con una exhibición.",
+    ] : [
+      `${stadium.label}. El respaldo al entrenador sigue siendo ${coachSupportText(support)}.`,
+      opponent?.name ? `Ganar a ${opponent.name} en un partido ajustado deja buenas sensaciones.` : "Un triunfo ajustado que deja buenas sensaciones.",
+      "Tres puntos trabajados que la grada sabe valorar.",
+    ];
+  } else if (drew) {
+    titlePool = [
+      "La grada queda expectante tras el empate",
+      opponent?.name ? `El empate ante ${opponent.name} deja sensaciones repartidas` : "El empate deja sensaciones repartidas",
+      "La afición no termina de conformarse con el reparto de puntos",
+      derby ? "Un derbi igualado deja sabor agridulce en la grada" : "El punto sabe a poco para una grada que pedía más",
+    ];
+    summaryPool = [
+      "La afición pide continuidad, pero espera una reacción en el próximo partido.",
+      opponent?.name ? `El empate ante ${opponent.name} deja a la grada con ganas de más.` : "El empate deja a la grada con ganas de más.",
+      "Un punto que no termina de convencer, pero tampoco hunde el ánimo.",
+    ];
+  } else {
+    titlePool = blowout ? [
+      "Silbidos tras una derrota dolorosa",
+      opponent?.name ? `La grada no perdona la goleada ante ${opponent.name}` : "La grada no perdona una goleada en contra",
+      derby ? "Derrota dura en el derbi: la grada sale dolida del estadio" : "El equipo se hunde y el estadio responde con silbidos",
+    ] : [
+      "Los aficionados muestran su decepción",
+      opponent?.name ? `La afición se marcha decepcionada tras la derrota ante ${opponent.name}` : "La afición se marcha decepcionada",
+      "El resultado no convence a una grada que pedía más",
+      derby ? "Derrota en el derbi que sienta especialmente mal en la grada" : "La derrota deja un poso de duda entre la afición",
+    ];
+    summaryPool = [
+      `${home ? team?.stadium ?? "El estadio" : "La afición desplazada"} termina con sensación amarga.`,
+      opponent?.name ? `Perder ante ${opponent.name} no sienta bien en la grada.` : "La derrota no sienta bien en la grada.",
+      "La afición pide una reacción antes de que el malestar vaya a más.",
+    ];
+  }
+
+  const title = pickVariant(titleSeed, titlePool);
+  let summary = pickVariant(summarySeed, summaryPool);
+  if (!won && streak.winless >= 4) summary += " La racha empieza a generar presión.";
+
   return { id: `fan-reaction-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, season: String(new Date().getFullYear()), matchday: fixture?.matchday, title, summary, mood: mood.label, stadium: stadium.label, createdAt: new Date().toISOString() };
 }
 
@@ -189,20 +247,55 @@ export function applyFanTransferReaction(game, { type, player, value = 0 } = {})
   const isStar = (player?.overall ?? 0) >= 82 || player?.squadRole === "Estrella";
   const isAcademy = Boolean(player?.academyData);
   const isYoung = (player?.age ?? 30) <= 22;
+  const bigFee = value >= TRANSFER_FEE_THRESHOLD;
+  const seed = hash(`${player?.id ?? ""}:${seeded.season}:${seeded.matchday}:${type}`);
   let delta = 0;
   let title = null;
+  let summaryPool = ["La operación mueve el ánimo de la masa social."];
   let actionConcern = false;
   if (["buy", "loanIn"].includes(type)) {
     delta = (isStar ? 4.5 : isYoung ? 2 : 1) * identity.signings + (isAcademy ? identity.academy : 0);
     title = isStar ? `La afición se ilusiona con ${player?.name}` : `La grada recibe con interés a ${player?.name}`;
-  } else if (["sell", "loanOut"].includes(type)) {
+    summaryPool = isStar ? [
+      `${player?.name} ilusiona a una grada que pedía un golpe de efecto.`,
+      bigFee ? `La inversión en ${player?.name} genera expectación entre los aficionados.` : `La grada ya quiere ver a ${player?.name} con la camiseta.`,
+      `Hay ganas de ver debutar a ${player?.name} cuanto antes.`,
+    ] : [
+      `La llegada de ${player?.name} se recibe con curiosidad moderada.`,
+      `${player?.name} se incorpora sin grandes focos, pero con la confianza del club.`,
+      `La afición espera ver a ${player?.name} con buenos ojos.`,
+    ];
+  } else if (type === "sell") {
     delta = -(isStar ? 8 : isAcademy ? 5 * identity.academy : 2.2);
     title = isStar || isAcademy ? `La venta de ${player?.name} genera debate entre la afición` : `${player?.name} abandona el club`;
     actionConcern = isStar || (isAcademy && identity.academy > 1.1);
+    summaryPool = actionConcern ? [
+      `La salida de ${player?.name} no convence a una parte de la grada.`,
+      bigFee ? `El fichaje sale rentable, pero algunos cuestionan desprenderse de ${player?.name}.` : `Vender a ${player?.name} deja un sabor agridulce entre los aficionados.`,
+      `Parte de la masa social pide explicaciones por la venta de ${player?.name}.`,
+    ] : [
+      `La marcha de ${player?.name} pasa sin grandes sobresaltos.`,
+      `La afición despide a ${player?.name} sin demasiado ruido.`,
+      `La salida de ${player?.name} apenas mueve el ánimo de la grada.`,
+    ];
+  } else if (type === "loanOut") {
+    delta = -(isStar ? 8 : isAcademy ? 5 * identity.academy : 2.2);
+    title = isStar || isAcademy ? `La cesión de ${player?.name} genera debate entre la afición` : `${player?.name} sale cedido`;
+    actionConcern = isStar || (isAcademy && identity.academy > 1.1);
+    summaryPool = actionConcern ? [
+      `La cesión de ${player?.name} divide opiniones entre la afición.`,
+      `Una parte de la grada no termina de entender por qué se cede a ${player?.name}.`,
+      `Parte de la masa social pide explicaciones por la cesión de ${player?.name}.`,
+    ] : [
+      `La salida cedida de ${player?.name} pasa sin demasiado ruido.`,
+      `La afición confía en que la cesión le venga bien a ${player?.name}.`,
+      `Nadie pone el grito en el cielo por la cesión de ${player?.name}.`,
+    ];
   }
+  const summary = pickVariant(seed, summaryPool);
   const support = clamp((fanbase.support ?? 65) + delta);
   const coachSupport = clamp((fanbase.coachSupport ?? fanbase.support ?? 65) + delta * .65);
-  const reaction = { id: `fan-transfer-${Date.now()}-${player?.id}`, season: String(seeded.season), matchday: seeded.matchday, title, summary: actionConcern ? "Parte de la masa social pide explicaciones por una decisión sensible." : "La operación mueve el ánimo de la masa social.", transferType: type, playerId: player?.id, actionConcern, createdAt: new Date().toISOString() };
+  const reaction = { id: `fan-transfer-${Date.now()}-${player?.id}`, season: String(seeded.season), matchday: seeded.matchday, title, summary, transferType: type, playerId: player?.id, actionConcern, createdAt: new Date().toISOString() };
   return { ...seeded, fanLove: support, fanbase: { ...fanbase, support, coachSupport, reactions: [reaction, ...(fanbase.reactions ?? [])].slice(0, 30), trend: [{ season: String(seeded.season), matchday: seeded.matchday, support, coachSupport, atmosphere: fanbase.atmosphere, event: "transfer" }, ...(fanbase.trend ?? [])].slice(0, 80) } };
 }
 
@@ -212,7 +305,20 @@ export function applyFanYouthReaction(game, player) {
   const identity = fanbase.identity ?? getFanIdentity(seeded.teamId);
   const delta = clamp((2 + ((player?.potential ?? 75) - 75) * .08) * identity.academy, 1, 7);
   const support = clamp((fanbase.support ?? 65) + delta);
-  const reaction = { id: `fan-youth-${Date.now()}-${player?.id}`, season: String(seeded.season), matchday: seeded.matchday, title: `${player?.name} conecta con la grada`, summary: "La promoción de cantera refuerza la identidad del club.", playerId: player?.id, createdAt: new Date().toISOString() };
+  const isStandout = (player?.potential ?? 75) >= 86;
+  const seed = hash(`${player?.id ?? ""}:${seeded.season}:${seeded.matchday}:youth`);
+  const title = isStandout ? `${player?.name} ilusiona a la grada` : `${player?.name} conecta con la grada`;
+  const summaryPool = isStandout ? [
+    `La cantera vuelve a dar una alegría: ${player?.name} llega con cartel de gran promesa.`,
+    `La grada recibe con ilusión a ${player?.name}, una de las grandes apuestas de la cantera.`,
+    "La promoción dispara las expectativas y refuerza la identidad del club.",
+  ] : [
+    "La promoción de cantera refuerza la identidad del club.",
+    `${player?.name} se gana una oportunidad y la afición lo recibe con simpatía.`,
+    "La grada valora la apuesta por la cantera, aunque sin grandes expectativas todavía.",
+  ];
+  const summary = pickVariant(seed, summaryPool);
+  const reaction = { id: `fan-youth-${Date.now()}-${player?.id}`, season: String(seeded.season), matchday: seeded.matchday, title, summary, playerId: player?.id, createdAt: new Date().toISOString() };
   return { ...seeded, fanLove: support, fanbase: { ...fanbase, support, coachSupport: clamp((fanbase.coachSupport ?? support) + delta * .5), reactions: [reaction, ...(fanbase.reactions ?? [])].slice(0, 30) } };
 }
 
@@ -226,7 +332,12 @@ export function generateFanNews({ game, before = null, matchday = null } = {}) {
   }
   if (before && Math.floor((before.support ?? 0) / 20) !== Math.floor((fanbase.support ?? 0) / 20)) {
     const mood = getFanMood(fanbase.support);
-    news.push({ id: `news-fan-mood-${game.season}-${matchday}-${mood.stars}`, type: "fan", importance: fanbase.support < 35 ? "high" : "medium", title: `La afición está ${mood.label.toLowerCase()}`, summary: `El estado general de la masa social cambia a ${mood.icon} ${mood.label}.`, season: String(game.season), matchday, createdAt: Date.now(), fingerprint: `fan-mood:${game.season}:${matchday}:${mood.stars}`, teamIds: [game.teamId], metadata: { userClub: true, fans: true } });
+    const moodSummary = mood.stars >= 5
+      ? `El ánimo de la grada se dispara: la afición está ${mood.label.toLowerCase()} con el momento del equipo.`
+      : mood.stars <= 1
+      ? `El ánimo de la grada se hunde: la afición está ${mood.label.toLowerCase()} y la paciencia empieza a agotarse.`
+      : `El ánimo de la grada ha cambiado: ahora se sienten ${mood.label.toLowerCase()}.`;
+    news.push({ id: `news-fan-mood-${game.season}-${matchday}-${mood.stars}`, type: "fan", importance: fanbase.support < 35 ? "high" : "medium", title: `La afición está ${mood.label.toLowerCase()}`, summary: moodSummary, season: String(game.season), matchday, createdAt: Date.now(), fingerprint: `fan-mood:${game.season}:${matchday}:${mood.stars}`, teamIds: [game.teamId], metadata: { userClub: true, fans: true } });
   }
   if ((fanbase.recordAttendance ?? 0) && latest?.matchday === matchday && fanbase.recordAttendance === fanbase.trend?.[0]?.attendance) {
     news.push({ id: `news-fan-record-${game.season}-${matchday}`, type: "fan", importance: "medium", title: "Récord de asistencia de la temporada", summary: `${fanbase.recordAttendance.toLocaleString("es-ES")} aficionados acudieron al estadio.`, season: String(game.season), matchday, createdAt: Date.now(), fingerprint: `fan-record:${game.season}:${matchday}:${fanbase.recordAttendance}`, teamIds: [game.teamId], metadata: { userClub: true, fans: true } });
@@ -238,9 +349,21 @@ export function getFanPressureItems(game) {
   const fanbase = game?.fanbase;
   if (!fanbase) return [];
   const items = [];
-  if ((fanbase.support ?? 65) < 35) items.push({ id: `fans-support:${Math.floor(fanbase.support / 10)}`, priority: "critical", title: "La afición empieza a perder la paciencia", summary: `Estado general: ${getFanMood(fanbase.support).label}. Conviene recuperar resultados o explicar decisiones sensibles.`, action: { screen: "fans" }, actionLabel: "Ver afición" });
+  if ((fanbase.support ?? 65) < 35) {
+    const fanMood = getFanMood(fanbase.support);
+    const supportSummary = fanMood.stars <= 1
+      ? `La afición está ${fanMood.label.toLowerCase()} y empieza a cuestionar el proyecto. Convendría recuperar resultados pronto o dar explicaciones.`
+      : `La afición está ${fanMood.label.toLowerCase()}. Convendría recuperar resultados pronto o dar explicaciones.`;
+    items.push({ id: `fans-support:${Math.floor(fanbase.support / 10)}`, priority: "critical", title: "La afición empieza a perder la paciencia", summary: supportSummary, action: { screen: "fans" }, actionLabel: "Ver afición" });
+  }
   if ((fanbase.coachSupport ?? 65) < 38) items.push({ id: `fans-coach:${Math.floor(fanbase.coachSupport / 10)}`, priority: "important", title: "El entrenador pierde apoyo popular", summary: "La opinión de la grada puede empezar a influir en la directiva.", action: { screen: "career" }, actionLabel: "Ver carrera" });
-  if ((fanbase.atmosphere ?? 65) < 36) items.push({ id: `fans-atmosphere:${Math.floor(fanbase.atmosphere / 10)}`, priority: "important", title: "El ambiente del estadio se deteriora", summary: `${getStadiumMood(fanbase.atmosphere).label}. El equipo necesita reconectar con la grada.`, action: { screen: "fans" }, actionLabel: "Ver ambiente" });
+  if ((fanbase.atmosphere ?? 65) < 36) {
+    const stadiumMood = getStadiumMood(fanbase.atmosphere);
+    const atmosphereSummary = (fanbase.atmosphere ?? 65) < 30
+      ? "El estadio responde con silbidos y tensión: el equipo necesita reconectar con la grada cuanto antes."
+      : `El ambiente en el estadio es de ${stadiumMood.label.toLowerCase()} y el equipo necesita reconectar con la grada.`;
+    items.push({ id: `fans-atmosphere:${Math.floor(fanbase.atmosphere / 10)}`, priority: "important", title: "El ambiente del estadio se deteriora", summary: atmosphereSummary, action: { screen: "fans" }, actionLabel: "Ver ambiente" });
+  }
   const lastConcern = (fanbase.reactions ?? []).find(item => item.actionConcern);
   if (lastConcern && lastConcern.matchday >= (game.matchday ?? 1) - 2) items.push({ id: `fans-transfer-concern:${lastConcern.playerId}:${lastConcern.matchday}`, priority: "important", title: "La afición cuestiona una decisión de mercado", summary: lastConcern.summary, action: { screen: "fans" }, actionLabel: "Ver reacción" });
   return items;
