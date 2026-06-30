@@ -19,9 +19,9 @@ function NewsItem({ item, featured = false, onOpenPlayer }) {
     }}>
       <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:7 }}>
         <span style={{ fontSize:featured?20:15 }}>{TYPE_ICON[item.type] ?? "📰"}</span>
-        <span style={{ fontSize:9, color:importance.color, fontWeight:800, textTransform:"uppercase", letterSpacing:".7px" }}>{importance.label}</span>
+        {item.importance!=="critical"&&<span style={{ fontSize:9, color:importance.color, fontWeight:800, textTransform:"uppercase", letterSpacing:".7px" }}>{importance.label}</span>}
         {(item.featured||item.importance==="critical")&&<span style={{fontSize:9,color:"#f97316",fontWeight:900}}>🔥 IMPORTANTE</span>}
-        <span style={{ marginLeft:"auto", fontSize:9, color:"#4b5563" }}>T. {item.seasonLabel}{item.matchday ? ` · J${item.matchday}` : ""}</span>
+        <span style={{ marginLeft:"auto", fontSize:9, color:"#4b5563" }}>Temp. {item.seasonLabel}{item.matchday ? ` · J${item.matchday}` : ""}</span>
       </div>
       <div style={{ fontSize:featured?18:13, lineHeight:1.35, fontWeight:featured?800:700, color:"#e8eaf0" }}>{item.title}</div>
       {item.summary && <div style={{ fontSize:11, color:"#7c8495", lineHeight:1.5, marginTop:6 }}>{item.summary}</div>}
@@ -44,7 +44,7 @@ export default function NewsScreen({ news = [], currentSeason, game, onOpenPlaye
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:12 }}>
         <div>
           <div style={{ fontSize:11, color:"#c9a84c", fontWeight:800, letterSpacing:".7px" }}>CENTRO DE PRENSA</div>
-          <div style={{ fontSize:12, color:"#6b7280", marginTop:2 }}>{filter==="club"?"La actualidad que afecta a tu equipo":`${news.length} noticias en el archivo`}</div>
+          <div style={{ fontSize:12, color:"#6b7280", marginTop:2 }}>{ { club:"La actualidad que afecta a tu equipo", league:"Resultados y clasificación en la competición", market:"Fichajes y movimientos de mercado", youth:"La cantera y el futuro del club", board:"Directiva, objetivos y economía" }[filter] ?? "Todo lo que se mueve en la competición" }</div>
         </div>
         <select value={season} onChange={event=>setSeason(event.target.value)} style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.1)", color:"#c9a84c", borderRadius:7, padding:"7px 9px", fontSize:11 }}>
           <option value="all">Todas las temporadas</option>

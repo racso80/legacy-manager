@@ -106,7 +106,7 @@ export function createInjuryEvent(result, minute) {
     minute, type:"INJURY", team:"user", playerId:result.player.id,
     injuryType:result.type.name, injuryTypeId:result.type.id,
     injuryDays:result.totalDays, injuryGames:Math.ceil(result.totalDays/7), riskAtInjury:result.risk,
-    description:`🚑 ${result.player.name} sufre ${result.type.name.toLowerCase()} y no puede continuar.`,
+    description:`🚑 ${result.player.name} sufre ${result.type.name.startsWith("Molestias") ? "" : result.type.name.startsWith("Esguince") ? "un " : "una "}${result.type.name.toLowerCase()} y no puede continuar.`,
   };
 }
 

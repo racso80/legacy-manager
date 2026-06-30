@@ -335,6 +335,7 @@ export function generateMatchdayNews({ beforeFixtures, afterFixtures, beforeStan
       stories.push(createNews({
         type: "streak",
         title: `${team.name} rompe una racha de ${before.count} ${label} consecutivos`,
+        summary: `${team.name} pone fin a una serie de ${before.count} ${label} y cambia de dinámica.`,
         importance: team.id === userTeamId || before.count >= 5 ? "high" : "medium",
         season, matchday, teamIds: [team.id], userTeamId,
         fingerprint: `streak-broken:${team.id}:${before.result}:${before.count}`,
@@ -350,7 +351,7 @@ export function generateMatchdayNews({ beforeFixtures, afterFixtures, beforeStan
     stories.push(createNews({
       type: "scorer",
       title: `${leader.name} lidera la tabla de goleadores`,
-      summary: `${leader.goals} goles en la temporada ${seasonKey(season)}.`,
+      summary: `Se consolida como el máximo goleador de la competición con ${leader.goals} tantos esta temporada.`,
       importance: "high", season, matchday, teamIds: [leader.teamId], playerIds: [leader.playerId], userTeamId,
       fingerprint: `scorer-leader:${leader.playerId}:${leader.goals}`,
     }));
@@ -359,8 +360,8 @@ export function generateMatchdayNews({ beforeFixtures, afterFixtures, beforeStan
   afterScorers.slice(0, 3).forEach((row, index) => {
     if (index > 0 && !oldTop3.has(row.playerId)) {
       stories.push(createNews({
-        type: "scorer", title: `${row.name} entra en el Top 3 de máximos goleadores`,
-        summary: `${row.goals} goles en la temporada ${seasonKey(season)}.`,
+        type: "scorer", title: `${row.name} entra en el podio de máximos goleadores`,
+        summary: `Suma ${row.goals} goles y se cuela entre los máximos artilleros de la competición.`,
         importance: "medium", season, matchday, teamIds: [row.teamId], playerIds: [row.playerId], userTeamId,
         fingerprint: `scorer-top3:${row.playerId}:${row.goals}`,
       }));
@@ -375,7 +376,7 @@ export function generateTransferNews({ transfer, season, matchday, userTeamId, u
   const buying = type === "buy";const loanIn=type==="loanIn";const loanOut=type==="loanOut";
   return [createNews({
     type: "transfer",
-    title: loanIn?`${userTeamName} incorpora cedido a ${player.name}`:loanOut?`${player.name} sale cedido de ${userTeamName}`:buying
+    title: loanIn?`${userTeamName} incorpora a ${player.name} cedido`:loanOut?`${player.name} sale cedido de ${userTeamName}`:buying
       ? `${userTeamName} incorpora a ${player.name} por ${money(cost)}`
       : `${player.name} abandona ${userTeamName} por ${money(value)}`,
     summary: loanIn?`El club abona ${money(cost)} por una cesión de una temporada.`:loanOut?`La cesión deja ${money(value)} en las cuentas del club.`:buying ? `El nuevo fichaje llega para reforzar la plantilla en el puesto de ${POSITION_NAMES[player.pos] ?? player.pos}.` : "El club confirma oficialmente la salida del jugador.",
@@ -386,6 +387,14 @@ export function generateTransferNews({ transfer, season, matchday, userTeamId, u
     fingerprint: `transfer:${type}:${player.id}:${matchday}:${cost ?? value}`,
     metadata: { userClub: true, amount: cost ?? value, direction: type },
   })];
+}
+
+function injuryArticle(name) {
+  if (!name) return "una ";
+  const lower = name.toLowerCase();
+  if (lower.startsWith("molestias")) return "";
+  if (lower.startsWith("esguince")) return "un ";
+  return "una ";
 }
 
 export function generateMedicalNews({ injuryEvents = [], beforePlayers = [], afterPlayers = [], season, matchday, userTeamId, userTeamName }) {
@@ -399,7 +408,7 @@ export function generateMedicalNews({ injuryEvents = [], beforePlayers = [], aft
     const duration = formatMedicalDuration(event.injuryDays ?? (event.injuryGames ?? 1) * 7);
     stories.push(createNews({
       type:"injury", title:`${player.name} estará ${duration} de baja`,
-      summary:`${userTeamName} confirma que el jugador sufre ${event.injuryType?.toLowerCase() ?? "una lesión muscular"}.`,
+      summary:`${userTeamName} confirma que el jugador sufre ${event.injuryType ? `${injuryArticle(event.injuryType)}${event.injuryType.toLowerCase()}` : "una lesión muscular"}.`,
       importance:(event.injuryDays ?? 7) >= 42 || player.overall >= 85 ? "critical" : (event.injuryDays ?? 7) >= 14 ? "high" : "medium",
       season, matchday, teamIds:[userTeamId], playerIds:[player.id], userTeamId,
       fingerprint:`injury:${player.id}:${event.injuryTypeId ?? "legacy"}:${matchday}`,
@@ -414,7 +423,7 @@ export function generateMedicalNews({ injuryEvents = [], beforePlayers = [], aft
       stories.push(createNews({ type:"injury", title:`${player.name} entra en la recta final de su recuperación`, summary:"El cuerpo médico le declara apto con limitaciones.", importance:"medium", season, matchday, teamIds:[userTeamId], playerIds:[player.id], userTeamId, fingerprint:`limited:${player.id}:${before.medical.startedMatchday ?? "x"}`, metadata:{userClub:true} }));
     }
     if (before.medical.phase !== "available" && player.medical.phase === "available") {
-      stories.push(createNews({ type:"injury", title:`${player.name} vuelve a entrenar con normalidad`, summary:"El jugador recibe el alta médica y vuelve a estar disponible.", importance:"medium", season, matchday, teamIds:[userTeamId], playerIds:[player.id], userTeamId, fingerprint:`recovered:${player.id}:${before.medical.startedMatchday ?? "x"}`, metadata:{userClub:true} }));
+      stories.push(createNews({ type:"injury", title:`${player.name} vuelve a entrenar con normalidad`, summary:"Recibe el alta médica y ya puede sumar minutos en los próximos partidos.", importance:"medium", season, matchday, teamIds:[userTeamId], playerIds:[player.id], userTeamId, fingerprint:`recovered:${player.id}:${before.medical.startedMatchday ?? "x"}`, metadata:{userClub:true} }));
     }
   });
   return mergeNews([], stories);
