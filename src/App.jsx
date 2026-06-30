@@ -6819,6 +6819,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
 
   const handleMatchEnd = (fixtureId, homeGoals, awayGoals, events, livePlayer, participation) => {
     let summaryData = null;
+    let sanitizedLineupAfterMatch = null;
     if (participation?.matchId) clearActiveMatchSession(participation.matchId);
     setRecoverableMatch(null);
     setGame(prev => {
@@ -7030,6 +7031,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       newGame=maybeCreateAITransfer(newGame,TEAMS,REAL_SQUADS);
       if((newGame.transferMarket?.aiTransfers?.length??0)>aiCountBefore){const move=newGame.transferMarket.aiTransfers[0];const from=TEAMS.find(team=>team.id===move.fromTeamId);const to=TEAMS.find(team=>team.id===move.toTeamId);const renewal=move.type==="renewal",loan=move.type==="loan",young=move.type==="youth";newGame={...newGame,news:mergeNews(newGame.news??[],[{id:`news-${move.id}`,type:"transfer",importance:young?"high":"medium",title:renewal?`${move.player.name} renueva con ${from?.name}`:loan?`${move.player.name}, cedido al ${to?.name}`:young?`${to?.name} apuesta por el joven ${move.player.name}`:`${move.player.name} ficha por ${to?.name}`,summary:renewal?`${from?.name} asegura la continuidad del jugador.`:loan?`${from?.name} busca minutos para el futbolista.`:`${from?.name} y ${to?.name} cierran la operación por €${(move.value/1000).toFixed(1)}M.${move.reason?` ${move.reason}.`:""}`,season:String(newGame.season),matchday,createdAt:Date.now(),fingerprint:move.id}])};newGame=refreshTransferListings(newGame,TEAMS,REAL_SQUADS,true);}
       newGame=ensureSceneState(ensureLegacyDirectorState(advanceClubLife(advanceConversationMemory(ensureConversationState(ensureClubLifeState(newGame))),{lineup})));
+      sanitizedLineupAfterMatch = sanitizeLineupSelection(lineup, subs, newPlayers, { starters:STARTERS_SLOTS, bench:BENCH_SLOTS });
       saveGame(newGame);
       autosaveCloud(newGame,"match-end");
 
@@ -7058,6 +7060,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
 
       return newGame;
     });
+    if (sanitizedLineupAfterMatch) { setLineup(sanitizedLineupAfterMatch.lineup); setSubs(sanitizedLineupAfterMatch.subs); }
     setTimeout(() => {
       if (summaryData?._seasonEnd) return; // season end handled separately
       if (summaryData) setMatchSummary(summaryData);
@@ -7137,6 +7140,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   };
 
   const handleTransfer = ({ type, player, cost, salary, value, fromTeamId, toTeamId, offerId }) => {
+    let sanitizedLineupAfterTransfer = null;
     setGame(prev => {
       let newPlayers = [...prev.players];
       const prevAdjustment = prev.budgetAdjustment ?? 0; // en €K, acumulado de fichajes/ventas
@@ -7153,6 +7157,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       } else if (type === "sell" || type === "loanOut") {
         newPlayers = newPlayers.filter(p => p.id !== player.id);
         if(toTeamId&&REAL_SQUADS[toTeamId]&&!REAL_SQUADS[toTeamId].some(item=>item.id===player.id))REAL_SQUADS[toTeamId]=[...REAL_SQUADS[toTeamId],player];
+        sanitizedLineupAfterTransfer = sanitizeLineupSelection(lineup, subs, newPlayers, { starters:STARTERS_SLOTS, bench:BENCH_SLOTS });
       }
 
       // Ajuste acumulado: comprar resta, vender suma (en €K)
@@ -7187,6 +7192,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       autosaveCloud(newGame,"transfer",{lineup});
       return newGame;
     });
+    if (sanitizedLineupAfterTransfer) { setLineup(sanitizedLineupAfterTransfer.lineup); setSubs(sanitizedLineupAfterTransfer.subs); }
   };
 
   const updateTransferMarket=updater=>setGame(prev=>{const updated=updater(prev);saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"market",{lineup,formation,subs});return updated;});
