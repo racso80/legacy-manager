@@ -493,7 +493,7 @@ function lockerRoomLifeMoment(game, activeEvents = []) {
       subjectName:recovered.name,
       action:{ screen:"medical", playerId:recovered.id },
       actionLabel:"Escuchar informe",
-      expectedOutcome:"Acompanhar el regreso sin precipitarlo.",
+      expectedOutcome:"Acompañar el regreso sin precipitarlo.",
     },
     newSigning && {
       id:`LockerLife:NewSigning:${newSigning.id}:${commonId}`,
@@ -505,7 +505,7 @@ function lockerRoomLifeMoment(game, activeEvents = []) {
       summary:"Los nuevos tambien necesitan sitio en el vestuario. El grupo parece estar haciendole hueco.",
       subjectId:newSigning.id,
       subjectName:newSigning.name,
-      expectedOutcome:"Acompanhar la integracion o dejar que los lideres hagan su trabajo.",
+      expectedOutcome:"Acompañar la integracion o dejar que los lideres hagan su trabajo.",
       ...base,
     },
   ].filter(Boolean);
