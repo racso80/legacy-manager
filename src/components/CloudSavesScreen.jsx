@@ -24,6 +24,7 @@ export default function CloudSavesScreen({ session, localSave, status, syncState
   const [saves,setSaves]=useState([]);
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState("");
+  const [confirmDeleteId,setConfirmDeleteId]=useState(null);
   const visibleSyncState = conflict ? "conflict" : syncState?.state ?? "local";
   const syncLabel = visibleSyncState === "saving" ? "Guardando..." : visibleSyncState === "saved" ? "Guardado correctamente" : visibleSyncState === "pending" ? "Pendiente de sincronizar" : visibleSyncState === "conflict" ? "Conflicto de sincronización" : visibleSyncState === "error" ? "Error al guardar" : "Solo local";
   const syncColor = visibleSyncState === "error" ? "#ef4444" : visibleSyncState === "saved" ? "#22c55e" : visibleSyncState === "local" ? "#9aa0b4" : "#f59e0b";
@@ -111,8 +112,18 @@ export default function CloudSavesScreen({ session, localSave, status, syncState
           </div>
         </div>
         <div style={{ display:"flex", gap:7, marginTop:10 }}>
-          <button onClick={()=>onLoadCloud(save.id)} className="btn-gold" style={{ flex:1, padding:9, borderRadius:8 }}>Cargar desde la nube</button>
-          <button onClick={async()=>{await onDeleteCloud(save.id); await refresh();}} style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.22)", color:"#ef4444", borderRadius:8, padding:"0 12px" }}>Borrar</button>
+          {confirmDeleteId === save.id ? (
+            <>
+              <div style={{ flex:1, fontSize:10, color:"#ef4444", lineHeight:1.35, display:"flex", alignItems:"center" }}>¿Eliminar "{save.name}" ({fmtDate(save.updated_at)}) de la nube? No se puede deshacer.</div>
+              <button onClick={async()=>{setConfirmDeleteId(null); await onDeleteCloud(save.id); await refresh();}} style={{ background:"rgba(239,68,68,.18)", border:"1px solid rgba(239,68,68,.35)", color:"#ef4444", borderRadius:8, padding:"0 12px", fontWeight:850, cursor:"pointer" }}>Sí, borrar</button>
+              <button onClick={()=>setConfirmDeleteId(null)} className="btn-ghost" style={{ borderRadius:8, padding:"0 12px" }}>Cancelar</button>
+            </>
+          ) : (
+            <>
+              <button onClick={()=>onLoadCloud(save.id)} className="btn-gold" style={{ flex:1, padding:9, borderRadius:8 }}>Cargar desde la nube</button>
+              <button onClick={()=>setConfirmDeleteId(save.id)} style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.22)", color:"#ef4444", borderRadius:8, padding:"0 12px" }}>Borrar</button>
+            </>
+          )}
         </div>
       </div>)}
       {!saves.length && <div style={{ background:"#161a24", borderRadius:11, padding:18, color:"#7b8293", fontSize:11, textAlign:"center" }}>No hay partidas guardadas en la nube todavía.</div>}

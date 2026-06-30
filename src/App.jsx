@@ -24,6 +24,8 @@ import CoachCareerScreen from "./components/CoachCareerScreen.jsx";
 import FanbaseScreen from "./components/FanbaseScreen.jsx";
 import CloudSavesScreen from "./components/CloudSavesScreen.jsx";
 import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
+import FeedbackBanner from "./components/ui/FeedbackBanner.jsx";
+import { useFeedback } from "./utils/feedback.js";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
 import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle, lifecycleNews, processBirthdays } from "./players/lifecycle.js";
@@ -1602,7 +1604,8 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
   const [filter, setFilter]   = useState({ pos:"", min:60, max:99, search:"", maxPrice:999999, maxSalary:9999 });
   const [selected, setSelected] = useState(null); // jugador seleccionado para fichar
   const [selling, setSelling]   = useState(null); // jugador propio a vender
-  const [confirm, setConfirm]   = useState(null); // {type:"buy"|"sell", player}
+  const [confirm, setConfirm]   = useState(null); // {type:"sell", player, offer} — confirma venta antes de aceptar una oferta entrante
+  const { feedback, showFeedback } = useFeedback();
   const [clubAmount,setClubAmount]=useState(0);
   const [contractSalary,setContractSalary]=useState(0);
   const [contractYears,setContractYears]=useState(3);
@@ -1701,24 +1704,11 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
   const canAttract = p => clubPrestige >= requiredPrestige(p);
   const canAfford = p => budgetLeft >= marketValue(p) && canAttract(p);
 
-  const doBuy = (player) => {
-    const cost   = marketValue(player);
-    const salary = suggestedSalary(player);
-    if (budgetLeft < cost || !canAttract(player)) return;
-    onTransfer({
-      type: "buy",
-      player: { ...player, fatigue:15, morale:75, injured:false, injuryGames:0,
-                suspended:false, suspGames:0, yellowCards:0, salary },
-      cost, salary,
-      fromTeamId: player._teamId,
-    });
-    setConfirm(null); setSelected(null);
-  };
-
-  const doSell = (player) => {
-    const value = marketValue(player);
-    onTransfer({ type:"sell", player, value });
-    setConfirm(null); setSelling(null);
+  const confirmSellOffer = () => {
+    if (!confirm || confirm.type !== "sell") return;
+    onIncomingOffer(confirm.offer, "accepted", confirm.player);
+    showFeedback(`Venta completada: ${confirm.player.name} ha salido del club.`, "success");
+    setConfirm(null);
   };
 
   const POSITIONS = ['','POR','DFC','LD','LI','MCD','MC','MCO','ED','EI','DC'];
@@ -1727,6 +1717,8 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
 
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+
+      {feedback && <div style={{ padding:"8px 14px 0" }}><FeedbackBanner feedback={feedback} style={{ marginBottom:0 }} /></div>}
 
       {/* Presupuesto header */}
       <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"10px 14px", flexShrink:0 }}>
@@ -1854,7 +1846,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
               </div>
               {!activeOffer&&isFreeAgent(selected)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#0d0f14",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:7,padding:"9px 10px",fontSize:12}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#0d0f14",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:7}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} años</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#0d0f14",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:7,padding:"9px 10px"}}>{["Estrella","Titular","Rotación","Promesa","Suplente"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>canAttract(selected)&&onFreeAgentOffer(selected,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",width:"100%",padding:12,borderRadius:8,fontSize:13}}>Negociar contrato</button></div>}
               {!activeOffer&&!isFreeAgent(selected)&&<><div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:7,marginBottom:8}}><input type="number" value={clubAmount} onChange={event=>setClubAmount(Number(event.target.value))} style={{background:"#0d0f14",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:7,padding:"9px 10px",fontSize:12}}/><span style={{alignSelf:"center",fontSize:9,color:"#6b7280"}}>€K · {selected._listing?.type==="loan"?"coste cesión":"oferta fija"}</span></div><button onClick={()=>canAttract(selected)&&clubAmount<=budgetLeft&&onClubOffer(selected,clubAmount,marketValue(selected),suggestedSalary(selected),selected._listing)} className="btn-gold" style={{width:"100%",padding:12,borderRadius:8,fontSize:13}}>Enviar {selected._listing?.type==="loan"?"propuesta de cesión":"oferta al club"}</button></>}
-              {activeOffer&&<div style={{background:"#0d0f14",borderRadius:9,padding:10}}><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>NEGOCIACIÓN EN CURSO · {activeOffer.dealType==="loan"?"CESIÓN":activeOffer.dealType==="free"?"AGENTE LIBRE":"FICHAJE"}</div><div style={{fontSize:12,color:"#e8eaf0",margin:"5px 0 9px"}}>{activeOffer.status==='pendingClub'?`El club responderá en ${activeOffer.responseDays??1} días.`:activeOffer.status==='clubCounter'?`Contraoferta del club: ${fmt(activeOffer.counterAmount)}`:activeOffer.status==='rejected'?'El club ha rechazado la oferta.':activeOffer.status==='outbid'?'Otro club ha superado tu oferta y se ha adelantado.':activeOffer.status==='clubAccepted'?'El club acepta. Ahora negocia con el jugador.':activeOffer.status==='pendingPlayer'?'El jugador estudia el contrato.':activeOffer.status==='playerCounter'?`El jugador solicita ${fmt(activeOffer.counterSalary)}/sem.`:activeOffer.status==='roleCounter'?`El jugador exige un rol de ${activeOffer.counterRole}.`:activeOffer.status==='playerRejected'?'El jugador rechaza las condiciones.':activeOffer.status==='ready'?'Acuerdo total alcanzado.':'Operación cerrada.'}</div>{activeOffer.status==='clubCounter'&&<button onClick={()=>onAcceptClubCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar contraoferta</button>}{['clubAccepted','playerRejected'].includes(activeOffer.status)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:6,padding:8}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} años</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6,padding:8}}>{["Estrella","Titular","Rotación","Promesa","Suplente"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>onContractOffer(activeOffer.id,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",padding:9}}>Enviar contrato al jugador</button></div>}{activeOffer.status==='playerCounter'&&<button onClick={()=>onAcceptPlayerCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar petición salarial</button>}{activeOffer.status==='roleCounter'&&<button onClick={()=>onAcceptRoleCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar rol solicitado</button>}{activeOffer.status==='ready'&&<button onClick={()=>{onFinalizeOffer(activeOffer,selected);setSelected(null);setTab("historial");}} className="btn-gold" style={{width:"100%",padding:10}}>Cerrar {activeOffer.dealType==="loan"?"cesión":"fichaje"}</button>}{activeOffer.status!=="ready"&&<button onClick={()=>onWithdrawOffer(activeOffer.id)} className="btn-ghost" style={{width:"100%",padding:8,marginTop:7}}>Retirarse de la negociación</button>}</div>}
+              {activeOffer&&<div style={{background:"#0d0f14",borderRadius:9,padding:10}}><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>NEGOCIACIÓN EN CURSO · {activeOffer.dealType==="loan"?"CESIÓN":activeOffer.dealType==="free"?"AGENTE LIBRE":"FICHAJE"}</div><div style={{fontSize:12,color:"#e8eaf0",margin:"5px 0 9px"}}>{activeOffer.status==='pendingClub'?`El club responderá en ${activeOffer.responseDays??1} días.`:activeOffer.status==='clubCounter'?`Contraoferta del club: ${fmt(activeOffer.counterAmount)}`:activeOffer.status==='rejected'?'El club ha rechazado la oferta.':activeOffer.status==='outbid'?'Otro club ha superado tu oferta y se ha adelantado.':activeOffer.status==='clubAccepted'?'El club acepta. Ahora negocia con el jugador.':activeOffer.status==='pendingPlayer'?'El jugador estudia el contrato.':activeOffer.status==='playerCounter'?`El jugador solicita ${fmt(activeOffer.counterSalary)}/sem.`:activeOffer.status==='roleCounter'?`El jugador exige un rol de ${activeOffer.counterRole}.`:activeOffer.status==='playerRejected'?'El jugador rechaza las condiciones.':activeOffer.status==='ready'?'Acuerdo total alcanzado.':'Operación cerrada.'}</div>{activeOffer.status==='clubCounter'&&<button onClick={()=>onAcceptClubCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar contraoferta</button>}{['clubAccepted','playerRejected'].includes(activeOffer.status)&&<div style={{display:"grid",gridTemplateColumns:"1fr 72px",gap:6}}><input type="number" value={contractSalary} onChange={event=>setContractSalary(Number(event.target.value))} style={{background:"#161a24",border:"1px solid rgba(255,255,255,.1)",color:"#fff",borderRadius:6,padding:8}}/><select value={contractYears} onChange={event=>setContractYears(Number(event.target.value))} style={{background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6}}>{[1,2,3,4,5].map(year=><option key={year} value={year}>{year} años</option>)}</select><select value={contractRole} onChange={event=>setContractRole(event.target.value)} style={{gridColumn:"1 / -1",background:"#161a24",color:"#fff",border:"1px solid rgba(255,255,255,.1)",borderRadius:6,padding:8}}>{["Estrella","Titular","Rotación","Promesa","Suplente"].map(role=><option key={role}>{role}</option>)}</select><button onClick={()=>onContractOffer(activeOffer.id,contractSalary,contractYears,contractRole)} className="btn-gold" style={{gridColumn:"1 / -1",padding:9}}>Enviar contrato al jugador</button></div>}{activeOffer.status==='playerCounter'&&<button onClick={()=>onAcceptPlayerCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar petición salarial</button>}{activeOffer.status==='roleCounter'&&<button onClick={()=>onAcceptRoleCounter(activeOffer.id)} className="btn-gold" style={{width:"100%",padding:9}}>Aceptar rol solicitado</button>}{activeOffer.status==='ready'&&<button onClick={()=>{onFinalizeOffer(activeOffer,selected);showFeedback(activeOffer.dealType==="loan"?`Cesión completada: ${selected.name} ya está en tu club.`:`Fichaje completado: ${selected.name} ya es de tu club.`,"success");setSelected(null);setTab("historial");}} className="btn-gold" style={{width:"100%",padding:10}}>Cerrar {activeOffer.dealType==="loan"?"cesión":"fichaje"}</button>}{activeOffer.status!=="ready"&&<button onClick={()=>onWithdrawOffer(activeOffer.id)} className="btn-ghost" style={{width:"100%",padding:8,marginTop:7}}>Retirarse de la negociación</button>}</div>}
               {activeOffer?.status==="clubCounter"&&<button onClick={()=>onClubOffer(selected,Math.round((activeOffer.amount+activeOffer.counterAmount)/2),marketValue(selected),suggestedSalary(selected),selected._listing)} style={{width:"100%",padding:8,marginTop:6,background:"rgba(96,165,250,.08)",border:"1px solid rgba(96,165,250,.25)",color:"#60a5fa",borderRadius:7,fontSize:10,fontWeight:800}}>Mejorar oferta a {fmt(Math.round((activeOffer.amount+activeOffer.counterAmount)/2))}</button>}
             </div>
           )}
@@ -1865,7 +1857,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
         <div style={{flex:1,overflowY:"auto",padding:"12px 14px"}}>
           <div style={{fontSize:10,color:"#6b7280",fontWeight:800,marginBottom:9}}>📬 OFERTAS RECIBIDAS</div>
           {(game.transferMarket?.incomingOffers??[]).length===0&&<div style={{background:"#161a24",borderRadius:9,padding:16,color:"#6b7280",fontSize:11,textAlign:"center",marginBottom:15}}>Marca jugadores como transferibles o cedibles para atraer ofertas.</div>}
-          {(game.transferMarket?.incomingOffers??[]).map(offer=>{const buyer=TEAMS.find(team=>team.id===offer.toTeamId);const player=players.find(item=>item.id===offer.playerId);return <div key={offer.id} style={{background:"#161a24",border:"1px solid rgba(96,165,250,.18)",borderRadius:10,padding:11,marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:9}}><TeamCrest team={buyer} size={30}/><div style={{flex:1}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:800}}>{offer.playerName}</div><div style={{fontSize:9,color:"#6b7280",marginTop:2}}>{buyer?.name} · {offer.type==="loan"?"cesión":"traspaso"}</div></div><strong style={{color:"#22c55e",fontSize:13}}>{fmt(offer.amount)}</strong></div>{offer.status==="pending"?<div style={{display:"flex",gap:7,marginTop:9}}><button onClick={()=>onIncomingOffer(offer,"rejected",player)} className="btn-ghost" style={{flex:1,padding:8}}>Rechazar</button><button onClick={()=>onIncomingOffer(offer,"accepted",player)} className="btn-gold" style={{flex:1,padding:8}}>Aceptar</button></div>:<div style={{fontSize:9,color:offer.status==="accepted"?"#22c55e":"#ef4444",marginTop:7,fontWeight:800}}>{offer.status==="accepted"?"✅ ACEPTADA":"❌ RECHAZADA"}</div>}</div>})}
+          {(game.transferMarket?.incomingOffers??[]).map(offer=>{const buyer=TEAMS.find(team=>team.id===offer.toTeamId);const player=players.find(item=>item.id===offer.playerId);return <div key={offer.id} style={{background:"#161a24",border:"1px solid rgba(96,165,250,.18)",borderRadius:10,padding:11,marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:9}}><TeamCrest team={buyer} size={30}/><div style={{flex:1}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:800}}>{offer.playerName}</div><div style={{fontSize:9,color:"#6b7280",marginTop:2}}>{buyer?.name} · {offer.type==="loan"?"cesión":"traspaso"}</div></div><strong style={{color:"#22c55e",fontSize:13}}>{fmt(offer.amount)}</strong></div>{offer.status==="pending"?<div style={{display:"flex",gap:7,marginTop:9}}><button onClick={()=>onIncomingOffer(offer,"rejected",player)} className="btn-ghost" style={{flex:1,padding:8}}>Rechazar</button><button onClick={()=>player&&setConfirm({type:"sell",player,offer})} className="btn-gold" style={{flex:1,padding:8}}>Aceptar</button></div>:<div style={{fontSize:9,color:offer.status==="accepted"?"#22c55e":"#ef4444",marginTop:7,fontWeight:800}}>{offer.status==="accepted"?"✅ ACEPTADA":"❌ RECHAZADA"}</div>}</div>})}
           <div style={{fontSize:10,color:"#6b7280",fontWeight:800,margin:"17px 0 9px"}}>🤝 TUS NEGOCIACIONES</div>
           {(game.transferMarket?.offers??[]).length===0&&<div style={{background:"#161a24",borderRadius:9,padding:16,color:"#6b7280",fontSize:11,textAlign:"center"}}>No hay negociaciones abiertas.</div>}
           {(game.transferMarket?.offers??[]).map(offer=>{const status={pendingClub:["🕒","Pendiente del club","#f59e0b"],clubCounter:["🔄","Contraoferta","#60a5fa"],clubAccepted:["✅","Club acepta","#22c55e"],pendingPlayer:["⏳","Esperando jugador","#f59e0b"],playerCounter:["🔄","Pide más salario","#60a5fa"],roleCounter:["🔄","Pide otro rol","#60a5fa"],ready:["✍️","Acuerdo total","#22c55e"],rejected:["❌","Rechazada","#ef4444"],playerRejected:["❌","Jugador rechaza","#ef4444"],outbid:["⚠️","Otro club se adelanta","#ef4444"],withdrawn:["↩️","Retirada","#6b7280"],completed:["📌","Finalizada","#c9a84c"]}[offer.status]??["•",offer.status,"#6b7280"];return <div key={offer.id} onClick={()=>{const player=allOtherPlayers2.find(item=>item.id===offer.playerId);if(player){setSelected({...player,_listing:listingsByPlayer.get(player.id)});setTab("comprar");}}} style={{background:"#161a24",border:`1px solid ${status[2]}33`,borderRadius:10,padding:11,marginBottom:8,cursor:"pointer"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><div style={{fontSize:12,color:"#e8eaf0",fontWeight:800}}>{offer.playerName}</div><div style={{fontSize:9,color:"#6b7280",marginTop:3}}>Oferta: {fmt(offer.amount)} · {offer.dealType==="loan"?"cesión":"fichaje"}</div></div><div style={{fontSize:9,color:status[2],fontWeight:800,textAlign:"right"}}>{status[0]} {status[1]}</div></div></div>})}
@@ -1947,6 +1939,23 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
         </div>
       )}
       </SwipeTabs>
+
+      {confirm?.type==="sell" && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.6)", zIndex:50, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+          onClick={() => setConfirm(null)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:"#161a24", border:"1px solid rgba(239,68,68,.3)", borderRadius:12, padding:18, width:"100%", maxWidth:320 }}>
+            <div style={{ fontSize:14, fontWeight:800, color:"#ef4444", marginBottom:8 }}>¿Vender a {confirm.player.name}?</div>
+            <div style={{ fontSize:12, color:"#9aa0b4", lineHeight:1.5, marginBottom:16 }}>
+              El club ofrece <strong style={{ color:"#22c55e" }}>{fmt(confirm.offer.amount)}</strong> por {confirm.player.name}. Esta operación no se puede deshacer.
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={() => setConfirm(null)} className="btn-ghost" style={{ flex:1, padding:10, borderRadius:8, fontSize:12, cursor:"pointer" }}>Cancelar</button>
+              <button onClick={confirmSellOffer} className="btn-danger" style={{ flex:1, padding:10, borderRadius:8, fontSize:12, cursor:"pointer" }}>Confirmar venta</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3291,6 +3300,8 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   const [presetName, setPresetName] = useState("");
   const [presetIcon, setPresetIcon] = useState("🏠");
   const [lineupNotice, setLineupNotice] = useState(null);
+  const [confirmDeletePresetId, setConfirmDeletePresetId] = useState(null);
+  const { feedback, showFeedback } = useFeedback();
 
   const formations = {
     "4-3-3":   ["POR","LD","DFC","DFC","LI","MC","MCD","MC","ED","DC","EI"],
@@ -3559,6 +3570,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
     };
     onSaveLineups([...(savedLineups ?? []), newPreset]);
     setSavingPreset(false);
+    showFeedback(`Alineación guardada como "${newPreset.name}".`, "success");
     setPresetName("");
     setPresetIcon("🏠");
   };
@@ -3717,6 +3729,8 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
           </button>
         </div>
 
+        {feedback && <div style={{ margin:"0 12px 8px" }}><FeedbackBanner feedback={feedback} style={{ marginBottom:0 }} /></div>}
+
         {lineupNotice && (
           <div style={{ margin:"0 12px 8px", background:"rgba(249,115,22,.10)", border:"1px solid rgba(249,115,22,.24)", borderRadius:8, padding:"8px 10px" }}>
             <div style={{ color:"#fed7aa", fontSize:11, fontWeight:900 }}>{lineupNotice.title}</div>
@@ -3733,19 +3747,35 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
             )}
             {(savedLineups ?? []).map(preset => (
               <div key={preset.id} style={{ display:"flex", alignItems:"center", gap:8, background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:7, padding:"8px 10px" }}>
-                <span style={{ fontSize:18 }}>{preset.icon}</span>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:12, fontWeight:700, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{preset.name}</div>
-                  <div style={{ fontSize:10, color:"#6b7280" }}>{preset.formation} · {preset.lineup.filter(Boolean).length}/11 titulares</div>
-                </div>
-                <button onClick={() => loadPreset(preset)} className="btn-gold"
-                  style={{ padding:"6px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                  Cargar
-                </button>
-                <button onClick={() => deletePreset(preset.id)}
-                  style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)", color:"#ef4444", padding:"6px 9px", borderRadius:6, fontSize:11, cursor:"pointer" }}>
-                  🗑
-                </button>
+                {confirmDeletePresetId === preset.id ? (
+                  <>
+                    <div style={{ flex:1, fontSize:11, color:"#ef4444", lineHeight:1.3 }}>¿Eliminar esta alineación guardada?</div>
+                    <button onClick={() => { deletePreset(preset.id); setConfirmDeletePresetId(null); }}
+                      style={{ background:"rgba(239,68,68,.15)", border:"1px solid rgba(239,68,68,.3)", color:"#ef4444", padding:"6px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                      Confirmar
+                    </button>
+                    <button onClick={() => setConfirmDeletePresetId(null)}
+                      style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", padding:"6px 12px", borderRadius:6, fontSize:11, cursor:"pointer" }}>
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize:18 }}>{preset.icon}</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{preset.name}</div>
+                      <div style={{ fontSize:10, color:"#6b7280" }}>{preset.formation} · {preset.lineup.filter(Boolean).length}/11 titulares</div>
+                    </div>
+                    <button onClick={() => loadPreset(preset)} className="btn-gold"
+                      style={{ padding:"6px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                      Cargar
+                    </button>
+                    <button onClick={() => setConfirmDeletePresetId(preset.id)}
+                      style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)", color:"#ef4444", padding:"6px 9px", borderRadius:6, fontSize:11, cursor:"pointer" }}>
+                      🗑
+                    </button>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -6396,7 +6426,30 @@ export default function App({ externalData }) {
       if (idx !== -1) Object.assign(TEAMS[idx], et);
     });
   }
-  const [screen, setScreen]       = useState("menu");
+  const [screen, setScreenRaw]    = useState("menu");
+  const [navigationHistory, setNavigationHistory] = useState([]); // pila de pantallas para "volver" (máx. 5)
+  const NAV_HISTORY_LIMIT = 5;
+  const isRootNavScreen = id => id === "menu" || PRIMARY_NAV.some(item => item.id === id);
+  const setScreen = (next) => {
+    if (next !== screen) {
+      if (isRootNavScreen(next)) setNavigationHistory([]);
+      else setNavigationHistory(history => [...history, screen].slice(-NAV_HISTORY_LIMIT));
+    }
+    setScreenRaw(next);
+  };
+  const goBack = () => {
+    if (screen === "playerProfile") {
+      setNavigationHistory(history => history.slice(0, -1));
+      setScreenRaw(profileReturnScreen);
+      return;
+    }
+    if (navigationHistory.length > 0) {
+      setScreenRaw(navigationHistory[navigationHistory.length - 1]);
+      setNavigationHistory(history => history.slice(0, -1));
+      return;
+    }
+    setScreenRaw("dashboard");
+  };
   const [game, setGame]           = useState(null);
   const [activeSaveId, setActiveSaveId] = useState(null); // id de la partida actualmente cargada
   const [lineup, setLineup]       = useState(emptyLineup());
@@ -7682,7 +7735,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   };
   const showNav = Boolean(game) && !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile","conversation","scene"].includes(screen);
   const inGame  = Boolean(game) && !["menu","saves","country","league","teams","coachCreate"].includes(screen);
-  const edgeSwipe=useEdgeSwipeBack(()=>setScreen(screen==="playerProfile"?profileReturnScreen:"dashboard"),{enabled:screen!=="dashboard"&&(showNav||screen==="playerProfile"||screen==="conversation"||screen==="scene")});
+  const edgeSwipe=useEdgeSwipeBack(goBack,{enabled:screen!=="dashboard"&&(showNav||screen==="playerProfile"||screen==="conversation"||screen==="scene")});
 
   useEffect(() => {
     const canOpenWithoutGame = ["menu","saves","country","league","teams","coachCreate","cloudSaves"].includes(screen);
@@ -7703,11 +7756,11 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             </button>
           )}
           {(inGame && screen !== "dashboard") && (
-            <button onClick={() => setScreen(screen === "playerProfile" ? profileReturnScreen : "dashboard")}
+            <button onClick={goBack}
               style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", cursor:"pointer", fontSize:12, padding:"5px 10px", borderRadius:7, fontWeight:600, transition:"background .15s" }}
               onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.1)"}
               onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,.06)"}>
-              ← {screen === "playerProfile" ? "Volver" : "Inicio"}
+              ← {screen === "playerProfile" || navigationHistory.length > 0 ? "Volver" : "Inicio"}
             </button>
           )}
           {!inGame && screen === "cloudSaves" && (
@@ -7791,8 +7844,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "contracts" && game && <ContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} />}
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} />}
-          {screen === "conversation" && game && <ConversationScreen conversation={selectedConversation} onRespond={handleConversationResponse} onBack={()=>setScreen("dashboard")} />}
-          {screen === "scene" && game && <InteractiveSceneScreen scene={selectedScene} onChoose={handleSceneDecision} onBack={()=>setScreen("dashboard")} />}
+          {screen === "conversation" && game && <ConversationScreen conversation={selectedConversation} onRespond={handleConversationResponse} onBack={goBack} />}
+          {screen === "scene" && game && <InteractiveSceneScreen scene={selectedScene} onChoose={handleSceneDecision} onBack={goBack} />}
           {screen === "match"     && game && <MatchScreen game={game} saveId={activeSaveId} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} onAbandonMatch={()=>{setRecoverableMatch(null);setScreen("dashboard");}} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
