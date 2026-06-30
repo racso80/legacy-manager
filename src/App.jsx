@@ -7139,7 +7139,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     setScreen("preseason");
   };
 
-  const handleTransfer = ({ type, player, cost, salary, value, fromTeamId, toTeamId, offerId }) => {
+  const handleTransfer = ({ type, player, cost, salary, value, fromTeamId, toTeamId, offerId, incomingOfferId }) => {
     let sanitizedLineupAfterTransfer = null;
     setGame(prev => {
       let newPlayers = [...prev.players];
@@ -7188,6 +7188,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       if(fanNews.length)newGame={...newGame,news:mergeNews(newGame.news??[],fanNews)};
       if(type==="buy")newGame=registerScoutingSigning(newGame,player.id);
       if(offerId)newGame=completeOffer(newGame,offerId);
+      if(incomingOfferId)newGame=resolveIncomingOffer(newGame,incomingOfferId,"accepted");
       saveGame(newGame, lineup);
       autosaveCloud(newGame,"transfer",{lineup});
       return newGame;
@@ -7206,7 +7207,12 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   const handleWithdrawOffer=offerId=>updateTransferMarket(prev=>withdrawOffer(prev,offerId));
   const handleFinalizeOffer=(offer,player)=>handleTransfer({type:offer.dealType==="loan"?"loanIn":"buy",player:{...player,contractYears:offer.years,squadRole:offer.role,loanData:offer.dealType==="loan"?{fromTeamId:offer.fromTeamId,untilSeason:String(game.season)}:null},cost:offer.dealType==="free"?0:offer.amount,salary:offer.salary,fromTeamId:offer.fromTeamId,offerId:offer.id});
   const handleUserMarketStatus=(playerId,status)=>{updateTransferMarket(prev=>setUserMarketStatus(prev,playerId,status));setSelectedPlayer(current=>current?.id===playerId?{...current,marketStatus:current.marketStatus===status?null:status,morale:Math.max(20,(current.morale??70)-(current.marketStatus===status?0:status==="transfer"?4:2))}:current);};
-  const handleIncomingOffer=(offer,decision,player)=>{if(decision==="accepted"&&player)handleTransfer({type:offer.type==="loan"?"loanOut":"sell",player,value:offer.amount,fromTeamId:game.teamId,toTeamId:offer.toTeamId});updateTransferMarket(prev=>resolveIncomingOffer(prev,offer.id,decision));};
+  const handleIncomingOffer=(offer,decision,player)=>{
+    if(decision==="accepted"&&player)
+      handleTransfer({type:offer.type==="loan"?"loanOut":"sell",player,value:offer.amount,fromTeamId:game.teamId,toTeamId:offer.toTeamId,incomingOfferId:offer.id});
+    else
+      updateTransferMarket(prev=>resolveIncomingOffer(prev,offer.id,decision));
+  };
   const handleCreateRenewal=(playerId,salary,years,role)=>updateContracts(prev=>createRenewalOffer(prev,{playerId,salary,years,role}));
   const handleAcceptRenewalCounter=offerId=>updateContracts(prev=>acceptRenewalCounter(prev,offerId));
   const handleCompleteRenewal=offerId=>updateContracts(prev=>completeRenewal(prev,offerId));
