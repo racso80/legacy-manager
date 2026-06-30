@@ -213,6 +213,19 @@ export function recordCoachMatch(game, { result, goalsFor = 0, goalsAgainst = 0,
   return ensureCoachCareer({ ...seeded, coachCareer: coach }, null, []);
 }
 
+function buildPrestigeNotification({ prestigeDelta, title, youthReport, season }) {
+  let text;
+  if (title) text = "Ganar el título ha disparado tu prestigio.";
+  else if (prestigeDelta > 0 && (youthReport?.promoted ?? 0) >= 2) text = "Apostar por la cantera ha reforzado tu imagen.";
+  else if (prestigeDelta >= 8) text = "Tu nombre empieza a sonar en círculos más exigentes.";
+  else if (prestigeDelta >= 4) text = "Una temporada que refuerza tu reputación como entrenador.";
+  else if (prestigeDelta >= 1) text = "Tu trabajo está dejando huella poco a poco.";
+  else if (prestigeDelta <= -8) text = "Tu continuidad empieza a generar dudas fuera del club.";
+  else if (prestigeDelta <= -4) text = "Una temporada complicada empieza a pesar en tu reputación.";
+  else return null;
+  return { id: `coach-prestige-${season}`, type: prestigeDelta < 0 ? "prestige-drop" : "prestige", title: text, season, createdAt: new Date().toISOString() };
+}
+
 export function finalizeCoachSeason(game, { team, position, points = 0, title = null, confidence = null, youthReport = null, legacyDelta = 0 } = {}) {
   const seeded = ensureCoachCareer(game, team);
   const coach = seeded.coachCareer;
@@ -259,7 +272,10 @@ export function finalizeCoachSeason(game, { team, position, points = 0, title = 
       },
     },
     stats: { ...stats, seasons: stats.seasons + 1, titles: stats.titles + (title ? 1 : 0), promotedYouth: stats.promotedYouth + (youthReport?.promoted ?? 0), bestSeason },
-    notifications: prestigeDelta >= 4 ? [{ id: `coach-prestige-${season}`, type: "prestige", title: "Tu prestigio como entrenador ha subido", season, createdAt: new Date().toISOString() }, ...(coach.notifications ?? [])] : coach.notifications ?? [],
+    notifications: (() => {
+      const notification = buildPrestigeNotification({ prestigeDelta, title, youthReport, season });
+      return notification ? [notification, ...(coach.notifications ?? [])] : coach.notifications ?? [];
+    })(),
   };
   return ensureCoachCareer({ ...seeded, coachCareer: updatedCoach }, team, []);
 }

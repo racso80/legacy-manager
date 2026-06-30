@@ -1,4 +1,4 @@
-import { buildStaffRecommendations, getStaffLevel, STAFF_ROLES } from "../staff/staffEngine.js";
+import { buildStaffRecommendations, getConfidenceTier, getInitiativeTier, getStaffLevel, STAFF_ROLES } from "../staff/staffEngine.js";
 
 const panel = "#161a24";
 const gold = "#c9a84c";
@@ -42,11 +42,11 @@ function StaffCard({ member }) {
         </div>
         <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
           <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>CONFIANZA</div>
-          <div style={{ color:"#e8eaf0", fontSize:11, fontWeight:850, marginTop:2 }}>{member.confidence ?? 65}/100</div>
+          <div style={{ color:getConfidenceTier(member.confidence ?? 65).color, fontSize:11, fontWeight:850, marginTop:2 }}>{getConfidenceTier(member.confidence ?? 65).label}</div>
         </div>
         <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
           <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>INICIATIVA</div>
-          <div style={{ color:"#e8eaf0", fontSize:11, fontWeight:850, marginTop:2 }}>{member.initiative ?? 60}/100</div>
+          <div style={{ color:getInitiativeTier(member.initiative ?? 60).color, fontSize:11, fontWeight:850, marginTop:2 }}>{getInitiativeTier(member.initiative ?? 60).label}</div>
         </div>
       </div>
 
@@ -106,7 +106,7 @@ export default function StaffScreen({ game, onNavigate }) {
               <div style={{ flex:1 }}>
                 <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:850 }}>{item.title}</div>
                 <div style={{ color:muted, fontSize:10, lineHeight:1.45, marginTop:4 }}>"{item.quote}"</div>
-                <div style={{ color:"#4b5563", fontSize:8, fontWeight:850, marginTop:5 }}>Confianza {item.staffConfidence ?? "-"} · {item.staffPersonality ?? "Staff"}</div>
+                <div style={{ color:"#4b5563", fontSize:8, fontWeight:850, fontStyle:"italic", marginTop:5 }}>Perfil: {item.staffPersonality ?? "Staff"}</div>
               </div>
             </div>
           </button>)}

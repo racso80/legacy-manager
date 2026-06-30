@@ -9,6 +9,8 @@ const hash = value => {
   return Math.abs(result);
 };
 
+const pickVariant = (seed, list) => list[seed % list.length];
+
 export const STAFF_PERSONALITIES = {
   balanced: { id:"balanced", label:"Equilibrado", tone:"sereno", initiative:0, risk:0 },
   methodical: { id:"methodical", label:"Metódico", tone:"prudente", initiative:-4, risk:-8 },
@@ -126,7 +128,7 @@ function createStaffMember(teamId, roleId, teamQuality = 72, prestige = 45) {
     personalityLabel: personality.label,
     confidence: clamp(58 + Math.floor(overall * .28) + (seed % 15) - 7),
     initiative: clamp(48 + personality.initiative + Math.floor(overall * .22) + (seed % 13) - 6),
-    accuracyHistory: [],
+    accuracyHistory: seedAccuracyHistory(seed, overall),
     delegation: { enabled:false, scope:[] },
     recommendations: [],
     history: [],
@@ -156,7 +158,7 @@ export function normalizeStaffMember(member) {
     personalityLabel: member.personalityLabel ?? personality.label,
     confidence: clamp(member.confidence ?? 60 + Math.floor(overall * .25)),
     initiative: clamp(member.initiative ?? 55 + personality.initiative),
-    accuracyHistory: member.accuracyHistory ?? [],
+    accuracyHistory: member.accuracyHistory?.length ? member.accuracyHistory : seedAccuracyHistory(hash(`${member.id ?? member.roleId ?? member.name}:history-seed`), overall),
     delegation: member.delegation ?? { enabled:false, scope:[] },
     specialties: member.specialties?.length ? member.specialties : Object.entries(attributes).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([key]) => role.labels[key] ?? key),
     recommendations: member.recommendations ?? [],
@@ -221,11 +223,42 @@ export function getStaffLevel(value = 70) {
   return { label:"Débil", color:"#ef4444" };
 }
 
+export function getConfidenceTier(value = 65) {
+  if (value >= 80) return { label:"Seguro", color:"#22c55e" };
+  if (value >= 60) return { label:"Estable", color:"#c9a84c" };
+  return { label:"Dubitativo", color:"#f59e0b" };
+}
+
+export function getInitiativeTier(value = 60) {
+  if (value >= 80) return { label:"Muy proactivo", color:"#22c55e" };
+  if (value >= 60) return { label:"Proactivo", color:"#c9a84c" };
+  return { label:"Reactivo", color:"#f59e0b" };
+}
+
 export function staffMemoryLine(member, fallback = "") {
   const last = member?.history?.[0];
   if (last?.summary) return `Hace poco comentaste: "${last.summary}"`;
-  if ((member?.accuracyHistory ?? []).length >= 2) return "Voy ajustando mis recomendaciones con lo que ha funcionado estas semanas.";
+  const recent = (member?.accuracyHistory ?? []).slice(0, 5);
+  if (recent.length >= 3) {
+    const ratio = recent.filter(item => item.worked).length / recent.length;
+    if (ratio >= .6) return "Mis últimas recomendaciones en esta línea han funcionado bien.";
+    if (ratio <= .4) return "He fallado en situaciones parecidas últimamente, lo digo con honestidad.";
+    return "Voy ajustando mis recomendaciones con lo que ha funcionado estas semanas.";
+  }
   return fallback;
+}
+
+function seedAccuracyHistory(seed, overall = 70) {
+  return Array.from({ length: 3 }, (_, index) => ({
+    recommendationId: `seed-${index}`,
+    worked: ((seed >> (index * 5)) % 100) < overall,
+    date: Date.now() - (index + 1) * 7 * 24 * 3600 * 1000,
+  }));
+}
+
+function withMemory(quote, member) {
+  const memory = staffMemoryLine(member);
+  return memory ? `${quote} ${memory}` : quote;
 }
 
 export function recordStaffRecommendationOutcome(game, recommendationId, worked = true, summary = "") {
@@ -242,6 +275,147 @@ export function recordStaffRecommendationOutcome(game, recommendationId, worked 
       })),
     },
   };
+}
+
+function toneOf(member) {
+  return STAFF_PERSONALITIES[member?.personalityId]?.tone ?? "sereno";
+}
+
+function medicalFatigueQuote(member, name, seed) {
+  const pools = {
+    sereno: [
+      `Míster, no hay alarma, pero ${name} empieza a acumular carga. Yo valoraría darle descanso esta jornada.`,
+      `Con calma, pero sin demorarlo: ${name} está acumulando fatiga y convendría descansarlo esta jornada.`,
+    ],
+    directo: [
+      `${name} está sobrecargado. Hay que quitarle minutos esta jornada, sin más vueltas.`,
+      `Claro y directo: descanso para ${name} esta jornada. No hay otra.`,
+    ],
+    prudente: [
+      `Prefiero pecar de cauto: ${name} muestra señales de sobrecarga y convendría no forzar esta jornada.`,
+      `No quiero alarmar, pero por precaución recomendaría descansar a ${name} esta jornada.`,
+    ],
+    firme: [
+      `Tengo que ser claro: ${name} necesita descanso esta jornada. No deberíamos arriesgar.`,
+      `Esto no es negociable: ${name} descansa esta jornada.`,
+    ],
+    preciso: [
+      `Los datos de carga de ${name} han subido de forma notable. Recomiendo descanso esta jornada.`,
+      `La curva de fatiga de ${name} supera el umbral seguro. Recomiendo rotación esta jornada.`,
+    ],
+  };
+  return pickVariant(seed, pools[toneOf(member)] ?? pools.sereno);
+}
+
+function fitnessLoadQuote(member, seed) {
+  const pools = {
+    sereno: [
+      "La carga general va subiendo poco a poco. Convendría bajar intensidad o sumar algo de recuperación.",
+      "Sin agobios, pero la carga de la semana pide algo de cuidado: menos intensidad o más recuperación.",
+    ],
+    directo: [
+      "La carga está alta. Bajamos intensidad esta semana o metemos más recuperación, sin debate.",
+      "Esta semana hay que cortar: menos intensidad o más recuperación, ya.",
+    ],
+    prudente: [
+      "No quiero adelantarme, pero la carga semanal me preocupa un poco. Mejor bajar intensidad por precaución.",
+      "Por si acaso, propondría bajar intensidad esta semana antes de que la carga se note de verdad.",
+    ],
+    firme: [
+      "La carga del equipo es alta y hay que actuar ya: menos intensidad o más recuperación esta semana.",
+      "No hay margen para esperar: bajamos intensidad esta semana.",
+    ],
+    preciso: [
+      "Los números de carga semanal superan el umbral habitual. Recomiendo reducir intensidad o aumentar recuperación.",
+      "La carga acumulada del grupo está por encima de la media de las últimas semanas. Recomiendo ajustar el plan.",
+    ],
+  };
+  return pickVariant(seed, pools[toneOf(member)] ?? pools.sereno);
+}
+
+function sportingRenewalQuote(member, name, seed) {
+  const pools = {
+    sereno: [
+      `Conviene mirar con calma el contrato de ${name} pronto. Cuanto más esperemos, menos margen tendremos.`,
+      `Sin prisas, pero sería buen momento para abrir la renovación de ${name}.`,
+    ],
+    directo: [
+      `Hay que sentarse con ${name} ya. Cada semana que pasa perdemos margen de negociación.`,
+      `Vamos a resolver lo de ${name} cuanto antes. No tiene sentido esperar más.`,
+    ],
+    prudente: [
+      `Sin querer meter presión, creo que deberíamos revisar el contrato de ${name} antes de que se complique.`,
+      `Lo digo con cautela: convendría adelantarnos con el contrato de ${name} antes de que pierda valor negociador.`,
+    ],
+    firme: [
+      `Esto no puede esperar: hay que resolver el contrato de ${name} cuanto antes.`,
+      `Tengo que insistir: la renovación de ${name} es prioritaria ahora mismo.`,
+    ],
+    preciso: [
+      `El contrato de ${name} vence pronto y el margen negociador se reduce cada jornada. Recomiendo actuar ya.`,
+      `Los plazos del contrato de ${name} entran en zona de riesgo. Recomiendo abrir la negociación esta semana.`,
+    ],
+  };
+  return pickVariant(seed, pools[toneOf(member)] ?? pools.sereno);
+}
+
+function scoutingProspectQuote(member, name, seed) {
+  const pools = {
+    sereno: [
+      `Sin prisa, pero merece la pena comparar el mercado con la cantera. ${name} marca un buen nivel de potencial interno.`,
+      `Con calma, conviene tener presente a ${name}: marca el nivel de potencial que tenemos en casa.`,
+    ],
+    directo: [
+      `Antes de mirar fuera, fíjense en ${name}. Marca el nivel de potencial que tenemos en casa.`,
+      `${name} ya está ahí. Antes de gastar en el mercado, hay que valorarlo en serio.`,
+    ],
+    prudente: [
+      `No quiero presionar, pero ${name} ya marca un nivel de potencial interno a tener en cuenta antes de salir al mercado.`,
+      `Lo digo con cautela: convendría valorar a ${name} antes de cerrar cualquier operación de mercado.`,
+    ],
+    firme: [
+      `Hay que mirar primero dentro: ${name} marca el nivel de potencial interno y merece una oportunidad real.`,
+      `Insisto: ${name} merece prioridad sobre cualquier opción de mercado ahora mismo.`,
+    ],
+    preciso: [
+      `${name} lidera el potencial de la cantera ahora mismo. Útil como referencia antes de buscar en el mercado.`,
+      `Los informes sitúan a ${name} por encima del resto de la cantera. Dato a tener en cuenta antes de fichar fuera.`,
+    ],
+  };
+  return pickVariant(seed, pools[toneOf(member)] ?? pools.sereno);
+}
+
+function scoutingIdleQuote(seed) {
+  return pickVariant(seed, [
+    "La red está disponible para iniciar una misión de seguimiento.",
+    "No hay ninguna misión activa ahora mismo. Cuando quieras, lanzamos una nueva.",
+  ]);
+}
+
+function analystRivalQuote(member, seed) {
+  const pools = {
+    sereno: [
+      "He estado revisando con calma al rival y hay una tendencia clara. Conviene mirarla antes de cerrar el once.",
+      "Con tranquilidad, he detectado un patrón del rival que merece la pena valorar antes del partido.",
+    ],
+    directo: [
+      "El rival tiene un patrón claro. Hay que aprovecharlo antes de cerrar el once, sin perder tiempo.",
+      "Lo digo claro: el rival tiene un punto débil evidente. Hay que explotarlo en el once.",
+    ],
+    prudente: [
+      "Sin sacar conclusiones precipitadas, el rival muestra una tendencia que conviene revisar antes de cerrar el once.",
+      "No quiero adelantar demasiado, pero el patrón del rival merece una revisión antes del partido.",
+    ],
+    firme: [
+      "Tenemos que actuar sobre esto: el rival tiene un patrón claro y hay que explotarlo en el once.",
+      "Es una oportunidad clara: hay que construir el plan de partido sobre el patrón del rival.",
+    ],
+    preciso: [
+      "Los datos del rival muestran una tendencia repetida en las últimas jornadas. Recomiendo revisarla antes de cerrar el once.",
+      "El análisis estadístico del rival apunta a un patrón consistente. Recomiendo incorporarlo al plan de partido.",
+    ],
+  };
+  return pickVariant(seed, pools[toneOf(member)] ?? pools.sereno);
 }
 
 export function buildStaffRecommendations(game) {
@@ -265,33 +439,36 @@ export function buildStaffRecommendations(game) {
   const fixture = (ensured.fixtures ?? []).find(item => !item.played && (item.homeTeamId === ensured.teamId || item.awayTeamId === ensured.teamId));
 
   if (tired && ((tired.accumulatedFatigue ?? tired.medical?.accumulatedFatigue ?? 0) >= 55 || (tired.fatigue ?? 0) >= 62)) {
+    const id = `staff-medical-load:${tired.id}:${Math.floor(((tired.accumulatedFatigue ?? 0) + (tired.fatigue ?? 0)) / 10)}`;
     recommendations.push(recommendationBase(medical, {
-      id:`staff-medical-load:${tired.id}:${Math.floor(((tired.accumulatedFatigue ?? 0) + (tired.fatigue ?? 0)) / 10)}`,
+      id,
       priority:(tired.accumulatedFatigue ?? 0) >= 75 ? "critical" : "important",
       title:`${medical.roleTitle}: riesgo físico en ${tired.name}`,
-      quote:`Míster, ${tired.name} empieza a mostrar señales de sobrecarga. Recomiendo valorar descanso esta jornada.`,
+      quote:withMemory(medicalFatigueQuote(medical, tired.name, hash(id)), medical),
       action:{ screen:"medical", playerId:tired.id },
       actionLabel:"Abrir médico",
     }));
   }
 
   if ((ensured.trainingPlan?.load === "high" || ensured.trainingPlan?.load === "veryHigh") && players.some(player => (player.fatigue ?? 0) > 55)) {
+    const id = `staff-fitness-load:${ensured.season}:${ensured.matchday}:${ensured.trainingPlan?.load}`;
     recommendations.push(recommendationBase(fitness, {
-      id:`staff-fitness-load:${ensured.season}:${ensured.matchday}:${ensured.trainingPlan?.load}`,
+      id,
       priority:ensured.trainingPlan?.load === "veryHigh" ? "critical" : "important",
       title:`${fitness.roleTitle}: carga semanal elevada`,
-      quote:"La carga del equipo empieza a ser alta. Bajaría intensidad o metería más recuperación.",
+      quote:withMemory(fitnessLoadQuote(fitness, hash(id)), fitness),
       action:{ screen:"training" },
       actionLabel:"Ajustar entreno",
     }));
   }
 
   if (unhappy) {
+    const id = `staff-assistant-morale:${unhappy.id}:${Math.floor((unhappy.happiness ?? unhappy.managerTrust ?? 0) / 10)}`;
     recommendations.push(recommendationBase(assistant, {
-      id:`staff-assistant-morale:${unhappy.id}:${Math.floor((unhappy.happiness ?? unhappy.managerTrust ?? 0) / 10)}`,
+      id,
       priority:"important",
       title:`${assistant.roleTitle}: situación de vestuario`,
-      quote:`Creo que deberíamos hablar con ${unhappy.name}. Su rol o sus minutos empiezan a pesar en el grupo.`,
+      quote:withMemory(`Creo que deberíamos hablar con ${unhappy.name}. Su rol o sus minutos empiezan a pesar en el grupo.`, assistant),
       action:{ screen:"lockerRoom", playerId:unhappy.id },
       actionLabel:"Abrir vestuario",
     }));
@@ -302,40 +479,43 @@ export function buildStaffRecommendations(game) {
       id:`staff-assistant-form:${inFormSub.id}:${ensured.matchday}`,
       priority:"normal",
       title:`${assistant.roleTitle}: un suplente pide paso`,
-      quote:`${inFormSub.name} está entrenando muy bien. No lo impondría, pero merece estar en la conversación del once.`,
+      quote:withMemory(`${inFormSub.name} está entrenando muy bien. No lo impondría, pero merece estar en la conversación del once.`, assistant),
       action:{ screen:"lineup", playerId:inFormSub.id },
       actionLabel:"Revisar once",
     }));
   }
 
   if (expiring) {
+    const id = `staff-sporting-contract:${expiring.id}:${expiring.contractEnd}`;
     recommendations.push(recommendationBase(sporting, {
-      id:`staff-sporting-contract:${expiring.id}:${expiring.contractEnd}`,
+      id,
       priority:Number(expiring.contractEnd ?? 9999) <= Number(ensured.season ?? 2025) ? "critical" : "important",
       title:`${sporting.roleTitle}: renovación prioritaria`,
-      quote:`Recomiendo revisar cuanto antes el contrato de ${expiring.name}. Estamos perdiendo margen negociador.`,
+      quote:withMemory(sportingRenewalQuote(sporting, expiring.name, hash(id)), sporting),
       action:{ screen:"contracts", playerId:expiring.id },
       actionLabel:"Abrir contratos",
     }));
   }
 
   if (!activeMissions && (ensured.matchday ?? 1) <= 30) {
+    const id = `staff-scouting-idle:${ensured.season}:${ensured.matchday}`;
     recommendations.push(recommendationBase(scouting, {
-      id:`staff-scouting-idle:${ensured.season}:${ensured.matchday}`,
+      id,
       priority:"info",
       title:`${scouting.roleTitle}: red de scouting disponible`,
-      quote:prospect ? `Podemos comparar el mercado con la cantera. ${prospect.name} marca el nivel de potencial interno.` : "La red está disponible para iniciar una misión de seguimiento.",
+      quote:withMemory(prospect ? scoutingProspectQuote(scouting, prospect.name, hash(id)) : scoutingIdleQuote(hash(id)), scouting),
       action:{ screen:"scouting" },
       actionLabel:"Abrir scouting",
     }));
   }
 
   if (fixture && (ensured.matchday ?? 1) % 3 === 0) {
+    const id = `staff-analyst-rival:${ensured.season}:${ensured.matchday}:${fixture.id}`;
     recommendations.push(recommendationBase(analyst, {
-      id:`staff-analyst-rival:${ensured.season}:${ensured.matchday}:${fixture.id}`,
+      id,
       priority:"normal",
       title:`${analyst.roleTitle}: patrón del rival`,
-      quote:"He visto una tendencia clara del próximo rival. Conviene revisar dónde podemos hacer daño antes de cerrar el once.",
+      quote:withMemory(analystRivalQuote(analyst, hash(id)), analyst),
       action:{ screen:"lineup" },
       actionLabel:"Ver informe",
     }));
@@ -346,7 +526,7 @@ export function buildStaffRecommendations(game) {
       id:`staff-academy:${item.id}`,
       priority:item.priority,
       title:`${academy.roleTitle}: ${item.title}`,
-      quote:item.summary,
+      quote:withMemory(item.summary, academy),
       action:{ screen:"youth", playerId:item.player.id },
       actionLabel:"Ver cantera",
     }));
