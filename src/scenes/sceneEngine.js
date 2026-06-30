@@ -168,7 +168,7 @@ function continuityIntro(item, game) {
   if (storyKey.startsWith("contract_renewal:")) return days >= 5 ? "Como hablamos la semana pasada..." : "Como comentamos hace unos dias...";
   if (storyKey.startsWith("medical:")) return "Traigo novedades desde el ultimo informe.";
   if (storyKey.startsWith("youth:")) return "He seguido mirando al chico desde la ultima vez.";
-  return "Hay novedades desde nuestra ultima conversacion.";
+  return days >= 5 ? "Quería volver sobre lo que hablamos hace tiempo." : "Quería volver sobre lo que hablamos.";
 }
 
 function naturalFallback(text = "") {
@@ -206,7 +206,7 @@ function conversationOpening(conversation) {
   if (conversation.actorName === "Responsable de prensa") {
     return `${opening}\n\nSi no damos una frase clara, alguien escribirá la historia por nosotros.`;
   }
-  return `${opening}\n\nNo estoy del todo seguro de que sea grave, pero sí creo que conviene hablarlo hoy.`;
+  return opening;
 }
 
 function clubLifeMessage(issue, actor) {
@@ -215,27 +215,27 @@ function clubLifeMessage(issue, actor) {
   const detail = naturalFallback(issue.message ?? issue.summary ?? "");
 
   if (actor.id === "player") {
-    return `Míster...\n\nLlevo varios días dándole vueltas a mi situación. No es solo una cuestión de minutos o de contrato; es saber dónde estoy de verdad dentro del equipo.\n\n${detail ? `${detail}\n\n` : ""}No quiero tomar una decisión en caliente, pero necesito sentir que hay un plan conmigo.`;
+    return `Llevo varios días dándole vueltas a mi situación. No es solo una cuestión de minutos o de contrato; es saber dónde estoy de verdad dentro del equipo.\n\n${detail ? `${detail}\n\n` : ""}No quiero tomar una decisión en caliente, pero necesito sentir que hay un plan conmigo.`;
   }
 
   if (actor.id === "sportingDirector") {
-    return `Míster...\n\nAcabo de hablar con el entorno de ${shortSubject}. No han cerrado ninguna puerta, pero empiezan a preguntar demasiado por el futuro.\n\nPuede que todavía tengamos tiempo. O puede que estemos llegando justo al punto en el que otros clubes empiezan a moverse. Yo no lo dejaría dormir mucho más.`;
+    return `Acabo de hablar con el entorno de ${shortSubject}. No han cerrado ninguna puerta, pero empiezan a preguntar demasiado por el futuro.\n\nPuede que todavía tengamos tiempo. O puede que estemos llegando justo al punto en el que otros clubes empiezan a moverse. Yo no lo dejaría dormir mucho más.`;
   }
 
   if (actor.id === "assistantCoach") {
-    return `Míster...\n\nHe estado mirando el próximo partido otra vez. Hay algo que no me termina de convencer.\n\nNo te digo que tengamos que cambiarlo todo, pero si llegamos al encuentro sin decidir esto, el equipo lo va a notar. En el campo las dudas se pagan rápido.`;
+    return `He estado mirando el próximo partido otra vez. Hay algo que no me termina de convencer.\n\nNo te digo que tengamos que cambiarlo todo, pero si llegamos al encuentro sin decidir esto, el equipo lo va a notar. En el campo las dudas se pagan rápido.`;
   }
 
   if (actor.id === "doctor") {
-    return `Míster...\n\nHe visto a ${shortSubject} moverse con cuidado. No quiero alarmarte, porque puede quedarse en nada, pero hay señales que prefiero no ignorar.\n\nSi forzamos, quizá salga bien. O quizá dentro de unos días estemos hablando de una baja más seria.`;
+    return `He visto a ${shortSubject} moverse con cuidado. No quiero alarmarte, porque puede quedarse en nada, pero hay señales que prefiero no ignorar.\n\nSi forzamos, quizá salga bien. O quizá dentro de unos días estemos hablando de una baja más seria.`;
   }
 
   if (actor.id === "fitnessCoach") {
-    return `Míster...\n\nLa carga de algunos jugadores empieza a pesar. Desde fuera parecen bien, pero los datos y las caras después del trabajo cuentan otra cosa.\n\nPuede que aguanten un partido más. La duda es qué precio pagamos después.`;
+    return `La carga de algunos jugadores empieza a pesar. Desde fuera parecen bien, pero los datos y las caras después del trabajo cuentan otra cosa.\n\nPuede que aguanten un partido más. La duda es qué precio pagamos después.`;
   }
 
   if (actor.id === "captain") {
-    return `Míster...\n\nEl grupo está hablando más de lo normal. No vengo a exagerar nada, pero en el vestuario se nota cuando algo empieza a torcerse.\n\nSi lo cogemos ahora, quizá quede en una conversación. Si lo dejamos, puede crecer.`;
+    return `El grupo está hablando más de lo normal. No vengo a exagerar nada, pero en el vestuario se nota cuando algo empieza a torcerse.\n\nSi lo cogemos ahora, quizá quede en una conversación. Si lo dejamos, puede crecer.`;
   }
 
   if (actor.id === "president") {
@@ -243,31 +243,31 @@ function clubLifeMessage(issue, actor) {
   }
 
   if (actor.id === "pressOfficer") {
-    return `Míster...\n\nLos periodistas ya están olfateando el tema. Todavía no hay incendio, pero sí titulares esperando una chispa.\n\nSi salimos con una frase débil, la sala nos va a empujar donde no queremos ir.`;
+    return `Los periodistas ya están olfateando el tema. Todavía no hay incendio, pero sí titulares esperando una chispa.\n\nSi salimos con una frase débil, la sala nos va a empujar donde no queremos ir.`;
   }
 
   if (actor.id === "academyChief") {
-    return `Míster...\n\nHay un chico que cada vez pregunta menos y trabaja más. Eso suele decirme algo.\n\nNo sé si ya está preparado para todo, pero sí creo que merece que hablemos de su camino antes de que pierda impulso.`;
+    return `Hay un chico que cada vez pregunta menos y trabaja más. Eso suele decirme algo.\n\nNo sé si ya está preparado para todo, pero sí creo que merece que hablemos de su camino antes de que pierda impulso.`;
   }
 
-  return `Míster...\n\n${detail || "Hay algo que no deberíamos dejar pasar."}\n\nPuede que no sea urgente todavía, pero tengo la sensación de que si no lo hablamos ahora volverá con más peso.`;
+  return `${detail || "Hay algo que no deberíamos dejar pasar."}\n\nPuede que no sea urgente todavía, pero tengo la sensación de que si no lo hablamos ahora volverá con más peso.`;
 }
 
 function attentionMessage(attention, actor) {
   const summary = naturalFallback(attention.summary ?? attention.title ?? "");
   if (actor.id === "doctor") {
-    return `Míster...\n\nPaso un momento porque esto me deja dudas. ${summary}\n\nNo digo que sea grave, pero prefiero que lo miremos antes de que el cuerpo nos obligue.`;
+    return `Paso un momento porque esto me deja dudas. ${summary}\n\nNo digo que sea grave, pero prefiero que lo miremos antes de que el cuerpo nos obligue.`;
   }
   if (actor.id === "sportingDirector") {
-    return `Míster...\n\nTengo esto sobre la mesa y no me gusta dejarlo en espera. ${summary}\n\nQuizá podamos manejarlo con calma, pero en el mercado y en los contratos el silencio también habla.`;
+    return `Tengo esto sobre la mesa y no me gusta dejarlo en espera. ${summary}\n\nQuizá podamos manejarlo con calma, pero en el mercado y en los contratos el silencio también habla.`;
   }
   if (actor.id === "assistantCoach") {
-    return `Míster...\n\nAntes de salir al campo quería comentarte algo. ${summary}\n\nNo es una alarma, pero sí una de esas cosas que luego aparecen en el partido si no las cerramos.`;
+    return `Antes de salir al campo quería comentarte algo. ${summary}\n\nNo es una alarma, pero sí una de esas cosas que luego aparecen en el partido si no las cerramos.`;
   }
   if (actor.id === "captain") {
-    return `Míster...\n\nTe lo digo porque dentro se nota. ${summary}\n\nPuede que sea solo ruido de vestuario, pero el grupo necesita saber que lo tenemos controlado.`;
+    return `Te lo digo porque dentro se nota. ${summary}\n\nPuede que sea solo ruido de vestuario, pero el grupo necesita saber que lo tenemos controlado.`;
   }
-  return `Míster...\n\n${summary}\n\nNo sé si será el asunto más grande del día, pero sí merece que lo miremos antes de seguir.`;
+  return `${summary}\n\nNo sé si será el asunto más grande del día, pero sí merece que lo miremos antes de seguir.`;
 }
 
 function renewalResponseKind(item) {
@@ -291,87 +291,87 @@ function clubLifeMomentMessage(item, actor, game) {
   const type = issue.momentType ?? item.attention?.momentType;
   const mentorName = item.attention?.mentorName ?? item.mentorName;
   if (type === "locker_mentor_young") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}No vengo por un problema. Vengo por algo que me gusta ver.\n\n${mentorName ?? "Un veterano"} ha estado muy encima de ${shortSubject} durante los entrenamientos. Correcciones pequeñas, gestos, consejos de esos que no salen en ningun informe.\n\nEl chico lo agradece. Y el grupo tambien nota cuando los mayores cuidan a los jovenes.`;
+    return `${intro ? `${intro}\n\n` : ""}No vengo por un problema. Vengo por algo que me gusta ver.\n\n${mentorName ?? "Un veterano"} ha estado muy encima de ${shortSubject} durante los entrenamientos. Correcciones pequeñas, gestos, consejos de esos que no salen en ningun informe.\n\nEl chico lo agradece. Y el grupo tambien nota cuando los mayores cuidan a los jovenes.`;
   }
   if (type === "locker_leader_after_loss") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Despues de la derrota, ${shortSubject} ha juntado al grupo.\n\nNo ha sido un discurso de pelicula. Ha sido algo mas importante: cerrar la puerta, mirarse a la cara y recordar que esto sigue.\n\nSi quiere intervenir, este es buen momento. Si no, tambien puede dejar que el vestuario respire por si mismo.`;
+    return `${intro ? `${intro}\n\n` : ""}Despues de la derrota, ${shortSubject} ha juntado al grupo.\n\nNo ha sido un discurso de pelicula. Ha sido algo mas importante: cerrar la puerta, mirarse a la cara y recordar que esto sigue.\n\nSi quiere intervenir, este es buen momento. Si no, tambien puede dejar que el vestuario respire por si mismo.`;
   }
   if (type === "locker_good_mood") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}El grupo esta bien.\n\nNo perfecto, porque un vestuario nunca lo esta, pero si unido. Se nota en como entrenan, en como se hablan y en como los suplentes empujan sin romper.\n\nA veces tambien conviene que el entrenador sepa cuando no tiene que apagar ningun fuego.`;
+    return `${intro ? `${intro}\n\n` : ""}El grupo esta bien.\n\nNo perfecto, porque un vestuario nunca lo esta, pero si unido. Se nota en como entrenan, en como se hablan y en como los suplentes empujan sin romper.\n\nA veces tambien conviene que el entrenador sepa cuando no tiene que apagar ningun fuego.`;
   }
   if (type === "locker_young_nervous") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}${shortSubject} esta viviendo una semana grande.\n\nSe le nota ilusionado, pero tambien algo encogido. Entrenar con el primer equipo impone. Los mayores le estan ayudando, pero una palabra suya puede pesar mucho.\n\nNo hace falta prometerle nada. Solo decidir como acompanarlo.`;
+    return `${intro ? `${intro}\n\n` : ""}${shortSubject} esta viviendo una semana grande.\n\nSe le nota ilusionado, pero tambien algo encogido. Entrenar con el primer equipo impone. Los mayores le estan ayudando, pero una palabra suya puede pesar mucho.\n\nNo hace falta prometerle nada. Solo decidir como acompanarlo.`;
   }
   if (type === "locker_substitute_positive") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Queria hablarle de ${shortSubject}.\n\nNo esta jugando todo lo que querria, pero esta trabajando muy bien. No se ha borrado, no se ha quejado y esta apretando a los titulares.\n\nEse tipo de actitud sostiene un vestuario. Si lo reconocemos bien, puede contagiar.`;
+    return `${intro ? `${intro}\n\n` : ""}Queria hablarle de ${shortSubject}.\n\nNo esta jugando todo lo que querria, pero esta trabajando muy bien. No se ha borrado, no se ha quejado y esta apretando a los titulares.\n\nEse tipo de actitud sostiene un vestuario. Si lo reconocemos bien, puede contagiar.`;
   }
   if (type === "locker_recovery_mood") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}${shortSubject} ha vuelto con otra cara.\n\nTodavia hay que medir el regreso, pero animicamente se le ve mejor. Volver a sentirse parte del grupo tambien forma parte de la recuperacion.\n\nMi consejo es acompanar el proceso sin convertirlo en una carrera.`;
+    return `${intro ? `${intro}\n\n` : ""}${shortSubject} ha vuelto con otra cara.\n\nTodavia hay que medir el regreso, pero animicamente se le ve mejor. Volver a sentirse parte del grupo tambien forma parte de la recuperacion.\n\nMi consejo es acompanar el proceso sin convertirlo en una carrera.`;
   }
   if (type === "locker_new_signing") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}${shortSubject} empieza a encontrar sitio.\n\nLos primeros dias no siempre se ven desde fuera: bromas, rutinas, donde sentarse, con quien hablar. El grupo le esta abriendo hueco poco a poco.\n\nNo hace falta forzarlo, pero un gesto del entrenador puede acelerar mucho la integracion.`;
+    return `${intro ? `${intro}\n\n` : ""}${shortSubject} empieza a encontrar sitio.\n\nLos primeros dias no siempre se ven desde fuera: bromas, rutinas, donde sentarse, con quien hablar. El grupo le esta abriendo hueco poco a poco.\n\nNo hace falta forzarlo, pero un gesto del entrenador puede acelerar mucho la integracion.`;
   }
   if (type === "world_big_win") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}La victoria no se ha quedado dentro del vestuario.\n\nLos periodistas empiezan a hablar del equipo con otro tono. La aficion tambien. Eso puede ayudarnos, pero si lo alimentamos demasiado pronto, mañana nos lo van a exigir como obligacion.\n\nSolo necesito una linea: ilusion o prudencia.`;
+    return `${intro ? `${intro}\n\n` : ""}La victoria no se ha quedado dentro del vestuario.\n\nLos periodistas empiezan a hablar del equipo con otro tono. La aficion tambien. Eso puede ayudarnos, pero si lo alimentamos demasiado pronto, mañana nos lo van a exigir como obligacion.\n\nSolo necesito una linea: ilusion o prudencia.`;
   }
   if (type === "world_hard_loss") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Fuera se esta hablando bastante del resultado.\n\nNo es solo perder. Es la forma en que se interpreta. La sala va a buscar culpables, titulares y una frase que resuma todo.\n\nSi no damos un mensaje claro, lo van a escribir por nosotros.`;
+    return `${intro ? `${intro}\n\n` : ""}Fuera se esta hablando bastante del resultado.\n\nNo es solo perder. Es la forma en que se interpreta. La sala va a buscar culpables, titulares y una frase que resuma todo.\n\nSi no damos un mensaje claro, lo van a escribir por nosotros.`;
   }
   if (type === "world_derby_win" || type === "world_derby_loss" || type === "world_derby_draw") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}El derbi sigue en la calle.\n\nNo hace falta que le diga lo que mueve un partido asi. Hay bares, radios y redes hablando de cada decision. Podemos bajar el tono, proteger al grupo o aprovechar el ambiente.\n\nLo importante es que no parezca que el club no entiende lo que acaba de pasar.`;
+    return `${intro ? `${intro}\n\n` : ""}El derbi sigue en la calle.\n\nNo hace falta que le diga lo que mueve un partido asi. Hay bares, radios y redes hablando de cada decision. Podemos bajar el tono, proteger al grupo o aprovechar el ambiente.\n\nLo importante es que no parezca que el club no entiende lo que acaba de pasar.`;
   }
   if (type === "world_win_streak") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}La ciudad empieza a creer.\n\nDentro podemos decir que solo son tres partidos, pero fuera la gente ya esta construyendo una historia. Eso puede empujar al equipo... o meterle una mochila.\n\nConviene elegir como convivimos con esa ilusion.`;
+    return `${intro ? `${intro}\n\n` : ""}La ciudad empieza a creer.\n\nDentro podemos decir que solo son tres partidos, pero fuera la gente ya esta construyendo una historia. Eso puede empujar al equipo... o meterle una mochila.\n\nConviene elegir como convivimos con esa ilusion.`;
   }
   if (type === "world_negative_streak") {
     return `${intro ? `${intro}\n\n` : "Queria verte un momento.\n\n"}La mala racha ya no es un dato interno.\n\nLa directiva lo ve, la aficion lo comenta y la prensa empieza a preguntar si hay rumbo. No vengo a dramatizar, pero si a decirte que el silencio tambien se interpreta.\n\nNecesitamos una respuesta, aunque sea serena.`;
   }
   if (type === "world_youth_debut") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Todo el mundo pregunta por ${shortSubject}.\n\nEl debut ha conectado con la gente. Es bonito, pero tambien peligroso si le ponemos encima una historia demasiado grande.\n\nPodemos protegerlo, darle valor o llevarlo al mensaje de equipo.`;
+    return `${intro ? `${intro}\n\n` : ""}Todo el mundo pregunta por ${shortSubject}.\n\nEl debut ha conectado con la gente. Es bonito, pero tambien peligroso si le ponemos encima una historia demasiado grande.\n\nPodemos protegerlo, darle valor o llevarlo al mensaje de equipo.`;
   }
   if (type === "world_serious_injury") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}La lesion de ${shortSubject} ya se esta comentando fuera.\n\nPara nosotros es un asunto medico y deportivo. Para el exterior es una pregunta inmediata: como va a responder el equipo sin el.\n\nAntes de que se llene de ruido, conviene tener claro el mensaje.`;
+    return `${intro ? `${intro}\n\n` : ""}La lesion de ${shortSubject} ya se esta comentando fuera.\n\nPara nosotros es un asunto medico y deportivo. Para el exterior es una pregunta inmediata: como va a responder el equipo sin el.\n\nAntes de que se llene de ruido, conviene tener claro el mensaje.`;
   }
   if (type === "world_transfer_reaction") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}El movimiento ya tiene eco fuera.\n\nCuando el club ficha o mueve una pieza, todo el mundo intenta leer una intencion: ambicion, urgencia, futuro, presion. No significa que tengamos que explicar todo.\n\nPero si conviene saber que historia queremos dejar que se cuente.`;
+    return `${intro ? `${intro}\n\n` : ""}El movimiento ya tiene eco fuera.\n\nCuando el club ficha o mueve una pieza, todo el mundo intenta leer una intencion: ambicion, urgencia, futuro, presion. No significa que tengamos que explicar todo.\n\nPero si conviene saber que historia queremos dejar que se cuente.`;
   }
   if (type === "world_transfer_rumor") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}No hay oferta formal, pero el ruido existe.\n\nAlgunos clubes miran a ${shortSubject}. Ahora mismo es solo ambiente de mercado, nada mas. Pero estas cosas, si no se vigilan, pueden entrar en el vestuario sin llamar.\n\nYo lo llevaria con discrecion.`;
+    return `${intro ? `${intro}\n\n` : ""}No hay oferta formal, pero el ruido existe.\n\nAlgunos clubes miran a ${shortSubject}. Ahora mismo es solo ambiente de mercado, nada mas. Pero estas cosas, si no se vigilan, pueden entrar en el vestuario sin llamar.\n\nYo lo llevaria con discrecion.`;
   }
   if (type === "weekly_rival_report") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}He vuelto a mirar al rival con calma.\n\nNo creo que haya que cambiarlo todo, pero si preparamos la semana como si fuera un partido cualquiera, vamos a perder detalles. Hay una zona del campo donde podemos hacerles dano y otra donde no conviene regalar metros.\n\nSolo necesito saber si seguimos con el plan o si ajustamos algo antes de entrenarlo.`;
+    return `${intro ? `${intro}\n\n` : ""}He vuelto a mirar al rival con calma.\n\nNo creo que haya que cambiarlo todo, pero si preparamos la semana como si fuera un partido cualquiera, vamos a perder detalles. Hay una zona del campo donde podemos hacerles dano y otra donde no conviene regalar metros.\n\nSolo necesito saber si seguimos con el plan o si ajustamos algo antes de entrenarlo.`;
   }
   if (type === "weekly_training_focus") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}La semana nos da para una cosa, no para diez.\n\nPodemos apretar, recuperar piernas, trabajar balon parado o reforzar conceptos. Lo importante es elegirlo ahora, porque el equipo nota cuando cada dia empuja en una direccion distinta.\n\nNo es una urgencia. Es preparar el partido antes de que el partido nos prepare a nosotros.`;
+    return `${intro ? `${intro}\n\n` : ""}La semana nos da para una cosa, no para diez.\n\nPodemos apretar, recuperar piernas, trabajar balon parado o reforzar conceptos. Lo importante es elegirlo ahora, porque el equipo nota cuando cada dia empuja en una direccion distinta.\n\nNo es una urgencia. Es preparar el partido antes de que el partido nos prepare a nosotros.`;
   }
   if (type === "weekly_locker_room") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}No vengo por un incendio. Vengo porque la semana tambien se juega dentro.\n\nEl grupo esta pendiente del siguiente partido. Algunos estan con confianza, otros miran de reojo si van a tener minutos. Nada grave, pero conviene que el mensaje sea claro.\n\nSi quiere, lo movemos con calma antes de que llegue el ruido.`;
+    return `${intro ? `${intro}\n\n` : ""}No vengo por un incendio. Vengo porque la semana tambien se juega dentro.\n\nEl grupo esta pendiente del siguiente partido. Algunos estan con confianza, otros miran de reojo si van a tener minutos. Nada grave, pero conviene que el mensaje sea claro.\n\nSi quiere, lo movemos con calma antes de que llegue el ruido.`;
   }
   if (type === "weekly_medical_followup") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}No traigo malas noticias, y eso ya es bastante.\n\nPero hay cargas que prefiero comentar antes del partido. Si decidimos hoy quien necesita cuidado, el domingo no tendremos que improvisar con el cuerpo caliente.\n\nMi recomendacion es simple: revisar antes de forzar.`;
+    return `${intro ? `${intro}\n\n` : ""}No traigo malas noticias, y eso ya es bastante.\n\nPero hay cargas que prefiero comentar antes del partido. Si decidimos hoy quien necesita cuidado, el domingo no tendremos que improvisar con el cuerpo caliente.\n\nMi recomendacion es simple: revisar antes de forzar.`;
   }
   if (type === "weekly_academy_progress") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Esta semana he querido pasar sin hacer ruido, pero creo que merece la pena que lo sepa.\n\n${shortSubject} ha dado un paso pequeno, de esos que no salen en titulares pero si cuentan para su futuro. No le pido una decision grande.\n\nSolo que lo tengamos presente mientras preparamos el equipo.`;
+    return `${intro ? `${intro}\n\n` : ""}Esta semana he querido pasar sin hacer ruido, pero creo que merece la pena que lo sepa.\n\n${shortSubject} ha dado un paso pequeno, de esos que no salen en titulares pero si cuentan para su futuro. No le pido una decision grande.\n\nSolo que lo tengamos presente mientras preparamos el equipo.`;
   }
   if (type === "weekly_press_context") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Antes del partido ya se esta construyendo un relato fuera.\n\nNo necesitamos una rueda de prensa larga, pero si conviene saber que tono queremos transmitir: calma, ambicion o prudencia. La prensa va a llenar los huecos si nosotros no damos una linea clara.\n\nMe basta con saber por donde quiere llevar el mensaje.`;
+    return `${intro ? `${intro}\n\n` : ""}Antes del partido ya se esta construyendo un relato fuera.\n\nNo necesitamos una rueda de prensa larga, pero si conviene saber que tono queremos transmitir: calma, ambicion o prudencia. La prensa va a llenar los huecos si nosotros no damos una linea clara.\n\nMe basta con saber por donde quiere llevar el mensaje.`;
   }
   if (type === "captain_gratitude") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Solo queria decirtelo antes de que empiece el ruido de la semana.\n\nEl grupo esta contigo. Han agradecido como gestionaste los ultimos dias; no todos lo dicen en voz alta, pero se nota en el vestuario.\n\nNo venia a pedir nada. A veces tambien conviene saber cuando algo esta saliendo bien.`;
+    return `${intro ? `${intro}\n\n` : ""}Solo queria decirtelo antes de que empiece el ruido de la semana.\n\nEl grupo esta contigo. Han agradecido como gestionaste los ultimos dias; no todos lo dicen en voz alta, pero se nota en el vestuario.\n\nNo venia a pedir nada. A veces tambien conviene saber cuando algo esta saliendo bien.`;
   }
   if (type === "academy_hope") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}${intro ? "" : "Perdone que venga con esta cara, pero creo que tenemos algo bonito entre manos.\n\n"}${shortSubject} tiene detalles que no se entrenan facilmente. Todavia hay que protegerlo, claro, pero cuando un chico mira asi el juego... merece que no lo perdamos de vista.\n\nNo le pido que lo suba ya. Solo que lo mire con calma.`;
+    return `${intro ? `${intro}\n\n` : ""}${intro ? "" : "Perdone que venga con esta cara, pero creo que tenemos algo bonito entre manos.\n\n"}${shortSubject} tiene detalles que no se entrenan facilmente. Todavia hay que protegerlo, claro, pero cuando un chico mira asi el juego... merece que no lo perdamos de vista.\n\nNo le pido que lo suba ya. Solo que lo mire con calma.`;
   }
   if (type === "medical_good_news") {
-    return `Mister...\n\nHoy traigo una buena noticia, que tampoco esta mal variar un poco.\n\n${shortSubject} esta respondiendo mejor de lo esperado. No quiero correr, ya me conoce, pero la recuperacion va por buen camino.\n\nSi seguimos sin precipitarnos, podemos ganar un jugador sin pagar el precio dos veces.`;
+    return `Hoy traigo una buena noticia, que tampoco está mal variar un poco.\n\n${shortSubject} está respondiendo mejor de lo esperado. No quiero correr, ya me conoce, pero la recuperacion va por buen camino.\n\nSi seguimos sin precipitarnos, podemos ganar un jugador sin pagar el precio dos veces.`;
   }
   if (type === "president_praise") {
     return `Queria verte un minuto.\n\nNo voy a alargarme. El club transmite una sensacion de rumbo, y eso importa.\n\nLos resultados son importantes, ya lo sabes. Pero tambien lo es que la gente sienta que hay una idea detras. Sigue asi.`;
   }
   if (type === "assistant_training_good") {
-    return `Mister...\n\nHoy el entrenamiento ha tenido otra energia. Se les ha visto con chispa, con mala leche buena, de la que hace falta para competir.\n\nYo saldria de aqui contento. No porque ya este todo hecho, sino porque el equipo empieza a parecerse a lo que queremos.`;
+    return `Hoy el entrenamiento ha tenido otra energia. Se les ha visto con chispa, con mala leche buena, de la que hace falta para competir.\n\nYo saldria de aqui contento. No porque ya este todo hecho, sino porque el equipo empieza a parecerse a lo que queremos.`;
   }
-  return `Mister...\n\nSolo queria comentarle una cosa. No es un problema, pero si una de esas pequenas senales que hacen que el club parezca vivo.\n\n${issue.summary ?? "La semana ha dejado una sensacion positiva."}`;
+  return `Solo queria comentarle una cosa. No es un problema, pero si una de esas pequenas senales que hacen que el club parezca vivo.\n\n${issue.summary ?? "La semana ha dejado una sensacion positiva."}`;
 }
 
 function renewalResponseMessage(item, game) {
@@ -381,15 +381,15 @@ function renewalResponseMessage(item, game) {
   const shortSubject = firstName(subject);
   const kind = renewalResponseKind(item);
   if (kind === "RenewalAccepted") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Ya tenemos respuesta del entorno de ${shortSubject}.\n\nHan aceptado la base de la renovacion. Todavia quedan algunos detalles, pero creo que estamos cerca de cerrarlo.\n\nAhora toca decidir si firmamos, revisamos el contrato o dejamos unos dias de margen.`;
+    return `${intro ? `${intro}\n\n` : ""}Ya tenemos respuesta del entorno de ${shortSubject}.\n\nHan aceptado la base de la renovacion. Todavia quedan algunos detalles, pero creo que estamos cerca de cerrarlo.\n\nAhora toca decidir si firmamos, revisamos el contrato o dejamos unos dias de margen.`;
   }
   if (kind === "RenewalRejected") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Ya tenemos respuesta del entorno de ${shortSubject}.\n\nNo aceptan las condiciones actuales. Creen que merece un contrato mejor y, si no nos movemos, la negociacion puede enfriarse rapido.\n\nTenemos que decidir si mejoramos la oferta, mantenemos postura o retiramos la propuesta.`;
+    return `${intro ? `${intro}\n\n` : ""}Ya tenemos respuesta del entorno de ${shortSubject}.\n\nNo aceptan las condiciones actuales. Creen que merece un contrato mejor y, si no nos movemos, la negociacion puede enfriarse rapido.\n\nTenemos que decidir si mejoramos la oferta, mantenemos postura o retiramos la propuesta.`;
   }
   if (kind === "RenewalCounterOffer") {
-    return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Nos han enviado una contraoferta por ${shortSubject}.\n\nNo han rechazado la renovacion, pero quieren mejores condiciones antes de avanzar.\n\nPodemos aceptar la peticion, revisar los detalles o ganar unos dias antes de responder.`;
+    return `${intro ? `${intro}\n\n` : ""}Nos han enviado una contraoferta por ${shortSubject}.\n\nNo han rechazado la renovacion, pero quieren mejores condiciones antes de avanzar.\n\nPodemos aceptar la peticion, revisar los detalles o ganar unos dias antes de responder.`;
   }
-  return `${intro ? `${intro}\n\n` : "Mister...\n\n"}Ya tenemos respuesta del entorno de ${shortSubject}.\n\nLa negociacion ha cambiado de fase y necesita una decision concreta antes de seguir avanzando.`;
+  return `${intro ? `${intro}\n\n` : ""}Ya tenemos respuesta del entorno de ${shortSubject}.\n\nLa negociacion ha cambiado de fase y necesita una decision concreta antes de seguir avanzando.`;
 }
 
 function sceneMessage(item, actor, game) {
@@ -438,7 +438,7 @@ function consequenceText(option = {}) {
   if (option.tone === "frío" || option.tone === "duro") return "La frase corta la conversación, pero puede dejar marca.";
   if (option.tone === "arriesgado") return "Acepta la decisión, aunque nadie puede garantizar que salga bien.";
   if (option.tone === "protector" || option.tone === "prudente") return "Transmitirás calma, aunque quizá pierdas algo inmediato.";
-  return "La persona sale con una respuesta clara, no con un trámite.";
+  return "La conversación cierra. Lo que decidas tendrá peso cuando esto vuelva.";
 }
 
 function actionLabelFor(actor, actionLabel) {
@@ -469,7 +469,7 @@ function reactionFor(actor, option = {}) {
   if (actor.id === "captain") return "El capitán respira hondo. Agradece que le hayas hablado claro; eso, en el vestuario, pesa.";
   if (actor.id === "pressOfficer") return "La responsable de prensa desbloquea el móvil y empieza a ordenar el mensaje antes de salir.";
   if (actor.id === "player") return `${actor.name} levanta la mirada. No se marcha con todas las respuestas, pero sí con la sensación de haber sido escuchado.`;
-  return `${actor.name} asiente. "De acuerdo, míster. Me pongo con ello y te mantengo informado."`;
+  return `${actor.name} asiente. "De acuerdo. Me pongo con ello y te iré informando."`;
 }
 
 function expectationDelay(scene, decision, game) {
