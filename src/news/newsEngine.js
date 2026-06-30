@@ -32,6 +32,20 @@ const seasonKey = season => `${season}/${String(Number(season) + 1).slice(-2)}`;
 const ordinal = position => `${position}.ª`;
 const money = valueK => valueK >= 1000 ? `€${(valueK / 1000).toFixed(valueK % 1000 === 0 ? 0 : 1)}M` : `€${valueK}K`;
 
+const POSITION_NAMES = {
+  POR: "portero",
+  DFC: "defensa central",
+  LD: "lateral derecho",
+  LI: "lateral izquierdo",
+  MCD: "centrocampista defensivo",
+  MC: "centrocampista",
+  MCO: "mediapunta",
+  EI: "extremo izquierdo",
+  ED: "extremo derecho",
+  DC: "delantero centro",
+  SD: "segundo delantero",
+};
+
 function stableId(fingerprint) {
   let hash = 2166136261;
   for (let i = 0; i < fingerprint.length; i++) {
@@ -250,7 +264,11 @@ export function generateMatchdayNews({ beforeFixtures, afterFixtures, beforeStan
         : `${team.name} cae hasta la ${ordinal(newPos)} posición`;
       stories.push(createNews({
         type: "standings", title,
-        summary: `${oldPos}.ª → ${newPos}.ª tras la jornada ${matchday}.`,
+        summary: becameLeader ? `Alcanza el liderato de la tabla en la jornada ${matchday}.`
+          : enteredEurope ? `Entra en puestos europeos tras la jornada ${matchday}.`
+          : enteredRelegation ? `Cae en zona de descenso tras la jornada ${matchday}.`
+          : newPos < oldPos ? `Sube de la ${ordinal(oldPos)} a la ${ordinal(newPos)} posición tras la jornada ${matchday}.`
+          : `Cae de la ${ordinal(oldPos)} a la ${ordinal(newPos)} posición tras la jornada ${matchday}.`,
         importance: becameLeader || enteredRelegation ? "critical" : enteredEurope || team.id === userTeamId ? "high" : "medium",
         season, matchday, teamIds: [team.id], userTeamId,
         fingerprint: `standings:${team.id}:${oldPos}:${newPos}`,
@@ -321,7 +339,7 @@ export function generateTransferNews({ transfer, season, matchday, userTeamId, u
     title: loanIn?`${userTeamName} incorpora cedido a ${player.name}`:loanOut?`${player.name} sale cedido de ${userTeamName}`:buying
       ? `${userTeamName} incorpora a ${player.name} por ${money(cost)}`
       : `${player.name} abandona ${userTeamName} por ${money(value)}`,
-    summary: loanIn?`El club abona ${money(cost)} por una cesión de una temporada.`:loanOut?`La cesión deja ${money(value)} en las cuentas del club.`:buying ? `El nuevo fichaje llega para reforzar la posición de ${player.pos}.` : "El club confirma oficialmente la salida del jugador.",
+    summary: loanIn?`El club abona ${money(cost)} por una cesión de una temporada.`:loanOut?`La cesión deja ${money(value)} en las cuentas del club.`:buying ? `El nuevo fichaje llega para reforzar la plantilla en el puesto de ${POSITION_NAMES[player.pos] ?? player.pos}.` : "El club confirma oficialmente la salida del jugador.",
     importance: (cost ?? value ?? 0) >= 50000 ? "critical" : "high",
     season, matchday,
     teamIds: buying||loanIn ? [userTeamId, fromTeamId] : [userTeamId],
@@ -394,7 +412,7 @@ export function generateDevelopmentNews({ report, players = [], season, matchday
   const byId=Object.fromEntries(players.map(player=>[player.id,player]));
   return (report?.changes??[]).filter(item=>item.changes?.some(change=>change.key==="overall"&&change.delta>0)).slice(0,2).map(item=>{
     const player=byId[item.playerId];const overallChange=item.changes.find(change=>change.key==="overall"&&change.delta>0);
-    return createNews({type:"performance",title:`${item.name} progresa hasta ${item.overall} de media`,summary:`El trabajo semanal se traduce en una mejora de ${overallChange?.delta??1} punto en su valoración general.`,importance:player?.age<=21&&item.overall>=78?"high":"medium",season,matchday,teamIds:[userTeamId],playerIds:[item.playerId],userTeamId,fingerprint:`development:${item.playerId}:${item.overall}`,metadata:{userClub:true,development:true}});
+    return createNews({type:"performance",title:`${item.name} da un paso adelante en su progresión`,summary:`Los entrenamientos están dando sus frutos y se nota en su rendimiento semana a semana.`,importance:player?.age<=21&&item.overall>=78?"high":"medium",season,matchday,teamIds:[userTeamId],playerIds:[item.playerId],userTeamId,fingerprint:`development:${item.playerId}:${item.overall}`,metadata:{userClub:true,development:true}});
   });
 }
 import { formatMedicalDuration } from "../medical/medicalEngine.js";
