@@ -1,8 +1,9 @@
 import { buildStaffRecommendations, getConfidenceTier, getInitiativeTier, getStaffLevel, STAFF_ROLES } from "../staff/staffEngine.js";
+import { COLORS } from "../utils/tokens.js";
 
 const panel = "#161a24";
 const gold = "#c9a84c";
-const muted = "#7b8293";
+const muted = COLORS.textDim;
 
 function Meter({ value, color = gold }) {
   return (
@@ -27,7 +28,7 @@ function StaffCard({ member }) {
         </div>
         <div style={{ textAlign:"right" }}>
           <div style={{ color:level.color, fontSize:22, fontWeight:950 }}>{member.overall}</div>
-          <div style={{ color:"#4b5563", fontSize:8, fontWeight:800 }}>MEDIA</div>
+          <div style={{ color:COLORS.textDim, fontSize:8, fontWeight:800 }}>MEDIA</div>
         </div>
       </div>
 
@@ -37,15 +38,15 @@ function StaffCard({ member }) {
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginTop:10 }}>
         <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
-          <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>PERSONALIDAD</div>
+          <div style={{ color:COLORS.textDim, fontSize:8, fontWeight:850 }}>PERSONALIDAD</div>
           <div style={{ color:"#e8eaf0", fontSize:11, fontWeight:850, marginTop:2 }}>{member.personalityLabel ?? "Equilibrado"}</div>
         </div>
         <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
-          <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>CONFIANZA</div>
+          <div style={{ color:COLORS.textDim, fontSize:8, fontWeight:850 }}>CONFIANZA</div>
           <div style={{ color:getConfidenceTier(member.confidence ?? 65).color, fontSize:11, fontWeight:850, marginTop:2 }}>{getConfidenceTier(member.confidence ?? 65).label}</div>
         </div>
         <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
-          <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>INICIATIVA</div>
+          <div style={{ color:COLORS.textDim, fontSize:8, fontWeight:850 }}>INICIATIVA</div>
           <div style={{ color:getInitiativeTier(member.initiative ?? 60).color, fontSize:11, fontWeight:850, marginTop:2 }}>{getInitiativeTier(member.initiative ?? 60).label}</div>
         </div>
       </div>
@@ -53,7 +54,7 @@ function StaffCard({ member }) {
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:12 }}>
         {attrs.map(([key, value]) => (
           <div key={key} style={{ background:"rgba(255,255,255,.035)", borderRadius:9, padding:8 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", gap:8, fontSize:8, color:"#6b7280", fontWeight:850, marginBottom:5 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", gap:8, fontSize:8, color:COLORS.textDim, fontWeight:850, marginBottom:5 }}>
               <span>{role?.labels?.[key] ?? key}</span><span style={{ color:level.color }}>{value}</span>
             </div>
             <Meter value={value} color={level.color} />
@@ -63,11 +64,11 @@ function StaffCard({ member }) {
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:10 }}>
         <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
-          <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>SALARIO</div>
+          <div style={{ color:COLORS.textDim, fontSize:8, fontWeight:850 }}>SALARIO</div>
           <div style={{ color:"#e8eaf0", fontSize:11, fontWeight:850, marginTop:2 }}>€{member.salary}K/sem.</div>
         </div>
         <div style={{ background:"rgba(0,0,0,.16)", borderRadius:9, padding:8 }}>
-          <div style={{ color:"#4b5563", fontSize:8, fontWeight:850 }}>ÁREA</div>
+          <div style={{ color:COLORS.textDim, fontSize:8, fontWeight:850 }}>ÁREA</div>
           <div style={{ color:"#e8eaf0", fontSize:11, fontWeight:850, marginTop:2 }}>{role?.area}</div>
         </div>
       </div>
@@ -91,7 +92,7 @@ export default function StaffScreen({ game, onNavigate }) {
           {[["MEDIA", avg || "-", gold], ["FORTALEZA", best?.roleTitle ?? "-", "#22c55e"], ["A REFORZAR", weak?.roleTitle ?? "-", "#f59e0b"]].map(([label, value, color]) => (
             <div key={label} style={{ background:"rgba(0,0,0,.22)", borderRadius:9, padding:9, textAlign:"center" }}>
               <div style={{ color, fontSize:typeof value === "number" ? 18 : 10, fontWeight:950, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{value}</div>
-              <div style={{ color:"#6b7280", fontSize:8, fontWeight:850, marginTop:3 }}>{label}</div>
+              <div style={{ color:COLORS.textDim, fontSize:8, fontWeight:850, marginTop:3 }}>{label}</div>
             </div>
           ))}
         </div>
@@ -106,7 +107,7 @@ export default function StaffScreen({ game, onNavigate }) {
               <div style={{ flex:1 }}>
                 <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:850 }}>{item.title}</div>
                 <div style={{ color:muted, fontSize:10, lineHeight:1.45, marginTop:4 }}>"{item.quote}"</div>
-                <div style={{ color:"#4b5563", fontSize:8, fontWeight:850, fontStyle:"italic", marginTop:5 }}>Perfil: {item.staffPersonality ?? "Staff"}</div>
+                <div style={{ color:COLORS.textDim, fontSize:8, fontWeight:850, fontStyle:"italic", marginTop:5 }}>Perfil: {item.staffPersonality ?? "Staff"}</div>
               </div>
             </div>
           </button>)}
@@ -114,7 +115,7 @@ export default function StaffScreen({ game, onNavigate }) {
       </section>
 
       <section>
-        <div style={{ color:"#4b5563", fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>MIEMBROS DEL STAFF</div>
+        <div style={{ color:COLORS.textDim, fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>MIEMBROS DEL STAFF</div>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {members.map(member => <StaffCard key={member.id} member={member} />)}
         </div>

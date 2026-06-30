@@ -1943,7 +1943,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
       {confirm?.type==="sell" && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.6)", zIndex:50, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
           onClick={() => setConfirm(null)}>
-          <div onClick={e => e.stopPropagation()}
+          <div onClick={e => e.stopPropagation()} className="slide-up"
             style={{ background:"#161a24", border:"1px solid rgba(239,68,68,.3)", borderRadius:12, padding:18, width:"100%", maxWidth:320 }}>
             <div style={{ fontSize:14, fontWeight:800, color:"#ef4444", marginBottom:8 }}>¿Vender a {confirm.player.name}?</div>
             <div style={{ fontSize:12, color:"#9aa0b4", lineHeight:1.5, marginBottom:16 }}>
@@ -1965,7 +1965,7 @@ function BottomNav({ screen, setScreen, disabled, attentionCount = 0 }) {
   const moreActive=screen==="more"||SECONDARY_SCREEN_IDS.has(screen);
   return (
     <div style={{background:"rgba(16,19,28,.97)",backdropFilter:"blur(14px)",borderTop:"1px solid rgba(255,255,255,.08)",padding:"4px 5px env(safe-area-inset-bottom,0px)",flexShrink:0,boxShadow:"0 -8px 24px rgba(0,0,0,.28)"}}>
-      <div style={{display:"flex",height:58}}>{PRIMARY_NAV.map(item=>{const active=item.id==="more"?moreActive:screen===item.id;return <button key={item.id} onClick={()=>setScreen(item.id)} className="bottom-nav-btn" style={{position:"relative",flex:1,minWidth:0,background:"transparent",border:"none",color:active?"#c9a84c":"#5f6675",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer",transition:"color .18s,transform .15s"}}>{active&&<span style={{position:"absolute",top:0,width:24,height:2,borderRadius:2,background:"#c9a84c",boxShadow:"0 0 10px rgba(201,168,76,.65)"}}/>}<span style={{position:"relative",fontSize:item.id==="more"?20:19,lineHeight:1,filter:active?"none":"grayscale(.45) opacity(.72)"}}>{item.icon}{item.id==="more"&&attentionCount>0&&<span style={{position:"absolute",top:-7,right:-12,minWidth:17,height:17,padding:"0 4px",borderRadius:10,background:"#c9a84c",color:"#1a1200",fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 0 2px #10131c"}}>{attentionCount}</span>}</span><span style={{fontSize:10,fontWeight:active?800:600,letterSpacing:".1px",whiteSpace:"nowrap"}}>{item.label}</span></button>})}</div>
+      <div style={{display:"flex",height:58}}>{PRIMARY_NAV.map(item=>{const active=item.id==="more"?moreActive:screen===item.id;return <button key={item.id} onClick={()=>setScreen(item.id)} className="bottom-nav-btn" style={{position:"relative",flex:1,minWidth:0,background:"transparent",border:"none",color:active?"#c9a84c":"#5f6675",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer",transition:"color .18s,transform .15s"}}>{active&&<span style={{position:"absolute",top:0,width:24,height:2,borderRadius:2,background:"#c9a84c",boxShadow:"0 0 10px rgba(201,168,76,.65)"}}/>}<span style={{position:"relative",fontSize:item.id==="more"?20:19,lineHeight:1,filter:active?"none":"grayscale(.45) opacity(.72)"}}>{item.icon}{item.id==="more"&&attentionCount>0&&<span className="pulse" style={{position:"absolute",top:-7,right:-12,minWidth:17,height:17,padding:"0 4px",borderRadius:10,background:"#c9a84c",color:"#1a1200",fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 0 2px #10131c"}}>{attentionCount}</span>}</span><span style={{fontSize:10,fontWeight:active?800:600,letterSpacing:".1px",whiteSpace:"nowrap"}}>{item.label}</span></button>})}</div>
     </div>
   );
 }
@@ -2128,6 +2128,13 @@ const GLOBAL_CSS = `
 
   .goal-event { animation: goalPop .4s ease; }
   .bounce-in  { animation: bounceIn .35s cubic-bezier(.34,1.56,.64,1) both; }
+  .slide-up   { animation: slideUp .22s ease both; }
+  .pulse      { animation: pulse 1.6s ease-in-out infinite; }
+  .shimmer {
+    background: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.10) 50%, rgba(255,255,255,.04) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
 
   .rarity-special-glow { box-shadow: 0 0 14px rgba(196,181,253,.3); }
   .rarity-gold-glow    { box-shadow: 0 0 10px rgba(201,168,76,.2); }
@@ -3217,7 +3224,7 @@ function SquadScreen({ game, players, onOpenPlayer }) {
       <SwipeTabs tabs={filters.map(([id])=>id)} activeTab={filter} onChange={setFilter} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
         <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "12px 10px", boxSizing: "border-box" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, width: "100%" }}>
-            {shown.map(p => {const stats=seasonStats(p);return <div key={p.id} style={{minWidth:0}}><PlayerCard player={p} onSelect={onOpenPlayer}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2,background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:8,padding:"6px 3px",marginTop:4}}>{[["PJ",stats.appearances??0],["G",stats.goals??0],["A",stats.assists??0],["NOTA",stats.averageRating??"—"]].map(([label,value])=><div key={label} style={{textAlign:"center"}}><div style={{fontSize:11,color:label==="NOTA"?"#c9a84c":"#e8eaf0",fontWeight:800}}>{value}</div><div style={{fontSize:7,color:"#6b7280",fontWeight:700}}>{label}</div></div>)}</div></div>})}
+            {shown.map(p => {const stats=seasonStats(p);return <div key={p.id} style={{minWidth:0}}><PlayerCard player={p} onSelect={selected=>onOpenPlayer(selected,shown)}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2,background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:8,padding:"6px 3px",marginTop:4}}>{[["PJ",stats.appearances??0],["G",stats.goals??0],["A",stats.assists??0],["NOTA",stats.averageRating??"—"]].map(([label,value])=><div key={label} style={{textAlign:"center"}}><div style={{fontSize:11,color:label==="NOTA"?"#c9a84c":"#e8eaf0",fontWeight:800}}>{value}</div><div style={{fontSize:7,color:"#6b7280",fontWeight:700}}>{label}</div></div>)}</div></div>})}
           </div>
         </div>
       </SwipeTabs>
@@ -3748,7 +3755,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
             {(savedLineups ?? []).map(preset => (
               <div key={preset.id} style={{ display:"flex", alignItems:"center", gap:8, background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:7, padding:"8px 10px" }}>
                 {confirmDeletePresetId === preset.id ? (
-                  <>
+                  <div className="slide-up" style={{ display:"flex", alignItems:"center", gap:8, flex:1 }}>
                     <div style={{ flex:1, fontSize:11, color:"#ef4444", lineHeight:1.3 }}>¿Eliminar esta alineación guardada?</div>
                     <button onClick={() => { deletePreset(preset.id); setConfirmDeletePresetId(null); }}
                       style={{ background:"rgba(239,68,68,.15)", border:"1px solid rgba(239,68,68,.3)", color:"#ef4444", padding:"6px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer" }}>
@@ -3758,7 +3765,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                       style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", padding:"6px 12px", borderRadius:6, fontSize:11, cursor:"pointer" }}>
                       Cancelar
                     </button>
-                  </>
+                  </div>
                 ) : (
                   <>
                     <span style={{ fontSize:18 }}>{preset.icon}</span>
@@ -6464,6 +6471,7 @@ export default function App({ externalData }) {
   const [seasonSummary, setSeasonSummary]   = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [selectedPlayerTeamId, setSelectedPlayerTeamId] = useState(null);
+  const [selectedPlayerList, setSelectedPlayerList] = useState([]);
   const [selectedConversationId, setSelectedConversationId] = useState(null);
   const [selectedScene, setSelectedScene] = useState(null);
   const [profileReturnScreen, setProfileReturnScreen] = useState("dashboard");
@@ -7329,12 +7337,23 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     return { ok:true, message:`${currentProspect.name} promocionado al primer equipo.` };
   };
 
-  const openPlayerProfile = (player, teamId = game?.teamId) => {
+  const openPlayerProfile = (player, teamId = game?.teamId, playerList = null) => {
     if (!player || !game) return;
     setSelectedPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player, game.season ?? "2025", game.matchday ?? 1), game.season ?? "2025"));
     setSelectedPlayerTeamId(teamId ?? game.teamId);
+    setSelectedPlayerList(playerList && playerList.length ? playerList : []);
     setProfileReturnScreen(screen === "playerProfile" ? profileReturnScreen : screen);
     setScreen("playerProfile");
+  };
+
+  const navigateToPlayerInList = (direction) => {
+    if (!game || !selectedPlayer || !selectedPlayerList.length) return;
+    const currentIndex = selectedPlayerList.findIndex(item => item.id === selectedPlayer.id);
+    if (currentIndex === -1) return;
+    const nextIndex = currentIndex + direction;
+    if (nextIndex < 0 || nextIndex >= selectedPlayerList.length) return;
+    const nextPlayer = selectedPlayerList[nextIndex];
+    setSelectedPlayer(enrichPlayerProfile(ensurePlayerLifecycle(nextPlayer, game.season ?? "2025", game.matchday ?? 1), game.season ?? "2025"));
   };
 
   const openPlayerProfileById = (playerId) => {
@@ -7823,7 +7842,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
           {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />}
           {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
-          {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />}
+          {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />}
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
@@ -7843,7 +7862,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "contracts" && game && <ContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />}
           {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} />}
-          {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} />}
+          {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} players={selectedPlayerList} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} onNavigatePlayer={navigateToPlayerInList} />}
           {screen === "conversation" && game && <ConversationScreen conversation={selectedConversation} onRespond={handleConversationResponse} onBack={goBack} />}
           {screen === "scene" && game && <InteractiveSceneScreen scene={selectedScene} onChoose={handleSceneDecision} onBack={goBack} />}
           {screen === "match"     && game && <MatchScreen game={game} saveId={activeSaveId} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} onAbandonMatch={()=>{setRecoverableMatch(null);setScreen("dashboard");}} />}

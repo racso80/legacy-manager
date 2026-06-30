@@ -1,5 +1,6 @@
 import TeamCrest from "./TeamCrest.jsx";
-const gold="#c9a84c",panel="#161a24",muted="#73798d";
+import { COLORS } from "../utils/tokens.js";
+const gold="#c9a84c",panel="#161a24",muted=COLORS.textDim;
 const money=value=>`€${Math.abs(value??0)>=1000?`${(Math.abs(value)/1000).toFixed(1)}M`:`${Math.round(Math.abs(value??0))}K`}`;
 function Card({label,value,color="#fff"}){return <div style={{background:"#10131a",borderRadius:9,padding:10,textAlign:"center"}}><div style={{fontSize:18,color,fontWeight:900}}>{value}</div><div style={{fontSize:8,color:muted,fontWeight:800,marginTop:3}}>{label}</div></div>}
 function Header({children}){return <div style={{fontSize:10,color:gold,fontWeight:900,letterSpacing:".8px",margin:"17px 0 8px"}}>{children}</div>}

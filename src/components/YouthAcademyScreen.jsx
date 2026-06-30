@@ -3,6 +3,7 @@ import { getAcademyMetrics, getTalentCategory, getYouthProjection } from "../you
 import Button from "./ui/Button.jsx";
 import { SwipeTabs } from "./SwipeNavigation.jsx";
 import { COUNTRY_NAMES, FLAGS } from "./PlayerProfileScreen.jsx";
+import { COLORS } from "../utils/tokens.js";
 
 const fmt = value => value >= 1000 ? `€${(value / 1000).toFixed(1)}M` : `€${value}K`;
 const hashSeed = value => { let h = 0; for (const c of String(value)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
@@ -14,7 +15,7 @@ const describeWeeklyChanges = changes => {
 const trendMeta = {
   rising:{ icon:"📈", label:"Subiendo", color:"#22c55e" },
   stalled:{ icon:"⚠️", label:"Estancado", color:"#f59e0b" },
-  stable:{ icon:"➖", label:"Estable", color:"#8b92a3" },
+  stable:{ icon:"➖", label:"Estable", color:COLORS.muted },
 };
 
 export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
@@ -57,7 +58,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
           ["current", "🌱 Juveniles"],
           ["history", "🏛 Históricos"],
         ].map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} style={{ flex:1, background:"transparent", border:"none", borderBottom:tab === id ? "2px solid #c9a84c" : "2px solid transparent", color:tab === id ? "#c9a84c" : "#9aa0b4", padding:10, fontSize:11, fontWeight:800, cursor:"pointer" }}>
+          <button key={id} onClick={() => setTab(id)} style={{ flex:1, background:"transparent", border:"none", borderBottom:tab === id ? "2px solid #c9a84c" : "2px solid transparent", color:tab === id ? "#c9a84c" : COLORS.muted, padding:10, fontSize:11, fontWeight:800, cursor:"pointer" }}>
             {label}
           </button>
         ))}
@@ -82,12 +83,12 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                 ].map(([label, value]) => (
                   <div key={label} style={{ background:"#161a24", borderRadius:8, padding:10, textAlign:"center" }}>
                     <div style={{ fontSize:16, color:"#c9a84c", fontWeight:800 }}>{value}</div>
-                    <div style={{ fontSize:8, color:"#8b92a3", marginTop:3 }}>{label}</div>
+                    <div style={{ fontSize:8, color:COLORS.muted, marginTop:3 }}>{label}</div>
                   </div>
                 ))}
               </div>
 
-              <div style={{ fontSize:10, color:"#8b92a3", fontWeight:800, letterSpacing:".6px", marginBottom:8 }}>JUVENILES ACTUALES</div>
+              <div style={{ fontSize:10, color:COLORS.muted, fontWeight:800, letterSpacing:".6px", marginBottom:8 }}>JUVENILES ACTUALES</div>
               {feedback && (
                 <div style={{ background:feedback.ok ? "rgba(34,197,94,.12)" : "rgba(245,158,11,.12)", border:`1px solid ${feedback.ok ? "rgba(34,197,94,.3)" : "rgba(245,158,11,.3)"}`, color:feedback.ok ? "#22c55e" : "#f59e0b", borderRadius:9, padding:"9px 11px", fontSize:11, fontWeight:800, lineHeight:1.4, marginBottom:10 }}>
                   {feedback.message}
@@ -116,20 +117,20 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                             <span style={{ color:"#e8eaf0", fontSize:12, fontWeight:700, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{player.name}</span>
                             {intakeIds.has(player.id) && <span style={{ fontSize:8, color:"#22c55e", background:"rgba(34,197,94,.1)", padding:"2px 5px", borderRadius:4 }}>NUEVO</span>}
                           </div>
-                          <div style={{ color:"#8b92a3", fontSize:9, marginTop:3 }}>{player.pos} · {player.age} años · {FLAGS[player.nat] ?? "🌍"} {COUNTRY_NAMES[player.nat] ?? player.nat} · {player.academyData?.region}</div>
+                          <div style={{ color:COLORS.muted, fontSize:9, marginTop:3 }}>{player.pos} · {player.age} años · {FLAGS[player.nat] ?? "🌍"} {COUNTRY_NAMES[player.nat] ?? player.nat} · {player.academyData?.region}</div>
                           <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:5 }}>
                             <span style={{ color:projection.color, background:`${projection.color}14`, border:`1px solid ${projection.color}22`, borderRadius:999, padding:"3px 6px", fontSize:8, fontWeight:850 }}>{projection.icon} {projection.label}</span>
                             {showTrendBadge && <span style={{ color:trend.color, background:`${trend.color}12`, border:`1px solid ${trend.color}22`, borderRadius:999, padding:"3px 6px", fontSize:8, fontWeight:850 }}>{trend.icon} {trend.label}</span>}
                           </div>
                         </div>
                         <div style={{ textAlign:"center" }}>
-                          <div style={{ fontSize:9, color:"#8b92a3" }}>POTENCIAL</div>
+                          <div style={{ fontSize:9, color:COLORS.muted }}>POTENCIAL</div>
                           <div style={{ fontSize:22, color:category.color, fontWeight:900 }} title={category.label}>{category.icon} {player.potential}</div>
                         </div>
                       </div>
 
                       {progress && (
-                        <div style={{ marginTop:8, color:progress.changes.length ? "#22c55e" : "#8b92a3", fontSize:9 }}>
+                        <div style={{ marginTop:8, color:progress.changes.length ? "#22c55e" : COLORS.muted, fontSize:9 }}>
                           {progress.changes.length ? `📈 ${describeWeeklyChanges(progress.changes)}` : progress.progress?.[0] ? `Avanza en ${progress.progress[0].label}, ya está al ${progress.progress[0].value}% de su objetivo de mejora.` : "Desarrollo estable"}
                         </div>
                       )}
@@ -138,14 +139,14 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                         {[["LLEGÓ", initialOverall], ["HOY", player.overall], ["TECHO", `${initialPotential}→${player.potential}`]].map(([label, value]) => (
                           <div key={label} style={{ background:"rgba(0,0,0,.18)", borderRadius:7, padding:7, textAlign:"center" }}>
                             <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:900 }}>{value}</div>
-                            <div style={{ color:"#6b7280", fontSize:7, fontWeight:850, marginTop:2 }}>{label}</div>
+                            <div style={{ color:COLORS.textDim, fontSize:7, fontWeight:850, marginTop:2 }}>{label}</div>
                           </div>
                         ))}
                       </div>
 
                       {latestNotes.length > 0 && (
                         <div style={{ marginTop:8, background:"rgba(255,255,255,.035)", borderRadius:8, padding:8 }}>
-                          <div style={{ color:"#8b92a3", fontSize:8, fontWeight:850, marginBottom:4 }}>SEGUIMIENTO</div>
+                          <div style={{ color:COLORS.muted, fontSize:8, fontWeight:850, marginBottom:4 }}>SEGUIMIENTO</div>
                           {latestNotes.slice(0, 2).map((note, index) => (
                             <div key={`${note.kind}-${note.matchday}-${index}`} style={{ color:"#c9ced8", fontSize:9, lineHeight:1.45, marginTop:index ? 4 : 0 }}>
                               J{note.matchday}: {note.text}
@@ -174,8 +175,8 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
 
               {report && (
                 <>
-                  <div style={{ fontSize:10, color:"#8b92a3", fontWeight:800, letterSpacing:".6px", margin:"18px 0 8px" }}>INFORME ANUAL {report.season}/{String(Number(report.season) + 1).slice(-2)}</div>
-                  <div style={{ background:"#161a24", borderRadius:9, padding:12, fontSize:11, color:"#9aa0b4", lineHeight:1.7 }}>
+                  <div style={{ fontSize:10, color:COLORS.muted, fontWeight:800, letterSpacing:".6px", margin:"18px 0 8px" }}>INFORME ANUAL {report.season}/{String(Number(report.season) + 1).slice(-2)}</div>
+                  <div style={{ background:"#161a24", borderRadius:9, padding:12, fontSize:11, color:COLORS.muted, lineHeight:1.7 }}>
                     {report.promoted} jugadores promocionados · {report.sold} vendidos<br />
                     Valor generado: <strong style={{ color:"#c9a84c" }}>{fmt(report.generatedValue)}</strong>
                     {report.standout && (
@@ -200,7 +201,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                         <div style={{ width:36, height:36, borderRadius:8, background:"rgba(201,168,76,.1)", color:"#c9a84c", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800 }}>{player.overall}</div>
                         <div style={{ flex:1 }}>
                           <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:700 }}>{player.name}</div>
-                          <div style={{ color:"#8b92a3", fontSize:9, marginTop:3 }}>Llegó en T. {player.academyData?.joinedSeason} · {player.academyData?.debutSeason ? `Debutó en T. ${player.academyData.debutSeason}` : "Aún sin debutar"}</div>
+                          <div style={{ color:COLORS.muted, fontSize:9, marginTop:3 }}>Llegó en T. {player.academyData?.joinedSeason} · {player.academyData?.debutSeason ? `Debutó en T. ${player.academyData.debutSeason}` : "Aún sin debutar"}</div>
                         </div>
                         <div style={{ textAlign:"right", fontSize:9, color:"#c9ced8" }}>{stats.appearances ?? 0} part.<br />{stats.goals ?? 0} goles</div>
                       </button>
@@ -208,7 +209,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                   })}
                 </div>
               ) : (
-                <div style={{ textAlign:"center", color:"#8b92a3", padding:30, fontSize:11 }}>Promociona juveniles para empezar a construir la historia de tu cantera.</div>
+                <div style={{ textAlign:"center", color:COLORS.muted, padding:30, fontSize:11 }}>Promociona juveniles para empezar a construir la historia de tu cantera.</div>
               )}
             </>
           )}

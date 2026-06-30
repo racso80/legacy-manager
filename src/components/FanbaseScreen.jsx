@@ -1,7 +1,8 @@
 import { getFanMood, getStadiumMood } from "../fans/fanEngine.js";
+import { COLORS } from "../utils/tokens.js";
 
 const panel = "#161a24";
-const muted = "#7b8293";
+const muted = COLORS.textDim;
 const gold = "#c9a84c";
 
 function Meter({ value, color = gold }) {
@@ -9,7 +10,7 @@ function Meter({ value, color = gold }) {
 }
 
 function Stat({ label, value, color = "#fff" }) {
-  return <div style={{ background:"rgba(255,255,255,.035)", borderRadius:10, padding:10, textAlign:"center" }}><div style={{ color, fontSize:17, fontWeight:950 }}>{value}</div><div style={{ color:"#6b7280", fontSize:8, fontWeight:850, marginTop:3 }}>{label}</div></div>;
+  return <div style={{ background:"rgba(255,255,255,.035)", borderRadius:10, padding:10, textAlign:"center" }}><div style={{ color, fontSize:17, fontWeight:950 }}>{value}</div><div style={{ color:COLORS.textDim, fontSize:8, fontWeight:850, marginTop:3 }}>{label}</div></div>;
 }
 
 export default function FanbaseScreen({ game, team }) {
@@ -51,7 +52,7 @@ export default function FanbaseScreen({ game, team }) {
       </section>
 
       <section style={{ marginBottom:15 }}>
-        <div style={{ color:"#4b5563", fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>IMPACTO ECONÓMICO DE LA AFICIÓN</div>
+        <div style={{ color:COLORS.textDim, fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>IMPACTO ECONÓMICO DE LA AFICIÓN</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
           <Stat label="ENTRADAS" value={`€${Math.round((fanbase.ticketRevenue ?? 0) / 100) / 10}M`} color={gold} />
           <Stat label="MERCHANDISING" value={`€${Math.round((fanbase.merchandise ?? 0) / 100) / 10}M`} color="#22c55e" />
@@ -59,17 +60,17 @@ export default function FanbaseScreen({ game, team }) {
       </section>
 
       <section style={{ marginBottom:15 }}>
-        <div style={{ color:"#4b5563", fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>EVOLUCIÓN RECIENTE</div>
+        <div style={{ color:COLORS.textDim, fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>EVOLUCIÓN RECIENTE</div>
         {trend.length ? <div style={{ display:"flex", alignItems:"end", gap:5, height:72, background:panel, borderRadius:12, padding:10 }}>
           {trend.map((item, index) => <div key={`${item.matchday}-${index}`} style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"flex-end", gap:4 }}>
             <div style={{ height:`${Math.max(8, item.support ?? 50)}%`, background:(item.support ?? 50) >= 65 ? "#22c55e" : (item.support ?? 50) >= 42 ? gold : "#ef4444", borderRadius:5 }} />
-            <div style={{ color:"#4b5563", fontSize:7, textAlign:"center" }}>{item.matchday}</div>
+            <div style={{ color:COLORS.textDim, fontSize:7, textAlign:"center" }}>{item.matchday}</div>
           </div>)}
         </div> : <div style={{ background:panel, borderRadius:11, padding:15, textAlign:"center", color:muted, fontSize:11 }}>La evolución empezará a registrarse tras los partidos.</div>}
       </section>
 
       <section>
-        <div style={{ color:"#4b5563", fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>ÚLTIMAS REACCIONES</div>
+        <div style={{ color:COLORS.textDim, fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>ÚLTIMAS REACCIONES</div>
         {(fanbase.reactions ?? []).length ? <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
           {(fanbase.reactions ?? []).slice(0, 8).map(item => <div key={item.id} style={{ background:panel, border:`1px solid ${item.actionConcern ? "rgba(245,158,11,.28)" : "rgba(255,255,255,.06)"}`, borderRadius:11, padding:11 }}>
             <div style={{ color:"#fff", fontSize:12, fontWeight:850 }}>{item.actionConcern ? "🟠 " : "📣 "}{item.title}</div>

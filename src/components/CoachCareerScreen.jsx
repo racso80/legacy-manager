@@ -1,11 +1,12 @@
 import { coachPointsPerMatch, coachWinRate, COACH_PHILOSOPHIES, getCoachPrestigeLevel } from "../coach/coachCareerEngine.js";
+import { COLORS } from "../utils/tokens.js";
 
 const panel = "#161a24";
-const muted = "#7b8293";
+const muted = COLORS.textDim;
 const gold = "#c9a84c";
 
 function Stat({ label, value, color = "#fff" }) {
-  return <div style={{ background:"rgba(255,255,255,.035)", borderRadius:10, padding:10, textAlign:"center" }}><div style={{ color, fontSize:18, fontWeight:950 }}>{value}</div><div style={{ color:"#6b7280", fontSize:8, fontWeight:850, marginTop:3 }}>{label}</div></div>;
+  return <div style={{ background:"rgba(255,255,255,.035)", borderRadius:10, padding:10, textAlign:"center" }}><div style={{ color, fontSize:18, fontWeight:950 }}>{value}</div><div style={{ color:COLORS.textDim, fontSize:8, fontWeight:850, marginTop:3 }}>{label}</div></div>;
 }
 
 const money = value => {
@@ -50,7 +51,7 @@ export default function CoachCareerScreen({ game, team, teams = [] }) {
 
       {notifications.length > 0 && (
         <section style={{ marginBottom:15 }}>
-          <div style={{ color:"#4b5563", fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>ÚLTIMAS NOVEDADES</div>
+          <div style={{ color:COLORS.textDim, fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>ÚLTIMAS NOVEDADES</div>
           <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
             {notifications.slice(0, 3).map(item => (
               <div key={item.id} style={{ background:panel, border:`1px solid ${item.type === "prestige-drop" ? "rgba(239,68,68,.22)" : "rgba(34,197,94,.2)"}`, borderRadius:9, padding:"9px 11px" }}>
@@ -95,7 +96,7 @@ export default function CoachCareerScreen({ game, team, teams = [] }) {
       </section>
 
       <section style={{ marginBottom:15 }}>
-        <div style={{ color:"#4b5563", fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>CLUBES ENTRENADOS</div>
+        <div style={{ color:COLORS.textDim, fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>CLUBES ENTRENADOS</div>
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>{clubs.map(item => (
           <div key={`${item.clubId}-${item.fromSeason}`} style={{ background:panel, borderRadius:11, padding:11 }}>
             <div style={{ display:"flex", justifyContent:"space-between", gap:8 }}><div style={{ color:"#fff", fontSize:12, fontWeight:850 }}>{item.clubName}</div><div style={{ color:item.toSeason ? muted : "#22c55e", fontSize:9, fontWeight:850 }}>{item.toSeason ? `${item.fromSeason}-${item.toSeason}` : `Desde ${item.fromSeason}`}</div></div>
@@ -110,7 +111,7 @@ export default function CoachCareerScreen({ game, team, teams = [] }) {
       </section>
 
       <section>
-        <div style={{ color:"#4b5563", fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>HISTORIAL DE TEMPORADAS</div>
+        <div style={{ color:COLORS.textDim, fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>HISTORIAL DE TEMPORADAS</div>
         {history.length ? <div style={{ display:"flex", flexDirection:"column", gap:8 }}>{history.map(item => (
           <div key={item.id} style={{ background:panel, borderRadius:11, padding:11 }}>
             <div style={{ display:"flex", justifyContent:"space-between", gap:8 }}><div style={{ color:"#fff", fontSize:12, fontWeight:850 }}>{item.season} · {item.clubName}</div><div style={{ color:gold, fontSize:11, fontWeight:900 }}>{item.position}.º</div></div>
