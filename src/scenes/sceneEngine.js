@@ -443,7 +443,7 @@ function consequenceText(option = {}) {
 
 function actionLabelFor(actor, actionLabel) {
   if (actor.id === "sportingDirector") return "💼 Déjame hablar con su representante.";
-  if (actor.id === "doctor" || actor.id === "fitnessCoach") return "🧊 Prefiero proteger al jugador.";
+  if (actor.id === "doctor" || actor.id === "fitnessCoach") return "🩺 Prefiero proteger al jugador.";
   if (actor.id === "assistantCoach") return "📋 Vamos a prepararlo ahora.";
   if (actor.id === "captain") return "🤝 Hablaré con el grupo.";
   if (actor.id === "pressOfficer") return "🎙️ Vamos a cuidar el mensaje.";
@@ -451,6 +451,79 @@ function actionLabelFor(actor, actionLabel) {
   if (actor.id === "academyChief") return "🌱 Quiero ver ese caso contigo.";
   if (actor.id === "player") return "🤝 Cuenta con una respuesta clara.";
   return actionLabel ? `📋 ${actionLabel}` : "📋 Voy a estudiarlo ahora.";
+}
+
+function genericCategoryOptions(actorId) {
+  if (actorId === "doctor" || actorId === "fitnessCoach") {
+    return {
+      actConsequence: "Pasas al área médica y cierras un criterio claro con el equipo sanitario.",
+      postponeLabel: "⏳ Necesito ver cómo evoluciona un poco más.",
+      postponeConsequence: "Ganas margen, pero si el jugador fuerza en ese tiempo el riesgo también crece.",
+      delegateLabel: "🧊 Que el cuerpo médico lo gestione y me informe.",
+      delegateConsequence: "El equipo médico queda encargado; te avisarán cuando haya algo concreto que decidir.",
+    };
+  }
+  if (actorId === "sportingDirector") {
+    return {
+      actConsequence: "El director deportivo mueve la operación; el mercado empieza a reaccionar.",
+      postponeLabel: "⏳ Quiero pensarlo antes de responder.",
+      postponeConsequence: "El mercado no espera mucho; otros clubes pueden moverse mientras tanto.",
+      delegateLabel: "📤 Que el director deportivo lo lleve y me avise.",
+      delegateConsequence: "La operación sigue viva, pero sin una señal tuya puede perder peso en la negociación.",
+    };
+  }
+  if (actorId === "president") {
+    return {
+      actConsequence: "Abres la conversación con la directiva antes de que el silencio se interprete como señal.",
+      postponeLabel: "⏳ Necesito un momento antes de responder.",
+      postponeConsequence: "Ganas tiempo, pero la directiva puede leer el silencio como falta de control.",
+      delegateLabel: "📋 Que el club lo gestione por ahora.",
+      delegateConsequence: "El asunto avanza sin una postura clara tuya; puede crecer sin que lo veas.",
+    };
+  }
+  if (actorId === "captain") {
+    return {
+      actConsequence: "Te acercas al vestuario y la intervención queda registrada por el grupo.",
+      postponeLabel: "⏳ Dame un día para ver cómo evoluciona el ambiente.",
+      postponeConsequence: "El vestuario espera una señal; si no llega pronto puede interpretarla de formas distintas.",
+      delegateLabel: "👥 Que el capitán lo gestione y me cuente.",
+      delegateConsequence: "Das espacio a los líderes del vestuario, pero el grupo sabrá que no has intervenido directamente.",
+    };
+  }
+  if (actorId === "pressOfficer") {
+    return {
+      actConsequence: "Cierras una línea de comunicación antes de que los medios llenen el vacío.",
+      postponeLabel: "⏳ Necesito saber más antes de dar una frase.",
+      postponeConsequence: "Cada hora sin respuesta es un hueco que alguien más puede llenar con su versión.",
+      delegateLabel: "📰 Que prensa lo gestione y me consulte antes de publicar.",
+      delegateConsequence: "El equipo de comunicación actúa, pero sin tu postura clara el mensaje puede perder fuerza.",
+    };
+  }
+  if (actorId === "academyChief") {
+    return {
+      actConsequence: "Te acercas a la cantera y el jefe de cantera sabe que lo estás mirando de cerca.",
+      postponeLabel: "⏳ Déjame un poco más de tiempo para valorarlo.",
+      postponeConsequence: "El chico puede seguir desarrollándose, pero sin una señal tuya puede perder impulso.",
+      delegateLabel: "📋 Que la cantera lo gestione y me dé un informe.",
+      delegateConsequence: "El proceso sigue su ritmo; recibirás novedades cuando haya algo definitivo que decidir.",
+    };
+  }
+  if (actorId === "assistantCoach") {
+    return {
+      actConsequence: "El cuerpo técnico se pone en marcha y el partido tiene una preparación concreta.",
+      postponeLabel: "⏳ Déjame verlo con más calma antes del partido.",
+      postponeConsequence: "Ganas tiempo, pero si llegamos al partido sin decidirlo el equipo lo notará.",
+      delegateLabel: "📝 Que el segundo lo prepare y me presente un plan.",
+      delegateConsequence: "El segundo entrenador lleva la preparación; tú revisarás antes de que arranque el partido.",
+    };
+  }
+  return {
+    actConsequence: "La persona sale con una respuesta concreta y pasas a resolverlo.",
+    postponeLabel: "⏳ Necesito un poco más de tiempo.",
+    postponeConsequence: "Ganas margen, pero el asunto puede volver con más tensión.",
+    delegateLabel: "🤝 Tú llévalo de cerca y me avisas.",
+    delegateConsequence: "No lo cierras del todo, pero alguien queda pendiente de ello.",
+  };
 }
 
 function reactionFor(actor, option = {}) {
@@ -747,6 +820,7 @@ function sceneOptions(item, actor) {
   }
   const screen = item.source === "clubLife" ? item.issue.action?.screen : item.attention?.action?.screen;
   const actionLabel = item.source === "clubLife" ? item.issue.actionLabel : item.attention?.actionLabel;
+  const cat = genericCategoryOptions(actor.id);
   const options = [
     {
       id: "act_now",
@@ -754,22 +828,22 @@ function sceneOptions(item, actor) {
       tone: "decisivo",
       type: "act",
       navigateTo: screen ?? "dashboard",
-      consequence: "La persona sale con una respuesta concreta y pasas a resolverlo.",
+      consequence: cat.actConsequence,
     },
     {
       id: "postpone",
-      label: "⏳ Necesito un poco más de tiempo.",
+      label: cat.postponeLabel,
       tone: "prudente",
       type: "postpone",
-      consequence: "Ganas margen, pero el asunto puede volver con más tensión.",
+      consequence: cat.postponeConsequence,
     },
     {
       id: "delegate",
-      label: "🤝 Tú llévalo de cerca y me avisas.",
+      label: cat.delegateLabel,
       tone: "delegar",
       type: "delegate",
       navigateTo: "dashboard",
-      consequence: "No lo cierras del todo, pero alguien queda pendiente de ello.",
+      consequence: cat.delegateConsequence,
     },
   ];
   return options.map(option => ({ ...option, reaction: reactionFor(actor, option) }));
