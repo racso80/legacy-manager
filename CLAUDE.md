@@ -103,13 +103,42 @@ Legacy Manager is a football management game where the player remembers people, 
 - `App.jsx` is ~7800 lines — all game state and handlers live here. This is the main technical debt. Do not make it larger; extract logic when touching it.
 - `TransferState`, `AttentionState`, `TrainingState`, `CompetitionState` in `gameStateSelectors.js` are empty stubs — Single Source of Truth is incomplete.
 
-## Priorities before v1.0
+## Roadmap
 
-1. Fix encoding (UTF-8) across all source files
-2. Fix known desync bugs between modules
-3. Balance: goal engine, injuries, fatigue, individual training impact
-4. Deepen PARCIAL modules: medical, locker room, board, finances, news
-5. Do not add new major features until the above are stable
+### v0.97 — Polish & Immersion
+Philosophy: "Everything must feel alive." No new content — only quality improvements to what exists.
+- Eliminate remaining small inconsistencies
+- Review all text/dialogue for repetition
+- Improve animations and transitions
+- Unify visual language across all screens
+- Improve sound, visual feedback, micro-interactions
+- Add environment reactions (fans, press, coaching staff)
+- Add more personality to conversations
+- Reduce unnecessary clicks across the UX
+
+### v0.98 — AI & World Simulation
+Philosophy: "The world exists even when you're not looking." Focus shifts to the rest of the world, not the user.
+- Smarter club AI: squad management, realistic rotations, coherent signings, automatic renewals, intelligent loans
+- Rival academy development
+- Realistic standings/stats from AI clubs
+- Dynamically generated news, team/coach streaks, press and fan reactions
+- NOTE: REAL_SQUADS refactor (currently a mutable module-level object outside React state, mutated directly in 8 places in App.jsx) should happen before or during this phase — AI squad management will make the desync risk much worse.
+
+### v0.99 — Release Candidate
+Philosophy: "Add nothing more. Only fix." No new content, screens, or systems.
+- Close bugs, optimize performance and load times
+- Review all documentation and mechanics
+- Balance economy, injuries, fatigue, simulation
+- Review accessibility, responsive design, save/load, stability
+- Test: play several full seasons asking "would I publish this?"
+
+### v1.0 — The Complete Experience
+Philosophy: "The season we always wanted to play." Complete core experience, not a finished game.
+Promise: a user can start with any Primera División team and play a full season without missing any essential mechanic — managing a living club, knowing their players, making important decisions, living the matches, managing the locker room, developing youth, listening to staff, negotiating transfers, planning training, building a legacy.
+Explicitly NOT needed yet: Segunda División, promotion/relegation, Copa del Rey, Champions League, Europa League, Conference League. These belong to the next stage after v1.0.
+
+## Current focus: v0.97 — Polish & Immersion
+We are past the critical bug-fixing phase (encoding fixed, lineup desync fixed, atomic state updates fixed). Now focus on polish: consistency, text quality, UX flow, visual cohesion. Do not add new systems or screens during this phase.
 
 ## Key Rules (repeat for emphasis)
 
