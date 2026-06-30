@@ -137,7 +137,7 @@ function weeklyPreparationMoment(game, fixture, context = {}, activeEvents = [])
       category:"youth",
       ownerActorId:"academyChief",
       title:`La cantera informa de ${firstName(bestYouth.name)}`,
-      summary:`Esta semana ha dejado buenas sensaciones. Tiene un potencial ${ (bestYouth.potential ?? 0) >= 85 ? "enorme" : (bestYouth.potential ?? 0) >= 80 ? "muy alto" : "alto"}, pero no exige una decision urgente, solo seguimiento.`,
+      summary:`Esta semana ha dejado buenas sensaciones. Tiene un potencial ${ (bestYouth.potential ?? 0) >= 85 ? "enorme" : (bestYouth.potential ?? 0) >= 80 ? "muy alto" : "alto"}, pero no exige una decisión urgente, solo seguimiento.`,
       subjectId:bestYouth.id,
       subjectName:bestYouth.name,
       action:{ screen:"youth", playerId:bestYouth.id },
@@ -230,8 +230,12 @@ function externalWorldMoment(game, activeEvents = []) {
   const topContext = (userPos && userPos <= 6) || (opponentPos && opponentPos <= 6) || lastFixture.matchday >= 31;
   const derby = isRivalry(game, result.opponentId);
   const recentResults = recent.slice(0, 4).map(item => userFixtureResult(game, item)).filter(Boolean);
-  const winStreak = recentResults.length >= 3 && recentResults.slice(0, 3).every(item => item.won);
-  const lossStreak = recentResults.length >= 3 && recentResults.slice(0, 3).every(item => item.lost);
+  let winStreakLen = 0;
+  for (const item of recentResults) { if (item.won) winStreakLen++; else break; }
+  let lossStreakLen = 0;
+  for (const item of recentResults) { if (item.lost) lossStreakLen++; else break; }
+  const winStreak = winStreakLen >= 3;
+  const lossStreak = lossStreakLen >= 3;
   const youthDebut = (game.players ?? []).find(player => player.academyData?.debutMatchday === lastFixture.matchday && String(player.academyData?.debutSeason ?? game.season) === String(game.season));
   const seriousInjury = (game.players ?? []).find(player => (player.medical?.startedMatchday ?? player.injuryMatchday) === lastFixture.matchday && (player.medical?.remainingDays ?? 0) >= 28);
   const recentOwnTransfer = [...(game.transfers ?? [])].reverse().find(item => Number(item.matchday ?? 0) >= matchday - 1 && (item.toTeamId === game.teamId || ["buy", "loanIn"].includes(item.type)));
@@ -249,7 +253,7 @@ function externalWorldMoment(game, activeEvents = []) {
       ownerActorId:"pressOfficer",
       priority:"important",
       title:result.won ? "La ciudad habla del derbi" : "El derbi deja ruido fuera del club",
-      summary:result.won ? "El ambiente alrededor del club es espectacular despues del resultado." : "La prensa y la aficion estan midiendo cada palabra despues del derbi.",
+      summary:result.won ? "El ambiente alrededor del club es espectacular después del resultado." : "La prensa y la afición están midiendo cada palabra después del derbi.",
       action:{ screen:"news" },
       actionLabel:"Responder tono",
       expectedOutcome:"Elegir el tono publico tras un partido emocional.",
@@ -279,42 +283,83 @@ function externalWorldMoment(game, activeEvents = []) {
       ownerActorId:"pressOfficer",
       priority:"important",
       title:"La derrota ha generado ruido",
-      summary:"El resultado ha pesado fuera. La sala de prensa busca una explicacion sencilla.",
+      summary:"El resultado ha pesado fuera. La sala de prensa busca una explicación sencilla.",
       action:{ screen:"news" },
       actionLabel:"Cuidar mensaje",
       expectedOutcome:"Decidir si proteger al grupo, asumir responsabilidad o rebajar el ruido.",
       ...base,
     },
-    winStreak && {
-      id:`ExternalWorld:WinStreak:${commonId}`,
-      type:"ExternalWorldMoment",
-      momentType:"world_win_streak",
-      issueKey:`external_world:win_streak:${commonId}`,
-      category:"board",
-      ownerActorId:topContext ? "president" : "captain",
-      priority:"important",
-      title:topContext ? "El presidente nota el cambio de ambiente" : "La grada empieza a creer",
-      summary:"La racha positiva ya no se queda dentro del vestuario. La ciudad empieza a hablar del equipo.",
-      action:{ screen:"fans" },
-      actionLabel:"Tomar pulso",
-      expectedOutcome:"Gestionar la ilusion sin perder foco.",
-      ...base,
-    },
-    lossStreak && {
-      id:`ExternalWorld:LossStreak:${commonId}`,
-      type:"ExternalWorldMoment",
-      momentType:"world_negative_streak",
-      issueKey:`external_world:negative_streak:${commonId}`,
-      category:"board",
-      ownerActorId:"president",
-      priority:"important",
-      title:"La mala racha ya se comenta fuera",
-      summary:"La directiva y la aficion empiezan a mirar la tendencia con preocupacion.",
-      action:{ screen:"board" },
-      actionLabel:"Escuchar postura",
-      expectedOutcome:"Asumir el contexto y definir un mensaje de reaccion.",
-      ...base,
-    },
+    winStreak && (() => {
+      const tier = winStreakLen >= 4 ? "long" : "short";
+      const messages = topContext ? {
+        short: [
+          "La racha positiva ya no se queda dentro del vestuario. La ciudad empieza a hablar del equipo.",
+          "El presidente nota el cambio de ambiente y quiere que sigas en la misma línea.",
+          "Arriba están contentos con la dinámica reciente, aunque piden no relajarse.",
+        ],
+        long: [
+          "La racha ha disparado las expectativas. La directiva ya habla abiertamente de pelear por algo grande.",
+          "El presidente está exultante: pocas veces ha visto al club tan ilusionado por una racha.",
+          "La ciudad entera habla del equipo. La directiva quiere capitalizar el momento cuanto antes.",
+        ],
+      } : {
+        short: [
+          "La racha positiva ya no se queda dentro del vestuario. La grada empieza a creer.",
+          "El ambiente en la grada ha cambiado: empiezan a soñar con algo más.",
+          "La afición nota la mejoría y se atreve a pedir más.",
+        ],
+        long: [
+          "La grada vive un sueño: la racha ha disparado la ilusión por todo lo alto.",
+          "El estadio entero habla de la racha. La afición empieza a pedir algo grande.",
+          "La ciudad se ha contagiado del momento dulce del equipo.",
+        ],
+      };
+      return {
+        id:`ExternalWorld:WinStreak:${commonId}`,
+        type:"ExternalWorldMoment",
+        momentType:"world_win_streak",
+        issueKey:`external_world:win_streak:${commonId}`,
+        category:"board",
+        ownerActorId:topContext ? "president" : "captain",
+        priority:"important",
+        title:topContext ? "El presidente nota el cambio de ambiente" : "La grada empieza a creer",
+        summary:pickByDay(game, messages[tier]),
+        action:{ screen:"fans" },
+        actionLabel:"Tomar pulso",
+        expectedOutcome:"Gestionar la ilusión sin perder foco.",
+        ...base,
+      };
+    })(),
+    lossStreak && (() => {
+      const tier = lossStreakLen >= 4 ? "long" : "short";
+      const messages = {
+        short: [
+          "La directiva y la afición empiezan a mirar la tendencia con preocupación.",
+          "Arriba se nota cierta inquietud por la dinámica reciente del equipo.",
+          "La mala racha ya se comenta fuera. La directiva pide explicaciones.",
+        ],
+        long: [
+          "La directiva ve con alarma cómo se alarga la mala racha. La paciencia se agota.",
+          "El club entero habla de la crisis de resultados. La directiva exige una reacción inmediata.",
+          "La preocupación institucional ha crecido mucho. Empiezan a sonar nombres para un cambio.",
+        ],
+      };
+      return {
+        id:`ExternalWorld:LossStreak:${commonId}`,
+        type:"ExternalWorldMoment",
+        momentType:"world_negative_streak",
+        issueKey:`external_world:negative_streak:${commonId}`,
+        category:"board",
+        ownerActorId:"president",
+        priority:tier === "long" ? "critical" : "important",
+        title:tier === "long" ? "La directiva ya habla de crisis" : "La mala racha ya se comenta fuera",
+        summary:pickByDay(game, messages[tier]),
+        action:{ screen:"board" },
+        actionLabel:"Escuchar postura",
+        expectedOutcome:"Asumir el contexto y definir un mensaje de reacción.",
+        ...base,
+      };
+    })(),
     youthDebut && {
       id:`ExternalWorld:YouthDebut:${youthDebut.id}:${commonId}`,
       type:"ExternalWorldMoment",
@@ -324,7 +369,7 @@ function externalWorldMoment(game, activeEvents = []) {
       ownerActorId:"pressOfficer",
       priority:"important",
       title:`Todo el mundo habla de ${firstName(youthDebut.name)}`,
-      summary:"El debut del canterano ha conectado con la aficion. Conviene cuidar el mensaje alrededor del chico.",
+      summary:"El debut del canterano ha conectado con la afición. Conviene cuidar el mensaje alrededor del chico.",
       subjectId:youthDebut.id,
       subjectName:youthDebut.name,
       action:{ screen:"youth", playerId:youthDebut.id },
@@ -767,7 +812,7 @@ export function buildLegacyDirectorEvents(game, context = {}) {
       ownerActorId:"sportingDirector",
       priority:"critical",
       title:`Oferta recibida por ${offer.playerName}`,
-      summary:`Hay un club que quiere a ${offer.playerName}. Necesitamos decidir si abrimos la puerta o cerramos cualquier negociacion antes de que sigan presionando.`,
+      summary:`Hay un club que quiere a ${offer.playerName}. Necesitamos decidir si abrimos la puerta o cerramos cualquier negociación antes de que sigan presionando.`,
       subjectId:offer.playerId,
       subjectName:offer.playerName,
       action:{ screen:"transfers", tab:"vender", offerId:offer.id },
@@ -787,17 +832,35 @@ export function buildLegacyDirectorEvents(game, context = {}) {
       ownerActorId:"sportingDirector",
       priority:["clubCounter", "playerCounter", "roleCounter", "ready", "clubAccepted"].includes(offer.status) ? "critical" : "important",
       title:`${offer.playerName}: ${transferLabel(offer.status)}`,
-      summary:"La negociacion ha cambiado de posicion. Hay que responder antes de que la otra parte pierda la paciencia o busque otra salida.",
+      summary:"La negociación ha cambiado de posición. Hay que responder antes de que la otra parte pierda la paciencia o busque otra salida.",
       subjectId:offer.playerId,
       subjectName:offer.playerName,
       action:{ screen:"transfers", tab:"negociar", offerId:offer.id },
-      actionLabel:"Abrir negociacion",
+      actionLabel:"Abrir negociación",
       ...stamp,
     });
   }
 
   const confidence = game.legacy?.confidence ?? 70;
   if (confidence < 50) {
+    const concernTier = confidence < 25 ? "alarmed" : confidence < 35 ? "firm" : "measured";
+    const concernMessages = {
+      measured: [
+        "La directiva empieza a perder la confianza. Necesitan una señal clara antes de que la tensión aumente.",
+        "Arriba se nota cierta inquietud por la dinámica del equipo. Conviene dar explicaciones antes de que crezca.",
+        "La paciencia de la directiva no es infinita. Esperan ver una reacción en las próximas jornadas.",
+      ],
+      firm: [
+        "La directiva empieza a cuestionar el rumbo del proyecto. Quieren hechos, no palabras.",
+        "Arriba ya no se conforman con explicaciones. Esperan resultados inmediatos.",
+        "El respaldo institucional se está agotando. La directiva exige una reacción ya.",
+      ],
+      alarmed: [
+        "La directiva empieza a cuestionarse el proyecto por completo. Necesitan una reacción inmediata, no palabras.",
+        "Arriba se habla abiertamente de un cambio de rumbo. La situación es crítica.",
+        "La paciencia institucional se ha agotado. El club se plantea un golpe de timón inmediato.",
+      ],
+    };
     pushEvent(events, {
       id:`PresidentConcern:${stamp.season}:${Math.floor(confidence / 10)}`,
       type:"PresidentConcern",
@@ -806,7 +869,7 @@ export function buildLegacyDirectorEvents(game, context = {}) {
       ownerActorId:"president",
       priority:confidence < 30 ? "critical" : "important",
       title:"El presidente quiere hablar contigo",
-      summary:`${ confidence < 30 ? "La directiva empieza a cuestionarse el proyecto. Necesitan una reaccion inmediata, no palabras." : "La directiva empieza a perder la confianza. Necesitan una senal clara antes de que la tension aumente."}`,
+      summary:pickByDay(game, concernMessages[concernTier]),
       action:{ screen:"board" },
       actionLabel:"Ver directiva",
       ...stamp,
@@ -850,7 +913,7 @@ export function buildLegacyDirectorEvents(game, context = {}) {
         ownerActorId:"academyChief",
         priority:"important",
         title:`${bestYouth.name} ilusiona en la cantera`,
-        summary:`El jefe de cantera cree que ${firstName(bestYouth.name)} tiene algo especial. No exige una decision urgente, pero conviene seguirlo de cerca.`,
+        summary:`El jefe de cantera cree que ${firstName(bestYouth.name)} tiene algo especial. No exige una decisión urgente, pero conviene seguirlo de cerca.`,
         subjectId:bestYouth.id,
         subjectName:bestYouth.name,
         action:{ screen:"youth", playerId:bestYouth.id },
@@ -875,21 +938,36 @@ export function buildLegacyDirectorEvents(game, context = {}) {
         expectedOutcome:"Recibir una buena noticia medica y valorar el regreso progresivo.",
         ...stamp,
       },
-      (game.legacy?.confidence ?? 70) >= 72 && {
-        id:`ClubLifeMoment:president:${stamp.season}:${stamp.matchday}`,
-        type:"ClubLifeMoment",
-        momentType:"president_praise",
-        issueKey:`club_life_moment:president:${stamp.season}:${stamp.matchday}`,
-        category:"board",
-        ownerActorId:"president",
-        priority:"important",
-        title:"El presidente pasa por tu despacho",
-        summary:"Quiere reconocer que el club transmite una sensacion de rumbo. Una conversacion breve, pero importante.",
-        action:{ screen:"board" },
-        actionLabel:"Recibir",
-        expectedOutcome:"Reforzar la confianza institucional.",
-        ...stamp,
-      },
+      (game.legacy?.confidence ?? 70) >= 72 && (() => {
+        const praiseTier = (game.legacy?.confidence ?? 70) >= 85 ? "high" : "good";
+        const praiseMessages = {
+          good: [
+            "Quiere reconocer que el club transmite una sensación de rumbo. Una conversación breve, pero importante.",
+            "Pasa a decir que la directiva está tranquila con la dirección del proyecto.",
+            "Quiere que sepas que arriba se valora el trabajo de estas semanas.",
+          ],
+          high: [
+            "Viene exultante: la directiva está encantada con el rumbo del proyecto y quiere que lo sepas en persona.",
+            "Pasa a felicitarte sin rodeos. Pocas veces lo ha visto tan convencido del proyecto.",
+            "Quiere celebrar el momento: para la directiva, esto es justo lo que esperaban del proyecto.",
+          ],
+        };
+        return {
+          id:`ClubLifeMoment:president:${stamp.season}:${stamp.matchday}`,
+          type:"ClubLifeMoment",
+          momentType:"president_praise",
+          issueKey:`club_life_moment:president:${stamp.season}:${stamp.matchday}`,
+          category:"board",
+          ownerActorId:"president",
+          priority:"important",
+          title:"El presidente pasa por tu despacho",
+          summary:pickByDay(game, praiseMessages[praiseTier]),
+          action:{ screen:"board" },
+          actionLabel:"Recibir",
+          expectedOutcome:"Reforzar la confianza institucional.",
+          ...stamp,
+        };
+      })(),
       {
         id:`ClubLifeMoment:assistant:${stamp.season}:${stamp.matchday}`,
         type:"ClubLifeMoment",

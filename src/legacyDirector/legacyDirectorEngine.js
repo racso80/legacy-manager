@@ -2,6 +2,65 @@ import { rhythmProfile, scoreIssueFreshness, selectionLimit, shouldSurfaceCandid
 
 const PRIORITY_WEIGHT = { urgent: 100, critical: 100, important: 72, normal: 42, info: 16 };
 
+function hashSeed(value) { let h = 2166136261; for (const c of String(value)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+const pickVariant = (seed, list) => list[seed % list.length];
+
+const TITLE_FALLBACKS = [
+  "Asunto pendiente",
+  "Hay algo que requiere tu atención",
+  "Un tema queda abierto",
+];
+const SUMMARY_FALLBACKS = [
+  "Hay una decisión pendiente.",
+  "Esto requiere que le eches un vistazo cuando puedas.",
+  "Hay un asunto abierto que conviene revisar.",
+];
+const GOAL_FALLBACKS = [
+  "Tomar una decisión clara.",
+  "Valorar la situación y decidir el siguiente paso.",
+  "Llegar a una conclusión antes de que el tema se enquiste.",
+];
+const ACTION_LABEL_FALLBACKS = ["Revisar", "Ver detalle", "Abrir"];
+
+const EXPECTATION_TOPIC_TEXT = {
+  contracts: {
+    titles: ["Hay novedades sobre una renovación pendiente", "El entorno del jugador ha vuelto a dar señales"],
+    summaries: [actor => `${actor} trae novedades sobre la negociación de contrato.`, actor => `${actor} vuelve con noticias del frente contractual.`],
+  },
+  medical: {
+    titles: ["El parte médico tiene una actualización", "Hay novedades sobre una recuperación"],
+    summaries: [actor => `${actor} trae una actualización médica que estaba pendiente.`, actor => `${actor} vuelve con noticias sobre el estado físico del jugador.`],
+  },
+  market: {
+    titles: ["El mercado ha movido una operación abierta", "Hay novedades en una negociación de fichajes"],
+    summaries: [actor => `${actor} trae novedades sobre una operación de mercado.`, actor => `${actor} vuelve con noticias del frente del mercado.`],
+  },
+  youth: {
+    titles: ["La cantera tiene una novedad pendiente", "Hay noticias sobre un canterano"],
+    summaries: [actor => `${actor} trae novedades sobre un asunto de la cantera.`, actor => `${actor} vuelve con noticias de la academia.`],
+  },
+  lockerRoom: {
+    titles: ["Hay novedades sobre el ambiente del vestuario", "El vestuario tiene algo que contar"],
+    summaries: [actor => `${actor} trae novedades sobre un asunto del vestuario.`, actor => `${actor} vuelve con noticias del ambiente interno.`],
+  },
+  lineup: {
+    titles: ["Hay novedades sobre la preparación del partido", "El cuerpo técnico retoma un asunto pendiente"],
+    summaries: [actor => `${actor} trae novedades sobre la preparación del próximo partido.`, actor => `${actor} vuelve con noticias del plan de partido.`],
+  },
+  press: {
+    titles: ["La prensa retoma un asunto pendiente", "Hay novedades en el frente mediático"],
+    summaries: [actor => `${actor} trae novedades sobre cómo está sonando un tema fuera del club.`, actor => `${actor} vuelve con noticias de la sala de prensa.`],
+  },
+  fans: {
+    titles: ["La afición sigue pendiente de un asunto abierto", "Hay novedades sobre el ánimo de la grada"],
+    summaries: [actor => `${actor} trae novedades sobre cómo sigue un asunto con la afición.`, actor => `${actor} vuelve con noticias de la grada.`],
+  },
+};
+const EXPECTATION_FALLBACK_TEXT = {
+  titles: ["Hay novedades en una historia abierta", "Un asunto pendiente vuelve a la mesa"],
+  summaries: [actor => `${actor} vuelve con novedades.`, actor => `${actor} retoma un tema que quedó pendiente.`],
+};
+
 const ACTOR_ROTATION = [
   "sportingDirector",
   "captain",
@@ -229,15 +288,16 @@ function cleanTitle(title = "", ownerId = "") {
     text = text.replace(/^director deportivo\s*:\s*/i, "");
     text = text.replace(/^dirección deportiva\s*:\s*/i, "");
   }
-  return text.trim() || "Asunto pendiente";
+  text = text.trim();
+  return text || pickVariant(hashSeed(`title-fallback:${ownerId}`), TITLE_FALLBACKS);
 }
 
 function renewalResponseGoal(candidate) {
   const responseType = candidate.attention?.responseType ?? candidate.responseType;
-  if (responseType === "RenewalAccepted") return "Cerrar renovacion.";
+  if (responseType === "RenewalAccepted") return "Cerrar renovación.";
   if (responseType === "RenewalRejected") return "Decidir si mejorar condiciones, mantener postura o retirar la oferta.";
   if (responseType === "RenewalCounterOffer") return "Responder a la contraoferta.";
-  return "Revisar la respuesta de renovacion.";
+  return "Revisar la respuesta de renovación.";
 }
 
 function humanSummary(candidate, ownerId) {
@@ -251,7 +311,7 @@ function humanSummary(candidate, ownerId) {
   if (issue?.origin === "lineup") return "Míster, todavía no hemos preparado el once para el próximo partido.";
   if (issue?.origin === "medical" && issue?.payload?.playerId) return `${issue.person?.name ?? issue.title} está acumulando señales de riesgo. Prefiero mirarlo antes de forzar.`;
   if (ownerId === "sportingDirector" && (issue?.message || attention?.summary)) return issue?.message ?? attention?.summary;
-  return issue?.message ?? attention?.summary ?? candidate.summary ?? candidate.title ?? "Hay una decisión pendiente.";
+  return issue?.message ?? attention?.summary ?? candidate.summary ?? candidate.title ?? pickVariant(hashSeed(`summary-fallback:${candidate.id ?? ownerId}`), SUMMARY_FALLBACKS);
 }
 
 function normalizeCandidateToIssue(candidate, game) {
@@ -262,7 +322,7 @@ function normalizeCandidateToIssue(candidate, game) {
   const owner = ownerId === "player" && candidate.conversation?.actorType === "player"
     ? { ...OWNER_PROFILES.player, id:candidate.conversation.actorId, name:candidate.conversation.actorName, role:candidate.conversation.role, portrait:candidate.conversation.portrait }
     : OWNER_PROFILES[ownerId] ?? OWNER_PROFILES.assistantCoach;
-  const title = cleanTitle(candidate.issue?.title ?? candidate.attention?.title ?? candidate.conversation?.title ?? candidate.title ?? "Asunto pendiente", owner.id);
+  const title = cleanTitle(candidate.issue?.title ?? candidate.attention?.title ?? candidate.conversation?.title ?? candidate.title ?? "", owner.id);
   const subjectLabel = subjectName(candidate, game);
   return {
     id: key,
@@ -284,8 +344,8 @@ function normalizeCandidateToIssue(candidate, game) {
     title,
     summary: humanSummary(candidate, owner.id),
     consequenceIfIgnored: candidate.consequenceIfIgnored ?? candidate.issue?.consequenceIfIgnored ?? candidate.attention?.summary ?? candidate.consequence,
-    goal: key.startsWith("contract_renewal_response:") ? renewalResponseGoal(candidate) : candidate.attention?.expectedOutcome ?? candidate.issue?.expectedOutcome ?? "Tomar una decisión clara.",
-    availableActions: [candidate.issue?.actionLabel ?? candidate.attention?.actionLabel ?? "Revisar"],
+    goal: key.startsWith("contract_renewal_response:") ? renewalResponseGoal(candidate) : candidate.attention?.expectedOutcome ?? candidate.issue?.expectedOutcome ?? pickVariant(hashSeed(`goal-fallback:${key}`), GOAL_FALLBACKS),
+    availableActions: [candidate.issue?.actionLabel ?? candidate.attention?.actionLabel ?? pickVariant(hashSeed(`action-fallback:${key}`), ACTION_LABEL_FALLBACKS)],
     responseType: candidate.attention?.responseType ?? candidate.responseType ?? null,
     momentType: candidate.attention?.momentType ?? candidate.momentType ?? null,
     history: [],
@@ -420,25 +480,32 @@ function avoidSameActorSpam(candidates, game, directorState) {
 function waitingExpectationCandidates(game, directorState) {
   return Object.values(directorState.issueStates ?? {})
     .filter(state => state?.status === "waiting" && state.expectation && isDue(state.nextAvailableAt, game))
-    .map(state => ({
-      id: `expectation:${state.issueKey}:${state.updatedAt?.matchday ?? 0}`,
-      rawId: state.issueKey,
-      source: "expectation",
-      origin: state.expectation.origin ?? "legacyDirector",
-      category: state.expectation.origin ?? "legacyDirector",
-      issueKey: state.issueKey,
-      actorId: state.ownerActorId ?? state.expectation.ownerActorId ?? "assistantCoach",
-      ownerActorId: state.ownerActorId ?? state.expectation.ownerActorId ?? "assistantCoach",
-      priority: state.expectation.priority ?? "important",
-      title: state.expectation.returnTitle ?? "Hay novedades en una historia abierta",
-      summary: state.expectation.returnSummary ?? `${actorNameFromId(state.ownerActorId)} vuelve con novedades.`,
-      consequenceIfIgnored: state.expectation.consequenceIfIgnored ?? "Si no lo atiendes, la historia seguira avanzando sin una decision clara.",
-      expectedOutcome: state.expectation.expectedOutcome ?? "Escuchar la novedad y decidir el siguiente paso.",
-      payload: { playerId: state.expectation.subjectId },
-      playerName: state.expectation.subjectName,
-      responseType: state.expectation.responseType ?? null,
-      reappearedFromExpectation: true,
-    }));
+    .map(state => {
+      const origin = state.expectation.origin ?? "legacyDirector";
+      const topic = EXPECTATION_TOPIC_TEXT[origin] ?? EXPECTATION_FALLBACK_TEXT;
+      const ownerActorId = state.ownerActorId ?? state.expectation.ownerActorId ?? "assistantCoach";
+      const actorName = actorNameFromId(ownerActorId);
+      const seed = hashSeed(`expectation:${state.issueKey}:${state.updatedAt?.matchday ?? 0}`);
+      return {
+        id: `expectation:${state.issueKey}:${state.updatedAt?.matchday ?? 0}`,
+        rawId: state.issueKey,
+        source: "expectation",
+        origin,
+        category: origin,
+        issueKey: state.issueKey,
+        actorId: ownerActorId,
+        ownerActorId,
+        priority: state.expectation.priority ?? "important",
+        title: state.expectation.returnTitle ?? pickVariant(seed, topic.titles),
+        summary: state.expectation.returnSummary ?? pickVariant(seed, topic.summaries)(actorName),
+        consequenceIfIgnored: state.expectation.consequenceIfIgnored ?? "Si no lo atiendes, la historia seguirá avanzando sin una decisión clara.",
+        expectedOutcome: state.expectation.expectedOutcome ?? "Escuchar la novedad y decidir el siguiente paso.",
+        payload: { playerId: state.expectation.subjectId },
+        playerName: state.expectation.subjectName,
+        responseType: state.expectation.responseType ?? null,
+        reappearedFromExpectation: true,
+      };
+    });
 }
 
 export function getLegacyDirectorSelection(game, candidates = []) {

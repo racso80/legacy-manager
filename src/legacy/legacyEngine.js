@@ -2,6 +2,8 @@ import { getMarketValue, getPlayerSeasonStats } from "../players/playerProfile.j
 
 const clamp=(value,min=0,max=100)=>Math.max(min,Math.min(max,value));
 const number=(value,fallback=0)=>Number.isFinite(Number(value))?Number(value):fallback;
+function hash(value){let h=2166136261;for(const c of String(value)){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
+const pickVariant=(seed,list)=>list[seed%list.length];
 
 function migrateArchive(game,legacy){
   const existing=legacy.archive??{};
@@ -44,10 +46,18 @@ function sportingTarget(team){
 
 export function createSeasonObjectives(team,season){
   const target=sportingTarget(team);
+  const economyLabel=pickVariant(hash(`${team?.id}:${season}:economy-objective`),[
+    "Mantener un balance económico sostenible",
+    "Cuidar las cuentas del club a lo largo de la temporada",
+  ]);
+  const developmentLabel=pickVariant(hash(`${team?.id}:${season}:development-objective`),[
+    "Potenciar y desarrollar jugadores jóvenes",
+    "Apostar por el crecimiento de la cantera y los jóvenes del primer equipo",
+  ]);
   return [
     {id:"sport",type:"sport",label:target<=3?"Luchar por el título":target<=6?"Clasificarse para Europa":target<=10?"Quedar entre los 10 primeros":target<=14?"Consolidarse en mitad de tabla":"Mantener la categoría",target,reward:{prestige:target<=6?5:3,budget:target<=6?8000:4000}},
-    {id:"economy",type:"economy",label:"Mantener un balance económico sostenible",target:60,reward:{prestige:2,budget:5000}},
-    {id:"development",type:"development",label:"Potenciar y desarrollar jugadores jóvenes",target:2,reward:{prestige:3,budget:3000}},
+    {id:"economy",type:"economy",label:economyLabel,target:60,reward:{prestige:2,budget:5000}},
+    {id:"development",type:"development",label:developmentLabel,target:2,reward:{prestige:3,budget:3000}},
   ].map(objective=>({...objective,season:String(season),progress:0,completed:false}));
 }
 
@@ -130,7 +140,7 @@ function archiveSeason(game,legacy,{team,position,title,prestigeStart,prestigeDe
   const promotedYouth=(game.youth?.promotions??[]).filter(item=>String(item.season)===String(game.season)).length;
   const season={id:`season_${game.season}_${game.teamId}`,season:String(game.season),clubId:game.teamId,clubName:team?.name??game.name??"Mi club",position,points:number(row.points),goalsFor:number(row.goalsFor),goalsAgainst:number(row.goalsAgainst),goalDifference:number(row.goalDifference),prestigeStart:Math.round(prestigeStart),prestigeEnd:Math.round(legacy.clubPrestige),prestigeDelta:Math.round(prestigeDelta),confidence:Math.round(legacy.confidence),title:title?.name??null,titleId:title?.id??null,standings:table.map((item,index)=>({position:index+1,teamId:item.teamId,played:item.played,won:item.won,drawn:item.drawn,lost:item.lost,goalsFor:item.goalsFor,goalsAgainst:item.goalsAgainst,goalDifference:item.goalDifference,points:item.points})),results,players,topScorer,topAssister,playerOfYear,bestSigning:bestSigning?{playerId:bestSigning.player?.id,name:bestSigning.player?.name,cost:number(bestSigning.cost??bestSigning.value),overall:bestSigning.player?.overall}:null,biggestSale:biggestSale?{playerId:biggestSale.player?.id,name:biggestSale.player?.name,value:number(biggestSale.value??biggestSale.cost),overall:biggestSale.player?.overall}:null,finances:seasonFinances(game),squadValue,promotedYouth};
   const milestones=[];
-  if(title)milestones.push({id:`milestone_title_${game.season}`,type:"title",icon:"🏆",season:String(game.season),title:"Primer gran título" ,summary:`${team?.name??"El club"} conquista ${title.name}.`});
+  if(title)milestones.push({id:`milestone_title_${game.season}`,type:"title",icon:"🏆",season:String(game.season),title:"Primer gran título" ,summary:`${team?.name??"El club"} se proclama ${title.name}.`});
   if(position<=6)milestones.push({id:`milestone_europe_${game.season}`,type:"europe",icon:"🌍",season:String(game.season),title:"Clasificación europea",summary:`El equipo termina en la ${position}.ª posición.`});
   if(results.biggestWin)milestones.push({id:`milestone_win_${game.season}`,type:"result",icon:"⚽",season:String(game.season),title:"Mayor victoria de la temporada",summary:`Triunfo por ${results.biggestWin.margin} goles de diferencia en la jornada ${results.biggestWin.matchday}.`});
   return{seasons:[season,...archive.seasons],playerRecords:mergePlayerRecords(archive.playerRecords,players,game.season,title),prestigeHistory:[{season:String(game.season),clubPrestige:Math.round(legacy.clubPrestige),managerPrestige:Math.round(legacy.manager.prestige)},...(archive.prestigeHistory??[]).filter(item=>String(item.season)!==String(game.season))],milestones:uniqueById([...milestones,...(archive.milestones??[])])};
@@ -166,18 +176,28 @@ export function evaluateLegacyMatchday(game,{team,result,income,trainingReport,m
   const monthlyReports=isMonthly?[report,...legacy.monthlyReports].slice(0,60):legacy.monthlyReports;
   const news=[];
   if(isMonthly){
-    if(overall>=78)news.push({title:"La directiva respalda el rumbo del equipo",summary:`La valoración mensual alcanza el ${overall}%.`,importance:"medium",fingerprint:`support:${game.season}:${matchday}`});
-    else if(confidence<35)news.push({title:"La directiva muestra su preocupación por los resultados",summary:`La confianza en el entrenador cae hasta el ${Math.round(confidence)}%.`,importance:"high",fingerprint:`concern:${game.season}:${matchday}`});
-    else if(sportScore>=65)news.push({title:"El objetivo deportivo sigue al alcance",summary:`El equipo ocupa la ${position}.ª posición.`,importance:"medium",fingerprint:`objective-alive:${game.season}:${matchday}`});
+    const newsSeed=hash(`${game.season}:${matchday}:board-news`);
+    if(overall>=78)news.push({title:"La directiva respalda el rumbo del equipo",summary:pickVariant(newsSeed,[
+      "La directiva está satisfecha con el rumbo del proyecto.",
+      `El informe mensual confirma que el proyecto va por el buen camino, con una valoración que ronda el ${overall}%.`,
+    ]),importance:"medium",fingerprint:`support:${game.season}:${matchday}`});
+    else if(confidence<35)news.push({title:"La directiva muestra su preocupación por los resultados",summary:pickVariant(newsSeed,[
+      "La directiva no oculta su preocupación por la dinámica reciente del equipo.",
+      `El informe mensual refleja inquietud en la directiva; la confianza en el entrenador ha caído hasta cerca del ${Math.round(confidence)}%.`,
+    ]),importance:"high",fingerprint:`concern:${game.season}:${matchday}`});
+    else if(sportScore>=65)news.push({title:"El objetivo deportivo sigue al alcance",summary:pickVariant(newsSeed,[
+      `El equipo mantiene vivo el objetivo deportivo de la temporada desde la ${position}.ª posición.`,
+      "La directiva ve con buenos ojos la marcha del equipo en la tabla; el objetivo de la temporada sigue intacto.",
+    ]),importance:"medium",fingerprint:`objective-alive:${game.season}:${matchday}`});
   }
   return {legacy:{...legacy,clubPrestige,confidence,objectives,monthlyReports,manager,lastEvaluationMatchday:matchday},report:isMonthly?report:null,news};
 }
 
 export function getJobRisk(confidence){
-  if(confidence>50)return{label:"Normal",color:"#22c55e",icon:"🟢"};
-  if(confidence>30)return{label:"Advertencia",color:"#eab308",icon:"🟡"};
-  if(confidence>15)return{label:"Ultimátum",color:"#f97316",icon:"🟠"};
-  return{label:"Despido",color:"#ef4444",icon:"🔴"};
+  if(confidence>50)return{label:"Normal",color:"#22c55e",icon:"🟢",detail:"Tu puesto no está en duda."};
+  if(confidence>30)return{label:"Advertencia",color:"#eab308",icon:"🟡",detail:"La directiva empieza a vigilar de cerca."};
+  if(confidence>15)return{label:"Ultimátum",color:"#f97316",icon:"🟠",detail:"Una mala racha más podría costarte el cargo."};
+  return{label:"Despido",color:"#ef4444",icon:"🔴",detail:"Tu continuidad está en juego de forma inmediata."};
 }
 
 export function finalizeLegacySeason(game,{team,position}){
