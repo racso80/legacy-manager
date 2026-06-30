@@ -10,7 +10,7 @@ function migrateArchive(game,legacy){
   const managerHistory=legacy.manager?.history??[];
   const seasons=existing.seasons?.length?existing.seasons:(game.history??[]).map(item=>{
     const managerSeason=managerHistory.find(entry=>String(entry.season)===String(item.season));
-    return{id:`season_${item.season}_${game.teamId}`,season:String(item.season),clubId:managerSeason?.clubId??game.teamId,clubName:managerSeason?.clubName??game.name??"Mi club",position:item.pos??managerSeason?.position??0,points:item.pts??0,goalsFor:item.gf??0,goalsAgainst:item.ga??0,prestigeEnd:managerSeason?.prestige??null,prestigeDelta:0,title:managerSeason?.title??null,migrated:true};
+    return{id:`season_${item.season}_${game.teamId}`,season:String(item.season),clubId:managerSeason?.clubId??game.teamId,clubName:managerSeason?.clubName??game.name??"El club",position:item.pos??managerSeason?.position??0,points:item.pts??0,goalsFor:item.gf??0,goalsAgainst:item.ga??0,prestigeEnd:managerSeason?.prestige??null,prestigeDelta:0,title:managerSeason?.title??null,migrated:true};
   });
   return{
     seasons,
@@ -123,6 +123,26 @@ function mergePlayerRecords(previous,players,season,title){
 
 function uniqueById(items){return items.filter((item,index,array)=>array.findIndex(candidate=>candidate.id===item.id)===index);}
 
+function positionAtMatchday(game,matchday,teamId){
+  const playedUpTo=(game.fixtures??[]).filter(item=>item.played&&item.matchday<=matchday&&typeof item.homeGoals==="number"&&typeof item.awayGoals==="number");
+  if(!playedUpTo.length)return null;
+  const table={};
+  playedUpTo.forEach(item=>{
+    table[item.homeTeamId]??={teamId:item.homeTeamId,points:0,goalDifference:0,goalsFor:0};
+    table[item.awayTeamId]??={teamId:item.awayTeamId,points:0,goalDifference:0,goalsFor:0};
+    const home=table[item.homeTeamId],away=table[item.awayTeamId];
+    home.goalsFor+=item.homeGoals;away.goalsFor+=item.awayGoals;
+    home.goalDifference+=item.homeGoals-item.awayGoals;away.goalDifference+=item.awayGoals-item.homeGoals;
+    if(item.homeGoals>item.awayGoals)home.points+=3;
+    else if(item.homeGoals<item.awayGoals)away.points+=3;
+    else{home.points+=1;away.points+=1;}
+  });
+  if(!table[teamId])return null;
+  const sorted=Object.values(table).sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference||b.goalsFor-a.goalsFor);
+  const index=sorted.findIndex(row=>row.teamId===teamId);
+  return index>=0?index+1:null;
+}
+
 function archiveSeason(game,legacy,{team,position,title,prestigeStart,prestigeDelta}){
   const archive=legacy.archive??migrateArchive(game,legacy);
   if(archive.seasons.some(item=>String(item.season)===String(game.season)&&item.clubId===game.teamId))return archive;
@@ -138,11 +158,21 @@ function archiveSeason(game,legacy,{team,position,title,prestigeStart,prestigeDe
   const biggestSale=[...sales].sort((a,b)=>number(b.value??b.cost)-number(a.value??a.cost))[0]??null;
   const squadValue=(game.players??[]).reduce((sum,item)=>sum+getMarketValue(item),0);
   const promotedYouth=(game.youth?.promotions??[]).filter(item=>String(item.season)===String(game.season)).length;
-  const season={id:`season_${game.season}_${game.teamId}`,season:String(game.season),clubId:game.teamId,clubName:team?.name??game.name??"Mi club",position,points:number(row.points),goalsFor:number(row.goalsFor),goalsAgainst:number(row.goalsAgainst),goalDifference:number(row.goalDifference),prestigeStart:Math.round(prestigeStart),prestigeEnd:Math.round(legacy.clubPrestige),prestigeDelta:Math.round(prestigeDelta),confidence:Math.round(legacy.confidence),title:title?.name??null,titleId:title?.id??null,standings:table.map((item,index)=>({position:index+1,teamId:item.teamId,played:item.played,won:item.won,drawn:item.drawn,lost:item.lost,goalsFor:item.goalsFor,goalsAgainst:item.goalsAgainst,goalDifference:item.goalDifference,points:item.points})),results,players,topScorer,topAssister,playerOfYear,bestSigning:bestSigning?{playerId:bestSigning.player?.id,name:bestSigning.player?.name,cost:number(bestSigning.cost??bestSigning.value),overall:bestSigning.player?.overall}:null,biggestSale:biggestSale?{playerId:biggestSale.player?.id,name:biggestSale.player?.name,value:number(biggestSale.value??biggestSale.cost),overall:biggestSale.player?.overall}:null,finances:seasonFinances(game),squadValue,promotedYouth};
+  const season={id:`season_${game.season}_${game.teamId}`,season:String(game.season),clubId:game.teamId,clubName:team?.name??game.name??"El club",position,points:number(row.points),goalsFor:number(row.goalsFor),goalsAgainst:number(row.goalsAgainst),goalDifference:number(row.goalDifference),prestigeStart:Math.round(prestigeStart),prestigeEnd:Math.round(legacy.clubPrestige),prestigeDelta:Math.round(prestigeDelta),confidence:Math.round(legacy.confidence),title:title?.name??null,titleId:title?.id??null,standings:table.map((item,index)=>({position:index+1,teamId:item.teamId,played:item.played,won:item.won,drawn:item.drawn,lost:item.lost,goalsFor:item.goalsFor,goalsAgainst:item.goalsAgainst,goalDifference:item.goalDifference,points:item.points})),results,players,topScorer,topAssister,playerOfYear,bestSigning:bestSigning?{playerId:bestSigning.player?.id,name:bestSigning.player?.name,cost:number(bestSigning.cost??bestSigning.value),overall:bestSigning.player?.overall}:null,biggestSale:biggestSale?{playerId:biggestSale.player?.id,name:biggestSale.player?.name,value:number(biggestSale.value??biggestSale.cost),overall:biggestSale.player?.overall}:null,finances:seasonFinances(game),squadValue,promotedYouth};
   const milestones=[];
-  if(title)milestones.push({id:`milestone_title_${game.season}`,type:"title",icon:"🏆",season:String(game.season),title:"Primer gran título" ,summary:`${team?.name??"El club"} se proclama ${title.name}.`});
-  if(position<=6)milestones.push({id:`milestone_europe_${game.season}`,type:"europe",icon:"🌍",season:String(game.season),title:"Clasificación europea",summary:`El equipo termina en la ${position}.ª posición.`});
-  if(results.biggestWin)milestones.push({id:`milestone_win_${game.season}`,type:"result",icon:"⚽",season:String(game.season),title:"Mayor victoria de la temporada",summary:`Triunfo por ${results.biggestWin.margin} goles de diferencia en la jornada ${results.biggestWin.matchday}.`});
+  if(title){
+    const titleCount=legacy.manager?.titles??1;
+    const titleMilestoneTitle=titleCount<=1?"Primer gran título":titleCount===2?"Segundo título de la era":"Otro título para la vitrina";
+    milestones.push({id:`milestone_title_${game.season}`,type:"title",icon:"🏆",season:String(game.season),title:titleMilestoneTitle,summary:`${team?.name??"El club"} se proclama ${title.name}.`});
+  }
+  const previousSeason=archive.seasons[0];
+  const previousQualifiedEurope=Boolean(previousSeason)&&Number(previousSeason.position)>0&&Number(previousSeason.position)<=6;
+  if(position<=6&&!previousQualifiedEurope)milestones.push({id:`milestone_europe_${game.season}`,type:"europe",icon:"🌍",season:String(game.season),title:"Clasificación europea",summary:`El equipo termina en la ${position}.ª posición.`});
+  if(results.biggestWin&&results.biggestWin.margin>=4)milestones.push({id:`milestone_win_${game.season}`,type:"result",icon:"⚽",season:String(game.season),title:"Mayor victoria de la temporada",summary:`Triunfo por ${results.biggestWin.margin} goles de diferencia en la jornada ${results.biggestWin.matchday}.`});
+  const totalTeams=(game.standings??[]).length||20;
+  if(position>=totalTeams-3)milestones.push({id:`milestone_struggle_${game.season}`,type:"struggle",icon:"💪",season:String(game.season),title:"Una temporada de resistencia",summary:`El equipo cerró en la ${position}.ª posición tras una campaña muy exigente, pero la plantilla mantuvo la unidad hasta el final.`});
+  const earlyPosition=positionAtMatchday(game,12,game.teamId);
+  if(earlyPosition&&earlyPosition>=Math.round(totalTeams*.55)&&earlyPosition-position>=8)milestones.push({id:`milestone_comeback_${game.season}`,type:"comeback",icon:"📈",season:String(game.season),title:"Remontada histórica en la clasificación",summary:`El equipo llegó a estar ${earlyPosition}.º a mitad de temporada y terminó ${position}.º. Una de las mejores reacciones de la era.`});
   return{seasons:[season,...archive.seasons],playerRecords:mergePlayerRecords(archive.playerRecords,players,game.season,title),prestigeHistory:[{season:String(game.season),clubPrestige:Math.round(legacy.clubPrestige),managerPrestige:Math.round(legacy.manager.prestige)},...(archive.prestigeHistory??[]).filter(item=>String(item.season)!==String(game.season))],milestones:uniqueById([...milestones,...(archive.milestones??[])])};
 }
 
