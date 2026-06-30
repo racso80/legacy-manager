@@ -6,8 +6,8 @@ import { SwipeTabs } from "./SwipeNavigation.jsx";
 import { CONTRACT_ROLES, suggestedRenewalSalary } from "../contracts/contractEngine.js";
 import { ensurePlayerMorale, getMoraleLevel } from "../morale/moraleEngine.js";
 
-const COUNTRY_NAMES = { ES:"España", FR:"Francia", GH:"Ghana", BR:"Brasil", AR:"Argentina", PT:"Portugal", DE:"Alemania", ENG:"Inglaterra", UY:"Uruguay", HR:"Croacia", MA:"Marruecos", SN:"Senegal", BE:"Bélgica", IT:"Italia", NL:"Países Bajos" };
-const FLAGS = { ES:"🇪🇸", FR:"🇫🇷", GH:"🇬🇭", BR:"🇧🇷", AR:"🇦🇷", PT:"🇵🇹", DE:"🇩🇪", ENG:"🏴", UY:"🇺🇾", HR:"🇭🇷", MA:"🇲🇦", SN:"🇸🇳", BE:"🇧🇪", IT:"🇮🇹", NL:"🇳🇱" };
+export const COUNTRY_NAMES = { ES:"España", FR:"Francia", GH:"Ghana", BR:"Brasil", AR:"Argentina", PT:"Portugal", DE:"Alemania", ENG:"Inglaterra", UY:"Uruguay", HR:"Croacia", MA:"Marruecos", SN:"Senegal", BE:"Bélgica", IT:"Italia", NL:"Países Bajos" };
+export const FLAGS = { ES:"🇪🇸", FR:"🇫🇷", GH:"🇬🇭", BR:"🇧🇷", AR:"🇦🇷", PT:"🇵🇹", DE:"🇩🇪", ENG:"🏴", UY:"🇺🇾", HR:"🇭🇷", MA:"🇲🇦", SN:"🇸🇳", BE:"🇧🇪", IT:"🇮🇹", NL:"🇳🇱" };
 const fmtMoney = value => value >= 1000 ? `€${(value/1000).toFixed(value%1000===0?0:1)}M` : `€${value}K`;
 
 function Metric({ label, value, color="#e8eaf0", helper }) {

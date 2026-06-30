@@ -2,8 +2,15 @@ import { useState } from "react";
 import { getAcademyMetrics, getTalentCategory, getYouthProjection } from "../youth/youthEngine.js";
 import Button from "./ui/Button.jsx";
 import { SwipeTabs } from "./SwipeNavigation.jsx";
+import { COUNTRY_NAMES, FLAGS } from "./PlayerProfileScreen.jsx";
 
 const fmt = value => value >= 1000 ? `€${(value / 1000).toFixed(1)}M` : `€${value}K`;
+const hashSeed = value => { let h = 0; for (const c of String(value)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
+const describeWeeklyChanges = changes => {
+  const parts = changes.map(change => `${change.label} (+${change.delta})`);
+  const joined = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} y ${parts[parts.length - 1]}` : parts[0];
+  return `Mejora en ${joined} esta semana.`;
+};
 const trendMeta = {
   rising:{ icon:"📈", label:"Subiendo", color:"#22c55e" },
   stalled:{ icon:"⚠️", label:"Estancado", color:"#f59e0b" },
@@ -18,6 +25,22 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
   const report = youth.annualReports?.[0];
   const intakeIds = new Set(youth.lastIntake ?? []);
   const standout = [...youth.players].sort((a, b) => b.potential - a.potential || a.age - b.age)[0];
+  const chiefReportText = (() => {
+    if (!standout) return "No hay juveniles disponibles actualmente.";
+    const variants = [
+      `La hornada cuenta con ${youth.players.length} juveniles. ${standout.name}, ${standout.pos} de ${standout.age} años, destaca con un potencial estimado de ${standout.potential}.`,
+      `Esta generación trae ${youth.players.length} nombres propios. El que más ilusiona es ${standout.name}, ${standout.pos} de ${standout.age} años, con un techo estimado de ${standout.potential}.`,
+      `El filial presenta ${youth.players.length} juveniles esta temporada. Entre ellos sobresale ${standout.name} (${standout.pos}, ${standout.age} años), con un potencial cercano a ${standout.potential}.`,
+    ];
+    let text = variants[hashSeed(`${game.season}:${standout.id}`) % variants.length];
+    const lastStandoutPotential = report?.standout?.potential;
+    if (lastStandoutPotential != null) {
+      if (standout.potential > lastStandoutPotential) text += " Un nivel por encima del de la última hornada.";
+      else if (standout.potential < lastStandoutPotential) text += " Algo por debajo de lo visto la temporada pasada, aunque con margen de progresión.";
+      else text += " Un nivel similar al de la última hornada.";
+    }
+    return text;
+  })();
   const historical = [
     ...game.players.filter(player => player.academyData),
     ...(youth.historical ?? []),
@@ -47,7 +70,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
               <div style={{ background:"linear-gradient(135deg,rgba(34,197,94,.13),#161a24)", border:"1px solid rgba(34,197,94,.22)", borderRadius:11, padding:14, marginBottom:14 }}>
                 <div style={{ fontSize:11, color:"#22c55e", fontWeight:800, letterSpacing:".5px" }}>📋 INFORME DEL JEFE DE CANTERA</div>
                 <div style={{ fontSize:12, color:"#c9ced8", lineHeight:1.55, marginTop:7 }}>
-                  {standout ? `La hornada cuenta con ${youth.players.length} juveniles. ${standout.name}, ${standout.pos} de ${standout.age} años, destaca con un potencial estimado de ${standout.potential}.` : "No hay juveniles disponibles actualmente."}
+                  {chiefReportText}
                 </div>
               </div>
 
@@ -74,7 +97,9 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                 {[...youth.players].sort((a, b) => b.potential - a.potential).map(player => {
                   const category = getTalentCategory(player.potential);
                   const projection = getYouthProjection(player);
-                  const trend = trendMeta[player.academyData?.trend ?? "stable"] ?? trendMeta.stable;
+                  const trendId = player.academyData?.trend ?? "stable";
+                  const trend = trendMeta[trendId] ?? trendMeta.stable;
+                  const showTrendBadge = projection.id !== trendId;
                   const latestNotes = player.academyData?.developmentNotes ?? [];
                   const initialOverall = player.academyData?.initialOverall ?? player.overall;
                   const initialPotential = player.academyData?.initialPotential ?? player.potential;
@@ -91,21 +116,21 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                             <span style={{ color:"#e8eaf0", fontSize:12, fontWeight:700, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{player.name}</span>
                             {intakeIds.has(player.id) && <span style={{ fontSize:8, color:"#22c55e", background:"rgba(34,197,94,.1)", padding:"2px 5px", borderRadius:4 }}>NUEVO</span>}
                           </div>
-                          <div style={{ color:"#8b92a3", fontSize:9, marginTop:3 }}>{player.pos} · {player.age} años · {player.nat} · {player.academyData?.region}</div>
+                          <div style={{ color:"#8b92a3", fontSize:9, marginTop:3 }}>{player.pos} · {player.age} años · {FLAGS[player.nat] ?? "🌍"} {COUNTRY_NAMES[player.nat] ?? player.nat} · {player.academyData?.region}</div>
                           <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:5 }}>
                             <span style={{ color:projection.color, background:`${projection.color}14`, border:`1px solid ${projection.color}22`, borderRadius:999, padding:"3px 6px", fontSize:8, fontWeight:850 }}>{projection.icon} {projection.label}</span>
-                            <span style={{ color:trend.color, background:`${trend.color}12`, border:`1px solid ${trend.color}22`, borderRadius:999, padding:"3px 6px", fontSize:8, fontWeight:850 }}>{trend.icon} {trend.label}</span>
+                            {showTrendBadge && <span style={{ color:trend.color, background:`${trend.color}12`, border:`1px solid ${trend.color}22`, borderRadius:999, padding:"3px 6px", fontSize:8, fontWeight:850 }}>{trend.icon} {trend.label}</span>}
                           </div>
                         </div>
                         <div style={{ textAlign:"center" }}>
                           <div style={{ fontSize:9, color:"#8b92a3" }}>POTENCIAL</div>
-                          <div style={{ fontSize:22, color:category.color, fontWeight:900 }}>{player.potential}</div>
+                          <div style={{ fontSize:22, color:category.color, fontWeight:900 }} title={category.label}>{category.icon} {player.potential}</div>
                         </div>
                       </div>
 
                       {progress && (
                         <div style={{ marginTop:8, color:progress.changes.length ? "#22c55e" : "#8b92a3", fontSize:9 }}>
-                          {progress.changes.length ? `📈 ${progress.changes.map(change => `${change.label} +${change.delta}`).join(" · ")}` : progress.progress?.[0] ? `${progress.progress[0].label}: ${progress.progress[0].value}% hacia la mejora` : "Desarrollo estable"}
+                          {progress.changes.length ? `📈 ${describeWeeklyChanges(progress.changes)}` : progress.progress?.[0] ? `Avanza en ${progress.progress[0].label}, ya está al ${progress.progress[0].value}% de su objetivo de mejora.` : "Desarrollo estable"}
                         </div>
                       )}
 
@@ -139,7 +164,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                       </div>
                       {!canPromote && (
                         <div style={{ marginTop:7, color:"#f59e0b", fontSize:9, lineHeight:1.35 }}>
-                          No se puede promocionar: la plantilla del primer equipo tiene el maximo de 30 jugadores.
+                          No se puede promocionar: la plantilla del primer equipo tiene el máximo de 30 jugadores.
                         </div>
                       )}
                     </div>
@@ -175,9 +200,9 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                         <div style={{ width:36, height:36, borderRadius:8, background:"rgba(201,168,76,.1)", color:"#c9a84c", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800 }}>{player.overall}</div>
                         <div style={{ flex:1 }}>
                           <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:700 }}>{player.name}</div>
-                          <div style={{ color:"#8b92a3", fontSize:9, marginTop:3 }}>Ingreso T. {player.academyData?.joinedSeason} · Debut {player.academyData?.debutSeason ? `T. ${player.academyData.debutSeason}` : "pendiente"}</div>
+                          <div style={{ color:"#8b92a3", fontSize:9, marginTop:3 }}>Llegó en T. {player.academyData?.joinedSeason} · {player.academyData?.debutSeason ? `Debutó en T. ${player.academyData.debutSeason}` : "Aún sin debutar"}</div>
                         </div>
-                        <div style={{ textAlign:"right", fontSize:9, color:"#c9ced8" }}>PJ {stats.appearances ?? 0}<br />G {stats.goals ?? 0}</div>
+                        <div style={{ textAlign:"right", fontSize:9, color:"#c9ced8" }}>{stats.appearances ?? 0} part.<br />{stats.goals ?? 0} goles</div>
                       </button>
                     );
                   })}

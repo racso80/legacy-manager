@@ -7254,7 +7254,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       return { ok:true, message:"El jugador ya estaba en el primer equipo. Se ha actualizado la cantera." };
     }
     if(!currentProspect)return { ok:false, message:"No se ha encontrado el canterano. Recarga la partida y vuelve a intentarlo." };
-    if((game?.players?.length??0)>=30)return { ok:false, message:"No se puede promocionar: la plantilla del primer equipo tiene el maximo de 30 jugadores." };
+    if((game?.players?.length??0)>=30)return { ok:false, message:"No se puede promocionar: la plantilla del primer equipo tiene el máximo de 30 jugadores." };
     setGame(prev=>{
       const prospect=prev?.youth?.players?.find(player=>player.id===playerId);
       if(!prospect||prev.players.some(player=>player.id===playerId)||prev.players.length>=30)return prev;
