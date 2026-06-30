@@ -206,6 +206,28 @@ export function buildPlayerLookup(teams = [], squads = {}, userPlayers = [], use
   return lookup;
 }
 
+function winVerb(diff) {
+  if (diff >= 4) return "golea a";
+  if (diff === 3) return "vence con autoridad a";
+  if (diff === 1) return "se impone por la mínima a";
+  return "vence a";
+}
+
+function resultSummary(fixture, winner, loser, draw) {
+  const diff = Math.abs(fixture.homeGoals - fixture.awayGoals);
+  const total = fixture.homeGoals + fixture.awayGoals;
+  if (draw) {
+    if (total === 0) return "Las defensas se impusieron y el partido cerró sin goles.";
+    if (total >= 4) return "Un partido abierto con muchos goles que al final no tuvo vencedor.";
+    return "Un partido igualado que pudo caer de cualquier lado.";
+  }
+  const loserGoals = Math.min(fixture.homeGoals, fixture.awayGoals);
+  if (diff >= 4) return "Una victoria contundente que no dejó dudas sobre quién era el mejor equipo.";
+  if (loserGoals === 0) return `${winner.name} se llevó los tres puntos con la portería a cero.`;
+  if (diff === 1) return "Una victoria trabajada, decidida por la mínima diferencia.";
+  return `${winner.name} se impuso con claridad para llevarse los tres puntos.`;
+}
+
 export function generateMatchdayNews({ beforeFixtures, afterFixtures, beforeStandings, afterStandings, matchday, season, teams, userTeamId, playerLookup }) {
   const stories = [];
   const teamById = Object.fromEntries(teams.map(team => [team.id, team]));
@@ -220,14 +242,15 @@ export function generateMatchdayNews({ beforeFixtures, afterFixtures, beforeStan
     const draw = fixture.homeGoals === fixture.awayGoals;
     const winner = fixture.homeGoals > fixture.awayGoals ? home : away;
     const loser = fixture.homeGoals > fixture.awayGoals ? away : home;
+    const diff = Math.abs(fixture.homeGoals - fixture.awayGoals);
     const userInvolved = [home.id, away.id].includes(userTeamId);
     stories.push(createNews({
       type: "result",
       title: draw
         ? `${home.name} y ${away.name} firman tablas (${fixture.homeGoals}-${fixture.awayGoals})`
-        : `${winner.name} vence a ${loser.name} (${fixture.homeGoals}-${fixture.awayGoals})`,
-      summary: `Resultado correspondiente a la jornada ${matchday}.`,
-      importance: userInvolved || Math.abs(fixture.homeGoals - fixture.awayGoals) >= 3 ? "high" : "low",
+        : `${winner.name} ${winVerb(diff)} ${loser.name} (${fixture.homeGoals}-${fixture.awayGoals})`,
+      summary: resultSummary(fixture, winner, loser, draw),
+      importance: userInvolved || diff >= 3 ? "high" : "low",
       season, matchday, teamIds: [home.id, away.id], userTeamId,
       fingerprint: `result:${fixture.id}`,
       metadata: { fixtureId: fixture.id, score: `${fixture.homeGoals}-${fixture.awayGoals}` },
@@ -238,9 +261,17 @@ export function generateMatchdayNews({ beforeFixtures, afterFixtures, beforeStan
     Object.entries(goalCounts).filter(([, goals]) => goals >= 2).forEach(([playerId, goals]) => {
       const player = playerLookup[playerId];
       if (!player) return;
+      const playerLost = !draw && player.teamId === loser.id;
+      const playerDrew = draw;
       stories.push(createNews({
         type: "performance",
-        title: goals >= 3 ? `${player.name} firma un triplete inolvidable` : `${player.name} marca un doblete decisivo`,
+        title: goals >= 3
+          ? playerLost ? `${player.name} firma un triplete que no evita la derrota`
+            : playerDrew ? `${player.name} firma un triplete en una noche de empate`
+            : `${player.name} firma un triplete inolvidable`
+          : playerLost ? `${player.name} anota un doblete que no es suficiente`
+            : playerDrew ? `${player.name} anota un doblete en un partido sin vencedor`
+            : `${player.name} marca un doblete decisivo`,
         summary: `${goals} goles en el ${home.name} ${fixture.homeGoals}-${fixture.awayGoals} ${away.name}.`,
         importance: goals >= 3 ? "critical" : "high",
         season, matchday, teamIds: [player.teamId], playerIds: [playerId], userTeamId,
@@ -286,7 +317,15 @@ export function generateMatchdayNews({ beforeFixtures, afterFixtures, beforeStan
       stories.push(createNews({
         type: "streak",
         title: crisis ? `${team.name} entra en crisis tras ${after.count} derrotas consecutivas` : `${team.name} suma ${after.count} ${label} seguidos`,
-        summary: `La dinámica del equipo marca la jornada ${matchday}.`,
+        summary: after.result === "W"
+          ? after.count >= 5
+            ? `Con ${after.count} victorias consecutivas, ${team.name} atraviesa su mejor momento en la competición.`
+            : `${team.name} encadena victorias y se asienta como un equipo difícil de frenar.`
+          : after.result === "L"
+          ? crisis
+            ? `La racha de malos resultados se alarga y la situación empieza a ser preocupante para ${team.name}.`
+            : `Tres derrotas seguidas que generan dudas en torno al rendimiento del equipo.`
+          : `${team.name} no termina de cerrar los partidos y acumula empates en la tabla.`,
         importance: after.count >= 5 || crisis ? "high" : "medium",
         season, matchday, teamIds: [team.id], userTeamId,
         fingerprint: `streak:${team.id}:${after.result}:${after.count}`,
