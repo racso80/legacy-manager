@@ -1,8 +1,7 @@
 import { useState } from "react";
 import FeedbackBanner from "../ui/FeedbackBanner.jsx";
 import { useFeedback } from "../../utils/feedback.js";
-import { calculateInjuryRisk, getRiskLevel } from "../../medical/medicalEngine.js";
-import { sanitizeLineupSelection } from "../../state/gameStateSelectors.js";
+import { buildPlayerState, getInjuryRiskBadge, sanitizeLineupSelection } from "../../state/gameStateSelectors.js";
 import {
   BENCH_SLOTS,
   CALLED_UP_SLOTS,
@@ -148,14 +147,7 @@ export default function PCLineupScreen({ game, players, lineup, setLineup, forma
       });
   };
 
-  const restRisk = (p) => {
-    const risk = calculateInjuryRisk(p, { fixtures: game.fixtures, teamId: game.teamId, game });
-    const level = getRiskLevel(risk);
-    if (risk > 75) return { level: "high", label: `🔴 Riesgo crítico ${risk}%`, risk, color: level.color };
-    if (risk > 50) return { level: "high", label: `🟠 Riesgo alto ${risk}%`, risk, color: level.color };
-    if (risk > 20) return { level: "mid", label: `🟡 Riesgo moderado ${risk}%`, risk, color: level.color };
-    return null;
-  };
+  const restRisk = (p) => getInjuryRiskBadge(buildPlayerState(p, game));
 
   const computeRecommendedRotation = () => {
     const newLineup = [...lineup];
@@ -509,12 +501,15 @@ export default function PCLineupScreen({ game, players, lineup, setLineup, forma
             }
             const eng = energyLevel(p.fatigue);
             const role = getRole(p);
+            const risk = restRisk(p);
             return (
               <div key={idx} className="pc-lineup-row" onClick={() => handleSubSlot(idx)}
                 style={{ background: active ? "rgba(201,168,76,.15)" : "#161a24", border: `1px solid ${active ? "#c9a84c55" : "rgba(59,130,246,.15)"}` }}>
                 <Initials name={p.name} size={28} rarity={p.rarity} borderRadius={6} />
                 <div className="pc-lineup-row-name"><span title={role.label}>{role.icon}</span> {p.name}</div>
-                <div className="pc-lineup-row-meta" style={{ width: 130, flexShrink: 0 }}>{p.pos}</div>
+                <div className="pc-lineup-row-meta" style={{ color: risk?.level === "high" ? "#ef4444" : risk?.level === "mid" ? "#f97316" : "#6b7280", width: 130, flexShrink: 0 }}>
+                  {p.pos}{risk ? ` · ${risk.label}` : ""}
+                </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: RARITY_ACCENT[p.rarity], width: 26, textAlign: "center" }}>{p.overall}</div>
                 <div style={{ fontSize: 11, fontWeight: 800, color: eng.color, width: 34, textAlign: "center" }}>{eng.emoji}{eng.energy}</div>
                 {rowActions(p)}
@@ -536,12 +531,15 @@ export default function PCLineupScreen({ game, players, lineup, setLineup, forma
           {sortedNotCalled.map(p => {
             const eng = energyLevel(p.fatigue);
             const role = getRole(p);
+            const risk = restRisk(p);
             return (
               <div key={p.id} className="pc-lineup-row" onClick={() => activeSlot && assignPlayer(p)}
                 style={{ background: "#13161d", border: "1px solid rgba(255,255,255,.05)", cursor: activeSlot ? "pointer" : "default", opacity: .85 }}>
                 <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={5} />
                 <div className="pc-lineup-row-name" style={{ color: "#c9ccd4" }}><span title={role.label}>{role.icon}</span> {p.name}</div>
-                <div className="pc-lineup-row-meta" style={{ width: 130, flexShrink: 0 }}>{p.pos} · {p.age}a</div>
+                <div className="pc-lineup-row-meta" style={{ color: risk?.level === "high" ? "#ef4444" : risk?.level === "mid" ? "#f97316" : "#6b7280", width: 130, flexShrink: 0 }}>
+                  {p.pos} · {p.age}a{risk ? ` · ${risk.label}` : ""}
+                </div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: RARITY_ACCENT[p.rarity], width: 26, textAlign: "center" }}>{p.overall}</div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: eng.color, width: 34, textAlign: "center" }}>{eng.emoji}{eng.energy}</div>
                 {rowActions(p)}
@@ -552,14 +550,20 @@ export default function PCLineupScreen({ game, players, lineup, setLineup, forma
           {unavailable.length > 0 && (
             <>
               <div className="pc-lineup-section-label" style={{ color: "#4b5563" }}>NO DISPONIBLES ({unavailable.length})</div>
-              {unavailable.map(p => (
+              {unavailable.map(p => {
+                const risk = restRisk(p);
+                return (
                 <div key={p.id} className="pc-lineup-row" style={{ background: "#161a24", border: "1px solid rgba(255,255,255,.04)", opacity: .5, cursor: "default" }}>
                   <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={5} />
-                  <div className="pc-lineup-row-name" style={{ color: "#6b7280" }}>{p.name}</div>
+                  <div className="pc-lineup-row-name" style={{ color: "#6b7280" }}>
+                    {p.name}
+                    {risk && <div style={{ fontSize: 9, color: risk.level === "high" ? "#ef4444" : "#f97316" }}>{risk.label}</div>}
+                  </div>
                   {p.injured && <span style={{ fontSize: 9, color: "#ef4444", fontWeight: 700 }}>LESIÓN{p.injuryGames ? ` ${p.injuryGames}J` : ""}</span>}
                   {p.suspended && <span style={{ fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>SANCIÓN{p.yellowCards >= 5 ? " (5 amarillas)" : ""}</span>}
                 </div>
-              ))}
+                );
+              })}
             </>
           )}
         </div>

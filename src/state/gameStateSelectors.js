@@ -71,6 +71,16 @@ export function getMedicalAlerts(game, { limit = null, riskThreshold = 50, loadT
   return limit ? alerts.slice(0, limit) : alerts;
 }
 
+export function getInjuryRiskBadge(state) {
+  if (!state) return null;
+  const level = state.riskLevel?.id;
+  const risk = state.injuryRisk ?? 0;
+  if (level === "critical") return { level: "high", label: `🔴 Riesgo crítico ${risk}%`, risk, color: state.riskLevel.color };
+  if (level === "high") return { level: "high", label: `🟠 Riesgo alto ${risk}%`, risk, color: state.riskLevel.color };
+  if (level === "moderate") return { level: "mid", label: `🟡 Riesgo moderado ${risk}%`, risk, color: state.riskLevel.color };
+  return null;
+}
+
 export function getPlayerSmartActions(player, game = null) {
   const state = buildPlayerState(player, game);
   if (!state) return [];

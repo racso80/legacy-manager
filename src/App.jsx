@@ -36,7 +36,7 @@ import PCLineupScreen from "./components/pc/PCLineupScreen.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
 import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle, lifecycleNews, processBirthdays } from "./players/lifecycle.js";
-import { advanceMedicalRecovery, applyInjury, calculateInjuryRisk, createInjuryEvent, getAccumulatedLoad, getLoadLevel, getPhysicalStatus, getRiskLevel, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
+import { advanceMedicalRecovery, applyInjury, createInjuryEvent, getAccumulatedLoad, getLoadLevel, getPhysicalStatus, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
 import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, getTrainingMatchModifiers, normalizeTrainingPlan } from "./training/trainingEngine.js";
 import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason } from "./legacy/legacyEngine.js";
 import { applyYouthDevelopmentCycle, createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
@@ -55,7 +55,7 @@ import { ensureLegacyDirectorState, getLegacyDirectorExpectations, getLegacyDire
 import { buildLegacyDirectorEvents, dedupeAttentionItems, legacyDirectorEventsToAttentionItems } from "./legacyDirector/legacyDirectorEventSystem.js";
 import { buildSceneExpectation, buildSceneFromDirectorItem, ensureSceneState, recordSceneDecision } from "./scenes/sceneEngine.js";
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
-import { cleanConsequenceText, getMedicalAlerts, getPlayerSmartActions, sanitizeLineupSelection } from "./state/gameStateSelectors.js";
+import { buildPlayerState, cleanConsequenceText, getInjuryRiskBadge, getMedicalAlerts, getPlayerSmartActions, sanitizeLineupSelection } from "./state/gameStateSelectors.js";
 
 export const STARTERS_SLOTS = 11;
 export const BENCH_SLOTS = 12;
@@ -3741,14 +3741,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   };
 
   // ── 6. Recomendaciones de descanso ──
-  const restRisk = (p) => {
-    const risk = calculateInjuryRisk(p,{fixtures:game.fixtures,teamId:game.teamId,game});
-    const level = getRiskLevel(risk);
-    if (risk > 75) return { level:"high", label:`🔴 Riesgo crítico ${risk}%`, risk, color:level.color };
-    if (risk > 50) return { level:"high", label:`🟠 Riesgo alto ${risk}%`, risk, color:level.color };
-    if (risk > 20) return { level:"mid", label:`🟡 Riesgo moderado ${risk}%`, risk, color:level.color };
-    return null;
-  };
+  const restRisk = (p) => getInjuryRiskBadge(buildPlayerState(p, game));
 
   // ── 8. Rotación recomendada ──
   // ── 8. Rotación recomendada — genera una PROPUESTA, no aplica directo ──
@@ -4270,6 +4263,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                 }
                 const eng = energyLevel(p.fatigue);
                 const role = getRole(p);
+                const risk = restRisk(p);
                 return (
                   <div key={idx} onClick={() => handleSubSlot(idx)}
                     style={{ display:"flex", alignItems:"center", gap:7, padding:"7px 8px", borderRadius:7, marginBottom:4,
@@ -4280,7 +4274,9 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                       <div style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}>
                         <span title={role.label}>{role.icon}</span>{p.name}
                       </div>
-                      <div style={{ fontSize:9, color:"#6b7280" }}>{p.pos}</div>
+                      <div style={{ fontSize:9, color: risk?.level==="high"?"#ef4444":risk?.level==="mid"?"#f97316":"#6b7280" }}>
+                        {p.pos}{risk ? ` · ${risk.label}` : ""}
+                      </div>
                     </div>
                     <div style={{ textAlign:"center" }}>
                       <div style={{ fontSize:14, fontWeight:700, color:RARITY_ACCENT[p.rarity] }}>{p.overall}</div>
@@ -4310,6 +4306,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
               {sortedNotCalled.map(p => {
                 const eng = energyLevel(p.fatigue);
                 const role = getRole(p);
+                const risk = restRisk(p);
                 return (
                   <div key={p.id} onClick={() => activeSlot && assignPlayer(p)}
                     style={{ display:"flex", alignItems:"center", gap:7, padding:"6px 8px", borderRadius:7, marginBottom:4,
@@ -4319,7 +4316,9 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                       <div style={{ fontSize:11, fontWeight:600, color:"#c9ccd4", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}>
                         <span title={role.label}>{role.icon}</span>{p.name}
                       </div>
-                      <div style={{ fontSize:9, color:"#6b7280" }}>{p.pos} · {p.age}a</div>
+                      <div style={{ fontSize:9, color: risk?.level==="high"?"#ef4444":risk?.level==="mid"?"#f97316":"#6b7280" }}>
+                        {p.pos} · {p.age}a{risk ? ` · ${risk.label}` : ""}
+                      </div>
                     </div>
                     <div style={{ textAlign:"center" }}>
                       <div style={{ fontSize:12, fontWeight:700, color:RARITY_ACCENT[p.rarity] }}>{p.overall}</div>
@@ -4333,16 +4332,20 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
               {unavailable.length > 0 && (
                 <div style={{ marginTop:14, paddingTop:8, borderTop:"1px solid rgba(255,255,255,.06)" }}>
                   <div style={{ fontSize:10, color:"#4b5563", marginBottom:6, fontWeight:600 }}>NO DISPONIBLES</div>
-                  {unavailable.map(p => (
+                  {unavailable.map(p => {
+                    const risk = restRisk(p);
+                    return (
                     <div key={p.id} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 8px", borderRadius:7, marginBottom:4, background:"#161a24", border:"1px solid rgba(255,255,255,.04)", opacity:.5 }}>
                       <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={5}/>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:11, color:"#6b7280", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
+                        {risk && <div style={{ fontSize:9, color: risk.level==="high"?"#ef4444":"#f97316" }}>{risk.label}</div>}
                       </div>
                       {p.injured && <span style={{ fontSize:9, color:"#ef4444", fontWeight:700 }}>LESIÓN{p.injuryGames?` ${p.injuryGames}J`:""}</span>}
                       {p.suspended && <span style={{ fontSize:9, color:"#f59e0b", fontWeight:700 }}>SANCIÓN{p.yellowCards>=5?" (5 amarillas)":""}</span>}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
