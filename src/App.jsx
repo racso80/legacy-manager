@@ -561,7 +561,7 @@ const REAL_SQUADS = {
   ],
 };
 
-const TEAM_REAL_AVG = {
+export const TEAM_REAL_AVG = {
   athletic:79, atletico:85, osasuna:74, alaves:72,
   laspalmas:73, barcelona:88, getafe:73, girona:77,
   leganes:72, rayo:74, espanyol:74, betis:78,
@@ -2187,11 +2187,11 @@ const GLOBAL_CSS = `
     .pc-nav-item-badge { background: #c9a84c; color: #1a1200; font-size: 9px; font-weight: 900; border-radius: 999px; padding: 1px 6px; }
 
     .pc-shell-body { flex: 1; display: flex; overflow: hidden; margin-left: 200px; margin-top: 44px; min-height: 0; }
-    .pc-main-col { flex: 1; padding: 20px; overflow-y: auto; min-width: 0; }
+    .pc-main-col { flex: 1; padding: 16px; overflow-y: auto; min-width: 0; }
 
     .pc-right-panel {
       width: 300px; flex-shrink: 0; background: #0f1320; border-left: 1px solid #1e2435;
-      padding: 20px; overflow-y: auto;
+      padding: 16px; overflow-y: auto;
     }
     .pc-right-panel-section { margin-bottom: 22px; }
     .pc-right-panel-title { font-size: 10px; color: #c9a84c; font-weight: 900; letter-spacing: .8px; margin-bottom: 10px; }
@@ -2218,15 +2218,65 @@ const GLOBAL_CSS = `
     .pc-news-item-title { font-size: 11px; font-weight: 800; color: #e8eaf0; }
     .pc-news-item-summary { font-size: 10px; color: #8b92a3; line-height: 1.4; }
 
-    .pc-dashboard { display: flex; flex-direction: column; gap: 16px; max-width: 900px; }
+    .pc-dashboard { display: flex; flex-direction: column; gap: 16px; width: 100%; }
     .pc-dashboard-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
     .pc-stat-card { background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 14px; }
     .pc-stat-card-label { font-size: 9px; color: #6b7280; font-weight: 900; letter-spacing: .6px; }
     .pc-stat-card-value { font-size: 20px; font-weight: 900; margin-top: 6px; }
+    .pc-stat-card-sub { font-size: 10px; color: #8b92a3; margin-top: 3px; }
+    .pc-record-badges { display: flex; gap: 5px; margin-top: 7px; }
+    .pc-result-badge { display: inline-flex; align-items: center; justify-content: center; padding: 4px 9px; border-radius: 6px; font-size: 11px; font-weight: 900; }
+    .pc-result-badge[data-result="V"] { background: rgba(34,197,94,.13); color: #22c55e; border: 1px solid #22c55e; }
+    .pc-result-badge[data-result="E"] { background: rgba(245,158,11,.13); color: #f59e0b; border: 1px solid #f59e0b; }
+    .pc-result-badge[data-result="D"] { background: rgba(239,68,68,.13); color: #ef4444; border: 1px solid #ef4444; }
+
     .pc-panel-card { background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 16px; }
     .pc-panel-title { font-size: 11px; color: #c9a84c; font-weight: 900; letter-spacing: .6px; margin-bottom: 10px; }
+
+    .pc-dashboard-columns { display: flex; align-items: flex-start; gap: 16px; }
+    .pc-dashboard-col-left { flex: 1.4; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    .pc-dashboard-col-right { flex: 1; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+    .pc-briefing-card { display: flex; align-items: flex-start; gap: 10px; }
+    .pc-briefing-title { display: flex; align-items: center; gap: 6px; color: #e8eaf0; font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+    .pc-briefing-title small { color: #94a3b8; font-size: 8px; font-weight: 900; letter-spacing: .5px; }
+    .pc-briefing-text { color: #c9ced8; font-size: 11px; line-height: 1.5; }
+    .pc-briefing-footer { color: #6b7280; font-size: 9px; margin-top: 5px; line-height: 1.35; }
+
+    .pc-agenda-list { display: flex; flex-direction: column; gap: 8px; }
+    .pc-agenda-item {
+      display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+      background: #0d0f14; border: 1px solid rgba(255,255,255,.055); border-radius: 9px;
+      padding: 9px 10px; cursor: pointer; min-height: 0;
+    }
+    .pc-agenda-item:hover { background: rgba(255,255,255,.03); }
+    .pc-agenda-item-title { display: block; color: #dfe3ec; font-size: 12px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-agenda-item-detail { display: block; color: #6b7280; font-size: 9px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .pc-next-match-teams { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .pc-next-match-side { text-align: center; flex: 1; }
+    .pc-next-match-vs { background: #0d0f14; padding: 8px 14px; border-radius: 8px; color: #c9a84c; font-weight: 700; font-size: 16px; }
+    .pc-next-match-team-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pc-next-match-opponent { font-size: 16px; font-weight: 900; color: #f3f4f6; }
-    .pc-next-match-meta { font-size: 11px; color: #8b92a3; margin-top: 4px; }
+    .pc-next-match-meta { font-size: 11px; color: #8b92a3; margin-top: 8px; }
+
+    .pc-results-list { display: flex; flex-direction: column; }
+    .pc-result-row { display: flex; align-items: center; gap: 9px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.04); }
+    .pc-result-row:last-child { border-bottom: none; }
+
+    .pc-kpi-grid, .pc-objective-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .pc-kpi-card {
+      text-align: left; background: #0d0f14; border: 1px solid rgba(255,255,255,.055); border-radius: 10px;
+      padding: 10px; cursor: pointer; min-height: 0;
+    }
+    .pc-kpi-card:hover { background: rgba(255,255,255,.03); }
+    .pc-kpi-card-label { font-size: 8px; color: #6b7280; font-weight: 900; letter-spacing: .5px; }
+    .pc-kpi-card-value { font-size: 16px; font-weight: 900; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-kpi-card-trend { font-size: 9px; color: #8b92a3; margin-top: 3px; line-height: 1.3; }
+    .pc-objective-card { background: #0d0f14; border: 1px solid rgba(255,255,255,.055); border-radius: 9px; padding: 9px 10px; }
+    .pc-objective-label { font-size: 8px; color: #6b7280; font-weight: 900; }
+    .pc-objective-value { font-size: 11px; font-weight: 900; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
     .pc-squad-highlights-list { display: flex; flex-direction: column; }
     .pc-squad-highlight-row {
       display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
@@ -2802,7 +2852,7 @@ function ConversationScreen({ conversation, onRespond, onBack }) {
   );
 }
 
-const STAFF_PERSONAS = {
+export const STAFF_PERSONAS = {
   "Director deportivo": { emoji:"👔", color:"#60a5fa", role:"Director deportivo", personality:"piensa en el largo plazo" },
   "Segundo entrenador": { emoji:"👥", color:"#c9a84c", role:"Segundo entrenador", personality:"directo y práctico" },
   "Médico": { emoji:"👨‍⚕️", color:"#22c55e", role:"Médico", personality:"prudente" },
@@ -2824,7 +2874,7 @@ function emotionMeta(state = "neutral") {
   return { icon:"😐", label:"Neutral", color:"#9aa0b4" };
 }
 
-function PersonAvatar({ person, size = 42 }) {
+export function PersonAvatar({ person, size = 42 }) {
   const color = person?.color ?? "#c9a84c";
   return (
     <div style={{ width:size, height:size, borderRadius:Math.round(size*.28), overflow:"hidden", background:`linear-gradient(145deg,${color}33,#0d0f14)`, border:`1px solid ${color}55`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, boxShadow:`0 0 18px ${color}18` }}>
@@ -7902,7 +7952,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "teams"     && <TeamSelection onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
           {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
           {screen === "dashboard" && game && (isPC
-            ? <PCDashboardContent game={game} team={pcTeam} position={pcPosition} budgetLeft={pcBudgetSnapshot?.transferBudget} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} setScreen={setScreen} onPlay={() => setScreen("match")} />
+            ? <PCDashboardContent game={game} team={pcTeam} teams={TEAMS} position={pcPosition} budgetLeft={pcBudgetSnapshot?.transferBudget} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} lineup={lineup} attentionItems={attentionItems} directorItems={legacyDirectorItems} formation={formation} setScreen={setScreen} onPlay={() => setScreen("match")} onOpenPlayer={(player)=>openPlayerProfile(player, game.teamId, game.players)} />
             : <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} conversations={activeConversations} clubLifeIssues={clubLifeIssues} directorItems={legacyDirectorItems} onOpenAttention={handleAttentionOpen} onOpenConversation={openConversation} onOpenClubLifeIssue={handleClubLifeIssueOpen} onOpenScene={handleOpenScene} />
           )}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
