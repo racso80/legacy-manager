@@ -102,7 +102,7 @@ function _p(id,name,pos,group,ov,age,nat,pace,shoot,pass,drib,def,phys){
     attrs:{ritmo:pace,tiro:shoot,pase:pass,regate:drib,defensa:def,fisico:phys,porteria:gk}};
 }
 
-const REAL_SQUADS = {
+export const REAL_SQUADS = {
   athletic:[
     _p("ath-1","Unai Simón","POR","POR",84,27,"ES",60,22,63,44,20,74),
     _p("ath-2","Álex Padilla","POR","POR",70,22,"ES",55,18,55,40,18,65),
@@ -2219,23 +2219,38 @@ const GLOBAL_CSS = `
     .pc-news-item-summary { font-size: 10px; color: #8b92a3; line-height: 1.4; }
 
     .pc-dashboard { display: flex; flex-direction: column; gap: 16px; width: 100%; }
-    .pc-dashboard-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
-    .pc-stat-card { background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 14px; }
-    .pc-stat-card-label { font-size: 9px; color: #6b7280; font-weight: 900; letter-spacing: .6px; }
-    .pc-stat-card-value { font-size: 20px; font-weight: 900; margin-top: 6px; }
-    .pc-stat-card-sub { font-size: 10px; color: #8b92a3; margin-top: 3px; }
-    .pc-record-badges { display: flex; gap: 5px; margin-top: 7px; }
-    .pc-result-badge { display: inline-flex; align-items: center; justify-content: center; padding: 4px 9px; border-radius: 6px; font-size: 11px; font-weight: 900; }
-    .pc-result-badge[data-result="V"] { background: rgba(34,197,94,.13); color: #22c55e; border: 1px solid #22c55e; }
-    .pc-result-badge[data-result="E"] { background: rgba(245,158,11,.13); color: #f59e0b; border: 1px solid #f59e0b; }
-    .pc-result-badge[data-result="D"] { background: rgba(239,68,68,.13); color: #ef4444; border: 1px solid #ef4444; }
+    .pc-form-dot { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 4px; font-size: 9px; font-weight: 700; }
 
     .pc-panel-card { background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 16px; }
     .pc-panel-title { font-size: 11px; color: #c9a84c; font-weight: 900; letter-spacing: .6px; margin-bottom: 10px; }
 
+    .pc-dashboard-top-row { display: flex; align-items: stretch; gap: 12px; }
+    .pc-club-status-card { flex: 0 0 38%; display: flex; flex-direction: column; gap: 12px; }
+    .pc-club-status-header { display: flex; align-items: center; gap: 12px; }
+    .pc-club-status-name { font-size: 14px; font-weight: 800; color: #e8eaf0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-club-status-position { font-size: 26px; font-weight: 900; color: #c9a84c; line-height: 1.1; margin-top: 2px; }
+    .pc-club-status-points { font-size: 11px; color: #8b92a3; margin-top: 1px; }
+    .pc-club-status-form { display: flex; align-items: center; gap: 8px; }
+    .pc-club-status-form-label { font-size: 9px; color: #6b7280; font-weight: 700; }
+
+    .pc-next-match-card { flex: 1; min-width: 0; }
+    .pc-next-match-venue-tag { font-size: 9px; color: #8b92a3; margin-top: 3px; }
+    .pc-next-match-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 11px; }
+    .pc-next-match-stat { background: #0d0f14; border: 1px solid rgba(255,255,255,.055); border-radius: 8px; padding: 8px 9px; }
+    .pc-next-match-stat-label { font-size: 8px; color: #6b7280; font-weight: 900; }
+    .pc-next-match-stat-value { font-size: 10px; color: #dfe3ec; font-weight: 800; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
     .pc-dashboard-columns { display: flex; align-items: flex-start; gap: 16px; }
     .pc-dashboard-col-left { flex: 1.4; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
     .pc-dashboard-col-right { flex: 1; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+    .pc-medical-alerts { display: block; width: 100%; text-align: left; background: none; border: none; padding: 0; cursor: pointer; }
+    .pc-medical-alert-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; }
+    .pc-medical-alert-name { font-size: 11px; color: #c9ced8; font-weight: 700; }
+    .pc-medical-alert-detail { font-size: 9px; margin-top: 2px; }
+    .pc-consequence-row { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+    .pc-consequence-row:last-child { border-bottom: none; }
+    .pc-consequence-text { font-size: 10px; color: #c9ced8; line-height: 1.45; }
 
     .pc-briefing-card { display: flex; align-items: flex-start; gap: 10px; }
     .pc-briefing-title { display: flex; align-items: center; gap: 6px; color: #e8eaf0; font-size: 12px; font-weight: 700; margin-bottom: 3px; }
@@ -2288,6 +2303,49 @@ const GLOBAL_CSS = `
     .pc-squad-highlight-name { flex: 1; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pc-squad-highlight-overall { font-size: 12px; font-weight: 900; color: #c9a84c; width: 30px; text-align: center; flex-shrink: 0; }
     .pc-squad-highlight-status { font-size: 10px; font-weight: 800; width: 80px; text-align: right; flex-shrink: 0; }
+
+    .pc-shell {
+      background-image: url('/assets/bg-office.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      background-color: #0d1117;
+    }
+
+    .pc-shell::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 12, 18, 0.82);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .pc-topbar,
+    .pc-sidebar,
+    .pc-main-col,
+    .pc-right-panel {
+      position: relative;
+      z-index: 1;
+    }
+
+    .pc-sidebar {
+      background: rgba(15, 19, 32, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .pc-topbar {
+      background: rgba(17, 21, 30, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .pc-right-panel {
+      background: rgba(15, 19, 32, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
   }
 `;
 
@@ -7937,6 +7995,30 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   const pcBudgetSnapshot = game && pcTeam ? calculateBudgetSnapshot(game, pcTeam) : null;
   const pcNextFixture = game ? (game.fixtures??[]).find(f=>!f.played&&(f.homeTeamId===game.teamId||f.awayTeamId===game.teamId)) : null;
   const pcNextOpponent = pcNextFixture ? TEAMS.find(t=>t.id===(pcNextFixture.homeTeamId===game.teamId?pcNextFixture.awayTeamId:pcNextFixture.homeTeamId)) : null;
+  const pcLockerSummary = game ? getLockerRoomSummary(game.players ?? []) : null;
+  const pcFanSupport = game ? Math.round(game.fanbase?.support ?? game.fanLove ?? 70) : 70;
+  const pcMedicalAlerts = game ? getMedicalAlerts(game) : [];
+  const pcNonInfoDirectorItems = legacyDirectorItems.filter(item=>item.priority!=="info");
+  const pcUrgentWaiting = pcNonInfoDirectorItems.filter(item=>item.priority==="urgent"||item.priority==="critical").length;
+  const pcFirstWaitingName = pcNonInfoDirectorItems[0]?.issueCard?.subjectName ?? pcNonInfoDirectorItems[0]?.issueCard?.owner?.name ?? null;
+  const pcExpectationItems = game ? getLegacyDirectorExpectations(game) : [];
+  const pcExpectationReminder = pcExpectationItems[0]
+    ? pcExpectationItems[0].expectedToday
+      ? `${pcExpectationItems[0].ownerName} podría pasar hoy con novedades${pcExpectationItems[0].subjectName ? ` sobre ${pcExpectationItems[0].subjectName}` : ""}.`
+      : pcExpectationItems[0].reminder
+    : null;
+  const chiefBriefing = pcNonInfoDirectorItems.length
+    ? `Buenos días, míster. Hay ${pcNonInfoDirectorItems.length} asunto${pcNonInfoDirectorItems.length===1?"":"s"} esperando${pcUrgentWaiting?`, ${pcUrgentWaiting} con prioridad urgente`:""}. Primero conviene revisar ${pcFirstWaitingName?`lo de ${pcFirstWaitingName}`:"el asunto principal"}. ${pcExpectationReminder?`${pcExpectationReminder} `:""}El resto puede esperar, sin mezclar decisiones.`
+    : `Buenos días, míster. Hoy parece un día tranquilo. ${pcExpectationReminder?`${pcExpectationReminder} `:"No hay asuntos urgentes en la puerta; "}Puede preparar el próximo partido con calma.`;
+  const pcLatestNews = game ? getDashboardNews(game.news??[],game,3) : [];
+  const pcConsequences = game ? [
+    game.lastTrainingReport?.improved?.length && { icon:"📈", text:`${game.lastTrainingReport.improved[0].name} mejora tras el trabajo semanal.` },
+    pcLockerSummary?.atmosphere==="tenso" && { icon:"⚠️", text:"El vestuario muestra señales de tensión y conviene intervenir." },
+    pcLockerSummary?.atmosphere==="positivo" && { icon:"🤝", text:"El vestuario mantiene un clima positivo alrededor del entrenador." },
+    pcFanSupport<45 && { icon:"❤️", text:"La afición está perdiendo confianza y necesita una reacción." },
+    pcMedicalAlerts[0] && { icon:"🩺", text:`El cuerpo médico recomienda descanso para ${pcMedicalAlerts[0].player.name}.` },
+    pcLatestNews[0] && { icon:"📰", text: pcLatestNews[0].summary || pcLatestNews[0].title },
+  ].filter(Boolean).map(item=>({ ...item, text:cleanConsequenceText(item.text) })).slice(0,4) : [];
 
   useEffect(() => {
     const canOpenWithoutGame = ["menu","saves","country","league","teams","coachCreate","cloudSaves"].includes(screen);
@@ -7952,7 +8034,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "teams"     && <TeamSelection onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
           {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
           {screen === "dashboard" && game && (isPC
-            ? <PCDashboardContent game={game} team={pcTeam} teams={TEAMS} position={pcPosition} budgetLeft={pcBudgetSnapshot?.transferBudget} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} lineup={lineup} attentionItems={attentionItems} directorItems={legacyDirectorItems} formation={formation} setScreen={setScreen} onPlay={() => setScreen("match")} onOpenPlayer={(player)=>openPlayerProfile(player, game.teamId, game.players)} />
+            ? <PCDashboardContent game={game} team={pcTeam} teams={TEAMS} position={pcPosition} budgetLeft={pcBudgetSnapshot?.transferBudget} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} lineup={lineup} attentionItems={attentionItems} formation={formation} setScreen={setScreen} onPlay={() => setScreen("match")} onOpenPlayer={(player)=>openPlayerProfile(player, game.teamId, game.players)} />
             : <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} conversations={activeConversations} clubLifeIssues={clubLifeIssues} directorItems={legacyDirectorItems} onOpenAttention={handleAttentionOpen} onOpenConversation={openConversation} onOpenClubLifeIssue={handleClubLifeIssueOpen} onOpenScene={handleOpenScene} />
           )}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
@@ -7989,7 +8071,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   );
 
   return (
-    <div {...edgeSwipe.handlers} style={{ background:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:showPCShell?"none":540, margin:showPCShell?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y" }}>
+    <div {...edgeSwipe.handlers} className={showPCShell?"pc-shell":undefined} style={{ background:showPCShell?undefined:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:showPCShell?"none":540, margin:showPCShell?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y" }}>
       {edgeSwipe.indicator}
       {showPCShell && (
         <>
@@ -8067,7 +8149,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         <div className="pc-shell-body">
           <div className="pc-main-col">{screenContent}</div>
           {screen !== "match" && (
-            <PCRightPanel game={game} directorItems={legacyDirectorItems} onOpenScene={handleOpenScene} setScreen={setScreen} />
+            <PCRightPanel game={game} directorItems={legacyDirectorItems} onOpenScene={handleOpenScene} setScreen={setScreen} chiefBriefing={chiefBriefing} medicalAlerts={pcMedicalAlerts} consequences={pcConsequences} />
           )}
         </div>
       ) : (

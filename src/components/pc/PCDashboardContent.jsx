@@ -1,32 +1,35 @@
 import TeamCrest from "../TeamCrest.jsx";
-import { STAFF_PERSONAS, PersonAvatar, TEAM_REAL_AVG } from "../../App.jsx";
+import { TEAM_REAL_AVG, REAL_SQUADS } from "../../App.jsx";
 import { getMedicalAlerts, buildPlayerState } from "../../state/gameStateSelectors.js";
 import { getLockerRoomSummary } from "../../morale/moraleEngine.js";
 import { getPrestigeLevel } from "../../legacy/legacyEngine.js";
-import { getLegacyDirectorExpectations } from "../../legacyDirector/legacyDirectorEngine.js";
 
 function formatBudget(value) {
   if (value == null) return "—";
   return value >= 1000 ? `€${(value / 1000).toFixed(1)}M` : `€${Math.round(value)}K`;
 }
 
+function FormDot({ result }) {
+  const color = result === "V" ? "#22c55e" : result === "E" ? "#f59e0b" : "#ef4444";
+  return <span className="pc-form-dot" style={{ background: `${color}22`, border: `1px solid ${color}`, color }}>{result}</span>;
+}
+
 export default function PCDashboardContent({
   game, team, teams = [], position, budgetLeft,
   nextFixture, nextOpponent, lineup = [], attentionItems = [],
-  directorItems = [], formation, setScreen, onPlay, onOpenPlayer,
+  formation, setScreen, onPlay, onOpenPlayer,
 }) {
   const players = game.players ?? [];
   const standing = (game.standings ?? []).find(s => s.teamId === game.teamId);
   const fixtures = game.fixtures ?? [];
   const playedFixtures = fixtures.filter(f => f.played && (f.homeTeamId === game.teamId || f.awayTeamId === game.teamId));
-  const record = playedFixtures.reduce((acc, f) => {
-    const home = f.homeTeamId === game.teamId;
-    const gf = home ? f.homeGoals : f.awayGoals;
-    const ga = home ? f.awayGoals : f.homeGoals;
-    if (gf > ga) acc.w++; else if (gf === ga) acc.d++; else acc.l++;
-    return acc;
-  }, { w: 0, d: 0, l: 0 });
   const lastResults = playedFixtures.slice(-5);
+  const racha = [...lastResults].reverse().map(f => {
+    const home = f.homeTeamId === game.teamId;
+    const my = home ? f.homeGoals : f.awayGoals;
+    const th = home ? f.awayGoals : f.homeGoals;
+    return my > th ? "V" : my === th ? "E" : "D";
+  });
   const confidence = Math.round(game.legacy?.confidence ?? 65);
   const getOpponent = f => teams.find(t => t.id === (f.homeTeamId === game.teamId ? f.awayTeamId : f.homeTeamId));
 
@@ -36,19 +39,6 @@ export default function PCDashboardContent({
   const lineupCount = lineupPlayers.length;
 
   const nonInfoAttention = attentionItems.filter(item => item.priority !== "info");
-  const nonInfoDirectorItems = directorItems.filter(item => item.priority !== "info");
-  const urgentWaiting = nonInfoDirectorItems.filter(item => item.priority === "urgent" || item.priority === "critical").length;
-  const firstWaitingName = nonInfoDirectorItems[0]?.issueCard?.subjectName ?? nonInfoDirectorItems[0]?.issueCard?.owner?.name ?? null;
-  const expectationItems = getLegacyDirectorExpectations(game);
-  const expectationReminder = expectationItems[0]
-    ? expectationItems[0].expectedToday
-      ? `${expectationItems[0].ownerName} podría pasar hoy con novedades${expectationItems[0].subjectName ? ` sobre ${expectationItems[0].subjectName}` : ""}.`
-      : expectationItems[0].reminder
-    : null;
-  const chiefOfStaff = { ...STAFF_PERSONAS["Jefe de gabinete"], name: "Jefe de gabinete", emotionalState: "neutral" };
-  const chiefBriefing = nonInfoDirectorItems.length
-    ? `Buenos días, míster. Hay ${nonInfoDirectorItems.length} asunto${nonInfoDirectorItems.length === 1 ? "" : "s"} esperando${urgentWaiting ? `, ${urgentWaiting} con prioridad urgente` : ""}. Primero conviene revisar ${firstWaitingName ? `lo de ${firstWaitingName}` : "el asunto principal"}. ${expectationReminder ? `${expectationReminder} ` : ""}El resto puede esperar, sin mezclar decisiones.`
-    : `Buenos días, míster. Hoy parece un día tranquilo. ${expectationReminder ? `${expectationReminder} ` : "No hay asuntos urgentes en la puerta; "}Puede preparar el próximo partido con calma.`;
 
   const agendaItems = [
     nextFixture && { icon: "⚽", title: `Partido de Liga · Jornada ${nextFixture.matchday}`, detail: `${nextFixture.homeTeamId === game.teamId ? "Recibes a" : "Visitas a"} ${nextOpponent?.name ?? "rival por confirmar"}`, action: "match" },
@@ -97,43 +87,98 @@ export default function PCDashboardContent({
 
   return (
     <div className="pc-dashboard">
-      <div className="pc-dashboard-stats">
-        <div className="pc-stat-card">
-          <div className="pc-stat-card-label">POSICIÓN</div>
-          <div className="pc-stat-card-value" style={{ color: "#c9a84c" }}>{position ? `${position}º` : "—"}</div>
-          <div className="pc-stat-card-sub">{standing?.points ?? 0} pts</div>
-        </div>
-        <div className="pc-stat-card">
-          <div className="pc-stat-card-label">RÉCORD V-E-D</div>
-          <div className="pc-record-badges">
-            <span className="pc-result-badge" data-result="V">{record.w}V</span>
-            <span className="pc-result-badge" data-result="E">{record.d}E</span>
-            <span className="pc-result-badge" data-result="D">{record.l}D</span>
+      <div className="pc-dashboard-top-row">
+        <div className="pc-panel-card pc-club-status-card">
+          <div className="pc-club-status-header">
+            <TeamCrest team={team} size={48} />
+            <div style={{ minWidth: 0 }}>
+              <div className="pc-club-status-name">{team?.name}</div>
+              <div className="pc-club-status-position">{position ? `${position}º` : "—"}</div>
+              <div className="pc-club-status-points">{standing?.points ?? 0} pts</div>
+            </div>
           </div>
+          {racha.length > 0 && (
+            <div className="pc-club-status-form">
+              <span className="pc-club-status-form-label">RACHA:</span>
+              <div style={{ display: "flex", gap: 4 }}>
+                {racha.map((r, i) => <FormDot key={i} result={r} />)}
+              </div>
+            </div>
+          )}
         </div>
-        <div className="pc-stat-card">
-          <div className="pc-stat-card-label">CONFIANZA DIRECTIVA</div>
-          <div className="pc-stat-card-value" style={{ color: confidence >= 60 ? "#22c55e" : confidence >= 40 ? "#f59e0b" : "#ef4444" }}>{confidence}%</div>
-        </div>
-        <div className="pc-stat-card">
-          <div className="pc-stat-card-label">PRESUPUESTO</div>
-          <div className="pc-stat-card-value" style={{ color: (budgetLeft ?? 0) > 0 ? "#22c55e" : "#ef4444" }}>{formatBudget(budgetLeft)}</div>
-        </div>
+
+        {nextFixture ? (() => {
+          const isHome = nextFixture.homeTeamId === game.teamId;
+          const homeTeam = teams.find(t => t.id === nextFixture.homeTeamId);
+          const awayTeam = teams.find(t => t.id === nextFixture.awayTeamId);
+          const nextOpponentStanding = nextOpponent ? [...(game.standings ?? [])].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor).findIndex(row => row.teamId === nextOpponent.id) + 1 : null;
+          const nextOpponentLast = nextOpponent ? fixtures.filter(f => f.played && (f.homeTeamId === nextOpponent.id || f.awayTeamId === nextOpponent.id)).slice(-5) : [];
+          const nextOpponentForm = nextOpponentLast.map(f => {
+            const h = f.homeTeamId === nextOpponent?.id;
+            const gf = h ? f.homeGoals : f.awayGoals;
+            const ga = h ? f.awayGoals : f.homeGoals;
+            return gf > ga ? "V" : gf === ga ? "E" : "D";
+          });
+          const nextOpponentSquad = nextOpponent ? REAL_SQUADS[nextOpponent.id] ?? [] : [];
+          const nextOpponentKeyPlayer = [...nextOpponentSquad].sort((a, b) => (b.overall ?? 0) - (a.overall ?? 0))[0];
+          const importance = position <= 6 || (nextOpponentStanding && nextOpponentStanding <= 6) ? "Partido de prestigio" : position >= 16 ? "Necesitas puntuar" : "Jornada clave";
+          return (
+            <div className="pc-panel-card pc-next-match-card">
+              <div className="pc-panel-title">PRÓXIMO PARTIDO · J{nextFixture.matchday}</div>
+              <div className="pc-next-match-teams">
+                <div className="pc-next-match-side">
+                  <TeamCrest team={homeTeam} size={44} style={{ margin: "0 auto 6px" }} />
+                  <div className="pc-next-match-team-name" style={{ color: isHome ? "#c9a84c" : "#e8eaf0" }}>{homeTeam?.name}</div>
+                  <div className="pc-next-match-venue-tag">🏠 Local{isHome ? " ★" : ""}</div>
+                </div>
+                <div className="pc-next-match-vs">VS</div>
+                <div className="pc-next-match-side">
+                  <TeamCrest team={awayTeam} size={44} style={{ margin: "0 auto 6px" }} />
+                  <div className="pc-next-match-team-name" style={{ color: !isHome ? "#c9a84c" : "#e8eaf0" }}>{awayTeam?.name}</div>
+                  <div className="pc-next-match-venue-tag">✈️ Visitante{!isHome ? " ★" : ""}</div>
+                </div>
+              </div>
+              <div className="pc-next-match-meta">{nextOpponent?.name} · Media {nextOpponent?.avg ?? TEAM_REAL_AVG[nextOpponent?.id ?? ""] ?? "—"}</div>
+              <div className="pc-next-match-stats-grid">
+                <div className="pc-next-match-stat">
+                  <div className="pc-next-match-stat-label">POSICIÓN RIVAL</div>
+                  <div className="pc-next-match-stat-value">{nextOpponentStanding ? `${nextOpponentStanding}º` : "—"}</div>
+                </div>
+                <div className="pc-next-match-stat">
+                  <div className="pc-next-match-stat-label">FORMA RIVAL</div>
+                  <div className="pc-next-match-stat-value">
+                    {nextOpponentForm.length ? <div style={{ display: "flex", gap: 3 }}>{nextOpponentForm.map((r, i) => <FormDot key={i} result={r} />)}</div> : "Sin racha reciente"}
+                  </div>
+                </div>
+                <div className="pc-next-match-stat">
+                  <div className="pc-next-match-stat-label">JUGADOR PELIGROSO</div>
+                  <div className="pc-next-match-stat-value">{nextOpponentKeyPlayer ? `${nextOpponentKeyPlayer.name} (${nextOpponentKeyPlayer.overall})` : "Sin referencia"}</div>
+                </div>
+                <div className="pc-next-match-stat">
+                  <div className="pc-next-match-stat-label">IMPORTANCIA</div>
+                  <div className="pc-next-match-stat-value">{importance}</div>
+                </div>
+              </div>
+              {formation && <div className="pc-next-match-meta">Formación: {formation}</div>}
+              <button
+                onClick={goPlay}
+                className={lineupValid ? "btn-gold" : ""}
+                style={{ width: "100%", marginTop: 12, background: lineupValid ? undefined : "#374151", color: lineupValid ? undefined : "#9aa0b4", border: lineupValid ? undefined : "1px solid rgba(255,255,255,.08)", padding: 13, borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+              >
+                {lineupValid ? "▶ Jugar partido" : `⚠️ Alineación incompleta (${lineupCount}/11) — Configurar`}
+              </button>
+            </div>
+          );
+        })() : (
+          <div className="pc-panel-card pc-next-match-card">
+            <div className="pc-panel-title">PRÓXIMO PARTIDO</div>
+            <div className="pc-right-panel-empty">No hay más partidos programados.</div>
+          </div>
+        )}
       </div>
 
       <div className="pc-dashboard-columns">
         <div className="pc-dashboard-col-left">
-          <div className="pc-panel-card">
-            <div className="pc-briefing-card">
-              <PersonAvatar person={chiefOfStaff} size={42} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="pc-briefing-title">Jefe de gabinete <small>BRIEFING DEL DÍA</small></div>
-                <div className="pc-briefing-text">"{chiefBriefing}"</div>
-                <div className="pc-briefing-footer">Organiza la jornada. No toma decisiones deportivas.</div>
-              </div>
-            </div>
-          </div>
-
           {agendaItems.length > 0 && (
             <div className="pc-panel-card">
               <div className="pc-panel-title">📅 AGENDA DEL DÍA</div>
@@ -155,39 +200,6 @@ export default function PCDashboardContent({
               </div>
             </div>
           )}
-
-          {nextFixture && (() => {
-            const isHome = nextFixture.homeTeamId === game.teamId;
-            const homeTeam = teams.find(t => t.id === nextFixture.homeTeamId);
-            const awayTeam = teams.find(t => t.id === nextFixture.awayTeamId);
-            return (
-              <div className="pc-panel-card">
-                <div className="pc-panel-title">PRÓXIMO PARTIDO · J{nextFixture.matchday}</div>
-                <div className="pc-next-match-teams">
-                  <div className="pc-next-match-side">
-                    <TeamCrest team={homeTeam} size={44} style={{ margin: "0 auto 6px" }} />
-                    <div className="pc-next-match-team-name" style={{ color: isHome ? "#c9a84c" : "#e8eaf0" }}>{homeTeam?.name}</div>
-                  </div>
-                  <div className="pc-next-match-vs">VS</div>
-                  <div className="pc-next-match-side">
-                    <TeamCrest team={awayTeam} size={44} style={{ margin: "0 auto 6px" }} />
-                    <div className="pc-next-match-team-name" style={{ color: !isHome ? "#c9a84c" : "#e8eaf0" }}>{awayTeam?.name}</div>
-                  </div>
-                </div>
-                <div className="pc-next-match-meta">
-                  {isHome ? "🏠 Local" : "✈️ Visitante"} · {isHome ? team?.stadium : nextOpponent?.stadium} · Media {nextOpponent?.avg ?? TEAM_REAL_AVG[nextOpponent?.id ?? ""] ?? "—"}
-                </div>
-                {formation && <div className="pc-next-match-meta">Formación: {formation}</div>}
-                <button
-                  onClick={goPlay}
-                  className={lineupValid ? "btn-gold" : ""}
-                  style={{ width: "100%", marginTop: 12, background: lineupValid ? undefined : "#374151", color: lineupValid ? undefined : "#9aa0b4", border: lineupValid ? undefined : "1px solid rgba(255,255,255,.08)", padding: 13, borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer" }}
-                >
-                  {lineupValid ? "▶ Jugar partido" : `⚠️ Alineación incompleta (${lineupCount}/11) — Configurar`}
-                </button>
-              </div>
-            );
-          })()}
 
           {lastResults.length > 0 && (
             <div className="pc-panel-card">
