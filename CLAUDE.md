@@ -140,6 +140,22 @@ Explicitly NOT needed yet: Segunda División, promotion/relegation, Copa del Rey
 ## Current focus: v0.97 — Polish & Immersion
 We are past the critical bug-fixing phase (encoding fixed, lineup desync fixed, atomic state updates fixed). Now focus on polish: consistency, text quality, UX flow, visual cohesion. Do not add new systems or screens during this phase.
 
+## Pending UX fixes (v0.97)
+
+### UX Friction backlog (from audit, implement after PC layout is complete)
+
+CRITICAL:
+1. LineupScreen has no "Jugar partido" button after completing the lineup — user must navigate back to Dashboard or Calendar to find it. Fix: add a "▶ Jugar partido" CTA at the bottom of LineupScreen when lineup is valid and a fixture exists for the current matchday.
+2. Calendar's play button shows "⚠️ Configura tu alineación primero" but onClick is undefined when lineup is invalid — looks tappable but does nothing. Fix: make it navigate to LineupScreen instead of being inert.
+
+IMPORTANT:
+3. Scene decisions "postpone" and "delegate" always land on Dashboard regardless of the item's target screen. Fix: after a postpone/delegate decision, navigate to the item's actionScreen instead of always going to dashboard.
+4. SquadScreen is purely informational — no direct actions per player besides opening profile. Fix: add smart quick-actions to player cards (same pattern as LockerRoomScreen's smartActions).
+5. No direct screen-to-screen navigation between management screens (training → medical → contracts) — every hop goes through Más. Fix: add contextual "Ver también →" shortcuts between related screens.
+
+MINOR:
+6. Three separate entry points for "jugar partido" (Dashboard card, agenda item, Calendar button) with inconsistent behavior when lineup is invalid.
+
 ## Key Rules (repeat for emphasis)
 
 - Never increase App.jsx size without extracting something else first

@@ -5,7 +5,7 @@ import { getCoachPrestigeLevel } from "../coach/coachCareerEngine.js";
 import { getFanPressureItems } from "../fans/fanEngine.js";
 
 const PRIORITY_ORDER = { critical: 0, important: 1, info: 2 };
-const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "career", "fans", "staff", "youth", "scouting", "training"];
+const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "career", "lockerRoom", "fans", "staff", "youth", "scouting", "training"];
 
 export const ATTENTION_CATEGORIES = {
   medical: { label: "Médico", icon: "🏥", accent: "#ef4444" },
@@ -14,6 +14,7 @@ export const ATTENTION_CATEGORIES = {
   finance: { label: "Finanzas", icon: "💵", accent: "#10b981" },
   board: { label: "Directiva", icon: "🏛", accent: "#a78bfa" },
   career: { label: "Carrera", icon: "🧑‍💼", accent: "#c9a84c" },
+  lockerRoom: { label: "Vestuario", icon: "❤️", accent: "#f87171" },
   fans: { label: "Afición", icon: "📣", accent: "#c9a84c" },
   staff: { label: "Staff", icon: "🏢", accent: "#c9a84c" },
   youth: { label: "Cantera", icon: "🌱", accent: "#84cc16" },
@@ -171,7 +172,7 @@ export function getAttentionItems(game, context = {}) {
     if ((player.morale ?? 70) <= 35) {
       items.push(createItem(game, {
         id: `morale-low:${player.id}:${Math.floor((player.morale ?? 0) / 10)}`,
-        category: "training",
+        category: "lockerRoom",
         priority: (player.morale ?? 70) <= 25 ? "critical" : "important",
         title: `${player.name} está descontento`,
         summary: `Moral actual: ${player.morale ?? 0}/100. Revisa minutos, rol o situación de mercado.`,
@@ -184,7 +185,7 @@ export function getAttentionItems(game, context = {}) {
     if (!player.injured && (player.happiness ?? 70) <= 38) {
       items.push(createItem(game, {
         id: `locker-happiness:${player.id}:${Math.floor((player.happiness ?? 0) / 10)}`,
-        category: "training",
+        category: "lockerRoom",
         priority: (player.happiness ?? 70) <= 25 ? "critical" : "important",
         title: `${player.name} no está cómodo en el vestuario`,
         summary: `Felicidad ${player.happiness ?? 0}/100. Revisa rol, minutos, contrato o relación con el entrenador.`,
@@ -197,7 +198,7 @@ export function getAttentionItems(game, context = {}) {
     if (!player.injured && (player.managerTrust ?? 70) <= 35) {
       items.push(createItem(game, {
         id: `locker-trust:${player.id}:${Math.floor((player.managerTrust ?? 0) / 10)}`,
-        category: "training",
+        category: "lockerRoom",
         priority: "important",
         title: `${player.name} pierde confianza en el entrenador`,
         summary: "La relación necesita atención antes de convertirse en conflicto.",

@@ -26,6 +26,11 @@ import CloudSavesScreen from "./components/CloudSavesScreen.jsx";
 import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
 import FeedbackBanner from "./components/ui/FeedbackBanner.jsx";
 import { useFeedback } from "./utils/feedback.js";
+import { useIsPC } from "./utils/responsive.js";
+import PCTopBar from "./components/pc/PCTopBar.jsx";
+import PCSidebar from "./components/pc/PCSidebar.jsx";
+import PCRightPanel from "./components/pc/PCRightPanel.jsx";
+import PCDashboardContent from "./components/pc/PCDashboardContent.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
 import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle, lifecycleNews, processBirthdays } from "./players/lifecycle.js";
@@ -44,7 +49,7 @@ import { createCoachCareer, ensureCoachCareer, finalizeCoachSeason, recordCoachM
 import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, applyFanYouthReaction, ensureFanbaseState, estimateFanAttendance, generateFanNews } from "./fans/fanEngine.js";
 import { advanceConversationMemory, ensureConversationState, getActiveConversations, respondToConversation } from "./conversations/conversationEngine.js";
 import { advanceClubLife, ensureClubLifeState, getClubLifeIssues, resolveClubLifeIssue } from "./clubLife/clubLifeEngine.js";
-import { ensureLegacyDirectorState, getLegacyDirectorExpectations, getLegacyDirectorSelection, markLegacyDirectorItem, rememberLegacyDirectorSelection } from "./legacyDirector/legacyDirectorEngine.js";
+import { ensureLegacyDirectorState, getLegacyDirectorExpectations, getLegacyDirectorSelection, getWaitingExpectationItems, markLegacyDirectorItem, rememberLegacyDirectorSelection } from "./legacyDirector/legacyDirectorEngine.js";
 import { buildLegacyDirectorEvents, dedupeAttentionItems, legacyDirectorEventsToAttentionItems } from "./legacyDirector/legacyDirectorEventSystem.js";
 import { buildSceneExpectation, buildSceneFromDirectorItem, ensureSceneState, recordSceneDecision } from "./scenes/sceneEngine.js";
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
@@ -2138,6 +2143,102 @@ const GLOBAL_CSS = `
 
   .rarity-special-glow { box-shadow: 0 0 14px rgba(196,181,253,.3); }
   .rarity-gold-glow    { box-shadow: 0 0 10px rgba(201,168,76,.2); }
+
+  /* ─── PC layout (>= 1024px) ────────────────────────────────────────────── */
+  @media (min-width: 1024px) {
+    #root { max-width: none; }
+
+    .pc-topbar {
+      position: fixed; top: 0; left: 0; right: 0; height: 44px; z-index: 60;
+      background: #11151e; border-bottom: 1px solid #1e2435;
+      display: flex; align-items: center; padding: 0 16px;
+    }
+    .pc-topbar-left { display: flex; align-items: center; gap: 8px; width: 200px; flex-shrink: 0; }
+    .pc-topbar-logo {
+      width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+      background: linear-gradient(135deg,#c9a84c,#e8c96a);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; color: #1a1200; font-size: 13px;
+    }
+    .pc-topbar-title { color: #c9a84c; font-weight: 900; font-size: 12px; letter-spacing: .6px; white-space: nowrap; }
+    .pc-topbar-center { flex: 1; text-align: center; color: #c9ced8; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 12px; }
+    .pc-topbar-right { display: flex; align-items: center; flex-shrink: 0; }
+    .pc-topbar-budget {
+      background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.28); color: #22c55e;
+      font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+    }
+
+    .pc-sidebar {
+      position: fixed; top: 44px; left: 0; bottom: 0; width: 200px; z-index: 50;
+      background: #0f1320; border-right: 1px solid #1e2435; overflow-y: auto; padding: 14px 0;
+    }
+    .pc-sidebar-group { margin-bottom: 16px; }
+    .pc-sidebar-group-label { color: #5f6675; font-size: 9px; font-weight: 900; letter-spacing: 1px; padding: 0 16px; margin-bottom: 6px; }
+    .pc-nav-item {
+      display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+      background: transparent; border: none; border-left: 2px solid transparent;
+      color: #9aa0b4; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+      min-height: 0;
+    }
+    .pc-nav-item:hover { background: rgba(255,255,255,.03); }
+    .pc-nav-item.active { border-left-color: #c9a84c; color: #c9a84c; background: rgba(201,168,76,.08); }
+    .pc-nav-item-icon { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
+    .pc-nav-item-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-nav-item-badge { background: #c9a84c; color: #1a1200; font-size: 9px; font-weight: 900; border-radius: 999px; padding: 1px 6px; }
+
+    .pc-shell-body { flex: 1; display: flex; overflow: hidden; margin-left: 200px; margin-top: 44px; min-height: 0; }
+    .pc-main-col { flex: 1; padding: 20px; overflow-y: auto; min-width: 0; }
+
+    .pc-right-panel {
+      width: 300px; flex-shrink: 0; background: #0f1320; border-left: 1px solid #1e2435;
+      padding: 20px; overflow-y: auto;
+    }
+    .pc-right-panel-section { margin-bottom: 22px; }
+    .pc-right-panel-title { font-size: 10px; color: #c9a84c; font-weight: 900; letter-spacing: .8px; margin-bottom: 10px; }
+    .pc-right-panel-empty { color: #6b7280; font-size: 11px; line-height: 1.5; }
+    .pc-right-panel-link {
+      display: block; width: 100%; text-align: left; background: none; border: none;
+      color: #c9a84c; font-size: 11px; font-weight: 700; padding: 0; margin-top: 6px; cursor: pointer;
+    }
+    .pc-attention-item {
+      display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left;
+      background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); border-radius: 9px;
+      padding: 9px 10px; margin-bottom: 7px; cursor: pointer;
+    }
+    .pc-attention-item:hover { background: rgba(255,255,255,.06); }
+    .pc-attention-item-priority { width: 6px; height: 6px; border-radius: 999px; background: #60a5fa; flex-shrink: 0; margin-top: 5px; }
+    .pc-attention-item-priority[data-priority="urgent"],
+    .pc-attention-item-priority[data-priority="critical"] { background: #ef4444; }
+    .pc-attention-item-priority[data-priority="important"] { background: #f59e0b; }
+    .pc-attention-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .pc-attention-item-title { font-size: 11px; font-weight: 800; color: #e8eaf0; }
+    .pc-attention-item-summary { font-size: 10px; color: #8b92a3; line-height: 1.4; }
+    .pc-news-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.05); display: flex; flex-direction: column; gap: 3px; }
+    .pc-news-item:last-of-type { border-bottom: none; }
+    .pc-news-item-title { font-size: 11px; font-weight: 800; color: #e8eaf0; }
+    .pc-news-item-summary { font-size: 10px; color: #8b92a3; line-height: 1.4; }
+
+    .pc-dashboard { display: flex; flex-direction: column; gap: 16px; max-width: 900px; }
+    .pc-dashboard-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+    .pc-stat-card { background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 14px; }
+    .pc-stat-card-label { font-size: 9px; color: #6b7280; font-weight: 900; letter-spacing: .6px; }
+    .pc-stat-card-value { font-size: 20px; font-weight: 900; margin-top: 6px; }
+    .pc-panel-card { background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 16px; }
+    .pc-panel-title { font-size: 11px; color: #c9a84c; font-weight: 900; letter-spacing: .6px; margin-bottom: 10px; }
+    .pc-next-match-opponent { font-size: 16px; font-weight: 900; color: #f3f4f6; }
+    .pc-next-match-meta { font-size: 11px; color: #8b92a3; margin-top: 4px; }
+    .pc-squad-highlights-list { display: flex; flex-direction: column; }
+    .pc-squad-highlight-row {
+      display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+      background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,.05);
+      padding: 8px 0; color: #e8eaf0; cursor: pointer; min-height: 0;
+    }
+    .pc-squad-highlight-row:last-child { border-bottom: none; }
+    .pc-squad-highlight-row:hover { background: rgba(255,255,255,.02); }
+    .pc-squad-highlight-name { flex: 1; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-squad-highlight-overall { font-size: 12px; font-weight: 900; color: #c9a84c; width: 30px; text-align: center; flex-shrink: 0; }
+    .pc-squad-highlight-status { font-size: 10px; font-weight: 800; width: 80px; text-align: right; flex-shrink: 0; }
+  }
 `;
 
 function useGlobalStyles() {
@@ -2827,6 +2928,9 @@ function attentionPersona(item) {
   if (item.category === "match" || title.includes("alineación") || title.includes("partido") || title.includes("sancionado")) {
     return { ...STAFF_PERSONAS["Segundo entrenador"], name:"Segundo entrenador", emotionalState:"directo", line:item.summary ?? "Míster, hay algo del próximo partido que debemos resolver.", action:item.actionLabel ?? "Preparar" };
   }
+  if (item.category === "lockerRoom") {
+    return { ...STAFF_PERSONAS["Capitán"], name:"Capitán", emotionalState:"preocupado", line:item.summary ?? "Hay un tema del vestuario que conviene atender.", action:item.actionLabel ?? "Hablar" };
+  }
   if (item.category === "fans") {
     return { ...STAFF_PERSONAS.Presidente, name:"Presidente", emotionalState:"exigente", line:item.summary ?? "La afición está hablando y conviene escucharla.", action:item.actionLabel ?? "Responder" };
   }
@@ -2958,6 +3062,7 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
     if(item.source==="conversation")return{kind:"conversation",id:item.rawId,priority:item.priority,person:{...conversationPersona(item.conversation),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
     return{kind:"attention",id:item.rawId,priority:item.priority,person:{...attentionPersona(item.attention),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
   }).sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)).slice(0,3);
+  const moreInCenterCount = Math.max(0, urgentAttention.filter(item=>!item.dismissed).length - waitingPeople.length);
   const expectationItems = getLegacyDirectorExpectations(game);
   const expectationReminder = expectationItems[0]
     ? expectationItems[0].expectedToday
@@ -3047,6 +3152,11 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
               </button>
             )})}
           </div>}
+          {moreInCenterCount>0 && (
+            <button onClick={()=>setScreen("attention")} style={{ display:"block", width:"100%", textAlign:"left", background:"none", border:"none", color:"#c9a84c", fontSize:11, fontWeight:700, padding:0, marginTop:10, cursor:"pointer" }}>
+              Ver {moreInCenterCount} asunto{moreInCenterCount===1?"":"s"} más en el Centro de Atención →
+            </button>
+          )}
       </div>
 
       {agendaItems.length>0 && (
@@ -7596,7 +7706,21 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   const legacyDirectorEvents = game ? buildLegacyDirectorEvents(game, { lineup }) : [];
   const eventAttentionItems = game ? legacyDirectorEventsToAttentionItems(game, legacyDirectorEvents) : [];
   const systemAttentionItems = game ? dedupeAttentionItems([...eventAttentionItems, ...baseAttentionItems], game) : [];
-  const attentionItems = game ? dedupeAttentionItems([...clubLifeAttention, ...conversationAttention, ...activeMatchAttention, ...systemAttentionItems], game) : [];
+  const expectationCandidates = game ? getWaitingExpectationItems(game) : [];
+  const expectationAttention = expectationCandidates.map(candidate=>({
+    id: candidate.id,
+    category: candidate.origin==="medical"?"medical":candidate.origin==="market"?"market":candidate.origin==="contracts"?"contracts":candidate.origin==="youth"?"youth":candidate.origin==="fans"?"fans":candidate.origin==="press"?"board":candidate.origin==="lockerRoom"?"lockerRoom":candidate.origin==="lineup"?"match":"staff",
+    priority: candidate.priority==="urgent"||candidate.priority==="critical"?"critical":candidate.priority==="important"?"important":"info",
+    title: candidate.title,
+    summary: candidate.summary,
+    status:"new",
+    playerId: candidate.payload?.playerId,
+    action:{ screen: candidate.origin==="medical"?"medical":candidate.origin==="market"?"transfers":candidate.origin==="contracts"?"contracts":candidate.origin==="youth"?"youth":candidate.origin==="fans"?"fans":candidate.origin==="lockerRoom"?"lockerRoom":candidate.origin==="lineup"?"lineup":"dashboard", playerId: candidate.payload?.playerId },
+    actionLabel:"Revisar",
+    issueKey: candidate.issueKey,
+    consequenceIfIgnored: candidate.consequenceIfIgnored,
+  }));
+  const attentionItems = game ? dedupeAttentionItems([...clubLifeAttention, ...conversationAttention, ...activeMatchAttention, ...expectationAttention, ...systemAttentionItems], game) : [];
   const directorCandidates = game ? [
     ...clubLifeIssues.map(issue=>({
       id:`clubLife:${issue.id}`,
@@ -7756,15 +7880,74 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   const inGame  = Boolean(game) && !["menu","saves","country","league","teams","coachCreate"].includes(screen);
   const edgeSwipe=useEdgeSwipeBack(goBack,{enabled:screen!=="dashboard"&&(showNav||screen==="playerProfile"||screen==="conversation"||screen==="scene")});
 
+  const isPC = useIsPC();
+  const showPCShell = isPC && Boolean(game) && screen !== "menu";
+  const pcTeam = game ? TEAMS.find(t=>t.id===game.teamId) : null;
+  const pcPosition = game ? [...(game.standings??[])].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference).findIndex(s=>s.teamId===game.teamId)+1 : null;
+  const pcBudgetSnapshot = game && pcTeam ? calculateBudgetSnapshot(game, pcTeam) : null;
+  const pcNextFixture = game ? (game.fixtures??[]).find(f=>!f.played&&(f.homeTeamId===game.teamId||f.awayTeamId===game.teamId)) : null;
+  const pcNextOpponent = pcNextFixture ? TEAMS.find(t=>t.id===(pcNextFixture.homeTeamId===game.teamId?pcNextFixture.awayTeamId:pcNextFixture.homeTeamId)) : null;
+
   useEffect(() => {
     const canOpenWithoutGame = ["menu","saves","country","league","teams","coachCreate","cloudSaves"].includes(screen);
     if (!game && !canOpenWithoutGame) setScreen("menu");
   }, [screen, game]);
 
+  const screenContent = (
+        <ScreenWrapper animKey={screen}>
+          {screen === "menu"      && <MainMenu onNew={() => setScreen("country")} onSaves={() => setScreen("saves")} onCloud={() => setScreen("cloudSaves")} savesCount={savesIndex.length} />}
+          {screen === "saves"     && <SavesScreen saves={savesIndex} onLoad={loadGame} onDelete={deleteSave} onNew={() => setScreen("country")} onBack={() => setScreen("menu")} />}
+          {screen === "country"   && <CountryScreen onSelect={c => { setPendingCountry(c); setScreen("league"); }} onBack={() => setScreen("menu")} />}
+          {screen === "league"    && <LeagueScreen country={pendingCountry} onSelect={l => { setPendingLeague(l); setScreen("teams"); }} onBack={() => setScreen("country")} />}
+          {screen === "teams"     && <TeamSelection onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
+          {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
+          {screen === "dashboard" && game && (isPC
+            ? <PCDashboardContent game={game} team={pcTeam} position={pcPosition} budgetLeft={pcBudgetSnapshot?.transferBudget} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} setScreen={setScreen} onPlay={() => setScreen("match")} />
+            : <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} conversations={activeConversations} clubLifeIssues={clubLifeIssues} directorItems={legacyDirectorItems} onOpenAttention={handleAttentionOpen} onOpenConversation={openConversation} onOpenClubLifeIssue={handleClubLifeIssueOpen} onOpenScene={handleOpenScene} />
+          )}
+          {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
+          {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />}
+          {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
+          {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />}
+          {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} />}
+          {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
+          {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
+          {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} />}
+          {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
+          {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
+          {screen === "lockerRoom" && game && <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />}
+          {screen === "fans" && game && <FanbaseScreen game={ensureFanbaseState(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} />}
+          {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
+          {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}
+          {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}
+          {screen === "legacyMuseum" && game && <LegacyMuseumScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
+          {screen === "career" && game && <CoachCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
+          {screen === "staff" && game && <StaffScreen game={ensureStaffState(game,TEAMS)} onNavigate={setScreen} />}
+          {screen === "scouting" && game && <ScoutingScreen game={game} candidates={getScoutingPool(game)} focusReportId={scoutingFocusId} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} onOpenPlayer={openPlayerProfile} onGoMarket={()=>setScreen("transfers")} />}
+          {screen === "settings"  && game && <SettingsScreen game={game} />}
+          {screen === "finances"  && game && <FinancesScreen game={game} />}
+          {screen === "contracts" && game && <ContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />}
+          {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} />}
+          {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} players={selectedPlayerList} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} onNavigatePlayer={navigateToPlayerInList} />}
+          {screen === "conversation" && game && <ConversationScreen conversation={selectedConversation} onRespond={handleConversationResponse} onBack={goBack} />}
+          {screen === "scene" && game && <InteractiveSceneScreen scene={selectedScene} onChoose={handleSceneDecision} onBack={goBack} />}
+          {screen === "match"     && game && <MatchScreen game={game} saveId={activeSaveId} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} onAbandonMatch={()=>{setRecoverableMatch(null);setScreen("dashboard");}} />}
+          {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
+          {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
+          {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"preseason-start",{lineup,formation,subs});return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}
+        </ScreenWrapper>
+  );
+
   return (
-    <div {...edgeSwipe.handlers} style={{ background:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:540, margin:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y" }}>
+    <div {...edgeSwipe.handlers} style={{ background:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:showPCShell?"none":540, margin:showPCShell?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y" }}>
       {edgeSwipe.indicator}
-      {screen !== "menu" && (
+      {showPCShell && (
+        <>
+          <PCTopBar team={pcTeam} game={game} position={pcPosition} budgetLeft={pcBudgetSnapshot?.transferBudget} />
+          <PCSidebar screen={screen} setScreen={setScreen} attentionCount={attentionCount} />
+        </>
+      )}
+      {!showPCShell && screen !== "menu" && (
         <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"11px 14px", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
           {screen === "dashboard" && game && (
             <button onClick={handleExitToMenu}
@@ -7830,49 +8013,20 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         </div>
       )}
 
-      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-        <ScreenWrapper animKey={screen}>
-          {screen === "menu"      && <MainMenu onNew={() => setScreen("country")} onSaves={() => setScreen("saves")} onCloud={() => setScreen("cloudSaves")} savesCount={savesIndex.length} />}
-          {screen === "saves"     && <SavesScreen saves={savesIndex} onLoad={loadGame} onDelete={deleteSave} onNew={() => setScreen("country")} onBack={() => setScreen("menu")} />}
-          {screen === "country"   && <CountryScreen onSelect={c => { setPendingCountry(c); setScreen("league"); }} onBack={() => setScreen("menu")} />}
-          {screen === "league"    && <LeagueScreen country={pendingCountry} onSelect={l => { setPendingLeague(l); setScreen("teams"); }} onBack={() => setScreen("country")} />}
-          {screen === "teams"     && <TeamSelection onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
-          {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
-          {screen === "dashboard" && game && <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} conversations={activeConversations} clubLifeIssues={clubLifeIssues} directorItems={legacyDirectorItems} onOpenAttention={handleAttentionOpen} onOpenConversation={openConversation} onOpenClubLifeIssue={handleClubLifeIssueOpen} onOpenScene={handleOpenScene} />}
-          {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
-          {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />}
-          {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
-          {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />}
-          {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} />}
-          {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
-          {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
-          {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} />}
-          {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
-          {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
-          {screen === "lockerRoom" && game && <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />}
-          {screen === "fans" && game && <FanbaseScreen game={ensureFanbaseState(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} />}
-          {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
-          {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}
-          {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}
-          {screen === "legacyMuseum" && game && <LegacyMuseumScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
-          {screen === "career" && game && <CoachCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
-          {screen === "staff" && game && <StaffScreen game={ensureStaffState(game,TEAMS)} onNavigate={setScreen} />}
-          {screen === "scouting" && game && <ScoutingScreen game={game} candidates={getScoutingPool(game)} focusReportId={scoutingFocusId} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} onOpenPlayer={openPlayerProfile} onGoMarket={()=>setScreen("transfers")} />}
-          {screen === "settings"  && game && <SettingsScreen game={game} />}
-          {screen === "finances"  && game && <FinancesScreen game={game} />}
-          {screen === "contracts" && game && <ContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />}
-          {screen === "transfers" && game && <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} />}
-          {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} players={selectedPlayerList} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} onNavigatePlayer={navigateToPlayerInList} />}
-          {screen === "conversation" && game && <ConversationScreen conversation={selectedConversation} onRespond={handleConversationResponse} onBack={goBack} />}
-          {screen === "scene" && game && <InteractiveSceneScreen scene={selectedScene} onChoose={handleSceneDecision} onBack={goBack} />}
-          {screen === "match"     && game && <MatchScreen game={game} saveId={activeSaveId} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} onAbandonMatch={()=>{setRecoverableMatch(null);setScreen("dashboard");}} />}
-          {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
-          {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
-          {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"preseason-start",{lineup,formation,subs});return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}
-        </ScreenWrapper>
-      </div>
+      {showPCShell ? (
+        <div className="pc-shell-body">
+          <div className="pc-main-col">{screenContent}</div>
+          {screen !== "match" && (
+            <PCRightPanel game={game} directorItems={legacyDirectorItems} onOpenScene={handleOpenScene} setScreen={setScreen} />
+          )}
+        </div>
+      ) : (
+        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          {screenContent}
+        </div>
+      )}
 
-      <BottomNav screen={screen} setScreen={setScreen} disabled={!showNav} attentionCount={attentionCount} />
+      {!isPC && <BottomNav screen={screen} setScreen={setScreen} disabled={!showNav} attentionCount={attentionCount} />}
     </div>
   );
 }

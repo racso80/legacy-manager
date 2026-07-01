@@ -486,8 +486,9 @@ function waitingExpectationCandidates(game, directorState) {
       const ownerActorId = state.ownerActorId ?? state.expectation.ownerActorId ?? "assistantCoach";
       const actorName = actorNameFromId(ownerActorId);
       const seed = hashSeed(`expectation:${state.issueKey}:${state.updatedAt?.matchday ?? 0}`);
+      const id = `expectation:${state.issueKey}:${state.updatedAt?.matchday ?? 0}`;
       return {
-        id: `expectation:${state.issueKey}:${state.updatedAt?.matchday ?? 0}`,
+        id,
         rawId: state.issueKey,
         source: "expectation",
         origin,
@@ -504,8 +505,25 @@ function waitingExpectationCandidates(game, directorState) {
         playerName: state.expectation.subjectName,
         responseType: state.expectation.responseType ?? null,
         reappearedFromExpectation: true,
+        // Lets handleSceneDecision's existing director→attention propagation resolve the
+        // matching Centro de Atención item the same way it does for other attention-sourced items.
+        attention: { id },
       };
     });
+}
+
+export function getWaitingExpectationItems(game) {
+  if (!game) return [];
+  const safeGame = ensureLegacyDirectorState(game);
+  const directorState = normalizeState(safeGame.legacyDirector);
+  return waitingExpectationCandidates(safeGame, directorState);
+}
+
+function fallbackSelection(grouped, game, directorState) {
+  const actionable = grouped.filter(candidate => ["urgent", "important"].includes(candidate.priority));
+  if (!actionable.length) return [];
+  const best = [...actionable].sort((a, b) => compareCandidates(a, b, game, directorState))[0];
+  return [best];
 }
 
 export function getLegacyDirectorSelection(game, candidates = []) {
@@ -529,8 +547,11 @@ export function getLegacyDirectorSelection(game, candidates = []) {
       }));
     const grouped = ensureProtagonistPresence(pickBestPerGroup(viable, safeGame, directorState), safeGame, directorState);
     const quality = filterNoise(grouped, safeGame, directorState);
-    return avoidSameActorSpam(quality, safeGame, directorState)
-      .sort((a, b) => compareCandidates(a, b, safeGame, directorState))
+    const spamFiltered = avoidSameActorSpam(quality, safeGame, directorState)
+      .sort((a, b) => compareCandidates(a, b, safeGame, directorState));
+    // Safety net: never let the noise/rhythm/spam curation zero out a genuinely actionable issue.
+    const finalCandidates = spamFiltered.length ? spamFiltered : fallbackSelection(grouped, safeGame, directorState);
+    return finalCandidates
       .map(item => ({
         ...item,
         issueCard: {
@@ -540,7 +561,7 @@ export function getLegacyDirectorSelection(game, candidates = []) {
           protagonistOfDay: item.protagonistOfDay ?? false,
         },
       }))
-      .slice(0, selectionLimit(safeGame, quality));
+      .slice(0, spamFiltered.length ? selectionLimit(safeGame, quality) : 1);
   } catch (error) {
     console.warn("[LegacyDirector] Selection skipped to keep Home stable", error);
     return [];
