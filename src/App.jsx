@@ -1975,7 +1975,7 @@ function BottomNav({ screen, setScreen, disabled, attentionCount = 0 }) {
   );
 }
 
-function CloudSyncIndicator({ session, syncState, conflict, onClick }) {
+export function CloudSyncIndicator({ session, syncState, conflict, onClick }) {
   if (!session) return null;
   const state = conflict ? "conflict" : syncState?.state ?? "local";
   const statusByState = {
@@ -2150,7 +2150,8 @@ const GLOBAL_CSS = `
 
     .pc-topbar {
       position: fixed; top: 0; left: 0; right: 0; height: 44px; z-index: 60;
-      background: #11151e; border-bottom: 1px solid #1e2435;
+      background: rgba(17, 21, 30, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border-bottom: 1px solid #1e2435;
       display: flex; align-items: center; padding: 0 16px;
     }
     .pc-topbar-left { display: flex; align-items: center; gap: 8px; width: 200px; flex-shrink: 0; }
@@ -2161,16 +2162,17 @@ const GLOBAL_CSS = `
       font-weight: 900; color: #1a1200; font-size: 13px;
     }
     .pc-topbar-title { color: #c9a84c; font-weight: 900; font-size: 12px; letter-spacing: .6px; white-space: nowrap; }
-    .pc-topbar-center { flex: 1; text-align: center; color: #c9ced8; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 12px; }
-    .pc-topbar-right { display: flex; align-items: center; flex-shrink: 0; }
-    .pc-topbar-budget {
-      background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.28); color: #22c55e;
-      font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+    .pc-topbar-center {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+      color: #c9ced8; font-size: 12px; font-weight: 600; overflow: hidden; padding: 0 12px;
     }
+    .pc-topbar-center span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-topbar-right { display: flex; align-items: center; flex-shrink: 0; }
 
     .pc-sidebar {
-      position: fixed; top: 44px; left: 0; bottom: 0; width: 200px; z-index: 50;
-      background: #0f1320; border-right: 1px solid #1e2435; overflow-y: auto; padding: 14px 0;
+      position: fixed; top: 44px; left: 0; width: 200px; height: calc(100vh - 44px); z-index: 50;
+      background: rgba(15, 19, 32, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border-right: 1px solid #1e2435; overflow-y: auto; padding: 0 0 14px;
     }
     .pc-sidebar-group { margin-bottom: 16px; }
     .pc-sidebar-group-label { color: #5f6675; font-size: 9px; font-weight: 900; letter-spacing: 1px; padding: 0 16px; margin-bottom: 6px; }
@@ -2190,8 +2192,8 @@ const GLOBAL_CSS = `
     .pc-main-col { flex: 1; padding: 16px; overflow-y: auto; min-width: 0; }
 
     .pc-right-panel {
-      width: 300px; flex-shrink: 0; background: #0f1320; border-left: 1px solid #1e2435;
-      padding: 16px; overflow-y: auto;
+      width: 300px; flex-shrink: 0; background: rgba(15, 19, 32, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border-left: 1px solid #1e2435; padding: 16px; overflow-y: auto;
     }
     .pc-right-panel-section { margin-bottom: 22px; }
     .pc-right-panel-title { font-size: 10px; color: #c9a84c; font-weight: 900; letter-spacing: .8px; margin-bottom: 10px; }
@@ -2305,20 +2307,9 @@ const GLOBAL_CSS = `
     .pc-squad-highlight-status { font-size: 10px; font-weight: 800; width: 80px; text-align: right; flex-shrink: 0; }
 
     .pc-shell {
-      background-image: url('/assets/bg-office.jpg');
-      background-size: cover;
-      background-position: center;
-      background-attachment: fixed;
-      background-color: #0d1117;
-    }
-
-    .pc-shell::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background: rgba(10, 12, 18, 0.82);
-      pointer-events: none;
-      z-index: 0;
+      background:
+        linear-gradient(rgba(10, 12, 18, 0.82), rgba(10, 12, 18, 0.82)),
+        url('/assets/bg-office.jpg') center/cover fixed;
     }
 
     .pc-topbar,
@@ -2327,24 +2318,6 @@ const GLOBAL_CSS = `
     .pc-right-panel {
       position: relative;
       z-index: 1;
-    }
-
-    .pc-sidebar {
-      background: rgba(15, 19, 32, 0.75);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-
-    .pc-topbar {
-      background: rgba(17, 21, 30, 0.85);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-
-    .pc-right-panel {
-      background: rgba(15, 19, 32, 0.75);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
     }
   }
 `;
@@ -8075,7 +8048,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       {edgeSwipe.indicator}
       {showPCShell && (
         <>
-          <PCTopBar team={pcTeam} game={game} position={pcPosition} budgetLeft={pcBudgetSnapshot?.transferBudget} />
+          <PCTopBar team={pcTeam} game={game} position={pcPosition} cloudSession={cloudSession} cloudSyncState={cloudSyncState} cloudConflict={cloudConflict} onOpenCloudSaves={()=>setScreen("cloudSaves")} />
           <PCSidebar screen={screen} setScreen={setScreen} attentionCount={attentionCount} />
         </>
       )}
