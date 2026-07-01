@@ -31,6 +31,7 @@ import PCTopBar from "./components/pc/PCTopBar.jsx";
 import PCSidebar from "./components/pc/PCSidebar.jsx";
 import PCRightPanel from "./components/pc/PCRightPanel.jsx";
 import PCDashboardContent from "./components/pc/PCDashboardContent.jsx";
+import PCSquadScreen from "./components/pc/PCSquadScreen.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
 import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle, lifecycleNews, processBirthdays } from "./players/lifecycle.js";
@@ -1238,10 +1239,10 @@ function calculateBudgetSnapshot(game, team) {
   };
 }
 
-const RARITY_ACCENT = { BRONZE: "#cd853f", SILVER: "#9aa0b4", GOLD: "#c9a84c", SPECIAL: "#c4b5fd" };
-const RARITY_BG = { BRONZE: "#2a1a0a", SILVER: "#14161a", GOLD: "#1a1700", SPECIAL: "#180e2a" };
-const RARITY_LABEL = { BRONZE: "Bronce", SILVER: "Plata", GOLD: "Oro", SPECIAL: "Especial" };
-const NAT_FLAG = { ES: "🇪🇸", FR: "🇫🇷", GH: "🇬🇭", BR: "🇧🇷", AR: "🇦🇷", PT: "🇵🇹", DE: "🇩🇪" };
+export const RARITY_ACCENT = { BRONZE: "#cd853f", SILVER: "#9aa0b4", GOLD: "#c9a84c", SPECIAL: "#c4b5fd" };
+export const RARITY_BG = { BRONZE: "#2a1a0a", SILVER: "#14161a", GOLD: "#1a1700", SPECIAL: "#180e2a" };
+export const RARITY_LABEL = { BRONZE: "Bronce", SILVER: "Plata", GOLD: "Oro", SPECIAL: "Especial" };
+export const NAT_FLAG = { ES: "🇪🇸", FR: "🇫🇷", GH: "🇬🇭", BR: "🇧🇷", AR: "🇦🇷", PT: "🇵🇹", DE: "🇩🇪" };
 
 function Initials({ name, size = 44, rarity = "GOLD", borderRadius = 8 }) {
   const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -1253,7 +1254,7 @@ function Initials({ name, size = 44, rarity = "GOLD", borderRadius = 8 }) {
   );
 }
 
-function StatBar({ label, value, accent }) {
+export function StatBar({ label, value, accent }) {
   const color = value >= 80 ? "#22c55e" : value >= 65 ? "#c9a84c" : "#9aa0b4";
   return (
     <div style={{ display: "flex", alignItems: "center", marginBottom: 5 }}>
@@ -2305,6 +2306,62 @@ const GLOBAL_CSS = `
     .pc-squad-highlight-name { flex: 1; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pc-squad-highlight-overall { font-size: 12px; font-weight: 900; color: #c9a84c; width: 30px; text-align: center; flex-shrink: 0; }
     .pc-squad-highlight-status { font-size: 10px; font-weight: 800; width: 80px; text-align: right; flex-shrink: 0; }
+
+    /* ─── PC squad screen ──────────────────────────────────────────────── */
+    .pc-squad-layout { display: flex; gap: 16px; align-items: flex-start; width: 100%; }
+    .pc-squad-left { flex: 1; min-width: 0; }
+    .pc-squad-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .pc-squad-filters { display: flex; gap: 8px; }
+    .pc-squad-filter-pill { background: #1e2330; color: #9aa0b4; border: none; padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+    .pc-squad-filter-pill[data-active="true"] { background: #c9a84c; color: #1a1200; }
+    .pc-squad-season-select { background: #1e2330; border: 1px solid rgba(201,168,76,.25); color: #c9a84c; border-radius: 7px; padding: 7px 9px; font-size: 11px; font-weight: 700; }
+
+    .pc-squad-table { background: #161a24; border: 1px solid rgba(255,255,255,.06); border-radius: 10px; overflow: hidden; }
+    .pc-squad-table-header, .pc-squad-row {
+      display: grid;
+      grid-template-columns: 34px 26px 1fr 44px 36px 32px 30px 26px 26px 26px 38px 92px 36px 36px;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+    }
+    .pc-squad-table-header {
+      height: 32px;
+      font-size: 9px; color: #6b7280; font-weight: 900; letter-spacing: .5px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .pc-squad-table-body { max-height: calc(100vh - 260px); overflow-y: auto; }
+    .pc-squad-row { height: 40px; cursor: pointer; border-left: 3px solid transparent; transition: background .12s, border-color .12s; }
+    .pc-squad-row:hover { background: rgba(255,255,255,.05) !important; }
+    .pc-squad-row[data-selected="true"] { background: rgba(201,168,76,.12) !important; border-left-color: #c9a84c; }
+
+    .pc-squad-photo-wrap { position: relative; border-radius: 999px; overflow: hidden; flex-shrink: 0; background: #0d0f14; }
+    .pc-squad-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pc-squad-photo-fallback { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; opacity: .55; }
+
+    .pc-squad-name { font-size: 12px; font-weight: 800; color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-squad-cell-dim { font-size: 11px; color: #9aa0b4; text-align: center; }
+    .pc-squad-pos-badge { font-size: 10px; font-weight: 800; color: #c9ced8; background: rgba(255,255,255,.08); border-radius: 4px; padding: 2px 6px; text-align: center; width: fit-content; }
+    .pc-squad-ovr { font-size: 13px; font-weight: 900; color: #c9a84c; text-align: center; }
+    .pc-squad-status-pill { font-size: 9px; font-weight: 800; border-radius: 999px; padding: 3px 7px; text-align: center; white-space: nowrap; }
+
+    .pc-squad-detail { width: 340px; flex-shrink: 0; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 16px; }
+    .pc-squad-detail-empty { color: #6b7280; font-size: 12px; text-align: center; line-height: 1.5; padding: 60px 12px; }
+    .pc-squad-detail-header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+    .pc-squad-detail-name { font-size: 15px; font-weight: 800; color: #e8eaf0; line-height: 1.25; }
+    .pc-squad-detail-overall { font-size: 26px; font-weight: 900; margin-top: 4px; line-height: 1; }
+    .pc-squad-detail-meta { font-size: 11px; color: #9aa0b4; margin-bottom: 14px; }
+    .pc-squad-detail-alert { font-size: 11px; font-weight: 700; border-radius: 8px; padding: 8px 10px; margin-bottom: 14px; }
+    .pc-squad-detail-section { margin-bottom: 14px; }
+    .pc-squad-detail-section-title { font-size: 9px; color: #6b7280; font-weight: 900; letter-spacing: .6px; margin-bottom: 8px; }
+    .pc-squad-detail-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .pc-squad-detail-stat { background: #0d0f14; border: 1px solid rgba(255,255,255,.055); border-radius: 8px; padding: 8px; text-align: center; }
+    .pc-squad-detail-stat-value { font-size: 15px; font-weight: 900; color: #e8eaf0; }
+    .pc-squad-detail-stat-label { font-size: 8px; color: #6b7280; font-weight: 800; margin-top: 2px; }
+    .pc-squad-detail-vitals { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06); }
+    .pc-squad-detail-vital { text-align: center; }
+    .pc-squad-detail-vital-label { font-size: 8px; color: #6b7280; font-weight: 800; }
+    .pc-squad-detail-vital-value { font-size: 16px; font-weight: 900; margin-top: 3px; }
+    .pc-squad-detail-actions { display: flex; flex-direction: column; gap: 8px; }
 
     .pc-shell {
       background:
@@ -3393,13 +3450,18 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
   );
 }
 
-function SquadScreen({ game, players, onOpenPlayer }) {
+function SquadScreen({ game, players, onOpenPlayer, isPC, setScreen }) {
   const [filter, setFilter] = useState("ALL");
   const [statsSeason,setStatsSeason]=useState(String(game.season));
   const filters = [["ALL", "Todos"], ["POR", "Porteros"], ["DEF", "Defensas"], ["MED", "Medios"], ["DEL", "Delanteros"]];
   const shown = filter === "ALL" ? players : players.filter(p => p.group === filter);
   const seasons=[...new Set([String(game.season),...players.flatMap(player=>(player.careerHistory??[]).map(entry=>String(entry.season)))])].sort((a,b)=>Number(b)-Number(a));
   const seasonStats=player=>statsSeason===String(game.season)?getPlayerSeasonStats(player,game,game.teamId):(player.careerHistory??[]).find(entry=>String(entry.season)===statsSeason)??{};
+
+  if (isPC) {
+    return <PCSquadScreen game={game} players={players} onOpenPlayer={onOpenPlayer} setScreen={setScreen} />;
+  }
+
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position:"relative" }}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"9px 14px",background:"#13161f",borderBottom:"1px solid rgba(255,255,255,.06)"}}><div><div style={{fontSize:9,color:"#6b7280",fontWeight:800}}>ESTADÍSTICAS</div><div style={{fontSize:11,color:"#e8eaf0",marginTop:2}}>{statsSeason===String(game.season)?"Temporada actual":"Temporada histórica"}</div></div><select value={statsSeason} onChange={event=>setStatsSeason(event.target.value)} style={{background:"#1e2330",border:"1px solid rgba(201,168,76,.25)",color:"#c9a84c",borderRadius:7,padding:"7px 9px",fontSize:11,fontWeight:700}}>{seasons.map(season=><option key={season} value={season}>{season}/{String(Number(season)+1).slice(-2)}{season===String(game.season)?" · actual":""}</option>)}</select></div>
@@ -8011,7 +8073,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
           {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />}
           {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
-          {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />}
+          {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} isPC={isPC} setScreen={setScreen} />}
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
