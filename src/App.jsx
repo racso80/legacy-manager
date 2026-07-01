@@ -4230,7 +4230,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                         <span title={role.label}>{role.icon}</span>{p.name}
                         {(p.yellowCards ?? 0) > 0 && <span style={{ fontSize:9, color:"#fbbf24" }}>🟨{p.yellowCards}</span>}
                       </div>
-                      <div style={{ fontSize:9, color: risk?.level==="high"?"#ef4444":risk?.level==="mid"?"#f97316":"#6b7280" }}>
+                      <div style={{ fontSize:9, color: (risk?.level==="critical"||risk?.level==="high")?"#ef4444":risk?.level==="moderate"?"#f97316":"#6b7280" }}>
                         {p.pos} · {slotPositions[idx]}{risk ? ` · ${risk.label}` : ""}
                       </div>
                     </div>
@@ -4274,7 +4274,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                       <div style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}>
                         <span title={role.label}>{role.icon}</span>{p.name}
                       </div>
-                      <div style={{ fontSize:9, color: risk?.level==="high"?"#ef4444":risk?.level==="mid"?"#f97316":"#6b7280" }}>
+                      <div style={{ fontSize:9, color: (risk?.level==="critical"||risk?.level==="high")?"#ef4444":risk?.level==="moderate"?"#f97316":"#6b7280" }}>
                         {p.pos}{risk ? ` · ${risk.label}` : ""}
                       </div>
                     </div>
@@ -4316,7 +4316,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                       <div style={{ fontSize:11, fontWeight:600, color:"#c9ccd4", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}>
                         <span title={role.label}>{role.icon}</span>{p.name}
                       </div>
-                      <div style={{ fontSize:9, color: risk?.level==="high"?"#ef4444":risk?.level==="mid"?"#f97316":"#6b7280" }}>
+                      <div style={{ fontSize:9, color: (risk?.level==="critical"||risk?.level==="high")?"#ef4444":risk?.level==="moderate"?"#f97316":"#6b7280" }}>
                         {p.pos} · {p.age}a{risk ? ` · ${risk.label}` : ""}
                       </div>
                     </div>
@@ -4339,7 +4339,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
                       <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={5}/>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:11, color:"#6b7280", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
-                        {risk && <div style={{ fontSize:9, color: risk.level==="high"?"#ef4444":"#f97316" }}>{risk.label}</div>}
+                        {risk && <div style={{ fontSize:9, color: (risk.level==="critical"||risk.level==="high")?"#ef4444":"#f97316" }}>{risk.label}</div>}
                       </div>
                       {p.injured && <span style={{ fontSize:9, color:"#ef4444", fontWeight:700 }}>LESIÓN{p.injuryGames?` ${p.injuryGames}J`:""}</span>}
                       {p.suspended && <span style={{ fontSize:9, color:"#f59e0b", fontWeight:700 }}>SANCIÓN{p.yellowCards>=5?" (5 amarillas)":""}</span>}

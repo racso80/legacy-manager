@@ -476,7 +476,7 @@ export default function PCLineupScreen({ game, players, lineup, setLineup, forma
                   <span title={role.label}>{role.icon}</span> {p.name}
                   {(p.yellowCards ?? 0) > 0 && <span style={{ fontSize: 9, color: "#fbbf24", marginLeft: 4 }}>🟨{p.yellowCards}</span>}
                 </div>
-                <div className="pc-lineup-row-meta" style={{ color: risk?.level === "high" ? "#ef4444" : risk?.level === "mid" ? "#f97316" : "#6b7280", width: 130, flexShrink: 0 }}>
+                <div className="pc-lineup-row-meta" style={{ color: (risk?.level === "critical" || risk?.level === "high") ? "#ef4444" : risk?.level === "moderate" ? "#f97316" : "#6b7280", width: 130, flexShrink: 0 }}>
                   {p.pos} · {slotPositions[idx]}{risk ? ` · ${risk.label}` : ""}
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: RARITY_ACCENT[p.rarity], width: 26, textAlign: "center" }}>{p.overall}</div>
@@ -507,7 +507,7 @@ export default function PCLineupScreen({ game, players, lineup, setLineup, forma
                 style={{ background: active ? "rgba(201,168,76,.15)" : "#161a24", border: `1px solid ${active ? "#c9a84c55" : "rgba(59,130,246,.15)"}` }}>
                 <Initials name={p.name} size={28} rarity={p.rarity} borderRadius={6} />
                 <div className="pc-lineup-row-name"><span title={role.label}>{role.icon}</span> {p.name}</div>
-                <div className="pc-lineup-row-meta" style={{ color: risk?.level === "high" ? "#ef4444" : risk?.level === "mid" ? "#f97316" : "#6b7280", width: 130, flexShrink: 0 }}>
+                <div className="pc-lineup-row-meta" style={{ color: (risk?.level === "critical" || risk?.level === "high") ? "#ef4444" : risk?.level === "moderate" ? "#f97316" : "#6b7280", width: 130, flexShrink: 0 }}>
                   {p.pos}{risk ? ` · ${risk.label}` : ""}
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: RARITY_ACCENT[p.rarity], width: 26, textAlign: "center" }}>{p.overall}</div>
@@ -537,7 +537,7 @@ export default function PCLineupScreen({ game, players, lineup, setLineup, forma
                 style={{ background: "#13161d", border: "1px solid rgba(255,255,255,.05)", cursor: activeSlot ? "pointer" : "default", opacity: .85 }}>
                 <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={5} />
                 <div className="pc-lineup-row-name" style={{ color: "#c9ccd4" }}><span title={role.label}>{role.icon}</span> {p.name}</div>
-                <div className="pc-lineup-row-meta" style={{ color: risk?.level === "high" ? "#ef4444" : risk?.level === "mid" ? "#f97316" : "#6b7280", width: 130, flexShrink: 0 }}>
+                <div className="pc-lineup-row-meta" style={{ color: (risk?.level === "critical" || risk?.level === "high") ? "#ef4444" : risk?.level === "moderate" ? "#f97316" : "#6b7280", width: 130, flexShrink: 0 }}>
                   {p.pos} · {p.age}a{risk ? ` · ${risk.label}` : ""}
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: RARITY_ACCENT[p.rarity], width: 26, textAlign: "center" }}>{p.overall}</div>
@@ -557,7 +557,7 @@ export default function PCLineupScreen({ game, players, lineup, setLineup, forma
                   <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={5} />
                   <div className="pc-lineup-row-name" style={{ color: "#6b7280" }}>
                     {p.name}
-                    {risk && <div style={{ fontSize: 9, color: risk.level === "high" ? "#ef4444" : "#f97316" }}>{risk.label}</div>}
+                    {risk && <div style={{ fontSize: 9, color: (risk.level === "critical" || risk.level === "high") ? "#ef4444" : "#f97316" }}>{risk.label}</div>}
                   </div>
                   {p.injured && <span style={{ fontSize: 9, color: "#ef4444", fontWeight: 700 }}>LESIÓN{p.injuryGames ? ` ${p.injuryGames}J` : ""}</span>}
                   {p.suspended && <span style={{ fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>SANCIÓN{p.yellowCards >= 5 ? " (5 amarillas)" : ""}</span>}

@@ -75,9 +75,9 @@ export function getInjuryRiskBadge(state) {
   if (!state) return null;
   const level = state.riskLevel?.id;
   const risk = state.injuryRisk ?? 0;
-  if (level === "critical") return { level: "high", label: `🔴 Riesgo crítico ${risk}%`, risk, color: state.riskLevel.color };
+  if (level === "critical") return { level: "critical", label: `🔴 Riesgo crítico ${risk}%`, risk, color: state.riskLevel.color };
   if (level === "high") return { level: "high", label: `🟠 Riesgo alto ${risk}%`, risk, color: state.riskLevel.color };
-  if (level === "moderate") return { level: "mid", label: `🟡 Riesgo moderado ${risk}%`, risk, color: state.riskLevel.color };
+  if (level === "moderate") return { level: "moderate", label: `🟡 Riesgo moderado ${risk}%`, risk, color: state.riskLevel.color };
   return null;
 }
 
