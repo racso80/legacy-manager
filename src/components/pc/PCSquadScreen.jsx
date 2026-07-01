@@ -29,7 +29,7 @@ function SquadPhoto({ player, size = 32 }) {
   );
 }
 
-export default function PCSquadScreen({ game, players, onOpenPlayer, setScreen }) {
+export default function PCSquadScreen({ game, players, onOpenPlayer }) {
   const [filter, setFilter] = useState("ALL");
   const [statsSeason, setStatsSeason] = useState(String(game.season));
   const [selectedId, setSelectedId] = useState(null);
@@ -173,9 +173,6 @@ export default function PCSquadScreen({ game, players, onOpenPlayer, setScreen }
             <div className="pc-squad-detail-actions">
               <button className="btn-gold" style={{ padding: 10, borderRadius: 8, fontSize: 12 }} onClick={() => onOpenPlayer?.(selectedPlayer, shown)}>
                 Ver perfil completo →
-              </button>
-              <button className="btn-ghost" style={{ padding: 10, borderRadius: 8, fontSize: 12 }} onClick={() => setScreen?.("lineup")}>
-                Ir a alineación →
               </button>
             </div>
           </>

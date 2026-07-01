@@ -2308,15 +2308,15 @@ const GLOBAL_CSS = `
     .pc-squad-highlight-status { font-size: 10px; font-weight: 800; width: 80px; text-align: right; flex-shrink: 0; }
 
     /* ─── PC squad screen ──────────────────────────────────────────────── */
-    .pc-squad-layout { display: flex; gap: 16px; align-items: flex-start; width: 100%; }
-    .pc-squad-left { flex: 1; min-width: 0; }
-    .pc-squad-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .pc-squad-layout { display: flex; gap: 16px; align-items: flex-start; width: 100%; height: calc(100vh - 76px); }
+    .pc-squad-left { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; }
+    .pc-squad-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; flex-shrink: 0; }
     .pc-squad-filters { display: flex; gap: 8px; }
     .pc-squad-filter-pill { background: #1e2330; color: #9aa0b4; border: none; padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
     .pc-squad-filter-pill[data-active="true"] { background: #c9a84c; color: #1a1200; }
     .pc-squad-season-select { background: #1e2330; border: 1px solid rgba(201,168,76,.25); color: #c9a84c; border-radius: 7px; padding: 7px 9px; font-size: 11px; font-weight: 700; }
 
-    .pc-squad-table { background: #161a24; border: 1px solid rgba(255,255,255,.06); border-radius: 10px; overflow: hidden; }
+    .pc-squad-table { background: #161a24; border: 1px solid rgba(255,255,255,.06); border-radius: 10px; overflow: hidden; flex: 1; min-height: 0; display: flex; flex-direction: column; }
     .pc-squad-table-header, .pc-squad-row {
       display: grid;
       grid-template-columns: 34px 26px 1fr 44px 36px 32px 30px 26px 26px 26px 38px 92px 36px 36px;
@@ -2326,16 +2326,17 @@ const GLOBAL_CSS = `
     }
     .pc-squad-table-header {
       height: 32px;
+      flex-shrink: 0;
       font-size: 9px; color: #6b7280; font-weight: 900; letter-spacing: .5px;
       border-bottom: 1px solid rgba(255,255,255,.06);
     }
-    .pc-squad-table-body { max-height: calc(100vh - 260px); overflow-y: auto; }
+    .pc-squad-table-body { flex: 1; overflow-y: auto; }
     .pc-squad-row { height: 40px; cursor: pointer; border-left: 3px solid transparent; transition: background .12s, border-color .12s; }
     .pc-squad-row:hover { background: rgba(255,255,255,.05) !important; }
     .pc-squad-row[data-selected="true"] { background: rgba(201,168,76,.12) !important; border-left-color: #c9a84c; }
 
     .pc-squad-photo-wrap { position: relative; border-radius: 999px; overflow: hidden; flex-shrink: 0; background: #0d0f14; }
-    .pc-squad-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pc-squad-photo { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
     .pc-squad-photo-fallback { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; opacity: .55; }
 
     .pc-squad-name { font-size: 12px; font-weight: 800; color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3450,7 +3451,7 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
   );
 }
 
-function SquadScreen({ game, players, onOpenPlayer, isPC, setScreen }) {
+function SquadScreen({ game, players, onOpenPlayer, isPC }) {
   const [filter, setFilter] = useState("ALL");
   const [statsSeason,setStatsSeason]=useState(String(game.season));
   const filters = [["ALL", "Todos"], ["POR", "Porteros"], ["DEF", "Defensas"], ["MED", "Medios"], ["DEL", "Delanteros"]];
@@ -3459,7 +3460,7 @@ function SquadScreen({ game, players, onOpenPlayer, isPC, setScreen }) {
   const seasonStats=player=>statsSeason===String(game.season)?getPlayerSeasonStats(player,game,game.teamId):(player.careerHistory??[]).find(entry=>String(entry.season)===statsSeason)??{};
 
   if (isPC) {
-    return <PCSquadScreen game={game} players={players} onOpenPlayer={onOpenPlayer} setScreen={setScreen} />;
+    return <PCSquadScreen game={game} players={players} onOpenPlayer={onOpenPlayer} />;
   }
 
   return (
@@ -8073,7 +8074,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
           {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />}
           {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
-          {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} isPC={isPC} setScreen={setScreen} />}
+          {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} isPC={isPC} />}
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
