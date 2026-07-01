@@ -32,6 +32,7 @@ import PCSidebar from "./components/pc/PCSidebar.jsx";
 import PCRightPanel from "./components/pc/PCRightPanel.jsx";
 import PCDashboardContent from "./components/pc/PCDashboardContent.jsx";
 import PCSquadScreen from "./components/pc/PCSquadScreen.jsx";
+import PCLineupScreen from "./components/pc/PCLineupScreen.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
 import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle, lifecycleNews, processBirthdays } from "./players/lifecycle.js";
@@ -56,13 +57,13 @@ import { buildSceneExpectation, buildSceneFromDirectorItem, ensureSceneState, re
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
 import { cleanConsequenceText, getMedicalAlerts, getPlayerSmartActions, sanitizeLineupSelection } from "./state/gameStateSelectors.js";
 
-const STARTERS_SLOTS = 11;
-const BENCH_SLOTS = 12;
-const CALLED_UP_SLOTS = STARTERS_SLOTS + BENCH_SLOTS;
+export const STARTERS_SLOTS = 11;
+export const BENCH_SLOTS = 12;
+export const CALLED_UP_SLOTS = STARTERS_SLOTS + BENCH_SLOTS;
 const MAX_MATCH_SUBS = 5;
-const emptyLineup = () => Array(STARTERS_SLOTS).fill(null);
-const emptyBench = () => Array(BENCH_SLOTS).fill(null);
-const normalizeSlots = (list = [], size) => [...list.slice(0, size), ...Array(Math.max(0, size - list.length)).fill(null)];
+export const emptyLineup = () => Array(STARTERS_SLOTS).fill(null);
+export const emptyBench = () => Array(BENCH_SLOTS).fill(null);
+export const normalizeSlots = (list = [], size) => [...list.slice(0, size), ...Array(Math.max(0, size - list.length)).fill(null)];
 
 // ─── DATOS ───────────────────────────────────────────────────────────────────
 
@@ -1244,7 +1245,7 @@ export const RARITY_BG = { BRONZE: "#2a1a0a", SILVER: "#14161a", GOLD: "#1a1700"
 export const RARITY_LABEL = { BRONZE: "Bronce", SILVER: "Plata", GOLD: "Oro", SPECIAL: "Especial" };
 export const NAT_FLAG = { ES: "🇪🇸", FR: "🇫🇷", GH: "🇬🇭", BR: "🇧🇷", AR: "🇦🇷", PT: "🇵🇹", DE: "🇩🇪" };
 
-function Initials({ name, size = 44, rarity = "GOLD", borderRadius = 8 }) {
+export function Initials({ name, size = 44, rarity = "GOLD", borderRadius = 8 }) {
   const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   const acc = RARITY_ACCENT[rarity];
   return (
@@ -2363,6 +2364,34 @@ const GLOBAL_CSS = `
     .pc-squad-detail-vital-label { font-size: 8px; color: #6b7280; font-weight: 800; }
     .pc-squad-detail-vital-value { font-size: 16px; font-weight: 900; margin-top: 3px; }
     .pc-squad-detail-actions { display: flex; flex-direction: column; gap: 8px; }
+
+    /* ─── PC lineup screen ─────────────────────────────────────────────── */
+    .pc-lineup-layout { display: flex; gap: 16px; align-items: flex-start; width: 100%; height: calc(100vh - 76px); }
+
+    .pc-lineup-left { flex: 0 0 420px; height: 100%; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .pc-lineup-formation-row { display: flex; gap: 6px; flex-shrink: 0; }
+    .pc-lineup-formation-btn { flex: 1; background: #1e2330; color: #9aa0b4; border: none; padding: 8px 6px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; white-space: nowrap; }
+    .pc-lineup-formation-btn[data-active="true"] { background: #c9a84c; color: #1a1200; }
+    .pc-lineup-action-row { display: flex; gap: 6px; flex-shrink: 0; }
+    .pc-lineup-action-btn { flex: 1; border-radius: 6px; padding: 8px 6px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid; white-space: nowrap; }
+    .pc-lineup-pitch { flex: 1; min-height: 220px; position: relative; background: #061206; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; overflow: hidden; }
+    .pc-lineup-pitch-dot { position: absolute; transform: translate(-50%,-50%); cursor: pointer; text-align: center; z-index: 2; }
+    .pc-lineup-energy-bar { background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: 10px 12px; flex-shrink: 0; }
+    .pc-lineup-cta { width: 100%; padding: 13px; border-radius: 9px; font-size: 14px; font-weight: 800; cursor: pointer; flex-shrink: 0; }
+
+    .pc-lineup-center { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+    .pc-lineup-presets-card { background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: 10px 12px; flex-shrink: 0; }
+    .pc-lineup-presets-toggle { width: 100%; background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.25); color: #60a5fa; padding: 7px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .pc-lineup-list-scroll { flex: 1; min-height: 0; overflow-y: auto; background: #161a24; border: 1px solid rgba(255,255,255,.06); border-radius: 10px; padding: 10px 12px; }
+    .pc-lineup-section-label { font-size: 10px; font-weight: 800; letter-spacing: .5px; margin: 12px 0 6px; }
+    .pc-lineup-section-label:first-child { margin-top: 2px; }
+    .pc-lineup-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 7px; margin-bottom: 3px; cursor: pointer; min-height: 38px; box-sizing: border-box; transition: background .12s; }
+    .pc-lineup-row:hover { filter: brightness(1.15); }
+    .pc-lineup-row-name { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-lineup-row-meta { font-size: 9px; color: #6b7280; }
+
+    .pc-lineup-right { flex: 0 0 280px; height: 100%; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .pc-lineup-right-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 
     .pc-shell {
       background:
@@ -3537,7 +3566,7 @@ function LockerRoomScreen({ game, onOpenPlayer, onGoContracts, onGoLineup, onGoT
   </div>;
 }
 
-function energyLevel(fatigue) {
+export function energyLevel(fatigue) {
   const energy = Math.round(100 - (fatigue ?? 0)); // energía = inverso del cansancio
   if (energy >= 80) return { energy, color: "#22c55e", emoji: "🟢", label: "Fresco" };
   if (energy >= 70) return { energy, color: "#22c55e", emoji: "🟢", label: "Bien" };
@@ -3546,9 +3575,45 @@ function energyLevel(fatigue) {
   return { energy, color: "#ef4444", emoji: "🔴", label: "Agotado" };
 }
 
-const slotPositionGroup = position => position === "POR" ? "POR" : ["DFC","LD","LI"].includes(position) ? "DEF" : ["MCD","MC","MCO","MD","MI"].includes(position) ? "MED" : "DEL";
+export const slotPositionGroup = position => position === "POR" ? "POR" : ["DFC","LD","LI"].includes(position) ? "DEF" : ["MCD","MC","MCO","MD","MI"].includes(position) ? "MED" : "DEL";
 
-function LineupScreen({ game, players, lineup, setLineup, formation, setFormation, subs, setSubs, savedLineups, onSaveLineups, onOpenPlayer }) {
+// ─── Formaciones y coordenadas de pizarra (compartido por LineupScreen móvil y PCLineupScreen) ──
+export const LINEUP_FORMATIONS = {
+  "4-3-3":   ["POR","LD","DFC","DFC","LI","MC","MCD","MC","ED","DC","EI"],
+  "4-4-2":   ["POR","LD","DFC","DFC","LI","MD","MC","MC","MI","DC","DC"],
+  "4-2-3-1": ["POR","LD","DFC","DFC","LI","MCD","MCD","MCO","ED","EI","DC"],
+  "3-5-2":   ["POR","DFC","DFC","DFC","MI","MC","MCD","MC","MD","DC","DC"],
+};
+
+export const LINEUP_PITCH_LAYOUT = {
+  "4-3-3": [
+    {slot:0, x:50,y:88},
+    {slot:1,x:82,y:70},{slot:2,x:63,y:72},{slot:3,x:37,y:72},{slot:4,x:18,y:70},
+    {slot:5,x:74,y:50},{slot:6,x:50,y:52},{slot:7,x:26,y:50},
+    {slot:8,x:78,y:25},{slot:9,x:50,y:22},{slot:10,x:22,y:25},
+  ],
+  "4-4-2": [
+    {slot:0,x:50,y:88},
+    {slot:1,x:82,y:70},{slot:2,x:63,y:72},{slot:3,x:37,y:72},{slot:4,x:18,y:70},
+    {slot:5,x:78,y:50},{slot:6,x:59,y:50},{slot:7,x:41,y:50},{slot:8,x:22,y:50},
+    {slot:9,x:65,y:24},{slot:10,x:35,y:24},
+  ],
+  "4-2-3-1": [
+    {slot:0, x:50,y:90},
+    {slot:1,x:84,y:73},{slot:2,x:63,y:76},{slot:3,x:37,y:76},{slot:4,x:16,y:73},
+    {slot:5,x:63,y:58},{slot:6,x:37,y:58},
+    {slot:7,x:80,y:36},{slot:8,x:50,y:38},{slot:9,x:20,y:36},
+    {slot:10,x:50,y:14},
+  ],
+  "3-5-2": [
+    {slot:0,x:50,y:88},
+    {slot:1,x:70,y:72},{slot:2,x:50,y:74},{slot:3,x:30,y:72},
+    {slot:4,x:82,y:52},{slot:5,x:64,y:52},{slot:6,x:50,y:50},{slot:7,x:36,y:52},{slot:8,x:18,y:52},
+    {slot:9,x:65,y:24},{slot:10,x:35,y:24},
+  ],
+};
+
+function LineupScreen({ game, players, lineup, setLineup, formation, setFormation, subs, setSubs, savedLineups, onSaveLineups, onOpenPlayer, isPC, onPlay }) {
   const [activeSlot, setActiveSlot] = useState(null); // null | {type:'starter',idx} | {type:'sub',idx}
   // subTarget: cuando pulsas un titular para sustituir rápido → {idx, player}
   const [subTarget, setSubTarget] = useState(null);
@@ -3562,40 +3627,9 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   const [confirmDeletePresetId, setConfirmDeletePresetId] = useState(null);
   const { feedback, showFeedback } = useFeedback();
 
-  const formations = {
-    "4-3-3":   ["POR","LD","DFC","DFC","LI","MC","MCD","MC","ED","DC","EI"],
-    "4-4-2":   ["POR","LD","DFC","DFC","LI","MD","MC","MC","MI","DC","DC"],
-    "4-2-3-1": ["POR","LD","DFC","DFC","LI","MCD","MCD","MCO","ED","EI","DC"],
-    "3-5-2":   ["POR","DFC","DFC","DFC","MI","MC","MCD","MC","MD","DC","DC"],
-  };
+  const formations = LINEUP_FORMATIONS;
 
-  const pitchLayout = {
-    "4-3-3": [
-      {slot:0, x:50,y:88},
-      {slot:1,x:82,y:70},{slot:2,x:63,y:72},{slot:3,x:37,y:72},{slot:4,x:18,y:70},
-      {slot:5,x:74,y:50},{slot:6,x:50,y:52},{slot:7,x:26,y:50},
-      {slot:8,x:78,y:25},{slot:9,x:50,y:22},{slot:10,x:22,y:25},
-    ],
-    "4-4-2": [
-      {slot:0,x:50,y:88},
-      {slot:1,x:82,y:70},{slot:2,x:63,y:72},{slot:3,x:37,y:72},{slot:4,x:18,y:70},
-      {slot:5,x:78,y:50},{slot:6,x:59,y:50},{slot:7,x:41,y:50},{slot:8,x:22,y:50},
-      {slot:9,x:65,y:24},{slot:10,x:35,y:24},
-    ],
-    "4-2-3-1": [
-      {slot:0, x:50,y:90},
-      {slot:1,x:84,y:73},{slot:2,x:63,y:76},{slot:3,x:37,y:76},{slot:4,x:16,y:73},
-      {slot:5,x:63,y:58},{slot:6,x:37,y:58},
-      {slot:7,x:80,y:36},{slot:8,x:50,y:38},{slot:9,x:20,y:36},
-      {slot:10,x:50,y:14},
-    ],
-    "3-5-2": [
-      {slot:0,x:50,y:88},
-      {slot:1,x:70,y:72},{slot:2,x:50,y:74},{slot:3,x:30,y:72},
-      {slot:4,x:82,y:52},{slot:5,x:64,y:52},{slot:6,x:50,y:50},{slot:7,x:36,y:52},{slot:8,x:18,y:52},
-      {slot:9,x:65,y:24},{slot:10,x:35,y:24},
-    ],
-  };
+  const pitchLayout = LINEUP_PITCH_LAYOUT;
 
   const posLayout = pitchLayout[formation] || pitchLayout["4-3-3"];
   const slotPositions = formations[formation];
@@ -3797,6 +3831,10 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
 
   // proposal: null | { type:'rotation'|'bestxi', newLineup, newSubs, changes }
   const [proposal, setProposal] = useState(null);
+
+  if (isPC) {
+    return <PCLineupScreen game={game} players={players} lineup={lineup} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={subs} setSubs={setSubs} savedLineups={savedLineups} onSaveLineups={onSaveLineups} onOpenPlayer={onOpenPlayer} onPlay={onPlay} />;
+  }
 
   const openRotationProposal = () => {
     const result = computeRecommendedRotation();
@@ -4315,7 +4353,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   );
 }
 
-function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
+function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen }) {
   const teamFixtures   = fixtures.filter(f => f.homeTeamId === teamId || f.awayTeamId === teamId);
   const nextUnplayed   = teamFixtures.find(f => !f.played);
   const [matchday, setMatchday] = useState(nextUnplayed?.matchday ?? 1);
@@ -4404,7 +4442,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
       <SwipeTabs tabs={["todos","mi_equipo"]} activeTab={tab} onChange={setTab} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}} contentStyle={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
       <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
         {tab==="todos" && myFixture && !myFixture.played && isNextMatchday && (
-          <button onClick={lineupValid?onPlay:undefined} className={lineupValid?"btn-gold":""}
+          <button onClick={lineupValid?onPlay:()=>setScreen("lineup")} className={lineupValid?"btn-gold":""}
             style={{ width:"100%", marginBottom:12, padding:"12px", borderRadius:9, fontSize:13, fontWeight:700, cursor:"pointer",
               ...(!lineupValid?{background:"#374151",color:"#9aa0b4",border:"1px solid rgba(255,255,255,.08)"}:{}) }}>
             {lineupValid ? `▶ Jugar Jornada ${matchday}` : `⚠️ Alineación incompleta (${lineup.filter(Boolean).length}/11)`}
@@ -4444,7 +4482,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players }) {
                 </div>
               </div>
               {isNext&&!f.played&&tab==="mi_equipo"&&(
-                <button onClick={lineupValid?onPlay:undefined} className={lineupValid?"btn-gold":""}
+                <button onClick={lineupValid?onPlay:()=>setScreen("lineup")} className={lineupValid?"btn-gold":""}
                   style={{ width:"100%", marginTop:9, padding:9, borderRadius:7, fontSize:13, fontWeight:700, cursor:"pointer",
                     ...(!lineupValid?{background:"#374151",color:"#9aa0b4",border:"1px solid rgba(255,255,255,.08)"}:{}) }}>
                   {lineupValid?"▶ Jugar este partido":"⚠️ Configura tu alineación primero"}
@@ -8075,9 +8113,9 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />}
           {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
           {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} isPC={isPC} />}
-          {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} />}
+          {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} isPC={isPC} onPlay={() => setScreen("match")} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
-          {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} />}
+          {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} setScreen={setScreen} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} />}
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
           {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
