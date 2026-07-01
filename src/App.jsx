@@ -2312,8 +2312,6 @@ const GLOBAL_CSS = `
         url('/assets/bg-office.jpg') center/cover fixed;
     }
 
-    .pc-topbar,
-    .pc-sidebar,
     .pc-main-col,
     .pc-right-panel {
       position: relative;
