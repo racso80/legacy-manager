@@ -3610,13 +3610,13 @@ export const LINEUP_PITCH_LAYOUT = {
     {slot:0, x:50,y:90},
     {slot:1,x:84,y:73},{slot:2,x:63,y:76},{slot:3,x:37,y:76},{slot:4,x:16,y:73},
     {slot:5,x:63,y:58},{slot:6,x:37,y:58},
-    {slot:7,x:80,y:36},{slot:8,x:50,y:38},{slot:9,x:20,y:36},
+    {slot:7,x:50,y:38},{slot:8,x:80,y:36},{slot:9,x:20,y:36},
     {slot:10,x:50,y:14},
   ],
   "3-5-2": [
     {slot:0,x:50,y:88},
     {slot:1,x:70,y:72},{slot:2,x:50,y:74},{slot:3,x:30,y:72},
-    {slot:4,x:82,y:52},{slot:5,x:64,y:52},{slot:6,x:50,y:50},{slot:7,x:36,y:52},{slot:8,x:18,y:52},
+    {slot:4,x:18,y:52},{slot:5,x:64,y:52},{slot:6,x:50,y:50},{slot:7,x:36,y:52},{slot:8,x:82,y:52},
     {slot:9,x:65,y:24},{slot:10,x:35,y:24},
   ],
 };
