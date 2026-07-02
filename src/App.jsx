@@ -710,7 +710,7 @@ const LIVE_FORMATION_OPTIONS = Object.keys(MATCH_FORMATIONS);
 export const LIVE_PITCH_LAYOUTS = {
   "4-3-3": [
     {slot:0,x:50,y:88},{slot:1,x:82,y:70},{slot:2,x:63,y:72},{slot:3,x:37,y:72},{slot:4,x:18,y:70},
-    {slot:5,x:74,y:50},{slot:6,x:50,y:52},{slot:7,x:26,y:50},{slot:8,x:78,y:25},{slot:9,x:50,y:22},{slot:10,x:22,y:25},
+    {slot:5,x:50,y:58},{slot:6,x:50,y:52},{slot:7,x:50,y:42},{slot:8,x:78,y:25},{slot:9,x:50,y:22},{slot:10,x:22,y:25},
   ],
   "4-4-2": [
     {slot:0,x:50,y:88},{slot:1,x:82,y:70},{slot:2,x:63,y:72},{slot:3,x:37,y:72},{slot:4,x:18,y:70},
@@ -718,7 +718,7 @@ export const LIVE_PITCH_LAYOUTS = {
   ],
   "4-2-3-1": [
     {slot:0,x:50,y:90},{slot:1,x:84,y:73},{slot:2,x:63,y:76},{slot:3,x:37,y:76},{slot:4,x:16,y:73},
-    {slot:5,x:63,y:58},{slot:6,x:37,y:58},{slot:7,x:80,y:36},{slot:8,x:50,y:38},{slot:9,x:20,y:36},{slot:10,x:50,y:14},
+    {slot:5,x:63,y:58},{slot:6,x:37,y:58},{slot:7,x:50,y:38},{slot:8,x:80,y:36},{slot:9,x:20,y:36},{slot:10,x:50,y:14},
   ],
   "4-5-1": [
     {slot:0,x:50,y:90},{slot:1,x:84,y:73},{slot:2,x:63,y:76},{slot:3,x:37,y:76},{slot:4,x:16,y:73},
