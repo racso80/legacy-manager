@@ -3633,6 +3633,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   const [presetIcon, setPresetIcon] = useState("🏠");
   const [lineupNotice, setLineupNotice] = useState(null);
   const [confirmDeletePresetId, setConfirmDeletePresetId] = useState(null);
+  const [confirmClearLineup, setConfirmClearLineup] = useState(false);
   const { feedback, showFeedback } = useFeedback();
 
   const formations = LINEUP_FORMATIONS;
@@ -3707,45 +3708,97 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
     setActiveSlot(null);
   };
 
-  // ── 4 + 5. Intercambio automático + menú de sustitución rápida ──
-  // Sustituto entra al once, titular sale directo al banquillo (sin huecos)
-  const swapWithSub = (incomingPlayer) => {
+  // ── 4 + 5. Gestión de un titular: quitar del once, o intercambiar con otro titular / banquillo / no convocado ──
+  const sortCandidates = (list, posLabel) => [...list].sort((a, b) => {
+    const aSamePos = a.pos === posLabel ? 1 : 0;
+    const bSamePos = b.pos === posLabel ? 1 : 0;
+    if (aSamePos !== bSamePos) return bSamePos - aSamePos;
+    const aEnergy = energyLevel(a.fatigue).energy;
+    const bEnergy = energyLevel(b.fatigue).energy;
+    if (Math.abs(aEnergy - bEnergy) > 10) return bEnergy - aEnergy;
+    return b.overall - a.overall;
+  });
+
+  // Otros titulares con los que se puede intercambiar posición en el campo
+  const getStarterCandidates = () => {
+    if (!subTarget) return [];
+    const posLabel = slotPositions[subTarget.idx];
+    const others = lineup
+      .map((id, idx) => ({ id, idx }))
+      .filter(({ id, idx }) => id && idx !== subTarget.idx)
+      .map(({ id }) => players.find(p => p.id === id))
+      .filter(Boolean);
+    return sortCandidates(others, posLabel);
+  };
+  const getBenchCandidates = () => {
+    if (!subTarget) return [];
+    const posLabel = slotPositions[subTarget.idx];
+    const pool = subs.filter(Boolean).map(id => players.find(p => p.id === id)).filter(p => p && !p.injured && !p.suspended);
+    return sortCandidates(pool, posLabel);
+  };
+  const getNotCalledCandidates = () => {
+    if (!subTarget) return [];
+    return sortCandidates(notCalled, slotPositions[subTarget.idx]);
+  };
+
+  // Quita al titular del once: la plaza queda vacía y el jugador pasa a "no convocados"
+  const removeStarter = () => {
+    if (!subTarget) return;
+    const newLineup = [...lineup];
+    newLineup[subTarget.idx] = null;
+    setLineup(newLineup);
+    setSubTarget(null);
+  };
+
+  // Intercambia posición en el campo con otro titular — no toca el banquillo
+  const swapStarters = (otherIdx) => {
+    if (!subTarget) return;
+    const newLineup = [...lineup];
+    const tmp = newLineup[subTarget.idx];
+    newLineup[subTarget.idx] = newLineup[otherIdx];
+    newLineup[otherIdx] = tmp;
+    setLineup(newLineup);
+    setSubTarget(null);
+  };
+
+  // Sustituto del banquillo entra al once, titular sale directo al hueco del banquillo
+  const swapWithBench = (incomingPlayer) => {
     if (!subTarget) return;
     const { idx, player: outgoing } = subTarget;
     const newLineup = [...lineup];
     newLineup[idx] = incomingPlayer.id;
     setLineup(newLineup);
-
     const newSubs = [...subs];
-    // Si el que entra estaba en el banquillo, su hueco lo ocupa quien sale
     const benchIdx = newSubs.indexOf(incomingPlayer.id);
-    if (benchIdx !== -1) {
-      newSubs[benchIdx] = outgoing.id;
-    } else {
-      // Si no estaba en banquillo (era no convocado), buscar primer hueco libre
-      const emptyIdx = newSubs.indexOf(null);
-      if (emptyIdx !== -1) newSubs[emptyIdx] = outgoing.id;
-    }
+    if (benchIdx !== -1) newSubs[benchIdx] = outgoing.id;
     setSubs(newSubs);
     setSubTarget(null);
   };
 
-  // Candidatos de sustitución ordenados: misma posición → mejor energía → mejor media
-  const getSubCandidates = () => {
-    if (!subTarget) return [];
-    const posLabel = slotPositions[subTarget.idx];
-    const pool = [...subs.filter(Boolean).map(id => players.find(p => p.id === id)), ...notCalled].filter(Boolean);
-    return pool
-      .filter(p => !p.injured && !p.suspended)
-      .sort((a, b) => {
-        const aSamePos = a.pos === posLabel ? 1 : 0;
-        const bSamePos = b.pos === posLabel ? 1 : 0;
-        if (aSamePos !== bSamePos) return bSamePos - aSamePos;
-        const aEnergy = energyLevel(a.fatigue).energy;
-        const bEnergy = energyLevel(b.fatigue).energy;
-        if (Math.abs(aEnergy - bEnergy) > 10) return bEnergy - aEnergy;
-        return b.overall - a.overall;
-      });
+  // No convocado entra al once, titular pasa a "no convocados" (no ocupa banquillo)
+  const swapWithNotCalled = (incomingPlayer) => {
+    if (!subTarget) return;
+    const newLineup = [...lineup];
+    newLineup[subTarget.idx] = incomingPlayer.id;
+    setLineup(newLineup);
+    setSubTarget(null);
+  };
+
+  const renderCandidateRow = (p, onClick) => {
+    const eng = energyLevel(p.fatigue);
+    const samePos = p.pos === slotPositions[subTarget.idx];
+    return (
+      <div key={p.id} onClick={onClick}
+        style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 9px", marginBottom:5, background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:7, cursor:"pointer", flexShrink:0 }}>
+        <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={5}/>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
+          <div style={{ fontSize:9, color:"#6b7280" }}>{p.pos}{samePos?" · misma posición":""}</div>
+        </div>
+        <span style={{ fontSize:11, fontWeight:700, color:eng.color }}>{eng.emoji}{eng.energy}</span>
+        <span style={{ fontSize:13, fontWeight:700, color:RARITY_ACCENT[p.rarity] }}>{p.overall}</span>
+      </div>
+    );
   };
 
   // ── 6. Recomendaciones de descanso ──
@@ -4025,7 +4078,25 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
             style={{ background:"rgba(34,197,94,.1)", border:"1px solid rgba(34,197,94,.25)", color:"#22c55e", padding:"7px 10px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
             💾 Guardar actual
           </button>
+          <button onClick={() => setConfirmClearLineup(true)}
+            style={{ background:"transparent", border:"1px solid rgba(239,68,68,.25)", color:"rgba(239,68,68,.85)", padding:"7px 10px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+            🗑 Borrar alineación
+          </button>
         </div>
+
+        {confirmClearLineup && (
+          <div style={{ margin:"0 12px 8px", display:"flex", alignItems:"center", gap:8, background:"rgba(239,68,68,.08)", border:"1px solid rgba(239,68,68,.25)", borderRadius:8, padding:"8px 10px" }}>
+            <div style={{ flex:1, fontSize:11, color:"#ef4444", lineHeight:1.3 }}>¿Borrar toda la alineación?</div>
+            <button onClick={() => { setLineup(emptyLineup()); setSubs(emptyBench()); setActiveSlot(null); setSubTarget(null); setProposal(null); setConfirmClearLineup(false); showFeedback("Alineación borrada.", "warning"); }}
+              style={{ background:"rgba(239,68,68,.15)", border:"1px solid rgba(239,68,68,.3)", color:"#ef4444", padding:"6px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer" }}>
+              Confirmar
+            </button>
+            <button onClick={() => setConfirmClearLineup(false)}
+              style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", color:"#9aa0b4", padding:"6px 12px", borderRadius:6, fontSize:11, cursor:"pointer" }}>
+              Cancelar
+            </button>
+          </div>
+        )}
 
         {feedback && <div style={{ margin:"0 12px 8px" }}><FeedbackBanner feedback={feedback} style={{ marginBottom:0 }} /></div>}
 
@@ -4166,38 +4237,41 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
             })}
           </div>
 
-          {/* ── 5. Menú de sustitución rápida (al pulsar titular) ── */}
+          {/* ── 5. Panel de gestión del titular (al pulsar titular): quitar o intercambiar ── */}
           {subTarget && (
-            <div style={{ background:"#1a1f2e", borderBottom:"1px solid rgba(201,168,76,.25)", padding:"10px 12px", flexShrink:0, display:"flex", flexDirection:"column", maxHeight:"40vh" }}>
+            <div style={{ background:"#1a1f2e", borderBottom:"1px solid rgba(201,168,76,.25)", padding:"10px 12px", flexShrink:0, display:"flex", flexDirection:"column", maxHeight:"48vh" }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, flexShrink:0 }}>
                 <div style={{ fontSize:11, color:"#9aa0b4" }}>
-                  Sustituir a <strong style={{ color:"#e8eaf0" }}>{subTarget.player.name}</strong>
+                  Gestionar a <strong style={{ color:"#e8eaf0" }}>{subTarget.player.name}</strong>
                   <span style={{ marginLeft:6, fontWeight:700, color: energyLevel(subTarget.player.fatigue).color }}>
                     {energyLevel(subTarget.player.fatigue).emoji}{energyLevel(subTarget.player.fatigue).energy}
                   </span>
                 </div>
                 <button onClick={() => setSubTarget(null)} style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#9aa0b4", padding:"4px 9px", borderRadius:6, fontSize:11, cursor:"pointer" }}>✕</button>
               </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:5, overflowY:"auto", paddingRight:2 }}>
-                {getSubCandidates().length === 0 && (
-                  <div style={{ fontSize:11, color:"#4b5563", textAlign:"center", padding:"8px 0" }}>No hay sustitutos disponibles</div>
+              <div style={{ overflowY:"auto", paddingRight:2 }}>
+                <button onClick={removeStarter}
+                  style={{ display:"flex", alignItems:"center", justifyContent:"center", width:"100%", gap:6, padding:"8px 9px", marginBottom:10, background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.3)", borderRadius:7, color:"#ef4444", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                  ❌ Quitar del once
+                </button>
+
+                <div style={{ fontSize:9, fontWeight:800, color:"#22c55e", letterSpacing:".4px", marginBottom:5 }}>TITULARES</div>
+                {getStarterCandidates().length === 0 && (
+                  <div style={{ fontSize:10, color:"#4b5563", padding:"4px 0 8px" }}>No hay otros titulares</div>
                 )}
-                {getSubCandidates().map(p => {
-                  const eng = energyLevel(p.fatigue);
-                  const samePos = p.pos === slotPositions[subTarget.idx];
-                  return (
-                    <div key={p.id} onClick={() => swapWithSub(p)}
-                      style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 9px", background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:7, cursor:"pointer", flexShrink:0 }}>
-                      <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={5}/>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:11, fontWeight:600, color:"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
-                        <div style={{ fontSize:9, color:"#6b7280" }}>{p.pos}{samePos?" · misma posición":""}</div>
-                      </div>
-                      <span style={{ fontSize:11, fontWeight:700, color:eng.color }}>{eng.emoji}{eng.energy}</span>
-                      <span style={{ fontSize:13, fontWeight:700, color:RARITY_ACCENT[p.rarity] }}>{p.overall}</span>
-                    </div>
-                  );
-                })}
+                {getStarterCandidates().map(p => renderCandidateRow(p, () => swapStarters(lineup.indexOf(p.id))))}
+
+                <div style={{ fontSize:9, fontWeight:800, color:"#fbbf24", letterSpacing:".4px", margin:"10px 0 5px" }}>BANQUILLO</div>
+                {getBenchCandidates().length === 0 && (
+                  <div style={{ fontSize:10, color:"#4b5563", padding:"4px 0 8px" }}>No hay suplentes disponibles</div>
+                )}
+                {getBenchCandidates().map(p => renderCandidateRow(p, () => swapWithBench(p)))}
+
+                <div style={{ fontSize:9, fontWeight:800, color:"#9aa0b4", letterSpacing:".4px", margin:"10px 0 5px" }}>NO CONVOCADOS</div>
+                {getNotCalledCandidates().length === 0 && (
+                  <div style={{ fontSize:10, color:"#4b5563", padding:"4px 0" }}>No hay jugadores no convocados</div>
+                )}
+                {getNotCalledCandidates().map(p => renderCandidateRow(p, () => swapWithNotCalled(p)))}
               </div>
             </div>
           )}
