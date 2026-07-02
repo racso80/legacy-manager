@@ -2403,6 +2403,8 @@ const GLOBAL_CSS = `
 
     /* ─── PC live match screen (pantalla completa, sin sidebar) ─────────── */
     .pc-match-root { position: relative; height: calc(100vh - 76px); display: flex; flex-direction: column; overflow: hidden; }
+    .pc-match-root ::-webkit-scrollbar { display: none; }
+    .pc-match-root { scrollbar-width: none; }
 
     .pc-match-topbar { flex-shrink: 0; background: #13161e; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; padding: 10px 14px; margin-bottom: 10px; }
     .pc-match-topbar-main { display: flex; align-items: center; gap: 14px; }

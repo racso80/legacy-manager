@@ -250,7 +250,7 @@ export default function PCMatchScreen({
               </div>
             )}
 
-            <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} viewBox="0 0 160 100" preserveAspectRatio="none">
+            <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} viewBox="0 0 160 100" preserveAspectRatio="xMidYMid meet">
               <rect x="2" y="2" width="156" height="96" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth=".6" />
               <line x1="80" y1="2" x2="80" y2="98" stroke="rgba(255,255,255,.12)" strokeWidth=".6" />
               <circle cx="80" cy="50" r="9" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth=".6" />
