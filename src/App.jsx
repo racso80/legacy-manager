@@ -33,6 +33,7 @@ import PCRightPanel from "./components/pc/PCRightPanel.jsx";
 import PCDashboardContent from "./components/pc/PCDashboardContent.jsx";
 import PCSquadScreen from "./components/pc/PCSquadScreen.jsx";
 import PCLineupScreen from "./components/pc/PCLineupScreen.jsx";
+import PCMatchScreen from "./components/pc/PCMatchScreen.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
 import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle, lifecycleNews, processBirthdays } from "./players/lifecycle.js";
@@ -2392,6 +2393,13 @@ const GLOBAL_CSS = `
 
     .pc-lineup-right { flex: 0 0 280px; height: 100%; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
     .pc-lineup-right-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+
+    /* ─── PC live match screen ─────────────────────────────────────────── */
+    .pc-match-layout { position: relative; display: flex; gap: 16px; align-items: flex-start; width: 100%; height: calc(100vh - 76px); }
+    .pc-match-left { flex: 0 0 320px; height: 100%; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .pc-match-center { flex: 1; height: 100%; display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow-y: auto; }
+    .pc-match-right { flex: 0 0 300px; height: 100%; display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow-y: auto; }
+    .pc-match-feed-scroll { display: flex; flex-direction: column; overflow: hidden; }
 
     .pc-shell {
       background:
@@ -4904,7 +4912,7 @@ function TacticsScreen({ tactics, setTactics }) {
   );
 }
 
-function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[],side,eventTeam,currentMinute=0}){
+export function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[],side,eventTeam,currentMinute=0}){
   const relatedEvents=events.filter(event=>event.team===side||event.team===eventTeam);
   const participantIds=[...new Set([...playerIds,...relatedEvents.flatMap(event=>[event.playerId,event.outPlayerId]).filter(Boolean)])];
   const rank={POR:0,LD:1,DFC:2,LI:3,MCD:4,MC:5,MCO:6,MD:7,MI:8,ED:9,EI:10,DC:11};
@@ -4989,7 +4997,7 @@ function getRecoverableMatchForGame(game) {
   return session.saveId === game.id || session.teamId === game.teamId ? session : null;
 }
 
-function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTactics, lineup: baseLineup, setLineup: setBaseLineup, subs: baseSubs, setSubs: setBaseSubs, formation:baseFormation="4-3-3", onMatchEnd, onAbandonMatch }) {
+function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTactics, lineup: baseLineup, setLineup: setBaseLineup, subs: baseSubs, setSubs: setBaseSubs, formation:baseFormation="4-3-3", onMatchEnd, onAbandonMatch, isPC }) {
   const initialFixture=game.fixtures.find(f=>!f.played&&(f.homeTeamId===game.teamId||f.awayTeamId===game.teamId));
   const initialOppId=initialFixture?(initialFixture.homeTeamId===game.teamId?initialFixture.awayTeamId:initialFixture.homeTeamId):null;
   const initialOppFormation=chooseOpponentFormation(initialOppId??"");
@@ -5567,6 +5575,31 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
   const leftIsUser  = isHome;    // usuario es local → resaltado a la izquierda
   const rightIsUser = !isHome;   // usuario es visitante → resaltado a la derecha
 
+  if (isPC) {
+    return (
+      <PCMatchScreen
+        fixture={fixture} finished={finished} currentMinute={currentMinute} displayMinute={displayMinute}
+        matchPhase={matchPhase} pauseEvent={pauseEvent} segment={segment} segments={segments}
+        periodProgress={periodProgress} halfLabel={halfLabel} addedTime={addedTime} possession={possession}
+        isHome={isHome} leftTeam={leftTeam} rightTeam={rightTeam} leftGoals={leftGoals} rightGoals={rightGoals}
+        leftIsUser={leftIsUser} rightIsUser={rightIsUser} avgFatigue={avgFatigue} fatColor={fatColor}
+        tactics={tactics} setTactics={setTactics} activeUserCount={activeUserCount} oppLineup={oppLineup}
+        oppSentOffIds={oppSentOffIds} matchAutosaveAt={matchAutosaveAt} events={events} eventColors={eventColors}
+        eventLabels={eventLabels} liveStats={liveStats} liveMood={liveMatchState.mood} visibleLiveSignals={visibleLiveSignals}
+        keyEventBanner={keyEventBanner} setKeyEventBanner={setKeyEventBanner} pendingInjury={pendingInjury}
+        setPendingInjury={setPendingInjury} liveDecision={liveDecision} setLiveDecision={setLiveDecision}
+        acknowledgeLiveDecision={acknowledgeLiveDecision} openTacticalBoard={openTacticalBoard}
+        matchFormation={matchFormation} applyMatchFormation={applyMatchFormation} lineup={lineup} subs={subs}
+        livePlayer={livePlayer} selectedFormationSlot={selectedFormationSlot} setSelectedFormationSlot={setSelectedFormationSlot}
+        swapFormationSlots={swapFormationSlots} doSubstitution={doSubstitution} subsUsed={subsUsed} maxSubs={MAX_SUBS}
+        subbingSlot={subbingSlot} setSubbingSlot={setSubbingSlot} sentOffIds={sentOffIds} subbedOutIds={subbedOutIds}
+        playing={playing} setPlaying={setPlaying} togglePlay={togglePlay} manualAdvance={manualAdvance}
+        abandonMatch={abandonMatch} endMatch={endMatch} tacticalBoardOpen={tacticalBoardOpen} closeTacticalBoard={closeTacticalBoard}
+        userTeam={userTeam} oppTeam={oppTeam} oppFormation={oppFormation} liveOppPlayers={liveOppPlayers}
+      />
+    );
+  }
+
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Marcador */}
@@ -5919,7 +5952,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
 }
 
 // Mini vista de tácticas dentro del partido (sin setTactics — sólo lectura)
-function TacticalBoardOverlay({ minute, formation, lineup = [], subs = [], players = [], events = [], sentOffIds = [], selectedSlot = null, setSelectedSlot = () => {}, onFormationChange = () => {}, onSwapSlots = () => {}, onSubstituteSlot = () => {}, onClose = () => {}, liveDecision = null, subsLeft = 0 }) {
+export function TacticalBoardOverlay({ minute, formation, lineup = [], subs = [], players = [], events = [], sentOffIds = [], selectedSlot = null, setSelectedSlot = () => {}, onFormationChange = () => {}, onSwapSlots = () => {}, onSubstituteSlot = () => {}, onClose = () => {}, liveDecision = null, subsLeft = 0 }) {
   const slots = MATCH_FORMATIONS[formation] ?? MATCH_FORMATIONS["4-3-3"];
   const layout = LIVE_PITCH_LAYOUTS[formation] ?? LIVE_PITCH_LAYOUTS["4-3-3"];
   const selectedPosition = selectedSlot != null ? slots[selectedSlot] : null;
@@ -6035,7 +6068,7 @@ function TacticalBoardOverlay({ minute, formation, lineup = [], subs = [], playe
   );
 }
 
-function TacticsInMatch({ tactics, setTactics, formation, onFormationChange, lineup = [], subs = [], players = [], selectedSlot = null, setSelectedSlot = () => {}, onSwapSlots = () => {}, onSubstituteSlot = () => {} }) {
+export function TacticsInMatch({ tactics, setTactics, formation, onFormationChange, lineup = [], subs = [], players = [], selectedSlot = null, setSelectedSlot = () => {}, onSwapSlots = () => {}, onSubstituteSlot = () => {} }) {
   const fields = [
     ["mentalidad", "Mentalidad", [["defensiva","Defensiva"],["equilibrada","Equilibrada"],["ofensiva","Ofensiva"]]],
     ["presion",    "Presión",    [["baja","Baja"],["media","Media"],["alta","Alta"]]],
@@ -8138,7 +8171,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} players={selectedPlayerList} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} onNavigatePlayer={navigateToPlayerInList} />}
           {screen === "conversation" && game && <ConversationScreen conversation={selectedConversation} onRespond={handleConversationResponse} onBack={goBack} />}
           {screen === "scene" && game && <InteractiveSceneScreen scene={selectedScene} onChoose={handleSceneDecision} onBack={goBack} />}
-          {screen === "match"     && game && <MatchScreen game={game} saveId={activeSaveId} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} onAbandonMatch={()=>{setRecoverableMatch(null);setScreen("dashboard");}} />}
+          {screen === "match"     && game && <MatchScreen game={game} saveId={activeSaveId} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} onAbandonMatch={()=>{setRecoverableMatch(null);setScreen("dashboard");}} isPC={isPC} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
           {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"preseason-start",{lineup,formation,subs});return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}
