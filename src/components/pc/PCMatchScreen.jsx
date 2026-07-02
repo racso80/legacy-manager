@@ -1,202 +1,321 @@
 import { useState } from "react";
 import TeamCrest from "../TeamCrest.jsx";
-import { Initials, LiveLineupPanel, TacticsInMatch, TacticalBoardOverlay } from "../../App.jsx";
+import { Initials, LiveLineupPanel, TacticsInMatch, TacticalBoardOverlay, LIVE_PITCH_LAYOUTS, RARITY_ACCENT } from "../../App.jsx";
+import { MATCH_FORMATIONS } from "../../match/matchFlow.js";
+
+const PITCH_Y_MIN = 12;
+const PITCH_Y_MAX = 90;
+// Ambos equipos comparten el mismo campo: el usuario defiende abajo (y 52-98), el rival arriba (y 2-48).
+const remapY = (y, isUserSide) => {
+  const t = Math.max(0, Math.min(1, (y - PITCH_Y_MIN) / (PITCH_Y_MAX - PITCH_Y_MIN)));
+  return isUserSide ? 52 + t * 46 : 48 - t * 46;
+};
 
 export default function PCMatchScreen({
   fixture, finished, currentMinute, displayMinute, matchPhase, pauseEvent, segment, segments,
-  periodProgress, halfLabel, addedTime, possession, isHome, leftTeam, rightTeam, leftGoals, rightGoals,
+  halfLabel, addedTime, possession, isHome, leftTeam, rightTeam, leftGoals, rightGoals,
   leftIsUser, rightIsUser, avgFatigue, fatColor, tactics, setTactics, activeUserCount, oppLineup,
   oppSentOffIds, matchAutosaveAt, events, eventColors, eventLabels, liveStats, visibleLiveSignals,
   keyEventBanner, pendingInjury, setPendingInjury, liveDecision, setLiveDecision, acknowledgeLiveDecision,
   openTacticalBoard, matchFormation, applyMatchFormation, lineup, subs, livePlayer, selectedFormationSlot,
   setSelectedFormationSlot, swapFormationSlots, doSubstitution, subsUsed, maxSubs, subbingSlot, setSubbingSlot,
   sentOffIds, subbedOutIds, playing, setPlaying, togglePlay, manualAdvance, abandonMatch, endMatch,
-  tacticalBoardOpen, closeTacticalBoard, userTeam, oppTeam, oppFormation, liveOppPlayers,
+  tacticalBoardOpen, closeTacticalBoard, oppTeam, oppFormation, liveOppPlayers,
 }) {
   const [oppExpanded, setOppExpanded] = useState(false);
+  const [activeOverlay, setActiveOverlay] = useState(null); // null | "cambios" | "tacticas"
 
-  const userGoals = leftIsUser ? leftGoals : rightGoals;
-  const opponentGoals = leftIsUser ? rightGoals : leftGoals;
-  const isDraw = userGoals === opponentGoals;
-  const userWon = userGoals > opponentGoals;
-
-  const openSignal = (signal) => {
-    setPlaying(false);
-    setLiveDecision(signal);
+  const computeRating = (playerId) => {
+    if (currentMinute <= 0) return null;
+    const own = events.filter(e => e.playerId === playerId || e.assistId === playerId);
+    const goals = own.filter(e => (e.type === "GOAL" || e.type === "PENALTY") && e.playerId === playerId).length;
+    const assists = own.filter(e => e.assistId === playerId).length;
+    const yellows = own.filter(e => e.type === "YELLOW" && e.playerId === playerId).length;
+    const isRed = sentOffIds.includes(playerId);
+    const saves = own.filter(e => e.type === "SAVE" && e.playerId === playerId).length;
+    const defActions = own.filter(e => e.type === "DEFENSIVE_ACTION" && e.playerId === playerId).length;
+    const rating = Math.max(4, Math.min(10, 6 + goals * 1.25 + assists * .7 + saves * .18 + defActions * .14 - yellows * .2 - (isRed ? 1.5 : 0)));
+    return rating.toFixed(1);
   };
 
+  const openCambios = () => { setSubbingSlot(null); setActiveOverlay(v => v === "cambios" ? null : "cambios"); };
+  const openTacticas = () => setActiveOverlay(v => v === "tacticas" ? null : "tacticas");
+  const confirmSubstitution = (outId, inId) => { doSubstitution(outId, inId); setActiveOverlay(null); };
+
+  const userLayout = LIVE_PITCH_LAYOUTS[matchFormation] ?? LIVE_PITCH_LAYOUTS["4-3-3"];
+  const oppLayout = LIVE_PITCH_LAYOUTS[oppFormation] ?? LIVE_PITCH_LAYOUTS["4-3-3"];
+
+  const signalsBlock = (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 9, fontWeight: 900, color: "#60a5fa", letterSpacing: ".5px", margin: "10px 0 8px" }}>SEÑALES DEL CUERPO TÉCNICO</div>
+      {visibleLiveSignals.length === 0 ? (
+        <div style={{ fontSize: 10, color: "#4b5563", lineHeight: 1.5 }}>Sin avisos por ahora.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {visibleLiveSignals.map(signal => (
+            <button key={signal.key} onClick={() => { setPlaying(false); setLiveDecision(signal); }}
+              style={{ display: "block", width: "100%", textAlign: "left", background: signal.severity === "urgent" ? "rgba(239,68,68,.12)" : "rgba(96,165,250,.1)", border: `1px solid ${signal.severity === "urgent" ? "rgba(239,68,68,.3)" : "rgba(96,165,250,.25)"}`, borderRadius: 8, padding: "8px 9px", cursor: "pointer" }}>
+              <div style={{ fontSize: 9, color: signal.severity === "urgent" ? "#ef4444" : "#60a5fa", fontWeight: 900 }}>{signal.source === "doctor" ? "Médico" : "Segundo entrenador"} · {signal.action}</div>
+              <div style={{ fontSize: 10, color: "#e8eaf0", marginTop: 2 }}>{signal.title}</div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const eventsBlock = (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {events.length === 0 && !finished && (
+        <div style={{ textAlign: "center", color: "#6b7280", fontSize: 12, marginTop: 10, lineHeight: 1.6 }}>
+          Configura tus tácticas y pulsa "Play" para comenzar
+        </div>
+      )}
+      {[...events].reverse().map((e, i) => {
+        const color = eventColors[e.type] ?? "#6b7280";
+        const isGoal = e.type === "GOAL" || e.type === "PENALTY";
+        return (
+          <div key={i} className={isGoal ? "goal-event" : ""}
+            style={{ background: "#0d0f14", borderRadius: 8, padding: "8px 10px", display: "flex", alignItems: "center", gap: 8, borderLeft: `3px solid ${color}` }}>
+            <div style={{ fontSize: 11, color: "#6b7280", minWidth: 24, fontWeight: 700 }}>{e.minute}'</div>
+            <div style={{ background: `${color}22`, color, fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, minWidth: 54, textAlign: "center" }}>{e.secondYellow ? "DOBLE 🟨" : eventLabels[e.type] ?? e.type}</div>
+            <div style={{ fontSize: 11, color: "#e8eaf0", flex: 1, lineHeight: 1.35 }}>{e.description}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const rivalBlock = (
+    <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+      <button onClick={() => setOppExpanded(v => !v)}
+        style={{ width: "100%", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.08)", color: "#9aa0b4", padding: "7px 9px", borderRadius: 7, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+        {oppExpanded ? "▾" : "▸"} RIVAL{oppTeam?.short ? ` · ${oppTeam.short}` : ""}
+      </button>
+      {oppExpanded && (
+        <div style={{ marginTop: 8 }}>
+          <LiveLineupPanel team={oppTeam} formation={oppFormation} playerIds={oppLineup.filter(Boolean)} players={liveOppPlayers} events={events} sentOffIds={oppSentOffIds} side="opp" eventTeam={isHome ? "away" : "home"} currentMinute={currentMinute} />
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div className="pc-match-layout">
-      {/* ── LEFT: marcador + estadisticas + eventos ── */}
-      <div className="pc-match-left">
-        <div className="pc-panel-card">
-          <div style={{ fontSize: 11, color: "#c9a84c", fontWeight: 900, letterSpacing: ".5px", marginBottom: 8, textAlign: "center" }}>
-            J{fixture.matchday} · {finished ? "FINALIZADO" : currentMinute === 0 ? "INICIO" : matchPhase === "halftime" ? "DESCANSO" : `MIN ${displayMinute}'${pauseEvent ? " · DETENIDO" : ""}`}
+    <div className="pc-match-root">
+      {/* ── TOP BAR ── */}
+      <div className="pc-match-topbar">
+        <div className="pc-match-topbar-main">
+          <div className="pc-match-topbar-team">
+            <TeamCrest team={leftTeam} size={34} />
+            <span className="pc-match-topbar-teamname" style={{ color: leftIsUser ? "#c9a84c" : "#e8eaf0" }}>{leftTeam?.short}</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <TeamCrest team={leftTeam} size={48} style={{ margin: "0 auto 6px" }} />
-              <div style={{ fontSize: 13, fontWeight: 800, color: leftIsUser ? "#c9a84c" : "#e8eaf0" }}>{leftTeam?.short}</div>
-              <div style={{ fontSize: 9, color: "#6b7280" }}>🏠 Local{leftIsUser ? " ★" : ""}</div>
-            </div>
-            <div style={{ background: "#0d0f14", padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(201,168,76,.25)" }}>
-              <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: 3, color: "#e8eaf0" }}>{leftGoals} - {rightGoals}</div>
-            </div>
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <TeamCrest team={rightTeam} size={48} style={{ margin: "0 auto 6px" }} />
-              <div style={{ fontSize: 13, fontWeight: 800, color: rightIsUser ? "#c9a84c" : "#e8eaf0" }}>{rightTeam?.short}</div>
-              <div style={{ fontSize: 9, color: "#6b7280" }}>✈️ Visitante{rightIsUser ? " ★" : ""}</div>
+          <div className="pc-match-topbar-score">{leftGoals} - {rightGoals}</div>
+          <div className="pc-match-topbar-team" style={{ flexDirection: "row-reverse", textAlign: "right" }}>
+            <TeamCrest team={rightTeam} size={34} />
+            <span className="pc-match-topbar-teamname" style={{ color: rightIsUser ? "#c9a84c" : "#e8eaf0" }}>{rightTeam?.short}</span>
+          </div>
+          <div className="pc-match-topbar-clock">
+            <div className="pc-match-topbar-minute">{finished ? "FIN" : currentMinute === 0 ? "INICIO" : matchPhase === "halftime" ? "DESCANSO" : `${displayMinute}'`}</div>
+            <div className="pc-match-topbar-phase">
+              J{fixture.matchday} · {matchPhase.startsWith("first") || matchPhase === "halftime" ? "1ª parte" : "2ª parte"}
+              {matchPhase.includes("Added") ? ` · +${halfLabel === "first" ? addedTime.first ?? 0 : addedTime.second ?? 0}` : ""}
+              {pauseEvent ? " · DETENIDO" : ""}
             </div>
           </div>
+          <div className="pc-match-topbar-controls">
+            <button onClick={togglePlay} className={playing ? "btn-ghost" : "btn-gold"} disabled={!!pendingInjury}
+              style={{ padding: "9px 14px", borderRadius: 8, fontSize: 13, cursor: pendingInjury ? "not-allowed" : "pointer", opacity: pendingInjury ? .6 : 1 }}>
+              {playing ? "⏸ Pausa" : "▶ Play"}
+            </button>
+            <button onClick={manualAdvance} className="btn-ghost" style={{ padding: "9px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer" }}>⏭ Avance manual</button>
+          </div>
+        </div>
+        <div className="pc-match-topbar-meta">
+          <div className="pc-match-segment-bar">
+            {segments.map((_, i) => <div key={i} style={{ height: 4, flex: 1, borderRadius: 2, background: i < segment ? "#c9a84c" : "#1e2330" }} />)}
+          </div>
+          <div className="pc-match-possession-bar">
+            <div style={{ height: 5, background: "#1e2330", borderRadius: 3, overflow: "hidden", display: "flex" }}>
+              <div style={{ width: `${isHome ? possession : 100 - possession}%`, height: "100%", background: leftIsUser ? "linear-gradient(90deg,#8a7330,#c9a84c)" : "linear-gradient(90deg,#4b5563,#6b7280)" }} />
+              <div style={{ width: `${isHome ? 100 - possession : possession}%`, height: "100%", background: rightIsUser ? "linear-gradient(90deg,#c9a84c,#8a7330)" : "linear-gradient(90deg,#6b7280,#4b5563)" }} />
+            </div>
+          </div>
+          <div className="pc-match-topbar-tags">
+            <span>💪 <strong style={{ color: fatColor }}>{avgFatigue}</strong></span>
+            <span>🎯 <strong style={{ color: tactics.mentalidad === "ofensiva" ? "#ef4444" : tactics.mentalidad === "defensiva" ? "#3b82f6" : "#c9a84c" }}>{tactics.mentalidad.toUpperCase()}</strong></span>
+            <span style={{ color: activeUserCount < 11 ? "#ef4444" : "#6b7280" }}>👥 {activeUserCount}/11</span>
+            <span style={{ color: "#22c55e" }}>💾 {matchAutosaveAt ? new Date(matchAutosaveAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
+          </div>
+        </div>
+      </div>
 
-          <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 12 }}>
-            {segments.map((_, i) => <div key={i} style={{ height: 3, flex: 1, borderRadius: 2, background: i < segment ? "#c9a84c" : "#1e2330" }} />)}
-          </div>
+      {/* ── Flash de evento clave ── */}
+      {keyEventBanner && !pendingInjury && !liveDecision && (
+        <div className="pc-match-flash bounce-in" style={{
+          background: keyEventBanner.type === "RED" ? "#ef444422" : keyEventBanner.type === "YELLOW" ? "#fbbf2422" : "#22c55e22",
+          border: `1px solid ${keyEventBanner.type === "RED" ? "#ef444455" : keyEventBanner.type === "YELLOW" ? "#fbbf2455" : "#22c55e55"}` }}>
+          <span style={{ fontSize: 16 }}>{keyEventBanner.type === "RED" ? "🟥" : keyEventBanner.type === "YELLOW" ? "🟨" : "⚽"}</span>
+          <span>{keyEventBanner.description}</span>
+        </div>
+      )}
 
-          <div style={{ marginTop: 10, background: "#0d0f14", border: "1px solid rgba(255,255,255,.06)", borderRadius: 9, padding: "8px 10px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10, fontWeight: 800, marginBottom: 6 }}>
-              <span style={{ color: "#c9a84c" }}>{displayMinute}'</span>
-              <span style={{ color: "#6b7280" }}>{matchPhase.startsWith("first") || matchPhase === "halftime" ? "1ª parte" : "2ª parte"}{matchPhase.includes("Added") ? ` · descuento +${halfLabel === "first" ? addedTime.first ?? 0 : addedTime.second ?? 0}` : ""}</span>
-            </div>
-            <div style={{ height: 7, background: "#1e2330", borderRadius: 999, overflow: "hidden" }}>
-              <div style={{ width: `${periodProgress}%`, height: "100%", background: "linear-gradient(90deg,#8a7330,#c9a84c)", borderRadius: 999, transition: "width .25s ease" }} />
-            </div>
-          </div>
+      {/* ── TRES COLUMNAS ── */}
+      <div className="pc-match-body">
+        {/* LEFT: MI EQUIPO */}
+        <div className="pc-match-left">
+          <div className="pc-match-col-header">MI EQUIPO</div>
+          <div className="pc-match-left-scroll">
+            {lineup.map((pid, idx) => {
+              if (!pid) return null;
+              const p = livePlayer.find(pl => pl.id === pid);
+              if (!p) return null;
+              const energy = Math.max(0, Math.round(100 - (p.fatigue ?? 0)));
+              const energyColor = energy > 70 ? "#22c55e" : energy >= 40 ? "#f59e0b" : "#ef4444";
+              const rating = computeRating(pid);
+              const yellows = events.filter(e => e.type === "YELLOW" && e.playerId === pid).length;
+              const isRed = sentOffIds.includes(pid);
+              const isInjured = p.injured || events.some(e => e.type === "INJURY" && e.playerId === pid);
+              return (
+                <div key={pid} className="pc-match-player-row" style={{ background: isRed ? "rgba(239,68,68,.08)" : "transparent", opacity: isRed ? .6 : 1 }}>
+                  <div className="pc-match-player-num">{idx + 1}</div>
+                  <div className="pc-match-player-info">
+                    <div className="pc-match-player-name">
+                      {p.name}{isRed && " 🟥"}{isInjured && " 🚑"}{yellows > 0 && ` 🟨${yellows > 1 ? `x${yellows}` : ""}`}
+                    </div>
+                    <div className="pc-match-player-meta">
+                      <span className="pc-match-pos-badge">{p.pos}</span>
+                      <div className="pc-match-energy-bar"><div style={{ width: `${energy}%`, background: energyColor }} /></div>
+                    </div>
+                  </div>
+                  {rating && <div className="pc-match-rating" style={{ color: Number(rating) >= 7 ? "#22c55e" : Number(rating) >= 5.5 ? "#c9a84c" : "#ef4444" }}>{rating}</div>}
+                </div>
+              );
+            })}
 
-          {segment > 0 && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                <span style={{ fontSize: 10, color: leftIsUser ? "#c9a84c" : "#6b7280", fontWeight: 700 }}>{isHome ? possession : 100 - possession}%</span>
-                <span style={{ fontSize: 9, color: "#4b5563", fontWeight: 600 }}>⚽ POSESIÓN</span>
-                <span style={{ fontSize: 10, color: rightIsUser ? "#c9a84c" : "#6b7280", fontWeight: 700 }}>{isHome ? 100 - possession : possession}%</span>
-              </div>
-              <div style={{ height: 6, background: "#1e2330", borderRadius: 3, overflow: "hidden", display: "flex" }}>
-                <div style={{ width: `${isHome ? possession : 100 - possession}%`, height: "100%", background: leftIsUser ? "linear-gradient(90deg,#8a7330,#c9a84c)" : "linear-gradient(90deg,#4b5563,#6b7280)", transition: "width .5s ease" }} />
-                <div style={{ width: `${isHome ? 100 - possession : possession}%`, height: "100%", background: rightIsUser ? "linear-gradient(90deg,#c9a84c,#8a7330)" : "linear-gradient(90deg,#6b7280,#4b5563)", transition: "width .5s ease" }} />
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 10, marginTop: 10 }}>
-            <div style={{ fontSize: 10, color: "#6b7280" }}>💪 Cansancio: <span style={{ color: fatColor, fontWeight: 700 }}>{avgFatigue}</span></div>
-            <div style={{ fontSize: 10, color: "#6b7280" }}>
-              🎯 <span style={{ color: tactics.mentalidad === "ofensiva" ? "#ef4444" : tactics.mentalidad === "defensiva" ? "#3b82f6" : "#c9a84c", fontWeight: 700 }}>{tactics.mentalidad.toUpperCase()}</span>
-              {" · "}{tactics.presion} presión{" · "}{tactics.estilo}
-            </div>
-            <div style={{ fontSize: 10, color: activeUserCount < 11 ? "#ef4444" : oppSentOffIds.length ? "#22c55e" : "#6b7280", fontWeight: 700 }}>👥 {activeUserCount} vs {oppLineup.filter(id => id && !oppSentOffIds.includes(id)).length}</div>
-          </div>
-          <div style={{ marginTop: 8, fontSize: 9, color: "#22c55e", fontWeight: 700, textAlign: "center" }}>
-            Partido guardado{matchAutosaveAt ? ` · ${new Date(matchAutosaveAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}` : ""}
+            <div className="pc-match-col-subheader">BANQUILLO</div>
+            {subs.filter(Boolean).length === 0 && (
+              <div style={{ fontSize: 10, color: "#4b5563", padding: "0 2px 8px" }}>Sin suplentes disponibles</div>
+            )}
+            {subs.map((pid) => {
+              if (!pid) return null;
+              const p = livePlayer.find(pl => pl.id === pid);
+              if (!p) return null;
+              const energy = Math.max(0, Math.round(100 - (p.fatigue ?? 0)));
+              const energyColor = energy > 70 ? "#22c55e" : energy >= 40 ? "#f59e0b" : "#ef4444";
+              return (
+                <div key={pid} className="pc-match-bench-row">
+                  <Initials name={p.name} size={20} rarity={p.rarity} borderRadius={5} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 10, color: "#c9ced8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                    <div className="pc-match-energy-bar" style={{ marginTop: 2 }}><div style={{ width: `${energy}%`, background: energyColor }} /></div>
+                  </div>
+                  <span style={{ fontSize: 8, color: "#6b7280", flexShrink: 0 }}>{p.pos}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="pc-panel-card" style={{ padding: 11, flexShrink: 0 }}>
-          <div className="pc-panel-title" style={{ marginBottom: 9 }}>ESTADÍSTICAS DEL PARTIDO</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 6 }}>
+        {/* CENTER: pizarra + stats + overlays */}
+        <div className="pc-match-center">
+          <div className="pc-match-pitch-wrap">
+            <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} viewBox="0 0 100 100" preserveAspectRatio="none">
+              <rect x="2" y="2" width="96" height="96" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth=".6" />
+              <line x1="2" y1="50" x2="98" y2="50" stroke="rgba(255,255,255,.12)" strokeWidth=".6" />
+              <circle cx="50" cy="50" r="9" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth=".6" />
+              <rect x="30" y="2" width="40" height="13" fill="none" stroke="rgba(255,255,255,.09)" strokeWidth=".5" />
+              <rect x="30" y="85" width="40" height="13" fill="none" stroke="rgba(255,255,255,.09)" strokeWidth=".5" />
+              <rect x="38" y="2" width="24" height="6" fill="none" stroke="rgba(255,255,255,.07)" strokeWidth=".4" />
+              <rect x="38" y="92" width="24" height="6" fill="none" stroke="rgba(255,255,255,.07)" strokeWidth=".4" />
+            </svg>
+
+            {userLayout.map(({ slot, x, y }) => {
+              const pid = lineup[slot];
+              const player = livePlayer.find(pl => pl.id === pid);
+              if (!player) return null;
+              const isOut = sentOffIds.includes(pid);
+              const accent = isOut ? "#ef4444" : (RARITY_ACCENT[player.rarity] ?? "#c9a84c");
+              return (
+                <div key={`u${slot}`} className="pc-match-pitch-dot" style={{ left: `${x}%`, top: `${remapY(y, true)}%` }}>
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: `${accent}33`, border: `2px solid ${accent}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", opacity: isOut ? .5 : 1 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: accent }}>{slot + 1}</span>
+                  </div>
+                  <div style={{ fontSize: 8, color: "#e8eaf0", marginTop: 2, maxWidth: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textShadow: "0 1px 2px #000" }}>{player.name.split(" ")[0]}</div>
+                </div>
+              );
+            })}
+
+            {oppLayout.map(({ slot, x, y }) => {
+              const pid = oppLineup[slot];
+              const player = liveOppPlayers.find(pl => pl.id === pid);
+              if (!player) return null;
+              const isOut = oppSentOffIds.includes(pid);
+              return (
+                <div key={`o${slot}`} className="pc-match-pitch-dot" style={{ left: `${x}%`, top: `${remapY(y, false)}%` }}>
+                  <div style={{ width: 26, height: 26, borderRadius: "50%", background: isOut ? "rgba(239,68,68,.25)" : "rgba(100,116,139,.35)", border: `2px solid ${isOut ? "#ef4444" : "#94a3b8"}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", opacity: isOut ? .5 : 1 }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: "#e2e8f0" }}>{slot + 1}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="pc-match-stats-strip">
             {[["Tiros", `${liveStats.userShots}-${liveStats.opponentShots}`], ["A puerta", `${liveStats.userShotsOnTarget}-${liveStats.opponentShotsOnTarget}`], ["Ocas.", `${liveStats.userBigChances}-${liveStats.opponentBigChances}`], ["Paradas", `${liveStats.userSaves}-${liveStats.opponentSaves}`], ["Tarj.", `${liveStats.userYellows + liveStats.userReds}-${liveStats.opponentYellows + liveStats.opponentReds}`]].map(([label, value]) => (
-              <div key={label} style={{ background: "#0d0f14", borderRadius: 7, padding: "7px 4px", textAlign: "center" }}>
+              <div key={label} style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 8, color: "#6b7280", fontWeight: 800 }}>{label.toUpperCase()}</div>
                 <div style={{ fontSize: 13, color: "#e8eaf0", fontWeight: 900, marginTop: 2 }}>{value}</div>
               </div>
             ))}
           </div>
-        </div>
 
-        <div className="pc-panel-card pc-match-feed-scroll" style={{ flex: 1, minHeight: 0, padding: 11 }}>
-          <div className="pc-panel-title" style={{ marginBottom: 8, flexShrink: 0 }}>EVENTOS DEL PARTIDO</div>
-          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-            {events.length === 0 && !finished && (
-              <div style={{ textAlign: "center", color: "#6b7280", fontSize: 12, marginTop: 30, lineHeight: 1.6 }}>
-                Configura tus tácticas y pulsa "Play" para comenzar
+          {/* Overlays — cubren solo la columna central */}
+          {!finished && pendingInjury && (
+            <div className="pc-match-overlay">
+              <div className="pc-match-overlay-header">
+                <div style={{ fontSize: 13, fontWeight: 900, color: "#f97316" }}>🚑 Lesión</div>
               </div>
-            )}
-            {[...events].reverse().map((e, i) => {
-              const color = eventColors[e.type] ?? "#6b7280";
-              const isGoal = e.type === "GOAL" || e.type === "PENALTY";
-              return (
-                <div key={i} className={isGoal ? "goal-event" : ""}
-                  style={{ background: "#161a24", borderRadius: 8, padding: "8px 10px", display: "flex", alignItems: "center", gap: 8, borderLeft: `3px solid ${color}` }}>
-                  <div style={{ fontSize: 11, color: "#6b7280", minWidth: 24, fontWeight: 700 }}>{e.minute}'</div>
-                  <div style={{ background: `${color}22`, color, fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, minWidth: 54, textAlign: "center" }}>{e.secondYellow ? "DOBLE 🟨" : eventLabels[e.type] ?? e.type}</div>
-                  <div style={{ fontSize: 11, color: "#e8eaf0", flex: 1, lineHeight: 1.35 }}>{e.description}</div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 10 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#e8eaf0" }}>{pendingInjury.name} se ha lesionado</div>
+                <div style={{ fontSize: 12, color: "#9aa0b4" }}>{pendingInjury.type ?? "Lesión muscular"}{pendingInjury.days ? ` · ${pendingInjury.days} días estimados` : ""}</div>
+                <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                  <button onClick={() => { setSubbingSlot(lineup.findIndex(id => id === pendingInjury.playerId)); setActiveOverlay("cambios"); }} className="btn-gold" style={{ padding: "10px 18px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}>Hacer el cambio</button>
+                  <button onClick={() => setPendingInjury(null)} className="btn-ghost" style={{ padding: "10px 18px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}>Ignorar por ahora</button>
                 </div>
-              );
-            })}
-          </div>
-          {finished && (
-            <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.07)", flexShrink: 0 }}>
-              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 800, marginBottom: 8 }}>
-                <span style={{ color: "#e8eaf0" }}>{leftGoals} - {rightGoals}</span>{" · "}
-                {userWon ? <span style={{ color: "#22c55e" }}>🏆 Victoria</span> : isDraw ? <span style={{ color: "#f59e0b" }}>🤝 Empate</span> : <span style={{ color: "#ef4444" }}>❌ Derrota</span>}
               </div>
-              <button onClick={endMatch} className="btn-gold" style={{ width: "100%", padding: 11, borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
-                Continuar →
-              </button>
             </div>
           )}
-        </div>
-      </div>
 
-      {/* ── CENTER: avisos + tacticas + cambios + controles ── */}
-      <div className="pc-match-center">
-        {keyEventBanner && !pendingInjury && (
-          <div className="bounce-in" style={{
-            background: keyEventBanner.type === "RED" ? "#ef444422" : keyEventBanner.type === "YELLOW" ? "#fbbf2422" : "#22c55e22",
-            border: `1px solid ${keyEventBanner.type === "RED" ? "#ef444455" : keyEventBanner.type === "YELLOW" ? "#fbbf2455" : "#22c55e55"}`,
-            borderRadius: 10, padding: "10px 14px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 18 }}>{keyEventBanner.type === "RED" ? "🟥" : keyEventBanner.type === "YELLOW" ? "🟨" : "⚽"}</span>
-            <div style={{ flex: 1, fontSize: 12, color: "#e8eaf0", lineHeight: 1.4 }}>{keyEventBanner.description}</div>
-          </div>
-        )}
-
-        {pendingInjury && (
-          <div style={{ background: "#f9731622", border: "1px solid #f9731655", borderRadius: 10, padding: "10px 14px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 18 }}>🚑</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#f97316" }}>{pendingInjury.name} se ha lesionado</div>
-              <div style={{ fontSize: 11, color: "#9aa0b4" }}>{pendingInjury.type ?? "Lesión muscular"}{pendingInjury.days ? ` · ${pendingInjury.days} días estimados` : ""} · Haz un cambio</div>
-            </div>
-            <button onClick={() => setSubbingSlot(lineup.findIndex(id => id === pendingInjury.playerId))}
-              className="btn-gold" style={{ padding: "7px 14px", borderRadius: 7, fontSize: 12, cursor: "pointer" }}>Cambiar</button>
-            <button onClick={() => setPendingInjury(null)}
-              style={{ background: "rgba(255,255,255,.08)", border: "none", color: "#9aa0b4", padding: "7px 10px", borderRadius: 7, fontSize: 12, cursor: "pointer" }}>✕</button>
-          </div>
-        )}
-
-        {finished ? (
-          <div className="pc-panel-card" style={{ textAlign: "center", padding: 28 }}>
-            <div style={{ fontSize: 11, color: "#c9a84c", fontWeight: 800, letterSpacing: ".6px", marginBottom: 10 }}>PARTIDO FINALIZADO</div>
-            <div style={{ fontSize: 42, fontWeight: 900, color: "#e8eaf0", marginBottom: 12 }}>{leftGoals} - {rightGoals}</div>
-            <div style={{ fontSize: 16, marginBottom: 20 }}>
-              {userWon ? <span style={{ color: "#22c55e" }}>🏆 Victoria</span> : isDraw ? <span style={{ color: "#f59e0b" }}>🤝 Empate</span> : <span style={{ color: "#ef4444" }}>❌ Derrota</span>}
-            </div>
-            <button onClick={endMatch} className="btn-gold" style={{ padding: "14px 30px", borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: "pointer" }}>
-              Continuar a la siguiente jornada →
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="pc-panel-card">
-              <div className="pc-panel-title">TÁCTICAS EN VIVO</div>
-              <div style={{ fontSize: 10, color: "#f59e0b", background: "#f59e0b11", border: "1px solid #f59e0b33", borderRadius: 8, padding: "7px 10px", marginBottom: 12 }}>
-                Los cambios se aplican al siguiente tramo simulado. Usa la pizarra para reorganizar el equipo con más espacio.
+          {!finished && !pendingInjury && liveDecision && (
+            <div className="pc-match-overlay">
+              <div className="pc-match-overlay-header">
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 9, background: "rgba(255,255,255,.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#e8eaf0", fontWeight: 900 }}>{liveDecision.source === "doctor" ? "MD" : "2E"}</div>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: "#e8eaf0" }}>{liveDecision.title}</div>
+                </div>
               </div>
-              <button onClick={openTacticalBoard} className="btn-gold" style={{ width: "100%", padding: 11, borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}>
-                Abrir pizarra táctica
-              </button>
-              <TacticsInMatch tactics={tactics} setTactics={setTactics} formation={matchFormation} onFormationChange={applyMatchFormation}
-                lineup={lineup} subs={subs} players={livePlayer} selectedSlot={selectedFormationSlot} setSelectedSlot={setSelectedFormationSlot}
-                onSwapSlots={swapFormationSlots} onSubstituteSlot={(slot, pid) => doSubstitution(lineup[slot], pid)} />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 14, maxWidth: 420, margin: "0 auto" }}>
+                <div style={{ fontSize: 13, color: "#cfd4df", lineHeight: 1.5 }}>{liveDecision.message}</div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => { if (liveDecision.targetTab === "tacticas") { openTacticalBoard(); setActiveOverlay(null); } else { acknowledgeLiveDecision(); } }} className="btn-gold" style={{ padding: "10px 18px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}>{liveDecision.action}</button>
+                  <button onClick={() => acknowledgeLiveDecision()} className="btn-ghost" style={{ padding: "10px 18px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}>Continuar igual</button>
+                </div>
+              </div>
             </div>
+          )}
 
-            <div className="pc-panel-card">
-              <div className="pc-panel-title">CAMBIOS ({subsUsed}/{maxSubs})</div>
+          {!finished && !pendingInjury && !liveDecision && activeOverlay === "cambios" && (
+            <div className="pc-match-overlay">
+              <div className="pc-match-overlay-header">
+                <div style={{ fontSize: 13, fontWeight: 900, color: "#c9a84c" }}>🔄 Cambios ({subsUsed}/{maxSubs})</div>
+                <button onClick={() => setActiveOverlay(null)} style={{ background: "rgba(255,255,255,.08)", border: "none", color: "#9aa0b4", padding: "5px 10px", borderRadius: 7, fontSize: 12, cursor: "pointer" }}>✕</button>
+              </div>
               {subsUsed >= maxSubs ? (
-                <div style={{ textAlign: "center", color: "#6b7280", fontSize: 12, padding: "10px 0" }}>Has usado todos tus cambios.</div>
+                <div style={{ textAlign: "center", color: "#6b7280", fontSize: 13, marginTop: 30 }}>Has usado todos tus cambios.</div>
               ) : !subbingSlot && subbingSlot !== 0 ? (
                 <>
-                  <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 700, marginBottom: 7 }}>SELECCIONA QUIÉN SALE</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 260, overflowY: "auto" }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, marginBottom: 8, flexShrink: 0 }}>SELECCIONA QUIÉN SALE</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto" }}>
                     {lineup.map((pid, idx) => {
                       if (!pid) return null;
                       const p = livePlayer.find(pl => pl.id === pid);
@@ -236,12 +355,12 @@ export default function PCMatchScreen({
                 </>
               ) : (
                 <>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexShrink: 0 }}>
                     <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 700 }}>SALE: {livePlayer.find(p => p.id === lineup[subbingSlot])?.name}</div>
                     <button onClick={() => setSubbingSlot(null)} style={{ background: "transparent", border: "none", color: "#6b7280", fontSize: 10, cursor: "pointer" }}>← Cambiar</button>
                   </div>
-                  <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 700, marginBottom: 7 }}>SELECCIONA QUIÉN ENTRA</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 260, overflowY: "auto" }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, marginBottom: 8, flexShrink: 0 }}>SELECCIONA QUIÉN ENTRA</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto" }}>
                     {subs.filter(Boolean).length === 0 && (
                       <div style={{ textAlign: "center", color: "#6b7280", fontSize: 12, padding: "8px 0" }}>No tienes suplentes disponibles en el banco.</div>
                     )}
@@ -251,7 +370,7 @@ export default function PCMatchScreen({
                       const p = livePlayer.find(pl => pl.id === pid);
                       if (!p || p.injured || p.suspended) return null;
                       return (
-                        <div key={idx} onClick={() => doSubstitution(lineup[subbingSlot], pid)}
+                        <div key={idx} onClick={() => confirmSubstitution(lineup[subbingSlot], pid)}
                           style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 10px", background: "#161a24", border: "1px solid rgba(34,197,94,.25)", borderRadius: 7, cursor: "pointer" }}>
                           <Initials name={p.name} size={26} rarity={p.rarity} borderRadius={6} />
                           <div style={{ flex: 1 }}>
@@ -266,75 +385,60 @@ export default function PCMatchScreen({
                 </>
               )}
             </div>
+          )}
 
-            <div className="pc-panel-card">
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                <button onClick={togglePlay} className={playing ? "btn-ghost" : "btn-gold"} disabled={!!pendingInjury}
-                  style={{ padding: 14, borderRadius: 9, fontSize: 14, cursor: pendingInjury ? "not-allowed" : "pointer", opacity: pendingInjury ? .65 : 1 }}>
-                  {playing ? "Pausa" : "Play"}
-                </button>
-                <button onClick={manualAdvance} className="btn-ghost" style={{ padding: 14, borderRadius: 9, fontSize: 14, cursor: "pointer" }}>Avance manual</button>
+          {!finished && !pendingInjury && !liveDecision && activeOverlay === "tacticas" && (
+            <div className="pc-match-overlay">
+              <div className="pc-match-overlay-header">
+                <div style={{ fontSize: 13, fontWeight: 900, color: "#c9a84c" }}>⚙️ Táctica</div>
+                <button onClick={() => setActiveOverlay(null)} style={{ background: "rgba(255,255,255,.08)", border: "none", color: "#9aa0b4", padding: "5px 10px", borderRadius: 7, fontSize: 12, cursor: "pointer" }}>✕</button>
               </div>
-              <div style={{ fontSize: 9, color: pauseEvent ? "#c9a84c" : "#6b7280", textAlign: "center", lineHeight: 1.4 }}>
-                {pauseEvent ? `Partido detenido en el ${currentMinute}'. Pulsa Play para reanudar o Avance manual para continuar paso a paso.` : "1 segundo real = 1 minuto de partido. Se detiene en goles, penaltis, tarjetas, lesiones y decisiones."}
-              </div>
-              <button onClick={abandonMatch} style={{ display: "block", width: "100%", background: "none", border: "none", color: "#ef4444", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 10, padding: 6 }}>
-                Abandonar partido y volver al inicio
+              <button onClick={() => { openTacticalBoard(); setActiveOverlay(null); }} className="btn-gold" style={{ width: "100%", padding: 11, borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", marginBottom: 12, flexShrink: 0 }}>
+                Abrir pizarra táctica
               </button>
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                <TacticsInMatch tactics={tactics} setTactics={setTactics} formation={matchFormation} onFormationChange={applyMatchFormation}
+                  lineup={lineup} subs={subs} players={livePlayer} selectedSlot={selectedFormationSlot} setSelectedSlot={setSelectedFormationSlot}
+                  onSwapSlots={swapFormationSlots} onSubstituteSlot={(slot, pid) => doSubstitution(lineup[slot], pid)} />
+              </div>
             </div>
-          </>
-        )}
+          )}
+        </div>
+
+        {/* RIGHT: eventos + señales + rival */}
+        <div className="pc-match-right">
+          <div className="pc-match-col-header">EVENTOS EN VIVO</div>
+          <div className="pc-match-events-scroll">
+            {visibleLiveSignals.length > 0 && signalsBlock}
+            {eventsBlock}
+            {visibleLiveSignals.length === 0 && signalsBlock}
+            {rivalBlock}
+          </div>
+        </div>
       </div>
 
-      {/* ── RIGHT: señales del cuerpo tecnico + alineaciones en vivo ── */}
-      <div className="pc-match-right">
-        <div className="pc-panel-card">
-          <div className="pc-panel-title">SEÑALES DEL CUERPO TÉCNICO</div>
-          {liveDecision && (
-            <div style={{ background: liveDecision.severity === "urgent" ? "rgba(239,68,68,.12)" : "rgba(96,165,250,.1)", border: `1px solid ${liveDecision.severity === "urgent" ? "rgba(239,68,68,.3)" : "rgba(96,165,250,.3)"}`, borderRadius: 9, padding: 11, marginBottom: 10 }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#e8eaf0", fontWeight: 900, flexShrink: 0 }}>
-                  {liveDecision.source === "doctor" ? "MD" : "2E"}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, fontWeight: 900, color: "#e8eaf0" }}>{liveDecision.title}</div>
-                  <div style={{ fontSize: 10, color: "#cfd4df", lineHeight: 1.4, marginTop: 3 }}>{liveDecision.message}</div>
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 9 }}>
-                <button onClick={() => liveDecision.targetTab === "tacticas" ? openTacticalBoard() : acknowledgeLiveDecision()} className="btn-gold" style={{ padding: 8, borderRadius: 7, fontSize: 10, cursor: "pointer" }}>
-                  {liveDecision.action}
-                </button>
-                <button onClick={() => acknowledgeLiveDecision()} className="btn-ghost" style={{ padding: 8, borderRadius: 7, fontSize: 10, cursor: "pointer" }}>
-                  Continuar igual
-                </button>
-              </div>
-            </div>
-          )}
-          {visibleLiveSignals.length === 0 && !liveDecision && (
-            <div style={{ fontSize: 11, color: "#4b5563", textAlign: "center", padding: "10px 0", lineHeight: 1.5 }}>
-              Sin avisos por ahora. El cuerpo técnico avisará si hace falta ajustar algo.
-            </div>
-          )}
-          {visibleLiveSignals.map(signal => (
-            <button key={signal.key} onClick={() => openSignal(signal)}
-              style={{ display: "block", width: "100%", textAlign: "left", background: signal.severity === "urgent" ? "rgba(239,68,68,.12)" : "rgba(96,165,250,.1)", border: `1px solid ${signal.severity === "urgent" ? "rgba(239,68,68,.3)" : "rgba(96,165,250,.25)"}`, borderRadius: 8, padding: "8px 9px", cursor: "pointer", marginBottom: 6 }}>
-              <div style={{ fontSize: 9, color: signal.severity === "urgent" ? "#ef4444" : "#60a5fa", fontWeight: 900 }}>{signal.source === "doctor" ? "Médico" : "Segundo entrenador"} · {signal.action}</div>
-              <div style={{ fontSize: 10, color: "#e8eaf0", marginTop: 2 }}>{signal.title}</div>
-            </button>
-          ))}
-        </div>
-
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-          <LiveLineupPanel team={userTeam} formation={matchFormation} playerIds={lineup.filter(Boolean)} players={livePlayer} events={events} sentOffIds={sentOffIds} side="user" eventTeam={isHome ? "home" : "away"} currentMinute={currentMinute} />
-          <button onClick={() => setOppExpanded(v => !v)}
-            style={{ width: "100%", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.08)", color: "#9aa0b4", padding: "7px 9px", borderRadius: 7, fontSize: 10, fontWeight: 700, cursor: "pointer", marginBottom: oppExpanded ? 8 : 0 }}>
-            {oppExpanded ? "▾" : "▸"} Alineación rival{oppTeam?.short ? ` · ${oppTeam.short}` : ""}
+      {/* ── BOTTOM ACTION BAR ── */}
+      <div className="pc-match-bottombar">
+        {finished ? (
+          <button onClick={endMatch} className="btn-gold" style={{ flex: 1, padding: 13, borderRadius: 9, fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+            Continuar a la siguiente jornada →
           </button>
-          {oppExpanded && (
-            <LiveLineupPanel team={oppTeam} formation={oppFormation} playerIds={oppLineup.filter(Boolean)} players={liveOppPlayers} events={events} sentOffIds={oppSentOffIds} side="opp" eventTeam={isHome ? "away" : "home"} currentMinute={currentMinute} />
-          )}
-        </div>
+        ) : (
+          <>
+            <button onClick={openCambios} className={activeOverlay === "cambios" ? "btn-gold" : "btn-ghost"} style={{ padding: "10px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              🔄 Cambios {subsUsed > 0 ? `(${subsUsed}/${maxSubs})` : ""}
+            </button>
+            <button onClick={openTacticas} className={activeOverlay === "tacticas" ? "btn-gold" : "btn-ghost"} style={{ padding: "10px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              ⚙️ Táctica
+            </button>
+            <div style={{ flex: 1, textAlign: "center", fontSize: 9, color: pauseEvent ? "#c9a84c" : "#6b7280" }}>
+              {pauseEvent ? `Partido detenido en el ${currentMinute}'.` : "1 segundo real = 1 minuto de partido."}
+            </div>
+            <button onClick={abandonMatch} style={{ background: "none", border: "none", color: "rgba(239,68,68,.75)", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: "6px 8px", flexShrink: 0 }}>
+              🟥 Abandonar
+            </button>
+          </>
+        )}
       </div>
 
       {tacticalBoardOpen && (

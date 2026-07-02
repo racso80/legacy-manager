@@ -707,7 +707,7 @@ function tacticModifiers(tactics) {
 
 const LIVE_FORMATION_OPTIONS = Object.keys(MATCH_FORMATIONS);
 
-const LIVE_PITCH_LAYOUTS = {
+export const LIVE_PITCH_LAYOUTS = {
   "4-3-3": [
     {slot:0,x:50,y:88},{slot:1,x:82,y:70},{slot:2,x:63,y:72},{slot:3,x:37,y:72},{slot:4,x:18,y:70},
     {slot:5,x:74,y:50},{slot:6,x:50,y:52},{slot:7,x:26,y:50},{slot:8,x:78,y:25},{slot:9,x:50,y:22},{slot:10,x:22,y:25},
@@ -2395,11 +2395,53 @@ const GLOBAL_CSS = `
     .pc-lineup-right-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 
     /* ─── PC live match screen ─────────────────────────────────────────── */
-    .pc-match-layout { position: relative; display: flex; gap: 16px; align-items: flex-start; width: 100%; height: calc(100vh - 76px); }
-    .pc-match-left { flex: 0 0 320px; height: 100%; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-    .pc-match-center { flex: 1; height: 100%; display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow-y: auto; }
-    .pc-match-right { flex: 0 0 300px; height: 100%; display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow-y: auto; }
-    .pc-match-feed-scroll { display: flex; flex-direction: column; overflow: hidden; }
+    .pc-match-root { position: relative; height: calc(100vh - 76px); display: flex; flex-direction: column; overflow: hidden; }
+
+    .pc-match-topbar { flex-shrink: 0; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; }
+    .pc-match-topbar-main { display: flex; align-items: center; gap: 14px; }
+    .pc-match-topbar-team { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .pc-match-topbar-teamname { font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-match-topbar-score { flex-shrink: 0; background: #0d0f14; border: 1px solid rgba(201,168,76,.25); border-radius: 10px; padding: 6px 18px; font-size: 26px; font-weight: 900; color: #e8eaf0; letter-spacing: 2px; }
+    .pc-match-topbar-clock { flex-shrink: 0; text-align: center; min-width: 150px; }
+    .pc-match-topbar-minute { font-size: 20px; font-weight: 900; color: #c9a84c; line-height: 1; }
+    .pc-match-topbar-phase { font-size: 9px; color: #6b7280; margin-top: 3px; white-space: nowrap; }
+    .pc-match-topbar-controls { display: flex; gap: 6px; flex-shrink: 0; }
+    .pc-match-topbar-meta { display: flex; align-items: center; gap: 16px; margin-top: 9px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.06); }
+    .pc-match-segment-bar { display: flex; gap: 3px; flex: 0 0 160px; }
+    .pc-match-possession-bar { flex: 1; min-width: 80px; }
+    .pc-match-topbar-tags { display: flex; gap: 12px; flex-shrink: 0; font-size: 10px; color: #6b7280; white-space: nowrap; }
+
+    .pc-match-flash { flex-shrink: 0; border-radius: 9px; padding: 8px 14px; margin-bottom: 10px; font-size: 12px; color: #e8eaf0; display: flex; align-items: center; gap: 8px; }
+
+    .pc-match-body { flex: 1; min-height: 0; display: flex; gap: 14px; overflow: hidden; }
+
+    .pc-match-left { flex: 0 0 220px; min-width: 0; display: flex; flex-direction: column; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; overflow: hidden; }
+    .pc-match-col-header { flex-shrink: 0; font-size: 10px; font-weight: 900; color: #c9a84c; letter-spacing: .6px; padding: 10px 12px 8px; }
+    .pc-match-col-subheader { font-size: 9px; font-weight: 900; color: #fbbf24; letter-spacing: .5px; margin: 10px 2px 6px; }
+    .pc-match-left-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px 10px; }
+    .pc-match-player-row { display: flex; align-items: center; gap: 7px; padding: 6px 4px; border-radius: 7px; margin-bottom: 3px; }
+    .pc-match-player-num { width: 18px; height: 18px; border-radius: 5px; background: rgba(255,255,255,.06); color: #9aa0b4; font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .pc-match-player-info { flex: 1; min-width: 0; }
+    .pc-match-player-name { font-size: 11px; font-weight: 650; color: #e8eaf0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-match-player-meta { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+    .pc-match-pos-badge { font-size: 8px; font-weight: 800; color: #9aa0b4; background: rgba(255,255,255,.06); border-radius: 4px; padding: 1px 4px; flex-shrink: 0; }
+    .pc-match-energy-bar { flex: 1; height: 4px; background: #1e2330; border-radius: 999px; overflow: hidden; }
+    .pc-match-energy-bar > div { height: 100%; border-radius: 999px; }
+    .pc-match-rating { font-size: 12px; font-weight: 900; flex-shrink: 0; width: 26px; text-align: center; }
+    .pc-match-bench-row { display: flex; align-items: center; gap: 6px; padding: 4px; opacity: .75; }
+
+    .pc-match-center { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; position: relative; }
+    .pc-match-pitch-wrap { flex: 1; min-height: 0; position: relative; background: #061206; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; overflow: hidden; }
+    .pc-match-pitch-dot { position: absolute; transform: translate(-50%,-50%); text-align: center; }
+    .pc-match-stats-strip { flex-shrink: 0; display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: 9px 10px; }
+
+    .pc-match-overlay { position: absolute; inset: 0; z-index: 20; background: rgba(6,8,13,.9); backdrop-filter: blur(3px); border-radius: 12px; display: flex; flex-direction: column; padding: 16px; overflow-y: auto; }
+    .pc-match-overlay-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-shrink: 0; }
+
+    .pc-match-right { flex: 0 0 280px; min-width: 0; display: flex; flex-direction: column; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; overflow: hidden; }
+    .pc-match-events-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px 10px; }
+
+    .pc-match-bottombar { flex-shrink: 0; display: flex; align-items: center; gap: 10px; margin-top: 10px; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 10px 14px; }
 
     .pc-shell {
       background:
