@@ -1,7 +1,7 @@
 import TeamCrest from "../TeamCrest.jsx";
 import { CloudSyncIndicator } from "../../App.jsx";
 
-export default function PCTopBar({ team, game, position, cloudSession, cloudSyncState, cloudConflict, onOpenCloudSaves }) {
+export default function PCTopBar({ team, game, position, cloudSession, cloudSyncState, cloudConflict, onOpenCloudSaves, clubAccent, clubTextOnAccent }) {
   const season = game?.season ?? "2025";
   const seasonLabel = `${season}/${String(parseInt(season, 10) + 1).slice(-2)}`;
   return (
@@ -11,8 +11,11 @@ export default function PCTopBar({ team, game, position, cloudSession, cloudSync
         <span className="pc-topbar-title">LEGACY MANAGER</span>
       </div>
       <div className="pc-topbar-center">
-        <TeamCrest team={team} size={22} />
-        <span>{team?.name ?? "—"} · Temporada {seasonLabel} · Jornada {game?.matchday ?? 1} · {position ? `${position}º` : "—"}</span>
+        <span className="pc-club-badge" style={{ background: clubAccent, color: clubTextOnAccent }}>
+          <TeamCrest team={team} size={16} />
+          {team?.name ?? "—"}
+        </span>
+        <span>Temporada {seasonLabel} · Jornada {game?.matchday ?? 1} · {position ? `${position}º` : "—"}</span>
       </div>
       <div className="pc-topbar-right">
         <CloudSyncIndicator session={cloudSession} syncState={cloudSyncState} conflict={cloudConflict} onClick={onOpenCloudSaves} />

@@ -27,6 +27,7 @@ import { SwipeTabs, useEdgeSwipeBack } from "./components/SwipeNavigation.jsx";
 import FeedbackBanner from "./components/ui/FeedbackBanner.jsx";
 import { useFeedback } from "./utils/feedback.js";
 import { useIsPC } from "./utils/responsive.js";
+import { getClubAccentColor, getClubTextColor } from "./utils/tokens.js";
 import PCTopBar from "./components/pc/PCTopBar.jsx";
 import PCSidebar from "./components/pc/PCSidebar.jsx";
 import PCRightPanel from "./components/pc/PCRightPanel.jsx";
@@ -2153,28 +2154,29 @@ const GLOBAL_CSS = `
 
     .pc-topbar {
       position: fixed; top: 0; left: 0; right: 0; height: 44px; z-index: 60;
-      background: rgba(17, 21, 30, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-      border-bottom: 1px solid #1e2435;
+      background: #080a0d;
+      border-bottom: 2px solid var(--club-accent, #c9a84c);
       display: flex; align-items: center; padding: 0 16px;
     }
     .pc-topbar-left { display: flex; align-items: center; gap: 8px; width: 200px; flex-shrink: 0; }
     .pc-topbar-logo {
       width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
-      background: linear-gradient(135deg,#c9a84c,#e8c96a);
+      background: var(--club-accent, #c9a84c);
       display: flex; align-items: center; justify-content: center;
-      font-weight: 900; color: #1a1200; font-size: 13px;
+      font-weight: 900; color: var(--club-text-on-accent, #1a1200); font-size: 13px;
     }
-    .pc-topbar-title { color: #c9a84c; font-weight: 900; font-size: 12px; letter-spacing: .6px; white-space: nowrap; }
+    .pc-topbar-title { color: var(--club-accent, #c9a84c); font-weight: 900; font-size: 12px; letter-spacing: .6px; white-space: nowrap; }
     .pc-topbar-center {
       flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
       color: #c9ced8; font-size: 12px; font-weight: 600; overflow: hidden; padding: 0 12px;
     }
     .pc-topbar-center span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pc-topbar-right { display: flex; align-items: center; flex-shrink: 0; }
+    .pc-club-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #0d0f14); font-weight: 800; font-size: 11px; border-radius: 999px; padding: 3px 10px 3px 6px; flex-shrink: 0; }
 
     .pc-sidebar {
       position: fixed; top: 44px; left: 0; width: 200px; height: calc(100vh - 44px); z-index: 50;
-      background: rgba(15, 19, 32, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      background: #080a0d;
       border-right: 1px solid #1e2435; overflow-y: auto; padding: 0 0 14px;
     }
     .pc-sidebar-group { margin-bottom: 16px; }
@@ -2186,10 +2188,10 @@ const GLOBAL_CSS = `
       min-height: 0;
     }
     .pc-nav-item:hover { background: rgba(255,255,255,.03); }
-    .pc-nav-item.active { border-left-color: #c9a84c; color: #c9a84c; background: rgba(201,168,76,.08); }
+    .pc-nav-item.active { border-left-color: var(--club-accent, #c9a84c); color: var(--club-accent, #c9a84c); background: rgba(201,168,76,.08); }
     .pc-nav-item-icon { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
     .pc-nav-item-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pc-nav-item-badge { background: #c9a84c; color: #1a1200; font-size: 9px; font-weight: 900; border-radius: 999px; padding: 1px 6px; }
+    .pc-nav-item-badge { background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #1a1200); font-size: 9px; font-weight: 900; border-radius: 999px; padding: 1px 6px; }
 
     .pc-shell-body { flex: 1; display: flex; overflow: hidden; margin-left: 200px; margin-top: 44px; min-height: 0; }
     .pc-main-col { flex: 1; padding: 16px; overflow-y: auto; min-width: 0; }
@@ -2200,15 +2202,15 @@ const GLOBAL_CSS = `
     .pc-sidebar:has(~ .pc-shell-body.pc-match-fullscreen) { display: none; }
 
     .pc-right-panel {
-      width: 300px; flex-shrink: 0; background: rgba(15, 19, 32, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      width: 300px; flex-shrink: 0; background: #080a0d;
       border-left: 1px solid #1e2435; padding: 16px; overflow-y: auto;
     }
     .pc-right-panel-section { margin-bottom: 22px; }
-    .pc-right-panel-title { font-size: 10px; color: #c9a84c; font-weight: 900; letter-spacing: .8px; margin-bottom: 10px; }
+    .pc-right-panel-title { font-size: 10px; color: var(--club-accent, #c9a84c); font-weight: 900; letter-spacing: .8px; margin-bottom: 10px; }
     .pc-right-panel-empty { color: #6b7280; font-size: 11px; line-height: 1.5; }
     .pc-right-panel-link {
       display: block; width: 100%; text-align: left; background: none; border: none;
-      color: #c9a84c; font-size: 11px; font-weight: 700; padding: 0; margin-top: 6px; cursor: pointer;
+      color: var(--club-accent, #c9a84c); font-size: 11px; font-weight: 700; padding: 0; margin-top: 6px; cursor: pointer;
     }
     .pc-attention-item {
       display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left;
@@ -2219,7 +2221,7 @@ const GLOBAL_CSS = `
     .pc-attention-item-priority { width: 6px; height: 6px; border-radius: 999px; background: #60a5fa; flex-shrink: 0; margin-top: 5px; }
     .pc-attention-item-priority[data-priority="urgent"],
     .pc-attention-item-priority[data-priority="critical"] { background: #ef4444; }
-    .pc-attention-item-priority[data-priority="important"] { background: #f59e0b; }
+    .pc-attention-item-priority[data-priority="important"] { background: var(--club-accent, #c9a84c); }
     .pc-attention-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .pc-attention-item-title { font-size: 11px; font-weight: 800; color: #e8eaf0; }
     .pc-attention-item-summary { font-size: 10px; color: #8b92a3; line-height: 1.4; }
@@ -2231,14 +2233,14 @@ const GLOBAL_CSS = `
     .pc-dashboard { display: flex; flex-direction: column; gap: 16px; width: 100%; }
     .pc-form-dot { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 4px; font-size: 9px; font-weight: 700; }
 
-    .pc-panel-card { background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 16px; }
-    .pc-panel-title { font-size: 11px; color: #c9a84c; font-weight: 900; letter-spacing: .6px; margin-bottom: 10px; }
+    .pc-panel-card { background: #13161e; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; padding: 16px; }
+    .pc-panel-title { font-size: 11px; color: var(--club-accent, #c9a84c); font-weight: 900; letter-spacing: .6px; margin-bottom: 10px; }
 
     .pc-dashboard-top-row { display: flex; align-items: stretch; gap: 12px; }
-    .pc-club-status-card { flex: 0 0 38%; display: flex; flex-direction: column; gap: 12px; }
+    .pc-club-status-card { flex: 0 0 38%; display: flex; flex-direction: column; gap: 12px; border-top: 2px solid var(--club-accent, #c9a84c); }
     .pc-club-status-header { display: flex; align-items: center; gap: 12px; }
     .pc-club-status-name { font-size: 14px; font-weight: 800; color: #e8eaf0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pc-club-status-position { font-size: 26px; font-weight: 900; color: #c9a84c; line-height: 1.1; margin-top: 2px; }
+    .pc-club-status-position { font-size: 26px; font-weight: 900; color: var(--club-accent, #c9a84c); line-height: 1.1; margin-top: 2px; }
     .pc-club-status-points { font-size: 11px; color: #8b92a3; margin-top: 1px; }
     .pc-club-status-form { display: flex; align-items: center; gap: 8px; }
     .pc-club-status-form-label { font-size: 9px; color: #6b7280; font-weight: 700; }
@@ -2280,7 +2282,7 @@ const GLOBAL_CSS = `
 
     .pc-next-match-teams { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .pc-next-match-side { text-align: center; flex: 1; }
-    .pc-next-match-vs { background: #0d0f14; padding: 8px 14px; border-radius: 8px; color: #c9a84c; font-weight: 700; font-size: 16px; }
+    .pc-next-match-vs { background: #0d0f14; padding: 8px 14px; border-radius: 8px; color: var(--club-accent, #c9a84c); font-weight: 700; font-size: 16px; }
     .pc-next-match-team-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pc-next-match-opponent { font-size: 16px; font-weight: 900; color: #f3f4f6; }
     .pc-next-match-meta { font-size: 11px; color: #8b92a3; margin-top: 8px; }
@@ -2311,7 +2313,7 @@ const GLOBAL_CSS = `
     .pc-squad-highlight-row:last-child { border-bottom: none; }
     .pc-squad-highlight-row:hover { background: rgba(255,255,255,.02); }
     .pc-squad-highlight-name { flex: 1; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pc-squad-highlight-overall { font-size: 12px; font-weight: 900; color: #c9a84c; width: 30px; text-align: center; flex-shrink: 0; }
+    .pc-squad-highlight-overall { font-size: 12px; font-weight: 900; color: var(--club-accent, #c9a84c); width: 30px; text-align: center; flex-shrink: 0; }
     .pc-squad-highlight-status { font-size: 10px; font-weight: 800; width: 80px; text-align: right; flex-shrink: 0; }
 
     /* ─── PC squad screen ──────────────────────────────────────────────── */
@@ -2320,10 +2322,10 @@ const GLOBAL_CSS = `
     .pc-squad-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; flex-shrink: 0; }
     .pc-squad-filters { display: flex; gap: 8px; }
     .pc-squad-filter-pill { background: #1e2330; color: #9aa0b4; border: none; padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
-    .pc-squad-filter-pill[data-active="true"] { background: #c9a84c; color: #1a1200; }
-    .pc-squad-season-select { background: #1e2330; border: 1px solid rgba(201,168,76,.25); color: #c9a84c; border-radius: 7px; padding: 7px 9px; font-size: 11px; font-weight: 700; }
+    .pc-squad-filter-pill[data-active="true"] { background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #1a1200); }
+    .pc-squad-season-select { background: #1e2330; border: 1px solid rgba(201,168,76,.25); color: var(--club-accent, #c9a84c); border-radius: 7px; padding: 7px 9px; font-size: 11px; font-weight: 700; }
 
-    .pc-squad-table { background: #161a24; border: 1px solid rgba(255,255,255,.06); border-radius: 10px; overflow: hidden; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .pc-squad-table { background: #13161e; border: 1px solid rgba(255,255,255,.06); border-radius: 6px; overflow: hidden; flex: 1; min-height: 0; display: flex; flex-direction: column; }
     .pc-squad-table-header, .pc-squad-row {
       display: grid;
       grid-template-columns: 34px 26px 1fr 44px 36px 32px 30px 26px 26px 26px 38px 92px 36px 36px;
@@ -2340,7 +2342,7 @@ const GLOBAL_CSS = `
     .pc-squad-table-body { flex: 1; overflow-y: auto; }
     .pc-squad-row { height: 40px; cursor: pointer; border-left: 3px solid transparent; transition: background .12s, border-color .12s; }
     .pc-squad-row:hover { background: rgba(255,255,255,.05) !important; }
-    .pc-squad-row[data-selected="true"] { background: rgba(201,168,76,.12) !important; border-left-color: #c9a84c; }
+    .pc-squad-row[data-selected="true"] { background: rgba(201,168,76,.12) !important; border-left-color: var(--club-accent, #c9a84c); }
 
     .pc-squad-photo-wrap { position: relative; border-radius: 999px; overflow: hidden; flex-shrink: 0; background: #0d0f14; }
     .pc-squad-photo { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
@@ -2349,10 +2351,10 @@ const GLOBAL_CSS = `
     .pc-squad-name { font-size: 12px; font-weight: 800; color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pc-squad-cell-dim { font-size: 11px; color: #9aa0b4; text-align: center; }
     .pc-squad-pos-badge { font-size: 10px; font-weight: 800; color: #c9ced8; background: rgba(255,255,255,.08); border-radius: 4px; padding: 2px 6px; text-align: center; width: fit-content; }
-    .pc-squad-ovr { font-size: 13px; font-weight: 900; color: #c9a84c; text-align: center; }
+    .pc-squad-ovr { font-size: 13px; font-weight: 900; color: var(--club-accent, #c9a84c); text-align: center; }
     .pc-squad-status-pill { font-size: 9px; font-weight: 800; border-radius: 999px; padding: 3px 7px; text-align: center; white-space: nowrap; }
 
-    .pc-squad-detail { width: 340px; flex-shrink: 0; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 16px; }
+    .pc-squad-detail { width: 340px; flex-shrink: 0; background: #13161e; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; padding: 16px; }
     .pc-squad-detail-empty { color: #6b7280; font-size: 12px; text-align: center; line-height: 1.5; padding: 60px 12px; }
     .pc-squad-detail-header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
     .pc-squad-detail-name { font-size: 15px; font-weight: 800; color: #e8eaf0; line-height: 1.25; }
@@ -2377,18 +2379,18 @@ const GLOBAL_CSS = `
     .pc-lineup-left { flex: 0 0 420px; height: 100%; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
     .pc-lineup-formation-row { display: flex; gap: 6px; flex-shrink: 0; }
     .pc-lineup-formation-btn { flex: 1; background: #1e2330; color: #9aa0b4; border: none; padding: 8px 6px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; white-space: nowrap; }
-    .pc-lineup-formation-btn[data-active="true"] { background: #c9a84c; color: #1a1200; }
+    .pc-lineup-formation-btn[data-active="true"] { background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #1a1200); }
     .pc-lineup-action-row { display: flex; gap: 6px; flex-shrink: 0; }
     .pc-lineup-action-btn { flex: 1; border-radius: 6px; padding: 8px 6px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid; white-space: nowrap; }
-    .pc-lineup-pitch { flex: 1; min-height: 220px; position: relative; background: #061206; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; overflow: hidden; }
+    .pc-lineup-pitch { flex: 1; min-height: 220px; position: relative; background: #061206; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; overflow: hidden; }
     .pc-lineup-pitch-dot { position: absolute; transform: translate(-50%,-50%); cursor: pointer; text-align: center; z-index: 2; }
-    .pc-lineup-energy-bar { background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: 10px 12px; flex-shrink: 0; }
+    .pc-lineup-energy-bar { background: #13161e; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; padding: 10px 12px; flex-shrink: 0; }
     .pc-lineup-cta { width: 100%; padding: 13px; border-radius: 9px; font-size: 14px; font-weight: 800; cursor: pointer; flex-shrink: 0; }
 
     .pc-lineup-center { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
-    .pc-lineup-presets-card { background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: 10px 12px; flex-shrink: 0; }
+    .pc-lineup-presets-card { background: #13161e; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; padding: 10px 12px; flex-shrink: 0; }
     .pc-lineup-presets-toggle { width: 100%; background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.25); color: #60a5fa; padding: 7px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
-    .pc-lineup-list-scroll { flex: 1; min-height: 0; overflow-y: auto; background: #161a24; border: 1px solid rgba(255,255,255,.06); border-radius: 10px; padding: 10px 12px; }
+    .pc-lineup-list-scroll { flex: 1; min-height: 0; overflow-y: auto; background: #13161e; border: 1px solid rgba(255,255,255,.06); border-radius: 6px; padding: 10px 12px; }
     .pc-lineup-section-label { font-size: 10px; font-weight: 800; letter-spacing: .5px; margin: 12px 0 6px; }
     .pc-lineup-section-label:first-child { margin-top: 2px; }
     .pc-lineup-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 7px; margin-bottom: 3px; cursor: pointer; min-height: 38px; box-sizing: border-box; transition: background .12s; }
@@ -2402,14 +2404,14 @@ const GLOBAL_CSS = `
     /* ─── PC live match screen (pantalla completa, sin sidebar) ─────────── */
     .pc-match-root { position: relative; height: calc(100vh - 76px); display: flex; flex-direction: column; overflow: hidden; }
 
-    .pc-match-topbar { flex-shrink: 0; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; }
+    .pc-match-topbar { flex-shrink: 0; background: #13161e; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; padding: 10px 14px; margin-bottom: 10px; }
     .pc-match-topbar-main { display: flex; align-items: center; gap: 14px; }
     .pc-match-topbar-team { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
     .pc-match-topbar-teamdot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
     .pc-match-topbar-teamname { font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pc-match-topbar-score { flex-shrink: 0; background: #0d0f14; border: 1px solid rgba(201,168,76,.25); border-radius: 10px; padding: 6px 18px; font-size: 26px; font-weight: 900; color: #e8eaf0; letter-spacing: 2px; }
     .pc-match-topbar-clock { flex-shrink: 0; text-align: center; min-width: 150px; }
-    .pc-match-topbar-minute { font-size: 20px; font-weight: 900; color: #c9a84c; line-height: 1; }
+    .pc-match-topbar-minute { font-size: 20px; font-weight: 900; color: var(--club-accent, #c9a84c); line-height: 1; }
     .pc-match-topbar-phase { font-size: 9px; color: #6b7280; margin-top: 3px; white-space: nowrap; }
     .pc-match-topbar-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .pc-match-topbar-subs { font-size: 10px; color: #9aa0b4; font-weight: 800; background: #0d0f14; border: 1px solid rgba(255,255,255,.08); border-radius: 7px; padding: 7px 10px; white-space: nowrap; }
@@ -2420,7 +2422,7 @@ const GLOBAL_CSS = `
     .pc-match-possession-row { flex-shrink: 0; display: flex; height: 24px; border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
     .pc-match-possession-fill { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; transition: width .5s ease; }
 
-    .pc-match-stats-table { flex-shrink: 0; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: 6px 12px; margin-bottom: 10px; }
+    .pc-match-stats-table { flex-shrink: 0; background: #13161e; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; padding: 6px 12px; margin-bottom: 10px; }
     .pc-match-stats-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 3px 0; }
     .pc-match-stats-value { font-size: 11px; font-weight: 800; }
     .pc-match-stats-label { text-align: center; color: #6b7280; font-size: 9px; font-weight: 700; letter-spacing: .3px; padding: 0 14px; white-space: nowrap; }
@@ -2429,8 +2431,8 @@ const GLOBAL_CSS = `
 
     .pc-match-body { flex: 1; min-height: 0; display: flex; gap: 14px; overflow: hidden; }
 
-    .pc-match-left { flex: 0 0 200px; min-width: 0; display: flex; flex-direction: column; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; overflow: hidden; }
-    .pc-match-col-header { flex-shrink: 0; font-size: 10px; font-weight: 900; color: #c9a84c; letter-spacing: .6px; padding: 10px 12px 8px; }
+    .pc-match-left { flex: 0 0 200px; min-width: 0; display: flex; flex-direction: column; background: #13161e; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; overflow: hidden; }
+    .pc-match-col-header { flex-shrink: 0; font-size: 10px; font-weight: 900; color: var(--club-accent, #c9a84c); letter-spacing: .6px; padding: 10px 12px 8px; }
     .pc-match-col-subheader { font-size: 9px; font-weight: 900; color: #60a5fa; letter-spacing: .5px; margin: 12px 2px 6px; }
     .pc-match-left-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px 10px; }
     .pc-match-player-row { display: flex; align-items: center; gap: 7px; padding: 6px 4px; border-radius: 7px; margin-bottom: 3px; }
@@ -2444,23 +2446,21 @@ const GLOBAL_CSS = `
     .pc-match-rating { font-size: 12px; font-weight: 900; flex-shrink: 0; width: 26px; text-align: center; }
 
     .pc-match-center { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
-    .pc-match-pitch-wrap { flex: 1; min-height: 0; position: relative; background: #061206; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; overflow: hidden; }
+    .pc-match-pitch-wrap { flex: 1; min-height: 0; position: relative; background: #061206; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; overflow: hidden; }
     .pc-match-pitch-dot { position: absolute; transform: translate(-50%,-50%); text-align: center; }
 
-    .pc-match-quickpanel { position: absolute; right: 12px; bottom: 12px; width: 260px; max-height: 70%; z-index: 18; background: rgba(11,14,20,.97); border: 1px solid rgba(201,168,76,.3); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; box-shadow: 0 12px 30px rgba(0,0,0,.4); }
+    .pc-match-quickpanel { position: absolute; right: 12px; bottom: 12px; width: 260px; max-height: 70%; z-index: 18; background: rgba(11,14,20,.97); border: 1px solid rgba(201,168,76,.3); border-radius: 6px; padding: 12px; display: flex; flex-direction: column; box-shadow: 0 12px 30px rgba(0,0,0,.4); }
 
-    .pc-match-overlay { position: absolute; inset: 0; z-index: 20; background: rgba(6,8,13,.9); backdrop-filter: blur(3px); border-radius: 12px; display: flex; flex-direction: column; padding: 16px; overflow-y: auto; }
+    .pc-match-overlay { position: absolute; inset: 0; z-index: 20; background: rgba(6,8,13,.9); backdrop-filter: blur(3px); border-radius: 6px; display: flex; flex-direction: column; padding: 16px; overflow-y: auto; }
     .pc-match-overlay-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-shrink: 0; }
 
-    .pc-match-right { flex: 0 0 280px; min-width: 0; display: flex; flex-direction: column; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; overflow: hidden; }
+    .pc-match-right { flex: 0 0 280px; min-width: 0; display: flex; flex-direction: column; background: #13161e; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; overflow: hidden; }
     .pc-match-events-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px 10px; }
 
-    .pc-match-bottombar { flex-shrink: 0; display: flex; align-items: center; gap: 10px; margin-top: 10px; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 10px 14px; }
+    .pc-match-bottombar { flex-shrink: 0; display: flex; align-items: center; gap: 10px; margin-top: 10px; background: #13161e; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; padding: 10px 14px; }
 
     .pc-shell {
-      background:
-        linear-gradient(rgba(10, 12, 18, 0.82), rgba(10, 12, 18, 0.82)),
-        url('/assets/bg-office.jpg') center/cover fixed;
+      background: #0e1015;
     }
 
     .pc-main-col,
@@ -8229,6 +8229,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   const isPC = useIsPC();
   const showPCShell = isPC && Boolean(game) && screen !== "menu";
   const pcTeam = game ? TEAMS.find(t=>t.id===game.teamId) : null;
+  const clubAccent = pcTeam ? getClubAccentColor(pcTeam.color) : "#c9a84c";
+  const clubTextOnAccent = pcTeam ? getClubTextColor(pcTeam.color) : "#0d0f14";
   const pcPosition = game ? [...(game.standings??[])].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference).findIndex(s=>s.teamId===game.teamId)+1 : null;
   const pcBudgetSnapshot = game && pcTeam ? calculateBudgetSnapshot(game, pcTeam) : null;
   const pcNextFixture = game ? (game.fixtures??[]).find(f=>!f.played&&(f.homeTeamId===game.teamId||f.awayTeamId===game.teamId)) : null;
@@ -8309,11 +8311,11 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   );
 
   return (
-    <div {...edgeSwipe.handlers} className={showPCShell?`pc-shell${screen==="match"?" pc-match-fullscreen":""}`:undefined} style={{ background:showPCShell?undefined:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:showPCShell?"none":540, margin:showPCShell?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y" }}>
+    <div {...edgeSwipe.handlers} className={showPCShell?`pc-shell${screen==="match"?" pc-match-fullscreen":""}`:undefined} style={{ background:showPCShell?undefined:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:showPCShell?"none":540, margin:showPCShell?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y", ...(showPCShell?{"--club-accent":clubAccent,"--club-text-on-accent":clubTextOnAccent}:{}) }}>
       {edgeSwipe.indicator}
       {showPCShell && (
         <>
-          <PCTopBar team={pcTeam} game={game} position={pcPosition} cloudSession={cloudSession} cloudSyncState={cloudSyncState} cloudConflict={cloudConflict} onOpenCloudSaves={()=>setScreen("cloudSaves")} />
+          <PCTopBar team={pcTeam} game={game} position={pcPosition} cloudSession={cloudSession} cloudSyncState={cloudSyncState} cloudConflict={cloudConflict} onOpenCloudSaves={()=>setScreen("cloudSaves")} clubAccent={clubAccent} clubTextOnAccent={clubTextOnAccent} />
           <PCSidebar screen={screen} setScreen={setScreen} attentionCount={attentionCount} />
         </>
       )}

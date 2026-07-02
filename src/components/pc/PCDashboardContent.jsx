@@ -53,7 +53,7 @@ export default function PCDashboardContent({
   const allMedicalAlerts = getMedicalAlerts(game);
   const avgFatigue = Math.round(players.reduce((s, p) => s + (p.fatigue ?? 20), 0) / Math.max(1, players.length));
   const kpiCards = [
-    { label: "Vestuario", value: lockerSummary.atmosphere === "tenso" ? "Tenso" : lockerSummary.atmosphere === "positivo" ? "Positivo" : "Estable", trend: lockerSummary.unhappy.length ? `${lockerSummary.unhappy.length} jugador${lockerSummary.unhappy.length === 1 ? "" : "es"} incómodo${lockerSummary.unhappy.length === 1 ? "" : "s"}` : "Grupo unido", color: lockerSummary.atmosphere === "tenso" ? "#ef4444" : lockerSummary.atmosphere === "positivo" ? "#22c55e" : "#c9a84c", action: "lockerRoom" },
+    { label: "Vestuario", value: lockerSummary.atmosphere === "tenso" ? "Tenso" : lockerSummary.atmosphere === "positivo" ? "Positivo" : "Estable", trend: lockerSummary.unhappy.length ? `${lockerSummary.unhappy.length} jugador${lockerSummary.unhappy.length === 1 ? "" : "es"} incómodo${lockerSummary.unhappy.length === 1 ? "" : "s"}` : "Grupo unido", color: lockerSummary.atmosphere === "tenso" ? "#ef4444" : lockerSummary.atmosphere === "positivo" ? "#22c55e" : "var(--club-accent, #c9a84c)", action: "lockerRoom" },
     { label: "Afición", value: `${fanSupport}%`, trend: fanSupport >= 70 ? "Ilusionada" : fanSupport >= 50 ? "Exigente" : "Preocupada", color: fanSupport >= 70 ? "#22c55e" : fanSupport >= 50 ? "#f59e0b" : "#ef4444", action: "fans" },
     { label: "Economía", value: formatBudget(budgetLeft), trend: budgetLeft > 0 ? "Margen para operar" : "Sin margen de fichajes", color: budgetLeft > 0 ? "#22c55e" : "#ef4444", action: "finances" },
     { label: "Carga física", value: allMedicalAlerts.length ? `${allMedicalAlerts.length} alertas` : "Controlada", trend: avgFatigue > 55 ? "Fatiga media elevada" : "Plantilla recuperando bien", color: allMedicalAlerts.length ? "#f97316" : "#22c55e", action: "medical" },
@@ -62,7 +62,7 @@ export default function PCDashboardContent({
   const clubPrestigeLevel = getPrestigeLevel(game.legacy?.clubPrestige ?? 30);
   const managerPrestigeLevel = getPrestigeLevel(game.legacy?.manager?.prestige ?? 10, true);
   const objectiveItems = [
-    { label: "Liga", value: `${position}º · ${standing?.points ?? 0} pts`, color: position <= 6 ? "#22c55e" : position >= 17 ? "#ef4444" : "#c9a84c" },
+    { label: "Liga", value: `${position}º · ${standing?.points ?? 0} pts`, color: position <= 6 ? "#22c55e" : position >= 17 ? "#ef4444" : "var(--club-accent, #c9a84c)" },
     { label: "Confianza presidente", value: `${confidence}/100`, color: confidence >= 60 ? "#22c55e" : "#f59e0b" },
     { label: "Prestigio club", value: clubPrestigeLevel.label, color: clubPrestigeLevel.color },
     { label: "Entrenador", value: managerPrestigeLevel.label, color: managerPrestigeLevel.color },
@@ -128,13 +128,13 @@ export default function PCDashboardContent({
               <div className="pc-next-match-teams">
                 <div className="pc-next-match-side">
                   <TeamCrest team={homeTeam} size={44} style={{ margin: "0 auto 6px" }} />
-                  <div className="pc-next-match-team-name" style={{ color: isHome ? "#c9a84c" : "#e8eaf0" }}>{homeTeam?.name}</div>
+                  <div className="pc-next-match-team-name" style={{ color: isHome ? "var(--club-accent, #c9a84c)" : "#e8eaf0" }}>{homeTeam?.name}</div>
                   <div className="pc-next-match-venue-tag">🏠 Local{isHome ? " ★" : ""}</div>
                 </div>
                 <div className="pc-next-match-vs">VS</div>
                 <div className="pc-next-match-side">
                   <TeamCrest team={awayTeam} size={44} style={{ margin: "0 auto 6px" }} />
-                  <div className="pc-next-match-team-name" style={{ color: !isHome ? "#c9a84c" : "#e8eaf0" }}>{awayTeam?.name}</div>
+                  <div className="pc-next-match-team-name" style={{ color: !isHome ? "var(--club-accent, #c9a84c)" : "#e8eaf0" }}>{awayTeam?.name}</div>
                   <div className="pc-next-match-venue-tag">✈️ Visitante{!isHome ? " ★" : ""}</div>
                 </div>
               </div>
@@ -162,8 +162,7 @@ export default function PCDashboardContent({
               {formation && <div className="pc-next-match-meta">Formación: {formation}</div>}
               <button
                 onClick={goPlay}
-                className={lineupValid ? "btn-gold" : ""}
-                style={{ width: "100%", marginTop: 12, background: lineupValid ? undefined : "#374151", color: lineupValid ? undefined : "#9aa0b4", border: lineupValid ? undefined : "1px solid rgba(255,255,255,.08)", padding: 13, borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                style={{ width: "100%", marginTop: 12, background: lineupValid ? "var(--club-accent, #c9a84c)" : "#374151", color: lineupValid ? "var(--club-text-on-accent, #0d0f14)" : "#9aa0b4", border: lineupValid ? "none" : "1px solid rgba(255,255,255,.08)", padding: 13, borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer" }}
               >
                 {lineupValid ? "▶ Jugar partido" : `⚠️ Alineación incompleta (${lineupCount}/11) — Configurar`}
               </button>
