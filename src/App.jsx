@@ -2194,6 +2194,11 @@ const GLOBAL_CSS = `
     .pc-shell-body { flex: 1; display: flex; overflow: hidden; margin-left: 200px; margin-top: 44px; min-height: 0; }
     .pc-main-col { flex: 1; padding: 16px; overflow-y: auto; min-width: 0; }
 
+    /* Pantalla de partido a pantalla completa: oculta la barra lateral, el contenido ocupa todo el ancho */
+    .pc-shell-body.pc-match-fullscreen { margin-left: 0; width: 100%; }
+    .pc-shell.pc-match-fullscreen .pc-sidebar { display: none; }
+    .pc-sidebar:has(~ .pc-shell-body.pc-match-fullscreen) { display: none; }
+
     .pc-right-panel {
       width: 300px; flex-shrink: 0; background: rgba(15, 19, 32, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
       border-left: 1px solid #1e2435; padding: 16px; overflow-y: auto;
@@ -2394,30 +2399,39 @@ const GLOBAL_CSS = `
     .pc-lineup-right { flex: 0 0 280px; height: 100%; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
     .pc-lineup-right-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 
-    /* ─── PC live match screen ─────────────────────────────────────────── */
+    /* ─── PC live match screen (pantalla completa, sin sidebar) ─────────── */
     .pc-match-root { position: relative; height: calc(100vh - 76px); display: flex; flex-direction: column; overflow: hidden; }
 
     .pc-match-topbar { flex-shrink: 0; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; }
     .pc-match-topbar-main { display: flex; align-items: center; gap: 14px; }
     .pc-match-topbar-team { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .pc-match-topbar-teamdot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
     .pc-match-topbar-teamname { font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pc-match-topbar-score { flex-shrink: 0; background: #0d0f14; border: 1px solid rgba(201,168,76,.25); border-radius: 10px; padding: 6px 18px; font-size: 26px; font-weight: 900; color: #e8eaf0; letter-spacing: 2px; }
     .pc-match-topbar-clock { flex-shrink: 0; text-align: center; min-width: 150px; }
     .pc-match-topbar-minute { font-size: 20px; font-weight: 900; color: #c9a84c; line-height: 1; }
     .pc-match-topbar-phase { font-size: 9px; color: #6b7280; margin-top: 3px; white-space: nowrap; }
-    .pc-match-topbar-controls { display: flex; gap: 6px; flex-shrink: 0; }
+    .pc-match-topbar-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .pc-match-topbar-subs { font-size: 10px; color: #9aa0b4; font-weight: 800; background: #0d0f14; border: 1px solid rgba(255,255,255,.08); border-radius: 7px; padding: 7px 10px; white-space: nowrap; }
     .pc-match-topbar-meta { display: flex; align-items: center; gap: 16px; margin-top: 9px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.06); }
-    .pc-match-segment-bar { display: flex; gap: 3px; flex: 0 0 160px; }
-    .pc-match-possession-bar { flex: 1; min-width: 80px; }
+    .pc-match-segment-bar { display: flex; gap: 3px; flex: 1; }
     .pc-match-topbar-tags { display: flex; gap: 12px; flex-shrink: 0; font-size: 10px; color: #6b7280; white-space: nowrap; }
 
-    .pc-match-flash { flex-shrink: 0; border-radius: 9px; padding: 8px 14px; margin-bottom: 10px; font-size: 12px; color: #e8eaf0; display: flex; align-items: center; gap: 8px; }
+    .pc-match-possession-row { flex-shrink: 0; display: flex; height: 24px; border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+    .pc-match-possession-fill { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; transition: width .5s ease; }
+
+    .pc-match-stats-table { flex-shrink: 0; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: 6px 12px; margin-bottom: 10px; }
+    .pc-match-stats-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 3px 0; }
+    .pc-match-stats-value { font-size: 11px; font-weight: 800; }
+    .pc-match-stats-label { text-align: center; color: #6b7280; font-size: 9px; font-weight: 700; letter-spacing: .3px; padding: 0 14px; white-space: nowrap; }
+
+    .pc-match-flash { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 15; border-radius: 9px; padding: 8px 14px; font-size: 12px; color: #e8eaf0; display: flex; align-items: center; gap: 8px; }
 
     .pc-match-body { flex: 1; min-height: 0; display: flex; gap: 14px; overflow: hidden; }
 
-    .pc-match-left { flex: 0 0 220px; min-width: 0; display: flex; flex-direction: column; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; overflow: hidden; }
+    .pc-match-left { flex: 0 0 200px; min-width: 0; display: flex; flex-direction: column; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; overflow: hidden; }
     .pc-match-col-header { flex-shrink: 0; font-size: 10px; font-weight: 900; color: #c9a84c; letter-spacing: .6px; padding: 10px 12px 8px; }
-    .pc-match-col-subheader { font-size: 9px; font-weight: 900; color: #fbbf24; letter-spacing: .5px; margin: 10px 2px 6px; }
+    .pc-match-col-subheader { font-size: 9px; font-weight: 900; color: #60a5fa; letter-spacing: .5px; margin: 12px 2px 6px; }
     .pc-match-left-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px 10px; }
     .pc-match-player-row { display: flex; align-items: center; gap: 7px; padding: 6px 4px; border-radius: 7px; margin-bottom: 3px; }
     .pc-match-player-num { width: 18px; height: 18px; border-radius: 5px; background: rgba(255,255,255,.06); color: #9aa0b4; font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -2428,12 +2442,12 @@ const GLOBAL_CSS = `
     .pc-match-energy-bar { flex: 1; height: 4px; background: #1e2330; border-radius: 999px; overflow: hidden; }
     .pc-match-energy-bar > div { height: 100%; border-radius: 999px; }
     .pc-match-rating { font-size: 12px; font-weight: 900; flex-shrink: 0; width: 26px; text-align: center; }
-    .pc-match-bench-row { display: flex; align-items: center; gap: 6px; padding: 4px; opacity: .75; }
 
-    .pc-match-center { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; position: relative; }
+    .pc-match-center { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
     .pc-match-pitch-wrap { flex: 1; min-height: 0; position: relative; background: #061206; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; overflow: hidden; }
     .pc-match-pitch-dot { position: absolute; transform: translate(-50%,-50%); text-align: center; }
-    .pc-match-stats-strip { flex-shrink: 0; display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; background: #161a24; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: 9px 10px; }
+
+    .pc-match-quickpanel { position: absolute; right: 12px; bottom: 12px; width: 260px; max-height: 70%; z-index: 18; background: rgba(11,14,20,.97); border: 1px solid rgba(201,168,76,.3); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; box-shadow: 0 12px 30px rgba(0,0,0,.4); }
 
     .pc-match-overlay { position: absolute; inset: 0; z-index: 20; background: rgba(6,8,13,.9); backdrop-filter: blur(3px); border-radius: 12px; display: flex; flex-direction: column; padding: 16px; overflow-y: auto; }
     .pc-match-overlay-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-shrink: 0; }
@@ -8295,7 +8309,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   );
 
   return (
-    <div {...edgeSwipe.handlers} className={showPCShell?"pc-shell":undefined} style={{ background:showPCShell?undefined:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:showPCShell?"none":540, margin:showPCShell?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y" }}>
+    <div {...edgeSwipe.handlers} className={showPCShell?`pc-shell${screen==="match"?" pc-match-fullscreen":""}`:undefined} style={{ background:showPCShell?undefined:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:showPCShell?"none":540, margin:showPCShell?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y" }}>
       {edgeSwipe.indicator}
       {showPCShell && (
         <>
@@ -8370,7 +8384,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       )}
 
       {showPCShell ? (
-        <div className="pc-shell-body">
+        <div className={`pc-shell-body${screen==="match"?" pc-match-fullscreen":""}`}>
           <div className="pc-main-col">{screenContent}</div>
           {screen !== "match" && (
             <PCRightPanel game={game} directorItems={legacyDirectorItems} onOpenScene={handleOpenScene} setScreen={setScreen} chiefBriefing={chiefBriefing} medicalAlerts={pcMedicalAlerts} consequences={pcConsequences} />
