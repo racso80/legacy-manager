@@ -26,6 +26,14 @@ export function computePlayerRating(playerId, { events, sentOffIds = [], current
   return Number(rating.toFixed(1));
 }
 
+// energy = 100 - fatigue. Mismos umbrales de color que el resto de la UI de partido
+// (good/mid/bad ya estilizados en GLOBAL_CSS con var(--good)/var(--mid)/var(--bad)).
+export function energyClass(energy) {
+  const e = Number(energy);
+  if (!Number.isFinite(e)) return "mid";
+  return e > 60 ? "good" : e >= 30 ? "mid" : "bad";
+}
+
 const POSITION_TIER = {
   POR: "GK",
   LD: "D", LI: "D", DFC: "D",

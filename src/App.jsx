@@ -2548,6 +2548,15 @@ const GLOBAL_CSS = `
     .pc-match-v2-squad-rating.good { color: var(--good); }
     .pc-match-v2-squad-rating.mid { color: var(--mid); }
     .pc-match-v2-squad-rating.bad { color: var(--bad); }
+    .pc-match-v2-energy-ring { flex-shrink: 0; margin-top: 1px; }
+    .pc-match-v2-energy-ring-fg { stroke: var(--mid); transition: stroke-dashoffset .5s ease, stroke .3s ease; }
+    .pc-match-v2-energy-ring-fg.good { stroke: var(--good); }
+    .pc-match-v2-energy-ring-fg.mid { stroke: var(--mid); }
+    .pc-match-v2-energy-ring-fg.bad { stroke: var(--bad); }
+    .pc-match-v2-energy-ring-text { font-family: var(--font-mono); font-size: 8px; font-weight: 700; fill: var(--text-primary); }
+    .pc-match-v2-energy-ring-text.good { fill: var(--good); }
+    .pc-match-v2-energy-ring-text.mid { fill: var(--mid); }
+    .pc-match-v2-energy-ring-text.bad { fill: var(--bad); }
 
     /* Modales: lesión / sustitución */
     .pc-match-v2-modal-backdrop { position: fixed; inset: 0; z-index: 70; background: rgba(6,8,13,.75); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; }
