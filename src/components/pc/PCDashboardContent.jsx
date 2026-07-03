@@ -1,292 +1,334 @@
+import { useState } from "react";
 import TeamCrest from "../TeamCrest.jsx";
-import { TEAM_REAL_AVG, REAL_SQUADS } from "../../App.jsx";
-import { getMedicalAlerts, buildPlayerState } from "../../state/gameStateSelectors.js";
-import { getLockerRoomSummary } from "../../morale/moraleEngine.js";
-import { getPrestigeLevel } from "../../legacy/legacyEngine.js";
+import { getMedicalAlerts } from "../../state/gameStateSelectors.js";
+import { getDashboardNews } from "../../news/newsEngine.js";
 
-function formatBudget(value) {
-  if (value == null) return "—";
-  return value >= 1000 ? `€${(value / 1000).toFixed(1)}M` : `€${Math.round(value)}K`;
+const WEEKDAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const MONTH_LABELS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const MONTH_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+const NEWS_TYPE_ICON = { result: "⚽", standings: "📊", streak: "🔥", scorer: "🥇", performance: "⭐", transfer: "🔄", finance: "💶", injury: "🚑", board: "🤝", youth: "🌱", scouting: "🔎" };
+const NEWS_TYPE_LABEL = { result: "Liga", standings: "Liga", streak: "Liga", scorer: "Liga", performance: "Liga", transfer: "Mercado", finance: "Finanzas", injury: "Médico", board: "Directiva", youth: "Cantera", scouting: "Scouting" };
+
+// El juego no tiene un calendario real (solo número de jornada), así que las fechas de
+// partidos/entrenos/mercado en el calendario se sintetizan anclando la próxima jornada del
+// usuario al próximo sábado y espaciando el resto de jornadas de 7 en 7 días desde ahí.
+function startOfWeekMonday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function addDays(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+function nextSaturdayOnOrAfter(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return addDays(d, (6 - d.getDay() + 7) % 7);
+}
+function matchdayDate(matchday, anchorMatchday, anchorDate) {
+  return addDays(anchorDate, (matchday - anchorMatchday) * 7);
+}
+function formFor(teamId, fixtures) {
+  return fixtures
+    .filter(f => f.played && (f.homeTeamId === teamId || f.awayTeamId === teamId))
+    .slice(-5).reverse()
+    .map(f => {
+      const home = f.homeTeamId === teamId;
+      const gf = home ? f.homeGoals : f.awayGoals;
+      const ga = home ? f.awayGoals : f.homeGoals;
+      return gf > ga ? "V" : gf === ga ? "E" : "D";
+    });
+}
+function zoneColor(pos) {
+  if (pos <= 4) return "#3ecf8e";
+  if (pos <= 6) return "#60a5fa";
+  if (pos >= 18) return "#e0524a";
+  return "rgba(255,255,255,0.1)";
+}
+function sortedStandings(game) {
+  return [...(game.standings ?? [])].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor);
 }
 
 function FormDot({ result }) {
-  const color = result === "V" ? "#22c55e" : result === "E" ? "#f59e0b" : "#ef4444";
-  return <span className="pc-form-dot" style={{ background: `${color}22`, border: `1px solid ${color}`, color }}>{result}</span>;
+  const cls = result === "V" ? "fd-w" : result === "E" ? "fd-d" : "fd-l";
+  return <div className={`pc-dash-v2-fd ${cls}`}>{result}</div>;
 }
 
-export default function PCDashboardContent({
-  game, team, teams = [], position, budgetLeft,
-  nextFixture, nextOpponent, lineup = [], attentionItems = [],
-  formation, setScreen, onPlay, onOpenPlayer,
-}) {
-  const players = game.players ?? [];
-  const standing = (game.standings ?? []).find(s => s.teamId === game.teamId);
+function NextMatchCard({ game, teams, nextFixture, nextOpponent, position, lineup, setScreen, onPlay, anchorDate }) {
+  if (!nextFixture) {
+    return (
+      <div>
+        <div className="pc-dash-v2-sec-label">Próximo partido</div>
+        <div className="pc-dash-v2-next-match">
+          <div className="pc-dash-v2-empty">No hay más partidos programados.</div>
+        </div>
+      </div>
+    );
+  }
+  const isHome = nextFixture.homeTeamId === game.teamId;
+  const homeTeam = teams.find(t => t.id === nextFixture.homeTeamId);
+  const awayTeam = teams.find(t => t.id === nextFixture.awayTeamId);
+  const oppTeam = nextOpponent ?? (isHome ? awayTeam : homeTeam);
   const fixtures = game.fixtures ?? [];
-  const playedFixtures = fixtures.filter(f => f.played && (f.homeTeamId === game.teamId || f.awayTeamId === game.teamId));
-  const lastResults = playedFixtures.slice(-5);
-  const racha = [...lastResults].reverse().map(f => {
-    const home = f.homeTeamId === game.teamId;
-    const my = home ? f.homeGoals : f.awayGoals;
-    const th = home ? f.awayGoals : f.homeGoals;
-    return my > th ? "V" : my === th ? "E" : "D";
-  });
-  const confidence = Math.round(game.legacy?.confidence ?? 65);
-  const getOpponent = f => teams.find(t => t.id === (f.homeTeamId === game.teamId ? f.awayTeamId : f.homeTeamId));
-
-  const availablePlayers = players.filter(p => !p.injured && !p.suspended);
-  const lineupPlayers = lineup.filter(id => id && availablePlayers.find(p => p.id === id));
-  const lineupValid = lineupPlayers.length === 11;
-  const lineupCount = lineupPlayers.length;
-
-  const nonInfoAttention = attentionItems.filter(item => item.priority !== "info");
-
-  const agendaItems = [
-    nextFixture && { icon: "⚽", title: `Partido de Liga · Jornada ${nextFixture.matchday}`, detail: `${nextFixture.homeTeamId === game.teamId ? "Recibes a" : "Visitas a"} ${nextOpponent?.name ?? "rival por confirmar"}`, action: "match" },
-    { icon: "🏋️", title: "Entrenamiento de la plantilla", detail: `Carga ${game.trainingPlan?.load ?? "media"} · revisar si hay fatiga acumulada`, action: "training" },
-    (game.matchday <= 8 || game.matchday >= 31) && { icon: "💰", title: "Mercado abierto", detail: game.matchday <= 8 ? `Quedan ${Math.max(0, 9 - game.matchday)} jornadas para el cierre inicial` : `Quedan ${Math.max(0, 39 - game.matchday)} jornadas para el cierre final`, action: "transfers" },
-    nonInfoAttention.find(item => item.category === "contracts") && { icon: "📄", title: "Contratos pendientes", detail: "Hay decisiones contractuales que requieren revisión", action: "contracts" },
-    (game.transferMarket?.offers ?? []).some(offer => ["clubCounter", "playerCounter", "ready", "clubAccepted"].includes(offer.status)) && { icon: "📬", title: "Negociaciones activas", detail: "Hay respuestas de mercado esperando decisión", action: "transfers" },
-  ].filter(Boolean).slice(0, 4);
-
-  const lockerSummary = getLockerRoomSummary(players);
-  const fanSupport = Math.round(game.fanbase?.support ?? game.fanLove ?? 70);
-  const allMedicalAlerts = getMedicalAlerts(game);
-  const avgFatigue = Math.round(players.reduce((s, p) => s + (p.fatigue ?? 20), 0) / Math.max(1, players.length));
-  const kpiCards = [
-    { label: "Vestuario", value: lockerSummary.atmosphere === "tenso" ? "Tenso" : lockerSummary.atmosphere === "positivo" ? "Positivo" : "Estable", trend: lockerSummary.unhappy.length ? `${lockerSummary.unhappy.length} jugador${lockerSummary.unhappy.length === 1 ? "" : "es"} incómodo${lockerSummary.unhappy.length === 1 ? "" : "s"}` : "Grupo unido", color: lockerSummary.atmosphere === "tenso" ? "#ef4444" : lockerSummary.atmosphere === "positivo" ? "#22c55e" : "var(--club-accent, #c9a84c)", action: "lockerRoom" },
-    { label: "Afición", value: `${fanSupport}%`, trend: fanSupport >= 70 ? "Ilusionada" : fanSupport >= 50 ? "Exigente" : "Preocupada", color: fanSupport >= 70 ? "#22c55e" : fanSupport >= 50 ? "#f59e0b" : "#ef4444", action: "fans" },
-    { label: "Economía", value: formatBudget(budgetLeft), trend: budgetLeft > 0 ? "Margen para operar" : "Sin margen de fichajes", color: budgetLeft > 0 ? "#22c55e" : "#ef4444", action: "finances" },
-    { label: "Carga física", value: allMedicalAlerts.length ? `${allMedicalAlerts.length} alertas` : "Controlada", trend: avgFatigue > 55 ? "Fatiga media elevada" : "Plantilla recuperando bien", color: allMedicalAlerts.length ? "#f97316" : "#22c55e", action: "medical" },
-  ];
-
-  const clubPrestigeLevel = getPrestigeLevel(game.legacy?.clubPrestige ?? 30);
-  const managerPrestigeLevel = getPrestigeLevel(game.legacy?.manager?.prestige ?? 10, true);
-  const objectiveItems = [
-    { label: "Liga", value: `${position}º · ${standing?.points ?? 0} pts`, color: position <= 6 ? "#22c55e" : position >= 17 ? "#ef4444" : "var(--club-accent, #c9a84c)" },
-    { label: "Confianza presidente", value: `${confidence}/100`, color: confidence >= 60 ? "#22c55e" : "#f59e0b" },
-    { label: "Prestigio club", value: clubPrestigeLevel.label, color: clubPrestigeLevel.color },
-    { label: "Entrenador", value: managerPrestigeLevel.label, color: managerPrestigeLevel.color },
-  ];
-
-  const topPlayers = [...players].sort((a, b) => (b.overall ?? 0) - (a.overall ?? 0)).slice(0, 5);
-  const availabilityFor = player => {
-    const state = buildPlayerState(player, game);
-    if (state.isInjured || state.isSuspended) return { label: state.isSuspended && !state.isInjured ? "Sancionado" : "Lesionado", color: "#ef4444" };
-    if (state.isRecovering) return { label: "Recuperación", color: "#f59e0b" };
-    return { label: "Disponible", color: "#22c55e" };
-  };
-
-  const quickActions = [
-    ["📋", "Gestionar alineación", "lineup", "Once y suplentes", "#3b82f6"],
-    ["💰", "Mercado de fichajes", "transfers", "Altas y bajas", "#22c55e"],
-    ["🏋", "Entrenar plantilla", "training", "Plan semanal", "#f59e0b"],
-    ["📰", "Ver noticias", "news", "Centro de prensa", "#a78bfa"],
-  ];
-
+  const standings = sortedStandings(game);
+  const posFor = id => standings.findIndex(s => s.teamId === id) + 1;
+  const homePos = posFor(homeTeam?.id);
+  const awayPos = posFor(awayTeam?.id);
+  const oppPos = isHome ? awayPos : homePos;
+  const highImportance = position <= 6 || (oppPos && oppPos <= 6);
+  const importanceLabel = highImportance ? "⭐ Alta importancia" : position >= 16 ? "Necesitas puntuar" : "Jornada clave";
+  const available = (game.players ?? []).filter(p => !p.injured && !p.suspended);
+  const lineupValid = lineup.filter(id => id && available.find(p => p.id === id)).length === 11;
   const goPlay = () => (lineupValid ? onPlay() : setScreen("lineup"));
+  const kickoff = anchorDate;
+  const kickoffLabel = `${WEEKDAY_SHORT[(kickoff.getDay() + 6) % 7]} ${kickoff.getDate()} ${MONTH_SHORT[kickoff.getMonth()]}`;
 
   return (
-    <div className="pc-dashboard">
-      <div className="pc-dashboard-top-row">
-        <div className="pc-panel-card pc-club-status-card">
-          <div className="pc-club-status-header">
-            <TeamCrest team={team} size={48} />
-            <div style={{ minWidth: 0 }}>
-              <div className="pc-club-status-name">{team?.name}</div>
-              <div className="pc-club-status-position">{position ? `${position}º` : "—"}</div>
-              <div className="pc-club-status-points">{standing?.points ?? 0} pts</div>
+    <div>
+      <div className="pc-dash-v2-sec-label">Próximo partido · J{nextFixture.matchday}</div>
+      <div className="pc-dash-v2-next-match">
+        <div className="pc-dash-v2-nm-row">
+          <div className="pc-dash-v2-nm-team">
+            <TeamCrest team={homeTeam} size={32} className="pc-dash-v2-nm-crest" />
+            <div className="pc-dash-v2-nm-name">{homeTeam?.name}</div>
+            {formFor(homeTeam?.id, fixtures).length > 0 && (
+              <div className="pc-dash-v2-nm-form">{formFor(homeTeam?.id, fixtures).map((r, i) => <FormDot key={i} result={r} />)}</div>
+            )}
+          </div>
+          <div className="pc-dash-v2-nm-center">
+            <div className="pc-dash-v2-nm-vs">VS</div>
+            <div className="pc-dash-v2-nm-date">{kickoffLabel}</div>
+            <div className="pc-dash-v2-nm-venue">{homeTeam?.stadium ?? "—"} · LaLiga</div>
+            <div className="pc-dash-v2-nm-tags">
+              <span className="pc-dash-v2-nm-tag">{position ?? "—"}º vs {oppPos || "—"}º</span>
+              <span className={`pc-dash-v2-nm-tag${highImportance ? " hot" : ""}`}>{importanceLabel}</span>
             </div>
           </div>
-          {racha.length > 0 && (
-            <div className="pc-club-status-form">
-              <span className="pc-club-status-form-label">RACHA:</span>
-              <div style={{ display: "flex", gap: 4 }}>
-                {racha.map((r, i) => <FormDot key={i} result={r} />)}
-              </div>
-            </div>
-          )}
+          <div className="pc-dash-v2-nm-team">
+            <TeamCrest team={awayTeam} size={32} className="pc-dash-v2-nm-crest" />
+            <div className="pc-dash-v2-nm-name">{awayTeam?.name}</div>
+            {formFor(awayTeam?.id, fixtures).length > 0 && (
+              <div className="pc-dash-v2-nm-form">{formFor(awayTeam?.id, fixtures).map((r, i) => <FormDot key={i} result={r} />)}</div>
+            )}
+          </div>
+          <button className="pc-dash-v2-nm-btn" onClick={goPlay}>
+            {lineupValid ? "▶ Preparar" : `⚠️ Alineación (${lineup.filter(Boolean).length}/11)`}
+          </button>
         </div>
-
-        {nextFixture ? (() => {
-          const isHome = nextFixture.homeTeamId === game.teamId;
-          const homeTeam = teams.find(t => t.id === nextFixture.homeTeamId);
-          const awayTeam = teams.find(t => t.id === nextFixture.awayTeamId);
-          const nextOpponentStanding = nextOpponent ? [...(game.standings ?? [])].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor).findIndex(row => row.teamId === nextOpponent.id) + 1 : null;
-          const nextOpponentLast = nextOpponent ? fixtures.filter(f => f.played && (f.homeTeamId === nextOpponent.id || f.awayTeamId === nextOpponent.id)).slice(-5) : [];
-          const nextOpponentForm = nextOpponentLast.map(f => {
-            const h = f.homeTeamId === nextOpponent?.id;
-            const gf = h ? f.homeGoals : f.awayGoals;
-            const ga = h ? f.awayGoals : f.homeGoals;
-            return gf > ga ? "V" : gf === ga ? "E" : "D";
-          });
-          const nextOpponentSquad = nextOpponent ? REAL_SQUADS[nextOpponent.id] ?? [] : [];
-          const nextOpponentKeyPlayer = [...nextOpponentSquad].sort((a, b) => (b.overall ?? 0) - (a.overall ?? 0))[0];
-          const importance = position <= 6 || (nextOpponentStanding && nextOpponentStanding <= 6) ? "Partido de prestigio" : position >= 16 ? "Necesitas puntuar" : "Jornada clave";
-          return (
-            <div className="pc-panel-card pc-next-match-card">
-              <div className="pc-panel-title">PRÓXIMO PARTIDO · J{nextFixture.matchday}</div>
-              <div className="pc-next-match-teams">
-                <div className="pc-next-match-side">
-                  <TeamCrest team={homeTeam} size={44} style={{ margin: "0 auto 6px" }} />
-                  <div className="pc-next-match-team-name" style={{ color: isHome ? "var(--club-accent, #c9a84c)" : "#e8eaf0" }}>{homeTeam?.name}</div>
-                  <div className="pc-next-match-venue-tag">🏠 Local{isHome ? " ★" : ""}</div>
-                </div>
-                <div className="pc-next-match-vs">VS</div>
-                <div className="pc-next-match-side">
-                  <TeamCrest team={awayTeam} size={44} style={{ margin: "0 auto 6px" }} />
-                  <div className="pc-next-match-team-name" style={{ color: !isHome ? "var(--club-accent, #c9a84c)" : "#e8eaf0" }}>{awayTeam?.name}</div>
-                  <div className="pc-next-match-venue-tag">✈️ Visitante{!isHome ? " ★" : ""}</div>
-                </div>
-              </div>
-              <div className="pc-next-match-meta">{nextOpponent?.name} · Media {nextOpponent?.avg ?? TEAM_REAL_AVG[nextOpponent?.id ?? ""] ?? "—"}</div>
-              <div className="pc-next-match-stats-grid">
-                <div className="pc-next-match-stat">
-                  <div className="pc-next-match-stat-label">POSICIÓN RIVAL</div>
-                  <div className="pc-next-match-stat-value">{nextOpponentStanding ? `${nextOpponentStanding}º` : "—"}</div>
-                </div>
-                <div className="pc-next-match-stat">
-                  <div className="pc-next-match-stat-label">FORMA RIVAL</div>
-                  <div className="pc-next-match-stat-value">
-                    {nextOpponentForm.length ? <div style={{ display: "flex", gap: 3 }}>{nextOpponentForm.map((r, i) => <FormDot key={i} result={r} />)}</div> : "Sin racha reciente"}
-                  </div>
-                </div>
-                <div className="pc-next-match-stat">
-                  <div className="pc-next-match-stat-label">JUGADOR PELIGROSO</div>
-                  <div className="pc-next-match-stat-value">{nextOpponentKeyPlayer ? `${nextOpponentKeyPlayer.name} (${nextOpponentKeyPlayer.overall})` : "Sin referencia"}</div>
-                </div>
-                <div className="pc-next-match-stat">
-                  <div className="pc-next-match-stat-label">IMPORTANCIA</div>
-                  <div className="pc-next-match-stat-value">{importance}</div>
-                </div>
-              </div>
-              {formation && <div className="pc-next-match-meta">Formación: {formation}</div>}
-              <button
-                onClick={goPlay}
-                style={{ width: "100%", marginTop: 12, background: lineupValid ? "var(--club-accent, #c9a84c)" : "#374151", color: lineupValid ? "var(--club-text-on-accent, #0d0f14)" : "#9aa0b4", border: lineupValid ? "none" : "1px solid rgba(255,255,255,.08)", padding: 13, borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer" }}
-              >
-                {lineupValid ? "▶ Jugar partido" : `⚠️ Alineación incompleta (${lineupCount}/11) — Configurar`}
-              </button>
-            </div>
-          );
-        })() : (
-          <div className="pc-panel-card pc-next-match-card">
-            <div className="pc-panel-title">PRÓXIMO PARTIDO</div>
-            <div className="pc-right-panel-empty">No hay más partidos programados.</div>
-          </div>
-        )}
       </div>
+    </div>
+  );
+}
 
-      <div className="pc-dashboard-columns">
-        <div className="pc-dashboard-col-left">
-          {agendaItems.length > 0 && (
-            <div className="pc-panel-card">
-              <div className="pc-panel-title">📅 AGENDA DEL DÍA</div>
-              <div className="pc-agenda-list">
-                {agendaItems.map((item, index) => (
-                  <button
-                    key={`${item.title}-${index}`}
-                    className="pc-agenda-item"
-                    onClick={() => item.action === "match" ? goPlay() : setScreen(item.action)}
-                  >
-                    <span style={{ fontSize: 16 }}>{item.icon}</span>
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <strong className="pc-agenda-item-title">{item.title}</strong>
-                      <small className="pc-agenda-item-detail">{item.detail}</small>
-                    </span>
-                    <span style={{ color: "#6b7280" }}>→</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+function CalendarPanel({ game, teams, anchorMatchday, anchorDate }) {
+  const [weekOffset, setWeekOffset] = useState(0);
+  const today = new Date();
+  const base = addDays(startOfWeekMonday(today), weekOffset * 14);
+  const days = Array.from({ length: 14 }, (_, i) => addDays(base, i));
+  const userFixtures = (game.fixtures ?? []).filter(f => f.homeTeamId === game.teamId || f.awayTeamId === game.teamId);
+  const fixtureForDay = day => userFixtures.find(f => isSameDay(matchdayDate(f.matchday, anchorMatchday, anchorDate), day));
+  const marketOpen = game.matchday <= 8 || game.matchday >= 31;
+  const closeMatchday = game.matchday <= 8 ? 9 : 39;
+  const closeDate = matchdayDate(closeMatchday, anchorMatchday, anchorDate);
+  const firstWednesday = days.find(d => d.getDay() === 3) ?? days[0];
+  const weeks = [days.slice(0, 7), days.slice(7, 14)];
+  const monthLabel = `${MONTH_LABELS[days[0].getMonth()]} ${days[0].getFullYear()}`;
 
-          {lastResults.length > 0 && (
-            <div className="pc-panel-card">
-              <div className="pc-panel-title">ÚLTIMOS RESULTADOS</div>
-              <div className="pc-results-list">
-                {[...lastResults].reverse().map(f => {
-                  const opp = getOpponent(f);
-                  const isHome = f.homeTeamId === game.teamId;
-                  const my = isHome ? f.homeGoals : f.awayGoals;
-                  const th = isHome ? f.awayGoals : f.homeGoals;
-                  const win = my > th; const draw = my === th;
-                  const col = win ? "#22c55e" : draw ? "#f59e0b" : "#ef4444";
-                  return (
-                    <div key={f.id} className="pc-result-row">
-                      <TeamCrest team={opp} size={26} />
-                      <div style={{ flex: 1, fontSize: 12, color: "#9aa0b4" }}>J{f.matchday} {isHome ? "vs" : "@"} {opp?.short}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#e8eaf0" }}>{f.homeGoals}-{f.awayGoals}</div>
-                      <div style={{ background: `${col}22`, color: col, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>{win ? "V" : draw ? "E" : "D"}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <div className="pc-dash-v2-sec-label">Calendario — próximas 2 semanas</div>
+      <div className="pc-dash-v2-calendar">
+        <div className="pc-dash-v2-cal-hdr">
+          <div className="pc-dash-v2-cal-title">{monthLabel}</div>
+          <div className="pc-dash-v2-cal-nav">
+            <button className="pc-dash-v2-cal-nav-btn" onClick={() => setWeekOffset(o => o - 1)} aria-label="Semana anterior">‹</button>
+            <button className="pc-dash-v2-cal-nav-btn" onClick={() => setWeekOffset(o => o + 1)} aria-label="Semana siguiente">›</button>
+          </div>
         </div>
-
-        <div className="pc-dashboard-col-right">
-          <div className="pc-panel-card">
-            <div className="pc-panel-title">📊 ESTADO DEL CLUB</div>
-            <div className="pc-kpi-grid">
-              {kpiCards.map(card => (
-                <button key={card.label} className="pc-kpi-card" onClick={() => setScreen(card.action)}>
-                  <div className="pc-kpi-card-label">{card.label.toUpperCase()}</div>
-                  <div className="pc-kpi-card-value" style={{ color: card.color }}>{card.value}</div>
-                  <div className="pc-kpi-card-trend">{card.trend}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="pc-panel-card">
-            <div className="pc-panel-title">🎯 OBJETIVOS</div>
-            <div className="pc-objective-grid">
-              {objectiveItems.map(item => (
-                <div key={item.label} className="pc-objective-card">
-                  <div className="pc-objective-label">{item.label.toUpperCase()}</div>
-                  <div className="pc-objective-value" style={{ color: item.color }}>{item.value}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="pc-panel-card">
-            <div className="pc-panel-title">JUGADORES DESTACADOS</div>
-            <div className="pc-squad-highlights-list">
-              {topPlayers.map(player => {
-                const status = availabilityFor(player);
+        <div className="pc-dash-v2-cal-weeks">
+          {weeks.map((week, wi) => (
+            <div className="pc-dash-v2-cal-week" key={wi}>
+              {week.map((day, di) => {
+                const isToday = isSameDay(day, today);
+                const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                const fixture = fixtureForDay(day);
+                const isMarketOpenDay = marketOpen && isSameDay(day, firstWednesday);
+                const isCloseDay = marketOpen && isSameDay(day, closeDate);
+                const isTraining = !isWeekend && !fixture;
                 return (
-                  <button key={player.id} className="pc-squad-highlight-row" onClick={() => onOpenPlayer?.(player)}>
-                    <span className="pc-squad-highlight-name">{player.name}</span>
-                    <span className="pc-squad-highlight-overall">{player.overall}</span>
-                    <span className="pc-squad-highlight-status" style={{ color: status.color }}>{status.label}</span>
-                  </button>
+                  <div key={di} className={`pc-dash-v2-cal-day${isToday ? " today" : ""}${isWeekend ? " weekend" : ""}`}>
+                    <div className="pc-dash-v2-cal-dn">{WEEKDAY_SHORT[di]}</div>
+                    <div className="pc-dash-v2-cal-num">{day.getDate()}</div>
+                    <div className="pc-dash-v2-cal-events">
+                      {fixture && <div className="pc-dash-v2-ce pc-dash-v2-ce-match">⚽ J{fixture.matchday}</div>}
+                      {isTraining && <div className="pc-dash-v2-ce pc-dash-v2-ce-train">🏃 Entreno</div>}
+                      {isMarketOpenDay && <div className="pc-dash-v2-ce pc-dash-v2-ce-open">🟢 Mercado</div>}
+                      {isCloseDay && <div className="pc-dash-v2-ce pc-dash-v2-ce-close">🔴 Cierre</div>}
+                    </div>
+                    {fixture && (
+                      <div className="pc-dash-v2-cal-crests">
+                        <TeamCrest team={teams.find(t => t.id === fixture.homeTeamId)} size={14} />
+                        <TeamCrest team={teams.find(t => t.id === fixture.awayTeamId)} size={14} />
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
-          </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          <div className="pc-panel-card">
-            <div className="pc-panel-title">ACCIONES RÁPIDAS</div>
-            <div className="quick-actions-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {quickActions.map(([icon, label, target, helper, accent], index) => (
-                <button
-                  key={target}
-                  onClick={() => setScreen(target)}
-                  className="quick-action-card"
-                  style={{ display: "flex", alignItems: "center", gap: 9, textAlign: "left", background: `linear-gradient(145deg,${accent}10,#161a24)`, border: `1px solid ${accent}22`, borderRadius: 10, padding: 11, minHeight: 72, cursor: "pointer", animationDelay: `${index * 35}ms` }}
-                >
-                  <span style={{ fontSize: 20 }}>{icon}</span>
-                  <span>
-                    <strong style={{ display: "block", fontSize: 10, color: "#e8eaf0", lineHeight: 1.25 }}>{label}</strong>
-                    <small style={{ display: "block", fontSize: 8, color: "#6b7280", marginTop: 3 }}>{helper}</small>
-                  </span>
-                </button>
-              ))}
+function NextMatchdayFixtures({ game, teams }) {
+  const targetMatchday = (game.fixtures ?? []).find(f => !f.played && (f.homeTeamId === game.teamId || f.awayTeamId === game.teamId))?.matchday ?? game.matchday;
+  const rows = (game.fixtures ?? []).filter(f => f.matchday === targetMatchday);
+  return (
+    <div>
+      <div className="pc-dash-v2-sec-label">Jornada {targetMatchday}</div>
+      <div className="pc-dash-v2-panel">
+        {rows.map(f => {
+          const home = teams.find(t => t.id === f.homeTeamId);
+          const away = teams.find(t => t.id === f.awayTeamId);
+          const isUser = f.homeTeamId === game.teamId || f.awayTeamId === game.teamId;
+          return (
+            <div key={f.id} className={`pc-dash-v2-fx-row${isUser ? " me" : ""}`}>
+              <div className={`pc-dash-v2-fx-team${f.homeTeamId === game.teamId ? " me" : ""}`}>{home?.name}</div>
+              <div className="pc-dash-v2-fx-vs" style={isUser ? { color: "var(--club-accent, #c9a84c)" } : undefined}>vs</div>
+              <div className={`pc-dash-v2-fx-team right${f.awayTeamId === game.teamId ? " me" : ""}`}>{away?.name}</div>
             </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StandingsPanel({ game, teams }) {
+  const rows = sortedStandings(game);
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+      <div className="pc-dash-v2-sec-label">Clasificación</div>
+      <div className="pc-dash-v2-standings-panel">
+        <div className="pc-dash-v2-standings-scroll">
+          {rows.map((row, index) => {
+            const pos = index + 1;
+            const team = teams.find(t => t.id === row.teamId);
+            const isMe = row.teamId === game.teamId;
+            return (
+              <div key={row.teamId} className={`pc-dash-v2-st-row${isMe ? " hl" : ""}`}>
+                <div className="pc-dash-v2-st-pos" style={isMe ? { color: "var(--club-accent, #c9a84c)" } : undefined}>{pos}</div>
+                <div className="pc-dash-v2-st-zone" style={{ background: zoneColor(pos) }} />
+                <div className={`pc-dash-v2-st-team${isMe ? " me" : ""}`}>{team?.name ?? row.teamId}</div>
+                <div className="pc-dash-v2-st-pts" style={isMe ? { color: "var(--club-accent, #c9a84c)" } : undefined}>{row.points}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function PCDashboardContent({
+  game, teams = [], position, nextFixture, nextOpponent, lineup = [],
+  setScreen, onPlay, directorItems = [], chiefBriefing, medicalAlerts = [], consequences = [],
+}) {
+  const [newsIndex, setNewsIndex] = useState(0);
+
+  const topNews = getDashboardNews(game.news ?? [], game, 5);
+  const currentNews = topNews[Math.min(newsIndex, Math.max(0, topNews.length - 1))] ?? null;
+
+  const nonInfoDirector = directorItems.filter(item => item.priority !== "info");
+  const firstAttention = nonInfoDirector[0];
+
+  const allMedicalAlerts = medicalAlerts.length ? medicalAlerts : getMedicalAlerts(game);
+  const topMedical = allMedicalAlerts.slice(0, 2);
+  const medicalPreview = topMedical.map(a => `${a.player.name} (${a.risk}%)`).join(" y ");
+
+  const chiefParts = (chiefBriefing ?? "").split(". ").filter(Boolean);
+  const chiefTitle = chiefParts[0] ? `${chiefParts[0]}.` : "Buenos días, míster.";
+  const chiefPreview = chiefParts.slice(1).join(". ");
+
+  const consTitle = consequences[0]?.text ?? "Sin novedades relevantes.";
+  const consPreview = consequences.slice(1, 3).map(c => c.text).join(" ");
+
+  const inboxItems = [
+    { key: "briefing", icon: "👔", from: "Jefe de Gabinete", title: chiefTitle, preview: chiefPreview, accent: "var(--club-accent, #c9a84c)", onClick: () => setScreen("attention") },
+    { key: "attention", icon: "🔔", from: "Requiere tu atención", title: firstAttention ? (firstAttention.issueCard?.title ?? firstAttention.title ?? "Asunto pendiente") : "Sin asuntos urgentes", preview: firstAttention ? (firstAttention.issueCard?.summary ?? firstAttention.summary ?? "") : "No hay decisiones pendientes por ahora.", accent: "#e0524a", badge: nonInfoDirector.length || null, onClick: () => setScreen("attention") },
+    { key: "medical", icon: "🏥", from: "Informe Médico", title: topMedical.length ? `${allMedicalAlerts.length} jugador${allMedicalAlerts.length === 1 ? "" : "es"} con carga elevada` : "Plantilla sin alertas", preview: topMedical.length ? `${medicalPreview} necesita${topMedical.length === 1 ? "" : "n"} descanso.` : "El cuerpo médico no reporta riesgos activos.", accent: "#e0a83e", onClick: () => setScreen("medical") },
+    { key: "news", icon: "📰", from: "Noticias del Club", title: topNews[0]?.title ?? "Sin noticias recientes", preview: topNews[0]?.summary ?? "", accent: "rgba(255,255,255,0.12)", onClick: () => setScreen("news") },
+    { key: "consequences", icon: "⚡", from: "Últimas Consecuencias", title: consTitle, preview: consPreview, accent: "rgba(255,255,255,0.07)", onClick: () => setScreen("attention") },
+  ];
+
+  const anchorMatchday = nextFixture?.matchday ?? game.matchday ?? 1;
+  const anchorDate = nextSaturdayOnOrAfter(new Date());
+
+  return (
+    <div className="pc-dash-v2">
+      <div className="pc-dash-v2-inbox-col">
+        <div className="pc-dash-v2-sec-label">Mensajes del día</div>
+        <div className="pc-dash-v2-inbox">
+          {inboxItems.map(item => (
+            <button key={item.key} className="pc-dash-v2-inbox-item" onClick={item.onClick}>
+              <span className="pc-dash-v2-inbox-accent" style={{ background: item.accent }} />
+              <span className="pc-dash-v2-inbox-icon">{item.icon}</span>
+              <span className="pc-dash-v2-inbox-content">
+                <span className="pc-dash-v2-inbox-from">{item.from}</span>
+                <span className="pc-dash-v2-inbox-title">{item.title}</span>
+                <span className="pc-dash-v2-inbox-preview">{item.preview}</span>
+              </span>
+              {item.badge ? <span className="pc-dash-v2-inbox-badge">{item.badge}</span> : null}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="pc-dash-v2-center-col">
+        <div>
+          <div className="pc-dash-v2-sec-label">Noticia destacada</div>
+          <div className="pc-dash-v2-news-card">
+            <div className="pc-dash-v2-news-body">
+              {currentNews ? (
+                <>
+                  <div className="pc-dash-v2-news-cat">{NEWS_TYPE_ICON[currentNews.type] ?? "📰"} {NEWS_TYPE_LABEL[currentNews.type] ?? "Club"}{currentNews.matchday ? ` · J${currentNews.matchday}` : ""}</div>
+                  <div className="pc-dash-v2-news-headline">{currentNews.title}</div>
+                  {currentNews.summary && <div className="pc-dash-v2-news-summary">{currentNews.summary}</div>}
+                  <div className="pc-dash-v2-news-meta">Temporada {currentNews.seasonLabel ?? game.season}{currentNews.matchday ? ` · Jornada ${currentNews.matchday}` : ""}</div>
+                </>
+              ) : (
+                <div className="pc-dash-v2-empty">Todavía no hay noticias relevantes.</div>
+              )}
+            </div>
+            {topNews.length > 1 && (
+              <div className="pc-dash-v2-news-ctrl">
+                <button className="pc-dash-v2-news-btn" onClick={() => setNewsIndex(i => (i - 1 + topNews.length) % topNews.length)} aria-label="Noticia anterior">▲</button>
+                <div className="pc-dash-v2-news-dots">
+                  {topNews.map((_, i) => <div key={i} className={`pc-dash-v2-ndot${i === newsIndex ? " active" : ""}`} />)}
+                </div>
+                <button className="pc-dash-v2-news-btn" onClick={() => setNewsIndex(i => (i + 1) % topNews.length)} aria-label="Noticia siguiente">▼</button>
+              </div>
+            )}
           </div>
         </div>
+
+        <NextMatchCard game={game} teams={teams} nextFixture={nextFixture} nextOpponent={nextOpponent} position={position} lineup={lineup} setScreen={setScreen} onPlay={onPlay} anchorDate={anchorDate} />
+
+        <CalendarPanel game={game} teams={teams} anchorMatchday={anchorMatchday} anchorDate={anchorDate} />
+      </div>
+
+      <div className="pc-dash-v2-right-col">
+        <NextMatchdayFixtures game={game} teams={teams} />
+        <StandingsPanel game={game} teams={teams} />
       </div>
     </div>
   );

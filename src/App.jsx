@@ -2593,6 +2593,110 @@ const GLOBAL_CSS = `
       position: relative;
       z-index: 1;
     }
+
+    /* ─── PC dashboard v2 (3 columnas: inbox / centro / jornada+clasificación) ── */
+    .pc-dash-v2 {
+      --dv2-bg-app: #080b13; --dv2-bg-panel: #111726; --dv2-bg-raised: #0d1220;
+      display: grid; grid-template-columns: 260px 1fr 220px; gap: 10px;
+      height: calc(100vh - 76px); min-height: 0;
+    }
+    .pc-dash-v2-sec-label { font-size: 8px; font-weight: 800; letter-spacing: 1.5px; color: rgba(255,255,255,0.2); text-transform: uppercase; margin-bottom: 6px; }
+    .pc-dash-v2-empty { color: rgba(255,255,255,0.3); font-size: 11px; padding: 10px 2px; }
+
+    /* Inbox */
+    .pc-dash-v2-inbox-col { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+    .pc-dash-v2-inbox { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; overflow: hidden auto; flex: 1; display: flex; flex-direction: column; }
+    .pc-dash-v2-inbox-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 13px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background .1s; position: relative; flex-shrink: 0; background: none; border-left: none; border-right: none; border-top: none; text-align: left; width: 100%; font-family: inherit; }
+    .pc-dash-v2-inbox-item:last-child { border-bottom: none; flex: 1; }
+    .pc-dash-v2-inbox-item:hover { background: rgba(255,255,255,0.02); }
+    .pc-dash-v2-inbox-accent { width: 3px; border-radius: 2px; align-self: stretch; flex-shrink: 0; min-height: 40px; }
+    .pc-dash-v2-inbox-icon { font-size: 15px; flex-shrink: 0; width: 24px; text-align: center; margin-top: 1px; }
+    .pc-dash-v2-inbox-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .pc-dash-v2-inbox-from { font-size: 8px; font-weight: 800; color: rgba(255,255,255,0.28); letter-spacing: .5px; text-transform: uppercase; margin-bottom: 3px; }
+    .pc-dash-v2-inbox-title { font-size: 11px; font-weight: 700; color: #e9edf6; margin-bottom: 4px; line-height: 1.3; }
+    .pc-dash-v2-inbox-preview { font-size: 10px; color: rgba(255,255,255,0.38); line-height: 1.45; }
+    .pc-dash-v2-inbox-badge { position: absolute; right: 10px; top: 12px; background: #e0524a; color: #fff; font-size: 8px; font-weight: 800; border-radius: 10px; padding: 1px 6px; }
+
+    /* Centro */
+    .pc-dash-v2-center-col { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+
+    .pc-dash-v2-news-card { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; overflow: hidden; display: flex; flex-shrink: 0; }
+    .pc-dash-v2-news-body { flex: 1; padding: 13px 15px; min-width: 0; }
+    .pc-dash-v2-news-cat { font-size: 8px; font-weight: 800; letter-spacing: 1px; color: var(--club-accent, #c9a84c); text-transform: uppercase; margin-bottom: 5px; }
+    .pc-dash-v2-news-headline { font-size: 13px; font-weight: 800; color: #e9edf6; line-height: 1.25; margin-bottom: 5px; }
+    .pc-dash-v2-news-summary { font-size: 10px; color: rgba(255,255,255,0.38); line-height: 1.45; }
+    .pc-dash-v2-news-meta { font-size: 9px; color: rgba(255,255,255,0.2); margin-top: 7px; }
+    .pc-dash-v2-news-ctrl { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 12px 10px; background: var(--dv2-bg-raised); border-left: 1px solid rgba(255,255,255,0.05); min-width: 60px; }
+    .pc-dash-v2-news-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: rgba(255,255,255,0.4); font-size: 11px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .pc-dash-v2-news-dots { display: flex; flex-direction: column; gap: 3px; }
+    .pc-dash-v2-ndot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.1); }
+    .pc-dash-v2-ndot.active { background: var(--club-accent, #c9a84c); }
+
+    .pc-dash-v2-next-match { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 15px; flex-shrink: 0; }
+    .pc-dash-v2-nm-row { display: flex; align-items: center; gap: 10px; }
+    .pc-dash-v2-nm-team { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 65px; }
+    .pc-dash-v2-nm-name { font-size: 10px; font-weight: 700; color: #e9edf6; text-align: center; }
+    .pc-dash-v2-nm-form { display: flex; gap: 2px; }
+    .pc-dash-v2-fd { width: 11px; height: 11px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 6px; font-weight: 800; }
+    .pc-dash-v2-fd.fd-w { background: #3ecf8e; color: #052e16; }
+    .pc-dash-v2-fd.fd-d { background: #4b5563; color: #fff; }
+    .pc-dash-v2-fd.fd-l { background: #e0524a; color: #fff; }
+    .pc-dash-v2-nm-center { flex: 1; text-align: center; }
+    .pc-dash-v2-nm-vs { font-size: 20px; font-weight: 900; color: rgba(255,255,255,0.07); }
+    .pc-dash-v2-nm-date { font-size: 10px; color: rgba(255,255,255,0.45); }
+    .pc-dash-v2-nm-venue { font-size: 9px; color: rgba(255,255,255,0.22); margin-top: 2px; }
+    .pc-dash-v2-nm-tags { display: flex; gap: 5px; justify-content: center; margin-top: 5px; flex-wrap: wrap; }
+    .pc-dash-v2-nm-tag { font-size: 8px; font-weight: 700; padding: 2px 6px; border-radius: 3px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.35); }
+    .pc-dash-v2-nm-tag.hot { background: rgba(224,168,62,0.1); color: #e0a83e; }
+    .pc-dash-v2-nm-btn { background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #0d0f14); border: none; border-radius: 5px; padding: 6px 12px; font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+
+    .pc-dash-v2-calendar { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 11px 12px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .pc-dash-v2-cal-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-shrink: 0; }
+    .pc-dash-v2-cal-title { font-size: 11px; font-weight: 700; color: #e9edf6; }
+    .pc-dash-v2-cal-nav { display: flex; gap: 3px; }
+    .pc-dash-v2-cal-nav-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 3px; color: rgba(255,255,255,0.3); font-size: 10px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .pc-dash-v2-cal-weeks { display: flex; flex-direction: column; gap: 5px; flex: 1; min-height: 0; }
+    .pc-dash-v2-cal-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; flex: 1; min-height: 0; }
+    .pc-dash-v2-cal-day { background: var(--dv2-bg-raised); border: 1px solid rgba(255,255,255,0.04); border-radius: 5px; padding: 4px 3px; display: flex; flex-direction: column; min-width: 0; }
+    .pc-dash-v2-cal-day.today { border-color: var(--club-accent, #c9a84c); }
+    .pc-dash-v2-cal-day.weekend { background: rgba(0,0,0,0.2); }
+    .pc-dash-v2-cal-dn { font-size: 7px; color: rgba(255,255,255,0.18); text-align: center; text-transform: uppercase; }
+    .pc-dash-v2-cal-num { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.35); text-align: center; margin-bottom: 3px; }
+    .pc-dash-v2-cal-day.today .pc-dash-v2-cal-num { color: var(--club-accent, #c9a84c); font-weight: 900; }
+    .pc-dash-v2-cal-events { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .pc-dash-v2-ce { font-size: 7px; border-radius: 2px; padding: 1px 3px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-dash-v2-ce-match { background: rgba(201,168,76,0.18); color: var(--club-accent, #c9a84c); }
+    .pc-dash-v2-ce-train { background: rgba(62,207,142,0.1); color: #3ecf8e; }
+    .pc-dash-v2-ce-open { background: rgba(62,207,142,0.08); color: #3ecf8e; }
+    .pc-dash-v2-ce-close { background: rgba(224,80,74,0.1); color: #e0524a; }
+    .pc-dash-v2-cal-crests { display: flex; justify-content: center; align-items: center; gap: 2px; margin-top: 2px; }
+
+    /* Derecha */
+    .pc-dash-v2-right-col { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+    .pc-dash-v2-panel { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 11px; }
+    .pc-dash-v2-fx-row { display: flex; align-items: center; gap: 5px; padding: 4px 2px; border-bottom: 1px solid rgba(255,255,255,0.04); border-radius: 3px; }
+    .pc-dash-v2-fx-row:last-child { border-bottom: none; }
+    .pc-dash-v2-fx-row.me { background: color-mix(in srgb, var(--club-accent, #c9a84c) 8%, transparent); }
+    .pc-dash-v2-fx-team { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.5); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-dash-v2-fx-team.right { text-align: right; }
+    .pc-dash-v2-fx-team.me { color: #e9edf6; font-weight: 800; }
+    .pc-dash-v2-fx-vs { font-size: 8px; color: rgba(255,255,255,0.18); padding: 0 3px; flex-shrink: 0; }
+
+    .pc-dash-v2-standings-panel { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 11px; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .pc-dash-v2-standings-scroll { overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: none; }
+    .pc-dash-v2-standings-scroll::-webkit-scrollbar { display: none; }
+    .pc-dash-v2-st-row { display: flex; align-items: center; gap: 4px; padding: 3px 2px; border-bottom: 1px solid rgba(255,255,255,0.03); border-radius: 3px; }
+    .pc-dash-v2-st-row:last-child { border-bottom: none; }
+    .pc-dash-v2-st-row.hl { background: color-mix(in srgb, var(--club-accent, #c9a84c) 8%, transparent); }
+    .pc-dash-v2-st-pos { width: 13px; font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.22); text-align: center; flex-shrink: 0; }
+    .pc-dash-v2-st-zone { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
+    .pc-dash-v2-st-team { flex: 1; font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-dash-v2-st-team.me { color: #e9edf6; font-weight: 800; }
+    .pc-dash-v2-st-pts { font-size: 9px; font-weight: 800; color: rgba(255,255,255,0.55); width: 18px; text-align: right; flex-shrink: 0; }
+
+    @media (max-width: 1400px) {
+      .pc-dash-v2 { grid-template-columns: 220px 1fr 200px; }
+    }
   }
 `;
 
@@ -8407,7 +8511,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "teams"     && <TeamSelection onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
           {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
           {screen === "dashboard" && game && (isPC
-            ? <PCDashboardContent game={game} team={pcTeam} teams={TEAMS} position={pcPosition} budgetLeft={pcBudgetSnapshot?.transferBudget} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} lineup={lineup} attentionItems={attentionItems} formation={formation} setScreen={setScreen} onPlay={() => setScreen("match")} onOpenPlayer={(player)=>openPlayerProfile(player, game.teamId, game.players)} />
+            ? <PCDashboardContent game={game} teams={TEAMS} position={pcPosition} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} lineup={lineup} setScreen={setScreen} onPlay={() => setScreen("match")} directorItems={legacyDirectorItems} chiefBriefing={chiefBriefing} medicalAlerts={pcMedicalAlerts} consequences={pcConsequences} />
             : <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} conversations={activeConversations} clubLifeIssues={clubLifeIssues} directorItems={legacyDirectorItems} onOpenAttention={handleAttentionOpen} onOpenConversation={openConversation} onOpenClubLifeIssue={handleClubLifeIssueOpen} onOpenScene={handleOpenScene} />
           )}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
@@ -8521,7 +8625,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       {showPCShell ? (
         <div className={`pc-shell-body${screen==="match"?" pc-match-fullscreen":""}`}>
           <div className="pc-main-col">{screenContent}</div>
-          {screen !== "match" && (
+          {screen !== "match" && screen !== "dashboard" && (
             <PCRightPanel game={game} directorItems={legacyDirectorItems} onOpenScene={handleOpenScene} setScreen={setScreen} chiefBriefing={chiefBriefing} medicalAlerts={pcMedicalAlerts} consequences={pcConsequences} />
           )}
         </div>
