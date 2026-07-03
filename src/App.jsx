@@ -31,6 +31,7 @@ import { getClubAccentColor, getClubTextColor } from "./utils/tokens.js";
 import PCTopBar from "./components/pc/PCTopBar.jsx";
 import PCSidebar from "./components/pc/PCSidebar.jsx";
 import PCDashboardContent from "./components/pc/PCDashboardContent.jsx";
+import PCStandingsScreen from "./components/pc/PCStandingsScreen.jsx";
 import PCSquadScreen from "./components/pc/PCSquadScreen.jsx";
 import PCLineupScreen from "./components/pc/PCLineupScreen.jsx";
 import PCMatchScreen from "./components/pc/PCMatchScreen.jsx";
@@ -2726,6 +2727,59 @@ const GLOBAL_CSS = `
     .pc-dash-v2-st-pj { font-size: 8px; color: rgba(255,255,255,0.25); width: 16px; text-align: center; flex-shrink: 0; }
     .pc-dash-v2-st-pts { font-size: 9px; font-weight: 800; color: rgba(255,255,255,0.55); width: 18px; text-align: right; flex-shrink: 0; }
 
+    /* ─── PC standings (tabla completa + rankings individuales) ── */
+    .pc-standings-page { display: flex; gap: 10px; height: calc(100vh - 76px); min-height: 0; }
+    .pc-standings-main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+    .pc-standings-table-wrap { background: #111726; border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; overflow: hidden; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .pc-standings-table-hdr { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
+    .pc-standings-table-hdr-icon { font-size: 18px; }
+    .pc-standings-table-hdr-title { font-size: 12px; font-weight: 800; color: #e9edf6; }
+    .pc-standings-table-hdr-sub { font-size: 10px; color: rgba(255,255,255,0.3); margin-left: auto; }
+    .pc-standings-table-scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+    .pc-standings-table-scroll::-webkit-scrollbar { display: none; }
+    .pc-standings-table { width: 100%; border-collapse: collapse; }
+    .pc-standings-table thead th { font-size: 8px; font-weight: 800; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 8px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.06); position: sticky; top: 0; background: #111726; z-index: 1; }
+    .pc-standings-table thead th.left { text-align: left; }
+    .pc-standings-table tbody tr.pc-standings-row { border-bottom: 1px solid rgba(255,255,255,0.03); transition: background .1s; }
+    .pc-standings-table tbody tr.pc-standings-row:hover { background: rgba(255,255,255,0.03); }
+    .pc-standings-table tbody tr.pc-standings-row.me { background: color-mix(in srgb, var(--club-accent, #c9a84c) 8%, transparent); }
+    .pc-standings-table tbody tr.pc-standings-row.me:hover { background: color-mix(in srgb, var(--club-accent, #c9a84c) 12%, transparent); }
+    .pc-standings-table td { font-size: 10px; color: rgba(255,255,255,0.6); padding: 6px 8px; text-align: center; white-space: nowrap; }
+    .pc-standings-table td.left { text-align: left; }
+    .pc-standings-pos { font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.4); width: 24px; }
+    .pc-standings-pos.me { color: var(--club-accent, #c9a84c); }
+    .pc-standings-arrow { font-size: 8px; width: 12px; text-align: center; display: inline-block; }
+    .pc-standings-arrow.up { color: #3ecf8e; }
+    .pc-standings-arrow.dn { color: #e0524a; }
+    .pc-standings-arrow.eq { color: rgba(255,255,255,0.15); }
+    .pc-standings-team-cell { display: flex; align-items: center; gap: 8px; min-width: 160px; }
+    .pc-standings-team-name { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.7); }
+    .pc-standings-team-name.me { color: #e9edf6; font-weight: 800; }
+    .pc-standings-pts { font-size: 11px; font-weight: 800; color: #e9edf6; }
+    .pc-standings-pts.me { color: var(--club-accent, #c9a84c); }
+    .pc-standings-form-dots { display: flex; gap: 2px; justify-content: center; }
+    .pc-standings-fd { width: 8px; height: 8px; border-radius: 2px; }
+    .pc-standings-fd.fd-w { background: #3ecf8e; }
+    .pc-standings-fd.fd-d { background: #6b7280; }
+    .pc-standings-fd.fd-l { background: #e0524a; }
+    .pc-standings-zone-label td { font-size: 7px; font-weight: 800; letter-spacing: 1px; color: rgba(255,255,255,0.18); text-transform: uppercase; padding: 3px 14px 2px; background: rgba(0,0,0,0.15); border-bottom: 1px solid rgba(255,255,255,0.04); text-align: left; white-space: nowrap; }
+
+    .pc-standings-right-col { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; scrollbar-width: none; min-height: 0; }
+    .pc-standings-right-col::-webkit-scrollbar { display: none; }
+    .pc-standings-rank-panel { background: #111726; border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+    .pc-standings-rank-hdr { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .pc-standings-rank-icon { font-size: 14px; }
+    .pc-standings-rank-title { font-size: 9px; font-weight: 800; color: var(--club-accent, #c9a84c); letter-spacing: 0.5px; text-transform: uppercase; }
+    .pc-standings-rank-row { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); transition: background .1s; }
+    .pc-standings-rank-row:last-child { border-bottom: none; }
+    .pc-standings-rank-row:hover { background: rgba(255,255,255,0.03); }
+    .pc-standings-rank-pos { font-size: 9px; font-weight: 800; color: rgba(255,255,255,0.2); width: 14px; text-align: center; flex-shrink: 0; }
+    .pc-standings-rank-info { flex: 1; min-width: 0; }
+    .pc-standings-rank-name { font-size: 10px; font-weight: 700; color: #e9edf6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-standings-rank-team { font-size: 8px; color: rgba(255,255,255,0.35); }
+    .pc-standings-rank-val { font-size: 11px; font-weight: 800; color: var(--club-accent, #c9a84c); flex-shrink: 0; }
+    .pc-standings-rank-empty { padding: 12px; font-size: 10px; color: rgba(255,255,255,0.25); }
+
     /* Las columnas laterales usan flex-basis en % (no px fijos), así que se reajustan solas
        con el zoom del navegador o un contenedor más estrecho sin necesitar breakpoints
        intermedios. Solo queda un breakpoint real para apilar en 1 columna en ventanas muy
@@ -4921,8 +4975,12 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen }
     </div>
   );
 }
-function StandingsScreen({ standings, teamId, fixtures, players, movement={}, onOpenPlayer }) {
+function StandingsScreen({ standings, teamId, fixtures, players, movement={}, onOpenPlayer, isPC, teams, season }) {
   const [tab, setTab] = useState("tabla"); // tabla | goleadores | stats
+
+  if (isPC) {
+    return <PCStandingsScreen standings={standings} teamId={teamId} fixtures={fixtures} players={players} movement={movement} teams={teams} onOpenPlayer={onOpenPlayer} season={season} />;
+  }
 
   const sorted   = [...standings].sort((a,b) => b.points-a.points || b.goalDifference-a.goalDifference || b.goalsFor-a.goalsFor);
   const getTeam  = (id) => TEAMS.find(t => t.id === id);
@@ -8558,7 +8616,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} isPC={isPC} onPlay={() => setScreen("match")} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} setScreen={setScreen} />}
-          {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} />}
+          {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} isPC={isPC} teams={TEAMS} season={game.season} />}
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
           {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
           {screen === "lockerRoom" && game && <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />}
