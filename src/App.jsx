@@ -2193,8 +2193,8 @@ const GLOBAL_CSS = `
     .pc-nav-item-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pc-nav-item-badge { background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #1a1200); font-size: 9px; font-weight: 900; border-radius: 999px; padding: 1px 6px; }
 
-    .pc-shell-body { flex: 1; display: flex; overflow: hidden; margin-left: 200px; margin-top: 44px; min-height: 0; }
-    .pc-main-col { flex: 1; padding: 16px; overflow-y: auto; min-width: 0; }
+    .pc-shell-body { flex: 1; display: flex; overflow: hidden; overflow-x: hidden; margin-left: 200px; margin-top: 44px; min-height: 0; }
+    .pc-main-col { flex: 1; padding: 16px; overflow-y: auto; overflow-x: hidden; min-width: 0; }
 
     /* Pantalla de partido a pantalla completa: oculta la barra lateral, el contenido ocupa todo el ancho */
     .pc-shell-body.pc-match-fullscreen { margin-left: 0; width: 100%; }
@@ -2606,7 +2606,7 @@ const GLOBAL_CSS = `
     /* Inbox */
     .pc-dash-v2-inbox-col { display: flex; flex-direction: column; height: 100%; min-height: 0; }
     .pc-dash-v2-inbox { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; overflow: hidden auto; flex: 1; display: flex; flex-direction: column; }
-    .pc-dash-v2-inbox-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background .12s; position: relative; flex: 1; background: none; border-left: none; border-right: none; border-top: none; text-align: left; width: 100%; font-family: inherit; }
+    .pc-dash-v2-inbox-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background .12s; position: relative; flex: 1; min-height: 80px; background: none; border-left: none; border-right: none; border-top: none; text-align: left; width: 100%; font-family: inherit; }
     .pc-dash-v2-inbox-item:last-child { border-bottom: none; }
     .pc-dash-v2-inbox-item:hover { background: rgba(255,255,255,0.025); }
     .pc-dash-v2-inbox-accent { width: 3px; border-radius: 2px; align-self: stretch; flex-shrink: 0; }
@@ -2620,7 +2620,7 @@ const GLOBAL_CSS = `
     /* Centro */
     .pc-dash-v2-center-col { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
 
-    .pc-dash-v2-news-wrap { position: relative; overflow: hidden; border-radius: 8px; flex-shrink: 0; height: 160px; }
+    .pc-dash-v2-news-wrap { position: relative; overflow: hidden; border-radius: 8px; flex-shrink: 0; height: 160px; min-width: 0; }
     .pc-dash-v2-news-track { display: flex; transition: transform 0.45s cubic-bezier(0.4,0,0.2,1); height: 100%; }
     .pc-dash-v2-news-slide { min-width: 100%; height: 100%; background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; display: flex; overflow: hidden; flex-shrink: 0; }
     .pc-dash-v2-news-left { display: flex; align-items: center; justify-content: center; width: 80px; flex-shrink: 0; font-size: 42px; background: rgba(0,0,0,0.2); border-right: 1px solid rgba(255,255,255,0.05); }
@@ -2655,7 +2655,7 @@ const GLOBAL_CSS = `
     .pc-dash-v2-nm-tag.hot { background: rgba(224,168,62,0.1); color: #e0a83e; }
     .pc-dash-v2-nm-btn { background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #0d0f14); border: none; border-radius: 5px; padding: 6px 12px; font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 
-    .pc-dash-v2-calendar { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .pc-dash-v2-calendar { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
     .pc-dash-v2-cal-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-shrink: 0; }
     .pc-dash-v2-cal-title { font-size: 10px; font-weight: 700; color: #e9edf6; }
     .pc-dash-v2-cal-nav { display: flex; gap: 3px; }
@@ -2700,8 +2700,15 @@ const GLOBAL_CSS = `
     .pc-dash-v2-st-team.me { color: #e9edf6; font-weight: 800; }
     .pc-dash-v2-st-pts { font-size: 9px; font-weight: 800; color: rgba(255,255,255,0.55); width: 18px; text-align: right; flex-shrink: 0; }
 
-    @media (max-width: 1400px) {
-      .pc-dash-v2 { grid-template-columns: 320px 1fr 200px; }
+    /* Breakpoints en función del ancho de contenido (viewport - 200px de sidebar):
+       >=1200px contenido (>=1400px viewport) → layout completo (regla base arriba);
+       900-1199px contenido (1100-1399px viewport) → columnas laterales más estrechas;
+       <900px contenido (<1100px viewport, mínimo real 1024px por useIsPC) → apilado en 1 columna. */
+    @media (max-width: 1399px) {
+      .pc-dash-v2 { grid-template-columns: 300px 1fr 200px; }
+    }
+    @media (max-width: 1099px) {
+      .pc-dash-v2 { grid-template-columns: 1fr; height: auto; }
     }
   }
 `;
