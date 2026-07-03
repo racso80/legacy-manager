@@ -2595,16 +2595,20 @@ const GLOBAL_CSS = `
     }
 
     /* ─── PC dashboard v2 (3 columnas: inbox / centro / jornada+clasificación) ── */
+    /* Flexbox con flex-basis en % + min/max-width, igual que .pc-squad-layout: la columna
+       central usa flex:1 + min-width:0 para absorber todo el espacio sobrante (el mismo
+       patrón que .pc-squad-left), y las columnas laterales usan proporciones en vez de
+       px fijos para que no fuercen overflow con zoom del navegador. */
     .pc-dash-v2 {
       --dv2-bg-app: #080b13; --dv2-bg-panel: #111726; --dv2-bg-raised: #0d1220;
-      display: grid; grid-template-columns: 380px 1fr 220px; gap: 10px;
-      height: calc(100vh - 76px); min-height: 0;
+      display: flex; gap: 10px;
+      width: 100%; height: calc(100vh - 76px); min-height: 0;
     }
     .pc-dash-v2-sec-label { font-size: 8px; font-weight: 800; letter-spacing: 1.5px; color: rgba(255,255,255,0.2); text-transform: uppercase; margin-bottom: 6px; }
     .pc-dash-v2-empty { color: rgba(255,255,255,0.3); font-size: 11px; padding: 10px 2px; }
 
     /* Inbox */
-    .pc-dash-v2-inbox-col { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+    .pc-dash-v2-inbox-col { display: flex; flex-direction: column; flex: 0 1 28%; min-width: 260px; max-width: 400px; height: 100%; min-height: 0; }
     .pc-dash-v2-inbox { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; overflow: hidden auto; flex: 1; display: flex; flex-direction: column; }
     .pc-dash-v2-inbox-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background .12s; position: relative; flex: 1; min-height: 80px; background: none; border-left: none; border-right: none; border-top: none; text-align: left; width: 100%; font-family: inherit; }
     .pc-dash-v2-inbox-item:last-child { border-bottom: none; }
@@ -2618,7 +2622,7 @@ const GLOBAL_CSS = `
     .pc-dash-v2-inbox-badge { position: absolute; right: 10px; top: 14px; background: #e0524a; color: #fff; font-size: 8px; font-weight: 800; border-radius: 10px; padding: 2px 7px; }
 
     /* Centro */
-    .pc-dash-v2-center-col { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+    .pc-dash-v2-center-col { display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto; min-width: 0; height: 100%; min-height: 0; }
 
     .pc-dash-v2-news-wrap { position: relative; overflow: hidden; border-radius: 8px; flex-shrink: 0; height: 160px; min-width: 0; }
     .pc-dash-v2-news-track { display: flex; transition: transform 0.45s cubic-bezier(0.4,0,0.2,1); height: 100%; }
@@ -2678,7 +2682,7 @@ const GLOBAL_CSS = `
     .pc-dash-v2-cal-crests { display: flex; justify-content: center; align-items: center; gap: 1px; margin-top: 2px; }
 
     /* Derecha */
-    .pc-dash-v2-right-col { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+    .pc-dash-v2-right-col { display: flex; flex-direction: column; gap: 10px; flex: 0 1 16%; min-width: 180px; max-width: 240px; height: 100%; min-height: 0; }
     .pc-dash-v2-panel { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 11px; }
     .pc-dash-v2-fx-row { display: flex; align-items: center; gap: 5px; padding: 4px 2px; border-bottom: 1px solid rgba(255,255,255,0.04); border-radius: 3px; }
     .pc-dash-v2-fx-row:last-child { border-bottom: none; }
@@ -2700,15 +2704,13 @@ const GLOBAL_CSS = `
     .pc-dash-v2-st-team.me { color: #e9edf6; font-weight: 800; }
     .pc-dash-v2-st-pts { font-size: 9px; font-weight: 800; color: rgba(255,255,255,0.55); width: 18px; text-align: right; flex-shrink: 0; }
 
-    /* Breakpoints en función del ancho de contenido (viewport - 200px de sidebar):
-       >=1200px contenido (>=1400px viewport) → layout completo (regla base arriba);
-       900-1199px contenido (1100-1399px viewport) → columnas laterales más estrechas;
-       <900px contenido (<1100px viewport, mínimo real 1024px por useIsPC) → apilado en 1 columna. */
-    @media (max-width: 1399px) {
-      .pc-dash-v2 { grid-template-columns: 300px 1fr 200px; }
-    }
+    /* Las columnas laterales usan flex-basis en % (no px fijos), así que se reajustan solas
+       con el zoom del navegador o un contenedor más estrecho sin necesitar breakpoints
+       intermedios. Solo queda un breakpoint real para apilar en 1 columna en ventanas muy
+       estrechas (mínimo real de la vista PC son 1024px de viewport por useIsPC). */
     @media (max-width: 1099px) {
-      .pc-dash-v2 { grid-template-columns: 1fr; height: auto; }
+      .pc-dash-v2 { flex-direction: column; height: auto; }
+      .pc-dash-v2-inbox-col, .pc-dash-v2-right-col { flex: none; width: 100%; min-width: 0; max-width: none; }
     }
   }
 `;
