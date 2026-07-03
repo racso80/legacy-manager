@@ -2627,7 +2627,7 @@ const GLOBAL_CSS = `
     /* Centro */
     .pc-dash-v2-center-col { display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto; min-width: 0; height: 100%; min-height: 0; overflow: hidden; }
 
-    .pc-dash-v2-news-section { flex: 0 0 auto; height: 280px; display: flex; flex-direction: column; min-height: 0; }
+    .pc-dash-v2-news-section { flex: 0 0 280px; display: flex; flex-direction: column; min-height: 0; }
     .pc-dash-v2-news-wrap { position: relative; overflow: hidden; border-radius: 8px; flex: 1; min-height: 0; min-width: 0; }
     .pc-dash-v2-news-track { display: flex; transition: transform 0.45s cubic-bezier(0.4,0,0.2,1); height: 100%; }
     .pc-dash-v2-news-slide { min-width: 100%; height: 100%; background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; display: flex; overflow: hidden; flex-shrink: 0; position: relative; cursor: pointer; transition: border-color .15s; }
@@ -2648,13 +2648,13 @@ const GLOBAL_CSS = `
     .pc-dash-v2-ndot.active { background: var(--club-accent, #c9a84c); }
 
     /* Fila de 3 paneles: próximo partido / estado del club / objetivos */
-    .pc-dash-v2-three-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; flex: 0 0 auto; height: 160px; }
-    .pc-dash-v2-panel-sm { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 11px 13px; display: flex; flex-direction: column; min-width: 0; height: 100%; }
+    .pc-dash-v2-three-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; flex: 0 0 160px; }
+    .pc-dash-v2-panel-sm { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 11px 13px; display: flex; flex-direction: column; min-width: 0; height: 100%; overflow: hidden; }
     .pc-dash-v2-panel-sm-title { font-size: 8px; font-weight: 800; color: var(--club-accent, #c9a84c); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
 
     .pc-dash-v2-nm2-teams { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
     .pc-dash-v2-nm2-team { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 0; }
-    .pc-dash-v2-nm2-name { font-size: 10px; font-weight: 700; color: #e9edf6; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+    .pc-dash-v2-nm2-name { font-size: 9px; font-weight: 700; color: #e9edf6; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
     .pc-dash-v2-nm2-vs { font-size: 14px; font-weight: 900; color: rgba(255,255,255,0.1); flex-shrink: 0; }
     .pc-dash-v2-nm2-form { display: flex; gap: 2px; justify-content: center; margin-top: 2px; }
     .pc-dash-v2-fd { width: 13px; height: 13px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; }
@@ -2678,7 +2678,7 @@ const GLOBAL_CSS = `
     .pc-dash-v2-obj-bar { height: 2px; background: rgba(255,255,255,0.08); border-radius: 1px; margin-top: 3px; }
     .pc-dash-v2-obj-fill { height: 100%; border-radius: 1px; background: var(--club-accent, #c9a84c); }
 
-    .pc-dash-v2-cal-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+    .pc-dash-v2-cal-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; border-top: 1px solid rgba(255,255,255,0.06); }
     .pc-dash-v2-calendar { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
     .pc-dash-v2-cal-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-shrink: 0; }
     .pc-dash-v2-cal-title { font-size: 10px; font-weight: 700; color: #e9edf6; }

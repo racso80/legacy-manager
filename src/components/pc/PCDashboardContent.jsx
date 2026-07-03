@@ -127,7 +127,7 @@ function NextMatchPanel({ game, teams, nextFixture, nextOpponent, position, line
       <div className="pc-dash-v2-panel-sm-title">Próximo Partido · J{nextFixture.matchday}</div>
       <div className="pc-dash-v2-nm2-teams">
         <div className="pc-dash-v2-nm2-team">
-          <TeamCrest team={homeTeam} size={44} />
+          <TeamCrest team={homeTeam} size={32} />
           <div className="pc-dash-v2-nm2-name">{homeTeam?.short ?? homeTeam?.name}</div>
           {formFor(homeTeam?.id, fixtures).length > 0 && (
             <div className="pc-dash-v2-nm2-form">{formFor(homeTeam?.id, fixtures).slice(0, 3).map((r, i) => <FormDot key={i} result={r} />)}</div>
@@ -135,7 +135,7 @@ function NextMatchPanel({ game, teams, nextFixture, nextOpponent, position, line
         </div>
         <div className="pc-dash-v2-nm2-vs">VS</div>
         <div className="pc-dash-v2-nm2-team">
-          <TeamCrest team={awayTeam} size={44} />
+          <TeamCrest team={awayTeam} size={32} />
           <div className="pc-dash-v2-nm2-name">{awayTeam?.short ?? awayTeam?.name}</div>
           {formFor(awayTeam?.id, fixtures).length > 0 && (
             <div className="pc-dash-v2-nm2-form">{formFor(awayTeam?.id, fixtures).slice(0, 3).map((r, i) => <FormDot key={i} result={r} />)}</div>
