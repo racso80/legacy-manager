@@ -58,6 +58,10 @@ import { buildLegacyDirectorEvents, dedupeAttentionItems, legacyDirectorEventsTo
 import { buildSceneExpectation, buildSceneFromDirectorItem, ensureSceneState, recordSceneDecision } from "./scenes/sceneEngine.js";
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
 import { buildPlayerState, cleanConsequenceText, getInjuryRiskBadge, getMedicalAlerts, getPlayerSmartActions, sanitizeLineupSelection } from "./state/gameStateSelectors.js";
+import { LEAGUES, getLeagueById, getLeaguesByCountry } from "./data/leagues.js";
+import { SEGUNDA_TEAMS } from "./data/segundaTeams.js";
+import { SEGUNDA_SQUADS } from "./data/segundaSquads.js";
+import { _p, _r } from "./data/playerHelpers.js";
 
 export const STARTERS_SLOTS = 11;
 export const BENCH_SLOTS = 12;
@@ -91,20 +95,10 @@ const TEAMS = [
   { id: "villarreal", name: "Villarreal CF",       short: "VIL", color: "#ffd700", stadium: "Estadio de la Cerámica",  budget: 78,  avg: 79, obj: "Top 6",       city: "Villarreal",    capacity: 23008, fanbase: 3 },
   { id: "alaves",     name: "Deportivo Alavés",    short: "ALA", color: "#007ac2", stadium: "Mendizorroza",            budget: 22,  avg: 72, obj: "Permanencia", city: "Vitoria",       capacity: 19840, fanbase: 2 },
 ];
+TEAMS.forEach(t => { t.leagueId = "esp_primera"; t.countryId = "ES"; t.tier = 1; });
+TEAMS.push(...SEGUNDA_TEAMS);
 
 // ─── PLANTILLAS REALES LALIGA 2025/26 ────────────────────────────────────────
-function _r(ov){return ov>=85?"SPECIAL":ov>=75?"GOLD":ov>=65?"SILVER":"BRONZE";}
-function _p(id,name,pos,group,ov,age,nat,pace,shoot,pass,drib,def,phys){
-  const gk=group==="POR"?Math.round(ov*0.98):Math.round(5+Math.random()*10);
-  // Salario semanal en miles de euros según overall
-  const salary = ov>=88?250:ov>=84?150:ov>=80?90:ov>=76?55:ov>=72?30:ov>=68?16:8;
-  return{id,name,pos,group,overall:ov,age,nat,rarity:_r(ov),
-    fatigue:Math.floor(Math.random()*25),morale:65+Math.floor(Math.random()*30),
-    injured:false,injuryGames:0,suspended:false,suspGames:0,
-    yellowCards:Math.floor(Math.random()*3),
-    salary, // €K/semana
-    attrs:{ritmo:pace,tiro:shoot,pase:pass,regate:drib,defensa:def,fisico:phys,porteria:gk}};
-}
 
 export const REAL_SQUADS = {
   athletic:[
@@ -564,6 +558,11 @@ export const REAL_SQUADS = {
     _p("vil-20","Jose Luis Morales","EI","DEL",73,36,"ES",78,68,64,72,30,62),
   ],
 };
+Object.assign(REAL_SQUADS, SEGUNDA_SQUADS);
+SEGUNDA_TEAMS.forEach(t => {
+  const squad = REAL_SQUADS[t.id] ?? [];
+  if (squad.length) t.avg = Math.round(squad.reduce((s, p) => s + p.overall, 0) / squad.length);
+});
 
 export const TEAM_REAL_AVG = {
   athletic:79, atletico:85, osasuna:74, alaves:72,
@@ -592,9 +591,9 @@ function getScoutingPool(game) {
   return unique.filter(player=>typeof player.athleticEligible==="boolean"?player.athleticEligible:player._teamId==="agente_libre"||(basqueDevelopmentClubs.has(player._teamId)&&player.nat==="ES"));
 }
 
-function generateFixtures() {
-  const teamIds = TEAMS.map(t => t.id);
-  const n = teamIds.length; // 20
+function generateFixtures(leagueId = "esp_primera") {
+  const teamIds = TEAMS.filter(t => t.leagueId === leagueId).map(t => t.id);
+  const n = teamIds.length;
   const fixtures = [];
   let id = 1;
 
@@ -663,8 +662,8 @@ function generateFixtures() {
   return shuffled;
 }
 
-function initStandings() {
-  return TEAMS.map(t => ({ teamId: t.id, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0 }));
+function initStandings(leagueId = "esp_primera") {
+  return TEAMS.filter(t => t.leagueId === leagueId).map(t => ({ teamId: t.id, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0 }));
 }
 
 // ─── TÁCTICAS ─────────────────────────────────────────────────────────────────
@@ -2940,40 +2939,26 @@ function SavesScreen({ saves, onLoad, onDelete, onNew, onBack }) {
 }
 
 // ─── DATOS DE PAÍSES Y LIGAS ─────────────────────────────────────────────────
-const COUNTRIES = [
-  { id: "es", name: "España", flag: "🇪🇸", available: true },
-  { id: "en", name: "Inglaterra", flag: "🏴", available: false },
-  { id: "de", name: "Alemania",   flag: "🇩🇪", available: false },
-  { id: "it", name: "Italia",     flag: "🇮🇹", available: false },
-  { id: "fr", name: "Francia",    flag: "🇫🇷", available: false },
-  { id: "pt", name: "Portugal",   flag: "🇵🇹", available: false },
-];
-
-const LEAGUES_BY_COUNTRY = {
-  es: [
-    { id: "laliga",   name: "LaLiga EA Sports",  division: "1ª División", teams: 20, available: true },
-    { id: "laliga2",  name: "LaLiga Hypermotion", division: "2ª División", teams: 22, available: false },
-  ],
-  en: [
-    { id: "premier",  name: "Premier League",     division: "1ª División", teams: 20, available: false },
-    { id: "championship", name: "Championship",   division: "2ª División", teams: 24, available: false },
-  ],
-  de: [
-    { id: "bundesliga", name: "Bundesliga",       division: "1ª División", teams: 18, available: false },
-  ],
-  it: [
-    { id: "seriea",   name: "Serie A",            division: "1ª División", teams: 20, available: false },
-  ],
-  fr: [
-    { id: "ligue1",   name: "Ligue 1",            division: "1ª División", teams: 18, available: false },
-  ],
-  pt: [
-    { id: "primeiramain", name: "Primeira Liga",  division: "1ª División", teams: 18, available: false },
-  ],
-};
+// Países disponibles = países con al menos una liga en LEAGUES. Nunca se
+// hardcodea la lista: añadir una liga nueva a LEAGUES basta para que su país
+// aparezca aquí automáticamente.
+function getAvailableCountries() {
+  const byCode = new Map();
+  LEAGUES.forEach(l => {
+    if (!byCode.has(l.country)) byCode.set(l.country, { id: l.country, name: l.countryName, flag: l.flag });
+  });
+  return [...byCode.values()];
+}
 
 // ─── PANTALLA: SELECCIÓN DE PAÍS ─────────────────────────────────────────────
 function CountryScreen({ onSelect, onBack }) {
+  const countries = getAvailableCountries();
+  // Si solo hay un país con ligas configuradas, nos lo saltamos e ("Country → League" se
+  // convierte en solo "League") sin que el jugador vea un paso vacío de un único botón.
+  useEffect(() => {
+    if (countries.length === 1) onSelect(countries[0]);
+  }, []);
+  if (countries.length === 1) return null;
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"14px 16px", flexShrink:0 }}>
@@ -2982,17 +2967,15 @@ function CountryScreen({ onSelect, onBack }) {
       </div>
       <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-          {COUNTRIES.map(c => (
-            <div key={c.id} onClick={() => c.available && onSelect(c)}
-              style={{ background: c.available ? "#161a24" : "#0f1118",
-                border: `1px solid ${c.available ? "rgba(255,255,255,.08)" : "rgba(255,255,255,.03)"}`,
-                borderRadius:10, padding:"16px 12px", cursor: c.available ? "pointer" : "default",
-                opacity: c.available ? 1 : .45, textAlign:"center", transition:"background .15s" }}
-              onMouseEnter={e => c.available && (e.currentTarget.style.background="#1e2330")}
-              onMouseLeave={e => c.available && (e.currentTarget.style.background="#161a24")}>
+          {countries.map(c => (
+            <div key={c.id} onClick={() => onSelect(c)}
+              style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.08)",
+                borderRadius:10, padding:"16px 12px", cursor:"pointer",
+                textAlign:"center", transition:"background .15s" }}
+              onMouseEnter={e => (e.currentTarget.style.background="#1e2330")}
+              onMouseLeave={e => (e.currentTarget.style.background="#161a24")}>
               <div style={{ fontSize:36, marginBottom:8 }}>{c.flag}</div>
-              <div style={{ fontSize:13, fontWeight:700, color: c.available ? "#e8eaf0" : "#4b5563" }}>{c.name}</div>
-              {!c.available && <div style={{ fontSize:10, color:"#374151", marginTop:4 }}>Próximamente</div>}
+              <div style={{ fontSize:13, fontWeight:700, color:"#e8eaf0" }}>{c.name}</div>
             </div>
           ))}
         </div>
@@ -3009,7 +2992,7 @@ function CountryScreen({ onSelect, onBack }) {
 
 // ─── PANTALLA: SELECCIÓN DE LIGA ─────────────────────────────────────────────
 function LeagueScreen({ country, onSelect, onBack }) {
-  const leagues = LEAGUES_BY_COUNTRY[country?.id] ?? [];
+  const leagues = [...getLeaguesByCountry(country?.id)].sort((a, b) => a.tier - b.tier);
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"14px 16px", flexShrink:0 }}>
@@ -3017,23 +3000,25 @@ function LeagueScreen({ country, onSelect, onBack }) {
         <div style={{ fontSize:11, color:"#4b5563", marginTop:2 }}>Elige la liga que quieres gestionar</div>
       </div>
       <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
-        {leagues.map(l => (
-          <div key={l.id} onClick={() => l.available && onSelect(l)}
-            style={{ background: l.available ? "#161a24" : "#0f1118",
-              border:`1px solid ${l.available ? "rgba(255,255,255,.08)" : "rgba(255,255,255,.03)"}`,
-              borderRadius:10, padding:"16px", marginBottom:8, cursor: l.available ? "pointer" : "default",
-              opacity: l.available ? 1 : .5, display:"flex", alignItems:"center", gap:14, transition:"background .15s" }}
-            onMouseEnter={e => l.available && (e.currentTarget.style.background="#1e2330")}
-            onMouseLeave={e => l.available && (e.currentTarget.style.background="#161a24")}>
-            <div style={{ width:48, height:48, borderRadius:10, background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>🏆</div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:14, fontWeight:700, color: l.available ? "#e8eaf0" : "#4b5563" }}>{l.name}</div>
-              <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>{l.division} · {l.teams} equipos</div>
-              {!l.available && <div style={{ fontSize:10, color:"#374151", marginTop:3 }}>Próximamente</div>}
+        {leagues.map(l => {
+          const isTop = l.tier === 1;
+          return (
+            <div key={l.id} onClick={() => onSelect(l)}
+              style={{ background: isTop ? "linear-gradient(135deg, rgba(201,168,76,.14), #161a24 70%)" : "#161a24",
+                border: `1px solid ${isTop ? "rgba(201,168,76,.35)" : "rgba(255,255,255,.08)"}`,
+                borderRadius:10, padding: isTop ? "18px" : "14px", marginBottom:8, cursor:"pointer",
+                display:"flex", alignItems:"center", gap:14, transition:"background .15s" }}
+              onMouseEnter={e => (e.currentTarget.style.background = isTop ? "linear-gradient(135deg, rgba(201,168,76,.22), #1e2330 70%)" : "#1e2330")}
+              onMouseLeave={e => (e.currentTarget.style.background = isTop ? "linear-gradient(135deg, rgba(201,168,76,.14), #161a24 70%)" : "#161a24")}>
+              <div style={{ width: isTop ? 52 : 44, height: isTop ? 52 : 44, borderRadius:10, background:"rgba(201,168,76,.1)", border:"1px solid rgba(201,168,76,.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize: isTop ? 24 : 19, flexShrink:0 }}>🏆</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize: isTop ? 16 : 13, fontWeight:800, color:"#e8eaf0" }}>{l.name}</div>
+                <div style={{ fontSize:11, color:"#6b7280", marginTop:2 }}>{l.tier}ª División · {l.teamsCount} equipos{l.hasPlayoff ? " · con playoff" : ""}</div>
+              </div>
+              <div style={{ fontSize:16, color:"#c9a84c" }}>→</div>
             </div>
-            {l.available && <div style={{ fontSize:16, color:"#c9a84c" }}>→</div>}
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div style={{ padding:"10px 14px", borderTop:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
         <button onClick={onBack} className="btn-ghost"
@@ -3069,13 +3054,14 @@ const TEAM_DETAILS = {
   alaves:      { liga: "Primera División", fundacion: 1921, rivalidad: "Athletic",       estilo: "Compacto · Físico · Contraataque" },
 };
 
-function TeamSelection({ onSelect }) {
+function TeamSelection({ league, onSelect }) {
   const [selected, setSelected] = useState(null);
   const [search, setSearch]     = useState("");
 
   const filtered = TEAMS.filter(t =>
-    t.name.toLowerCase().includes(search.toLowerCase()) ||
-    t.city.toLowerCase().includes(search.toLowerCase())
+    (!league || t.leagueId === league.id) &&
+    (t.name.toLowerCase().includes(search.toLowerCase()) ||
+     t.city.toLowerCase().includes(search.toLowerCase()))
   );
 
   // Ficha detallada del equipo seleccionado
@@ -3251,7 +3237,7 @@ function TeamSelection({ onSelect }) {
 
       <div style={{ overflowY:"auto", flex:1, padding:12 }}>
         <div style={{ fontSize:11, color:"#6b7280", marginBottom:10, letterSpacing:".5px" }}>
-          PRIMERA DIVISIÓN 2025/26 · {filtered.length} equipos
+          {(league?.name ?? "LIGA").toUpperCase()} 2025/26 · {filtered.length} equipos
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
           {filtered.map(t => {
@@ -7443,6 +7429,14 @@ export default function App({ externalData }) {
         });
         setActiveSaveId(saveId);
         const loadedTeam=TEAMS.find(team=>team.id===parsed.teamId);
+        // Migración: partidas guardadas antes del soporte multi-liga no tienen leagueId.
+        // Se rellena desde el equipo del guardado (o esp_primera si no se encuentra).
+        if (!parsed.leagueId) {
+          parsed.leagueId = loadedTeam?.leagueId ?? "esp_primera";
+          parsed.countryId = loadedTeam?.countryId ?? "ES";
+          parsed.tier = loadedTeam?.tier ?? 1;
+        }
+        parsed.leagueConfig = getLeagueById(parsed.leagueId) ?? getLeagueById("esp_primera");
         let migrated=ensureSceneState(ensureLegacyDirectorState(ensureClubLifeState(ensureConversationState(ensureFanbaseState(ensureCoachCareer(ensureStaffState(ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam))),TEAMS),loadedTeam,TEAMS),loadedTeam,TEAMS)))));
         migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,parsed.season??"2025",parsed.matchday??1),parsed.season??"2025")))};
         migrated=migrateNewDataPlayersToSave(migrated,currentDataVersion);
@@ -7577,12 +7571,13 @@ export default function App({ externalData }) {
   };
 
   const startNewGame = (team, coachData = null) => {
+    const leagueId = team.leagueId ?? "esp_primera";
     const players  = generatePlayers(team.id).map(player => ensurePlayerMorale(normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player, "2025", 1), "2025")), "2025"));
-    const fixtures = generateFixtures();
-    const standings = initStandings();
+    const fixtures = generateFixtures(leagueId);
+    const standings = initStandings(leagueId);
     const newId = `save_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
     const seeded = ensureYouthState(ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", dataVersion:currentDataVersion, saveDataVersion:currentDataVersion, dataPlayerIds:collectDataPlayers().map(({player})=>player.id).filter(Boolean), freeAgents:[], dataMigrations:[], history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
-      country: pendingCountry?.id, league: pendingLeague?.id },team),team);
+      leagueId, countryId: team.countryId ?? "ES", tier: team.tier ?? 1, leagueConfig: getLeagueById(leagueId) ?? getLeagueById("esp_primera") },team),team);
     let g={...seeded,youth:{...seeded.youth,players:seeded.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,"2025",1),"2025")))}};
     g=ensureFanbaseState(ensureCoachCareer({...g,coachCareer:createCoachCareer(coachData??{},team,"2025")},team,TEAMS),team,TEAMS);
     g=ensureSceneState(ensureLegacyDirectorState(advanceClubLife(ensureClubLifeState(ensureConversationState(ensureStaffState(ensureContractState(refreshTransferListings(ensureTransferState(bootstrapScouting(g,getScoutingPool(g))),TEAMS,REAL_SQUADS)),TEAMS))),{lineup:emptyLineup()})));
@@ -7922,8 +7917,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     setGame(prev => {
       const newSeason = String(parseInt(prev.season ?? "2025") + 1);
       (prev.transfers??[]).filter(item=>item.type==="loan"&&String(item.season)===String(prev.season)).forEach(item=>{if(REAL_SQUADS[item.toTeamId]&&REAL_SQUADS[item.fromTeamId]){REAL_SQUADS[item.toTeamId]=REAL_SQUADS[item.toTeamId].filter(player=>player.id!==item.player.id);if(!REAL_SQUADS[item.fromTeamId].some(player=>player.id===item.player.id))REAL_SQUADS[item.fromTeamId]=[...REAL_SQUADS[item.fromTeamId],item.player];}});
-      const newFixtures  = generateFixtures();
-      const newStandings = initStandings();
+      const newFixtures  = generateFixtures(prev.leagueId ?? "esp_primera");
+      const newStandings = initStandings(prev.leagueId ?? "esp_primera");
       // Recuperar jugadores: reset fatiga, reducir lesiones, mantener moral parcialmente
       const teamData = TEAMS.find(team => team.id === prev.teamId);
       const baseBudget=(teamData?.budget??50)*1000;
@@ -8603,7 +8598,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "saves"     && <SavesScreen saves={savesIndex} onLoad={loadGame} onDelete={deleteSave} onNew={() => setScreen("country")} onBack={() => setScreen("menu")} />}
           {screen === "country"   && <CountryScreen onSelect={c => { setPendingCountry(c); setScreen("league"); }} onBack={() => setScreen("menu")} />}
           {screen === "league"    && <LeagueScreen country={pendingCountry} onSelect={l => { setPendingLeague(l); setScreen("teams"); }} onBack={() => setScreen("country")} />}
-          {screen === "teams"     && <TeamSelection onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
+          {screen === "teams"     && <TeamSelection league={pendingLeague} onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
           {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
           {screen === "dashboard" && game && (isPC
             ? <PCDashboardContent game={game} teams={TEAMS} position={pcPosition} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} lineup={lineup} setScreen={setScreen} onPlay={() => setScreen("match")} directorItems={legacyDirectorItems} chiefBriefing={chiefBriefing} medicalAlerts={pcMedicalAlerts} consequences={pcConsequences} budgetSnapshot={pcBudgetSnapshot} />
