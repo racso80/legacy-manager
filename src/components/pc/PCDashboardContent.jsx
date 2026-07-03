@@ -167,7 +167,7 @@ function CalendarPanel({ game, teams, anchorMatchday, anchorDate }) {
   const monthLabel = `${MONTH_LABELS[days[0].getMonth()]} ${days[0].getFullYear()}`;
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+    <div className="pc-dash-v2-cal-wrap">
       <div className="pc-dash-v2-sec-label">Calendario — próximas 2 semanas</div>
       <div className="pc-dash-v2-calendar">
         <div className="pc-dash-v2-cal-hdr">
@@ -298,7 +298,6 @@ export default function PCDashboardContent({
 
   const allMedicalAlerts = medicalAlerts.length ? medicalAlerts : getMedicalAlerts(game);
   const topMedical = allMedicalAlerts.slice(0, 2);
-  const medicalPreview = topMedical.map(a => `${a.player.name} (${a.risk}%)`).join(" y ");
 
   const chiefParts = (chiefBriefing ?? "").split(". ").filter(Boolean);
   const chiefTitle = chiefParts[0] ? `${chiefParts[0]}.` : "Buenos días, míster.";
@@ -307,12 +306,43 @@ export default function PCDashboardContent({
   const consTitle = consequences[0]?.text ?? "Sin novedades relevantes.";
   const consPreview = consequences.slice(1, 3).map(c => c.text).join(" ");
 
-  const inboxItems = [
-    { key: "briefing", icon: "👔", from: "Jefe de Gabinete", title: chiefTitle, preview: chiefPreview, accent: "var(--club-accent, #c9a84c)", onClick: () => setScreen("attention") },
-    { key: "attention", icon: "🔔", from: "Requiere tu atención", title: firstAttention ? (firstAttention.issueCard?.title ?? firstAttention.title ?? "Asunto pendiente") : "Sin asuntos urgentes", preview: firstAttention ? (firstAttention.issueCard?.summary ?? firstAttention.summary ?? "") : "No hay decisiones pendientes por ahora.", accent: "#e0524a", badge: nonInfoDirector.length || null, onClick: () => setScreen("attention") },
-    { key: "medical", icon: "🏥", from: "Informe Médico", title: topMedical.length ? `${allMedicalAlerts.length} jugador${allMedicalAlerts.length === 1 ? "" : "es"} con carga elevada` : "Plantilla sin alertas", preview: topMedical.length ? `${medicalPreview} necesita${topMedical.length === 1 ? "" : "n"} descanso.` : "El cuerpo médico no reporta riesgos activos.", accent: "#e0a83e", onClick: () => setScreen("medical") },
-    { key: "news", icon: "📰", from: "Noticias del Club", title: topNews[0]?.title ?? "Sin noticias recientes", preview: topNews[0]?.summary ?? "", accent: "rgba(255,255,255,0.12)", onClick: () => setScreen("news") },
-    { key: "consequences", icon: "⚡", from: "Últimas Consecuencias", title: consTitle, preview: consPreview, accent: "rgba(255,255,255,0.07)", onClick: () => setScreen("attention") },
+  // Cada grupo del inbox corresponde a una fuente de datos ya existente; solo cambia
+  // cómo se agrupan visualmente (cabecera + una o más filas de mensaje por grupo).
+  const inboxGroups = [
+    {
+      key: "briefing", icon: "👔", title: "Jefe de Gabinete", titleColor: "var(--club-accent, #c9a84c)",
+      rows: [{ title: chiefTitle, preview: chiefPreview, accent: "var(--club-accent, #c9a84c)", onClick: () => setScreen("attention") }],
+    },
+    {
+      key: "attention", icon: "🔔", title: "Requiere tu atención", titleColor: "#e0524a", badge: nonInfoDirector.length || null,
+      rows: nonInfoDirector.length
+        ? nonInfoDirector.slice(0, 2).map(item => ({
+            title: item.issueCard?.title ?? item.title ?? "Asunto pendiente",
+            preview: item.issueCard?.summary ?? item.summary ?? "",
+            accent: "#e0524a",
+            onClick: () => setScreen("attention"),
+          }))
+        : [{ title: "Sin asuntos urgentes", preview: "No hay decisiones pendientes por ahora.", accent: "#e0524a", onClick: () => setScreen("attention") }],
+    },
+    {
+      key: "medical", icon: "🏥", title: "Informe Médico", titleColor: "#e0a83e",
+      rows: topMedical.length
+        ? topMedical.map(alert => ({
+            title: `${alert.player.name} — riesgo de lesión ${alert.risk}%`,
+            preview: alert.state?.availabilityReason || "Carga elevada. Se recomienda descanso antes del próximo partido.",
+            accent: "#e0a83e",
+            onClick: () => setScreen("medical"),
+          }))
+        : [{ title: "Plantilla sin alertas", preview: "El cuerpo médico no reporta riesgos activos.", accent: "#e0a83e", onClick: () => setScreen("medical") }],
+    },
+    {
+      key: "news", icon: "📰", title: "Noticias del Club", titleColor: "rgba(255,255,255,0.5)",
+      rows: [{ title: topNews[0]?.title ?? "Sin noticias recientes", preview: topNews[0]?.summary ?? "", accent: "rgba(255,255,255,0.15)", onClick: () => setScreen("news") }],
+    },
+    {
+      key: "consequences", icon: "⚡", title: "Últimas Consecuencias", titleColor: "rgba(255,255,255,0.4)",
+      rows: [{ title: consTitle, preview: consPreview, accent: "rgba(255,255,255,0.08)", onClick: () => setScreen("attention") }],
+    },
   ];
 
   const anchorMatchday = nextFixture?.matchday ?? game.matchday ?? 1;
@@ -323,17 +353,24 @@ export default function PCDashboardContent({
       <div className="pc-dash-v2-inbox-col">
         <div className="pc-dash-v2-sec-label">Mensajes del día</div>
         <div className="pc-dash-v2-inbox">
-          {inboxItems.map(item => (
-            <button key={item.key} className="pc-dash-v2-inbox-item" onClick={item.onClick}>
-              <span className="pc-dash-v2-inbox-accent" style={{ background: item.accent }} />
-              <span className="pc-dash-v2-inbox-icon">{item.icon}</span>
-              <span className="pc-dash-v2-inbox-content">
-                <span className="pc-dash-v2-inbox-from">{item.from}</span>
-                <span className="pc-dash-v2-inbox-title">{item.title}</span>
-                <span className="pc-dash-v2-inbox-preview">{item.preview}</span>
-              </span>
-              {item.badge ? <span className="pc-dash-v2-inbox-badge">{item.badge}</span> : null}
-            </button>
+          {inboxGroups.map((group, gi) => (
+            <div key={group.key} className="pc-dash-v2-inbox-group">
+              <div className="pc-dash-v2-inbox-group-hdr">
+                <span className="pc-dash-v2-inbox-group-icon">{group.icon}</span>
+                <span className="pc-dash-v2-inbox-group-title" style={{ color: group.titleColor }}>{group.title}</span>
+                {group.badge ? <span className="pc-dash-v2-inbox-group-badge">{group.badge}</span> : null}
+              </div>
+              {group.rows.map((row, ri) => (
+                <button key={ri} className="pc-dash-v2-inbox-msg" onClick={row.onClick}>
+                  <span className="pc-dash-v2-inbox-msg-accent" style={{ background: row.accent }} />
+                  <span className="pc-dash-v2-inbox-msg-content">
+                    <span className="pc-dash-v2-inbox-msg-title">{row.title}</span>
+                    <span className="pc-dash-v2-inbox-msg-preview">{row.preview}</span>
+                  </span>
+                </button>
+              ))}
+              {gi < inboxGroups.length - 1 && <div className="pc-dash-v2-inbox-sep" />}
+            </div>
           ))}
         </div>
       </div>

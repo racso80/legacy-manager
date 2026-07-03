@@ -2607,58 +2607,63 @@ const GLOBAL_CSS = `
     .pc-dash-v2-sec-label { font-size: 8px; font-weight: 800; letter-spacing: 1.5px; color: rgba(255,255,255,0.2); text-transform: uppercase; margin-bottom: 6px; }
     .pc-dash-v2-empty { color: rgba(255,255,255,0.3); font-size: 11px; padding: 10px 2px; }
 
-    /* Inbox */
-    .pc-dash-v2-inbox-col { display: flex; flex-direction: column; flex: 0 1 28%; min-width: 260px; max-width: 400px; height: 100%; min-height: 0; }
+    /* Inbox: agrupado por categoría (cabecera + una o más filas de mensaje). El contenedor
+       .pc-dash-v2-inbox llena la columna (flex:1) pero las filas tienen alto natural — el
+       espacio sobrante bajo el último grupo queda vacío, es correcto. */
+    .pc-dash-v2-inbox-col { display: flex; flex-direction: column; flex: 0 0 28%; min-width: 260px; max-width: 380px; height: 100%; min-height: 0; }
     .pc-dash-v2-inbox { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; overflow: hidden auto; flex: 1; display: flex; flex-direction: column; }
-    .pc-dash-v2-inbox-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background .12s; position: relative; flex: 1; min-height: 80px; background: none; border-left: none; border-right: none; border-top: none; text-align: left; width: 100%; font-family: inherit; }
-    .pc-dash-v2-inbox-item:last-child { border-bottom: none; }
-    .pc-dash-v2-inbox-item:hover { background: rgba(255,255,255,0.025); }
-    .pc-dash-v2-inbox-accent { width: 3px; border-radius: 2px; align-self: stretch; flex-shrink: 0; }
-    .pc-dash-v2-inbox-icon { font-size: 26px; flex-shrink: 0; width: 36px; text-align: center; margin-top: 2px; }
-    .pc-dash-v2-inbox-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-    .pc-dash-v2-inbox-from { font-size: 8px; font-weight: 800; color: rgba(255,255,255,0.28); letter-spacing: .5px; text-transform: uppercase; margin-bottom: 3px; }
-    .pc-dash-v2-inbox-title { font-size: 12px; font-weight: 700; color: #e9edf6; margin-bottom: 5px; line-height: 1.3; }
-    .pc-dash-v2-inbox-preview { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.5; }
-    .pc-dash-v2-inbox-badge { position: absolute; right: 10px; top: 14px; background: #e0524a; color: #fff; font-size: 8px; font-weight: 800; border-radius: 10px; padding: 2px 7px; }
+    .pc-dash-v2-inbox-group-hdr { display: flex; align-items: center; gap: 8px; padding: 8px 14px 6px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .pc-dash-v2-inbox-group-icon { font-size: 16px; flex-shrink: 0; }
+    .pc-dash-v2-inbox-group-title { font-size: 9px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; }
+    .pc-dash-v2-inbox-group-badge { margin-left: auto; background: #e0524a; color: #fff; font-size: 8px; font-weight: 800; border-radius: 10px; padding: 1px 6px; }
+    .pc-dash-v2-inbox-msg { display: flex; align-items: flex-start; gap: 10px; padding: 8px 14px; border: none; border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; transition: background .1s; background: none; text-align: left; width: 100%; font-family: inherit; }
+    .pc-dash-v2-inbox-msg:last-child { border-bottom: none; }
+    .pc-dash-v2-inbox-msg:hover { background: rgba(255,255,255,0.02); }
+    .pc-dash-v2-inbox-msg-accent { width: 2px; border-radius: 1px; align-self: stretch; flex-shrink: 0; min-height: 30px; }
+    .pc-dash-v2-inbox-msg-content { flex: 1; min-width: 0; }
+    .pc-dash-v2-inbox-msg-title { font-size: 11px; font-weight: 700; color: #e9edf6; line-height: 1.3; margin-bottom: 3px; }
+    .pc-dash-v2-inbox-msg-preview { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.4; }
+    .pc-dash-v2-inbox-sep { height: 4px; background: var(--dv2-bg-app); }
 
     /* Centro */
     .pc-dash-v2-center-col { display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto; min-width: 0; height: 100%; min-height: 0; }
 
-    .pc-dash-v2-news-wrap { position: relative; overflow: hidden; border-radius: 8px; flex-shrink: 0; height: 160px; min-width: 0; }
+    .pc-dash-v2-news-wrap { position: relative; overflow: hidden; border-radius: 8px; flex-shrink: 0; height: 180px; min-width: 0; }
     .pc-dash-v2-news-track { display: flex; transition: transform 0.45s cubic-bezier(0.4,0,0.2,1); height: 100%; }
     .pc-dash-v2-news-slide { min-width: 100%; height: 100%; background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; display: flex; overflow: hidden; flex-shrink: 0; }
     .pc-dash-v2-news-left { display: flex; align-items: center; justify-content: center; width: 80px; flex-shrink: 0; font-size: 42px; background: rgba(0,0,0,0.2); border-right: 1px solid rgba(255,255,255,0.05); }
-    .pc-dash-v2-news-body { flex: 1; padding: 14px 16px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+    .pc-dash-v2-news-body { flex: 1; padding: 16px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
     .pc-dash-v2-news-cat { font-size: 8px; font-weight: 800; letter-spacing: 1px; color: var(--club-accent, #c9a84c); text-transform: uppercase; margin-bottom: 5px; }
-    .pc-dash-v2-news-headline { font-size: 13px; font-weight: 800; color: #e9edf6; line-height: 1.3; margin-bottom: 6px; }
+    .pc-dash-v2-news-headline { font-size: 14px; font-weight: 800; color: #e9edf6; line-height: 1.25; margin-bottom: 6px; }
     .pc-dash-v2-news-summary { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.45; }
     .pc-dash-v2-news-meta { font-size: 9px; color: rgba(255,255,255,0.2); margin-top: 7px; }
-    .pc-dash-v2-news-right { width: 90px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.15); border-left: 1px solid rgba(255,255,255,0.05); font-size: 48px; gap: 2px; }
-    .pc-dash-v2-news-right-label { font-size: 9px; color: rgba(255,255,255,0.3); margin-top: 4px; text-align: center; }
-    .pc-dash-v2-news-nav { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; }
-    .pc-dash-v2-news-nav-btn { background: rgba(255,255,255,0.1); border: none; border-radius: 3px; color: rgba(255,255,255,0.5); font-size: 10px; width: 22px; height: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .pc-dash-v2-news-right { width: 90px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.15); border-left: 1px solid rgba(255,255,255,0.05); font-size: 48px; gap: 4px; }
+    .pc-dash-v2-news-right-label { font-size: 9px; color: rgba(255,255,255,0.3); text-align: center; }
+    .pc-dash-v2-news-nav { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; }
+    .pc-dash-v2-news-nav-btn { background: rgba(255,255,255,0.1); border: none; border-radius: 3px; color: rgba(255,255,255,0.5); font-size: 10px; width: 22px; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .pc-dash-v2-news-dots { display: flex; gap: 4px; }
     .pc-dash-v2-ndot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.15); cursor: pointer; transition: background .2s; border: none; padding: 0; }
     .pc-dash-v2-ndot.active { background: var(--club-accent, #c9a84c); }
 
-    .pc-dash-v2-next-match { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 15px; flex-shrink: 0; }
-    .pc-dash-v2-nm-row { display: flex; align-items: center; gap: 10px; }
-    .pc-dash-v2-nm-team { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 65px; }
+    .pc-dash-v2-next-match { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 16px; flex-shrink: 0; }
+    .pc-dash-v2-nm-row { display: flex; align-items: center; gap: 12px; }
+    .pc-dash-v2-nm-team { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 70px; }
     .pc-dash-v2-nm-name { font-size: 10px; font-weight: 700; color: #e9edf6; text-align: center; }
     .pc-dash-v2-nm-form { display: flex; gap: 2px; }
-    .pc-dash-v2-fd { width: 11px; height: 11px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 6px; font-weight: 800; }
+    .pc-dash-v2-fd { width: 12px; height: 12px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 800; }
     .pc-dash-v2-fd.fd-w { background: #3ecf8e; color: #052e16; }
     .pc-dash-v2-fd.fd-d { background: #4b5563; color: #fff; }
     .pc-dash-v2-fd.fd-l { background: #e0524a; color: #fff; }
     .pc-dash-v2-nm-center { flex: 1; text-align: center; }
-    .pc-dash-v2-nm-vs { font-size: 20px; font-weight: 900; color: rgba(255,255,255,0.07); }
-    .pc-dash-v2-nm-date { font-size: 10px; color: rgba(255,255,255,0.45); }
+    .pc-dash-v2-nm-vs { font-size: 22px; font-weight: 900; color: rgba(255,255,255,0.07); }
+    .pc-dash-v2-nm-date { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
     .pc-dash-v2-nm-venue { font-size: 9px; color: rgba(255,255,255,0.22); margin-top: 2px; }
-    .pc-dash-v2-nm-tags { display: flex; gap: 5px; justify-content: center; margin-top: 5px; flex-wrap: wrap; }
-    .pc-dash-v2-nm-tag { font-size: 8px; font-weight: 700; padding: 2px 6px; border-radius: 3px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.35); }
+    .pc-dash-v2-nm-tags { display: flex; gap: 5px; justify-content: center; margin-top: 6px; flex-wrap: wrap; }
+    .pc-dash-v2-nm-tag { font-size: 8px; font-weight: 700; padding: 2px 7px; border-radius: 3px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.35); }
     .pc-dash-v2-nm-tag.hot { background: rgba(224,168,62,0.1); color: #e0a83e; }
-    .pc-dash-v2-nm-btn { background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #0d0f14); border: none; border-radius: 5px; padding: 6px 12px; font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+    .pc-dash-v2-nm-btn { background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #0d0f14); border: none; border-radius: 5px; padding: 8px 14px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 
+    .pc-dash-v2-cal-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
     .pc-dash-v2-calendar { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
     .pc-dash-v2-cal-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-shrink: 0; }
     .pc-dash-v2-cal-title { font-size: 10px; font-weight: 700; color: #e9edf6; }
@@ -2670,32 +2675,33 @@ const GLOBAL_CSS = `
     .pc-dash-v2-cal-day.weekend { opacity: .8; }
     .pc-dash-v2-cal-day.match { border-color: rgba(224,82,74,0.4); background: rgba(224,82,74,0.05); }
     .pc-dash-v2-cal-day.today { border-color: var(--club-accent, #c9a84c); }
-    .pc-dash-v2-cal-dn { font-size: 7px; color: rgba(255,255,255,0.18); text-align: center; text-transform: uppercase; }
-    .pc-dash-v2-cal-num { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35); margin-bottom: 2px; }
+    .pc-dash-v2-cal-dn { font-size: 7px; color: rgba(255,255,255,0.18); text-align: center; text-transform: uppercase; flex-shrink: 0; }
+    .pc-dash-v2-cal-num { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35); margin-bottom: 2px; flex-shrink: 0; }
     .pc-dash-v2-cal-day.match .pc-dash-v2-cal-num { color: #ff8fa3; }
     .pc-dash-v2-cal-day.today .pc-dash-v2-cal-num { color: var(--club-accent, #c9a84c); font-weight: 900; }
-    .pc-dash-v2-cal-events { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; }
-    .pc-dash-v2-ce-icon { font-size: 16px; line-height: 1; }
-    .pc-dash-v2-ce-match-icon { font-size: 16px; line-height: 1; }
+    .pc-dash-v2-cal-events { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; flex: 1; min-height: 0; width: 100%; }
+    .pc-dash-v2-ce-icon { font-size: 18px; line-height: 1; }
+    .pc-dash-v2-ce-match-icon { font-size: 18px; line-height: 1; }
     .pc-dash-v2-ce-market-icon { font-size: 14px; line-height: 1; }
     .pc-dash-v2-ce-label { font-size: 6px; color: rgba(255,255,255,0.3); text-align: center; }
-    .pc-dash-v2-cal-crests { display: flex; justify-content: center; align-items: center; gap: 1px; margin-top: 2px; }
+    .pc-dash-v2-cal-crests { display: flex; justify-content: center; align-items: center; gap: 1px; margin-top: 2px; flex-shrink: 0; }
 
-    /* Derecha */
-    .pc-dash-v2-right-col { display: flex; flex-direction: column; gap: 10px; flex: 0 1 16%; min-width: 180px; max-width: 240px; height: 100%; min-height: 0; }
-    .pc-dash-v2-panel { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 11px; }
-    .pc-dash-v2-fx-row { display: flex; align-items: center; gap: 5px; padding: 4px 2px; border-bottom: 1px solid rgba(255,255,255,0.04); border-radius: 3px; }
+    /* Derecha: ancho fijo (240px) — 10 partidos + 20 equipos son un contenido de tamaño
+       constante, así que no necesita una base proporcional como las otras columnas. */
+    .pc-dash-v2-right-col { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+    .pc-dash-v2-panel { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; }
+    .pc-dash-v2-fx-row { display: flex; align-items: center; gap: 4px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); border-radius: 3px; }
     .pc-dash-v2-fx-row:last-child { border-bottom: none; }
     .pc-dash-v2-fx-row.me { background: color-mix(in srgb, var(--club-accent, #c9a84c) 8%, transparent); }
     .pc-dash-v2-fx-team { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.5); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pc-dash-v2-fx-team.right { text-align: right; }
     .pc-dash-v2-fx-team.me { color: #e9edf6; font-weight: 800; }
-    .pc-dash-v2-fx-vs { font-size: 8px; color: rgba(255,255,255,0.18); padding: 0 3px; flex-shrink: 0; }
+    .pc-dash-v2-fx-vs { font-size: 8px; color: rgba(255,255,255,0.18); padding: 0 2px; flex-shrink: 0; }
 
-    .pc-dash-v2-standings-panel { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 11px; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .pc-dash-v2-standings-panel { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .pc-dash-v2-standings-scroll { overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: none; }
     .pc-dash-v2-standings-scroll::-webkit-scrollbar { display: none; }
-    .pc-dash-v2-st-row { display: flex; align-items: center; gap: 4px; padding: 3px 2px; border-bottom: 1px solid rgba(255,255,255,0.03); border-radius: 3px; }
+    .pc-dash-v2-st-row { display: flex; align-items: center; gap: 4px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.03); border-radius: 3px; }
     .pc-dash-v2-st-row:last-child { border-bottom: none; }
     .pc-dash-v2-st-row.hl { background: color-mix(in srgb, var(--club-accent, #c9a84c) 8%, transparent); }
     .pc-dash-v2-st-pos { width: 13px; font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.22); text-align: center; flex-shrink: 0; }
