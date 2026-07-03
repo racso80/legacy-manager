@@ -2678,7 +2678,7 @@ const GLOBAL_CSS = `
     .pc-dash-v2-obj-bar { height: 2px; background: rgba(255,255,255,0.08); border-radius: 1px; margin-top: 3px; }
     .pc-dash-v2-obj-fill { height: 100%; border-radius: 1px; background: var(--club-accent, #c9a84c); }
 
-    .pc-dash-v2-cal-wrap { flex: 0 0 auto; height: 262px; min-width: 0; display: flex; flex-direction: column; }
+    .pc-dash-v2-cal-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
     .pc-dash-v2-calendar { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
     .pc-dash-v2-cal-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-shrink: 0; }
     .pc-dash-v2-cal-title { font-size: 10px; font-weight: 700; color: #e9edf6; }
