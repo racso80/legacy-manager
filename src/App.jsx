@@ -2630,41 +2630,55 @@ const GLOBAL_CSS = `
     .pc-dash-v2-news-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
     .pc-dash-v2-news-wrap { position: relative; overflow: hidden; border-radius: 8px; flex: 1; min-height: 0; min-width: 0; }
     .pc-dash-v2-news-track { display: flex; transition: transform 0.45s cubic-bezier(0.4,0,0.2,1); height: 100%; }
-    .pc-dash-v2-news-slide { min-width: 100%; height: 100%; background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; display: flex; overflow: hidden; flex-shrink: 0; }
-    .pc-dash-v2-news-left { display: flex; align-items: center; justify-content: center; width: 80px; flex-shrink: 0; font-size: 42px; background: rgba(0,0,0,0.2); border-right: 1px solid rgba(255,255,255,0.05); }
-    .pc-dash-v2-news-body { flex: 1; padding: 16px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
-    .pc-dash-v2-news-cat { font-size: 8px; font-weight: 800; letter-spacing: 1px; color: var(--club-accent, #c9a84c); text-transform: uppercase; margin-bottom: 5px; }
-    .pc-dash-v2-news-headline { font-size: 14px; font-weight: 800; color: #e9edf6; line-height: 1.25; margin-bottom: 6px; }
-    .pc-dash-v2-news-summary { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.45; }
-    .pc-dash-v2-news-meta { font-size: 9px; color: rgba(255,255,255,0.2); margin-top: 7px; }
-    .pc-dash-v2-news-right { width: 90px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.15); border-left: 1px solid rgba(255,255,255,0.05); font-size: 48px; gap: 4px; }
-    .pc-dash-v2-news-right-label { font-size: 9px; color: rgba(255,255,255,0.3); text-align: center; }
-    .pc-dash-v2-news-nav { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; }
-    .pc-dash-v2-news-nav-btn { background: rgba(255,255,255,0.1); border: none; border-radius: 3px; color: rgba(255,255,255,0.5); font-size: 10px; width: 22px; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .pc-dash-v2-news-slide { min-width: 100%; height: 100%; background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; display: flex; overflow: hidden; flex-shrink: 0; position: relative; cursor: pointer; transition: border-color .15s; }
+    .pc-dash-v2-news-slide:hover { border-color: rgba(255,255,255,0.14); }
+    .pc-dash-v2-news-bg { position: absolute; inset: 0; pointer-events: none; }
+    .pc-dash-v2-news-content { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; justify-content: center; min-width: 0; position: relative; z-index: 1; }
+    .pc-dash-v2-news-cat { font-size: 9px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .pc-dash-v2-news-cat-bar { width: 20px; height: 2px; border-radius: 1px; flex-shrink: 0; }
+    .pc-dash-v2-news-headline { font-size: 17px; font-weight: 900; color: #ffffff; line-height: 1.2; margin-bottom: 10px; }
+    .pc-dash-v2-news-summary { font-size: 11px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+    .pc-dash-v2-news-meta { font-size: 9px; color: rgba(255,255,255,0.2); margin-top: 10px; }
+    .pc-dash-v2-news-right { width: 160px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 16px 12px; background: rgba(0,0,0,0.2); border-left: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 1; }
+    .pc-dash-v2-news-right-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.6); text-align: center; }
+    .pc-dash-v2-news-nav { position: absolute; bottom: 10px; left: 20px; display: flex; align-items: center; gap: 8px; z-index: 2; }
+    .pc-dash-v2-news-nav-btn { background: rgba(255,255,255,0.1); border: none; border-radius: 3px; color: rgba(255,255,255,0.5); font-size: 11px; width: 24px; height: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .pc-dash-v2-news-dots { display: flex; gap: 4px; }
     .pc-dash-v2-ndot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.15); cursor: pointer; transition: background .2s; border: none; padding: 0; }
     .pc-dash-v2-ndot.active { background: var(--club-accent, #c9a84c); }
 
-    .pc-dash-v2-nm-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-    .pc-dash-v2-next-match { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 16px; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
-    .pc-dash-v2-nm-row { display: flex; align-items: center; gap: 12px; }
-    .pc-dash-v2-nm-team { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 70px; }
-    .pc-dash-v2-nm-name { font-size: 10px; font-weight: 700; color: #e9edf6; text-align: center; }
-    .pc-dash-v2-nm-form { display: flex; gap: 2px; }
+    /* Fila de 3 paneles: próximo partido / estado del club / objetivos */
+    .pc-dash-v2-three-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; flex-shrink: 0; }
+    .pc-dash-v2-panel-sm { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 11px 13px; display: flex; flex-direction: column; min-width: 0; }
+    .pc-dash-v2-panel-sm-title { font-size: 8px; font-weight: 800; color: var(--club-accent, #c9a84c); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+
+    .pc-dash-v2-nm2-teams { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .pc-dash-v2-nm2-team { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 0; }
+    .pc-dash-v2-nm2-name { font-size: 8px; font-weight: 700; color: #e9edf6; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+    .pc-dash-v2-nm2-vs { font-size: 14px; font-weight: 900; color: rgba(255,255,255,0.1); flex-shrink: 0; }
+    .pc-dash-v2-nm2-form { display: flex; gap: 2px; justify-content: center; margin-top: 2px; }
     .pc-dash-v2-fd { width: 12px; height: 12px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 800; }
     .pc-dash-v2-fd.fd-w { background: #3ecf8e; color: #052e16; }
     .pc-dash-v2-fd.fd-d { background: #4b5563; color: #fff; }
     .pc-dash-v2-fd.fd-l { background: #e0524a; color: #fff; }
-    .pc-dash-v2-nm-center { flex: 1; text-align: center; }
-    .pc-dash-v2-nm-vs { font-size: 22px; font-weight: 900; color: rgba(255,255,255,0.07); }
-    .pc-dash-v2-nm-date { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
-    .pc-dash-v2-nm-venue { font-size: 9px; color: rgba(255,255,255,0.22); margin-top: 2px; }
-    .pc-dash-v2-nm-tags { display: flex; gap: 5px; justify-content: center; margin-top: 6px; flex-wrap: wrap; }
-    .pc-dash-v2-nm-tag { font-size: 8px; font-weight: 700; padding: 2px 7px; border-radius: 3px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.35); }
-    .pc-dash-v2-nm-tag.hot { background: rgba(224,168,62,0.1); color: #e0a83e; }
-    .pc-dash-v2-nm-btn { background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #0d0f14); border: none; border-radius: 5px; padding: 8px 14px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+    .pc-dash-v2-nm2-date { font-size: 9px; color: rgba(255,255,255,0.4); text-align: center; margin-top: 4px; }
+    .pc-dash-v2-nm2-tag { display: inline-block; align-self: center; font-size: 7px; font-weight: 700; padding: 2px 7px; border-radius: 3px; background: rgba(224,168,62,0.1); color: #e0a83e; margin-top: 5px; }
+    .pc-dash-v2-nm2-btn { width: 100%; background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #0d0f14); border: none; border-radius: 4px; padding: 6px; font-size: 10px; font-weight: 800; cursor: pointer; margin-top: 8px; }
 
-    .pc-dash-v2-cal-wrap { flex: 0 0 auto; height: 210px; min-width: 0; display: flex; flex-direction: column; }
+    .pc-dash-v2-club-state-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; flex: 1; }
+    .pc-dash-v2-club-state-item { background: rgba(0,0,0,0.2); border: none; border-radius: 5px; padding: 6px 7px; cursor: pointer; text-align: left; font-family: inherit; }
+    .pc-dash-v2-club-state-item:hover { background: rgba(255,255,255,0.05); }
+    .pc-dash-v2-club-state-label { font-size: 7px; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.5px; }
+    .pc-dash-v2-club-state-val { font-size: 12px; font-weight: 800; margin-top: 2px; }
+
+    .pc-dash-v2-obj-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .pc-dash-v2-obj-row:last-child { border-bottom: none; }
+    .pc-dash-v2-obj-label { font-size: 9px; color: rgba(255,255,255,0.4); }
+    .pc-dash-v2-obj-val { font-size: 9px; font-weight: 700; color: #e9edf6; flex-shrink: 0; }
+    .pc-dash-v2-obj-bar { height: 2px; background: rgba(255,255,255,0.08); border-radius: 1px; margin-top: 3px; }
+    .pc-dash-v2-obj-fill { height: 100%; border-radius: 1px; background: var(--club-accent, #c9a84c); }
+
+    .pc-dash-v2-cal-wrap { flex: 0 0 auto; height: 262px; min-width: 0; display: flex; flex-direction: column; }
     .pc-dash-v2-calendar { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
     .pc-dash-v2-cal-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-shrink: 0; }
     .pc-dash-v2-cal-title { font-size: 10px; font-weight: 700; color: #e9edf6; }
@@ -2680,15 +2694,16 @@ const GLOBAL_CSS = `
     .pc-dash-v2-cal-num { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.35); margin-bottom: 2px; flex-shrink: 0; }
     .pc-dash-v2-cal-day.match .pc-dash-v2-cal-num { color: #ff8fa3; }
     .pc-dash-v2-cal-day.today .pc-dash-v2-cal-num { color: var(--club-accent, #c9a84c); font-weight: 900; }
-    .pc-dash-v2-cal-events { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; flex: 1; min-height: 0; width: 100%; }
-    .pc-dash-v2-ce-icon { font-size: 28px; line-height: 1; }
+    .pc-dash-v2-cal-events { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; align-content: center; gap: 1px; flex: 1; min-height: 0; width: 100%; }
+    .pc-dash-v2-ce-icon { font-size: 16px; line-height: 1; }
     .pc-dash-v2-cal-crests { display: flex; justify-content: center; align-items: center; gap: 3px; margin-top: 2px; flex-shrink: 0; }
 
-    /* Derecha: ancho fijo (240px) — 10 partidos + 20 equipos son un contenido de tamaño
+    /* Derecha: ancho fijo (340px) — 10 partidos + 20 equipos son un contenido de tamaño
        constante, así que no necesita una base proporcional como las otras columnas. */
-    .pc-dash-v2-right-col { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
-    .pc-dash-v2-panel { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; }
-    .pc-dash-v2-fx-row { display: flex; align-items: center; gap: 4px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); border-radius: 3px; }
+    .pc-dash-v2-right-col { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+    .pc-dash-v2-panel { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: border-color .15s; }
+    .pc-dash-v2-panel:hover { border-color: rgba(255,255,255,0.12); }
+    .pc-dash-v2-fx-row { display: flex; align-items: center; gap: 5px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); border-radius: 3px; }
     .pc-dash-v2-fx-row:last-child { border-bottom: none; }
     .pc-dash-v2-fx-row.me { background: color-mix(in srgb, var(--club-accent, #c9a84c) 8%, transparent); }
     .pc-dash-v2-fx-team { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.5); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2696,16 +2711,19 @@ const GLOBAL_CSS = `
     .pc-dash-v2-fx-team.me { color: #e9edf6; font-weight: 800; }
     .pc-dash-v2-fx-vs { font-size: 8px; color: rgba(255,255,255,0.18); padding: 0 2px; flex-shrink: 0; }
 
-    .pc-dash-v2-standings-panel { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .pc-dash-v2-standings-panel { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; cursor: pointer; transition: border-color .15s; }
+    .pc-dash-v2-standings-panel:hover { border-color: rgba(255,255,255,0.12); }
     .pc-dash-v2-standings-scroll { overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: none; }
     .pc-dash-v2-standings-scroll::-webkit-scrollbar { display: none; }
+    .pc-dash-v2-st-zone-hdr { font-size: 7px; font-weight: 800; color: rgba(255,255,255,0.2); letter-spacing: 1px; text-transform: uppercase; padding: 5px 0 2px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 2px; }
     .pc-dash-v2-st-row { display: flex; align-items: center; gap: 4px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.03); border-radius: 3px; }
     .pc-dash-v2-st-row:last-child { border-bottom: none; }
     .pc-dash-v2-st-row.hl { background: color-mix(in srgb, var(--club-accent, #c9a84c) 8%, transparent); }
-    .pc-dash-v2-st-pos { width: 13px; font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.22); text-align: center; flex-shrink: 0; }
-    .pc-dash-v2-st-zone { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
+    .pc-dash-v2-st-pos { width: 14px; font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.22); text-align: center; flex-shrink: 0; }
+    .pc-dash-v2-st-arrow { font-size: 8px; width: 10px; text-align: center; flex-shrink: 0; }
     .pc-dash-v2-st-team { flex: 1; font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pc-dash-v2-st-team.me { color: #e9edf6; font-weight: 800; }
+    .pc-dash-v2-st-pj { font-size: 8px; color: rgba(255,255,255,0.25); width: 16px; text-align: center; flex-shrink: 0; }
     .pc-dash-v2-st-pts { font-size: 9px; font-weight: 800; color: rgba(255,255,255,0.55); width: 18px; text-align: right; flex-shrink: 0; }
 
     /* Las columnas laterales usan flex-basis en % (no px fijos), así que se reajustan solas
@@ -8530,7 +8548,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "teams"     && <TeamSelection onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
           {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
           {screen === "dashboard" && game && (isPC
-            ? <PCDashboardContent game={game} teams={TEAMS} position={pcPosition} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} lineup={lineup} setScreen={setScreen} onPlay={() => setScreen("match")} directorItems={legacyDirectorItems} chiefBriefing={chiefBriefing} medicalAlerts={pcMedicalAlerts} consequences={pcConsequences} />
+            ? <PCDashboardContent game={game} teams={TEAMS} position={pcPosition} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} lineup={lineup} setScreen={setScreen} onPlay={() => setScreen("match")} directorItems={legacyDirectorItems} chiefBriefing={chiefBriefing} medicalAlerts={pcMedicalAlerts} consequences={pcConsequences} budgetSnapshot={pcBudgetSnapshot} />
             : <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} conversations={activeConversations} clubLifeIssues={clubLifeIssues} directorItems={legacyDirectorItems} onOpenAttention={handleAttentionOpen} onOpenConversation={openConversation} onOpenClubLifeIssue={handleClubLifeIssueOpen} onOpenScene={handleOpenScene} />
           )}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}

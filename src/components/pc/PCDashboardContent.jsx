@@ -3,12 +3,16 @@ import TeamCrest from "../TeamCrest.jsx";
 import { Initials } from "../../App.jsx";
 import { getMedicalAlerts } from "../../state/gameStateSelectors.js";
 import { getDashboardNews } from "../../news/newsEngine.js";
+import { getLockerRoomSummary } from "../../morale/moraleEngine.js";
+import { getPrestigeLevel } from "../../legacy/legacyEngine.js";
 
 const WEEKDAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MONTH_LABELS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const MONTH_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const NEWS_TYPE_ICON = { result: "⚽", standings: "📊", streak: "🔥", scorer: "🥇", performance: "⭐", transfer: "🔄", finance: "💶", injury: "🚑", board: "🤝", youth: "🌱", scouting: "🔎" };
 const NEWS_TYPE_LABEL = { result: "Liga", standings: "Liga", streak: "Liga", scorer: "Liga", performance: "Liga", transfer: "Mercado", finance: "Finanzas", injury: "Médico", board: "Directiva", youth: "Cantera", scouting: "Scouting" };
+const NEWS_META_TEXT = { result: "LaLiga", standings: "LaLiga", streak: "LaLiga", scorer: "LaLiga", performance: "LaLiga", transfer: "Mercado de fichajes", finance: "Finanzas del club", injury: "Parte médico", board: "Directiva del club", youth: "Academia", scouting: "Departamento de scouting" };
+const ZONE_LABEL = { cl: "Champions League", el: "Europa League", liga: "Liga", descenso: "Descenso" };
 
 // El juego no tiene un calendario real (solo número de jornada), así que las fechas de
 // partidos/entrenos/mercado en el calendario se sintetizan anclando la próxima jornada del
@@ -47,53 +51,58 @@ function formFor(teamId, fixtures) {
       return gf > ga ? "V" : gf === ga ? "E" : "D";
     });
 }
-function zoneColor(pos) {
-  if (pos <= 4) return "#3ecf8e";
-  if (pos <= 6) return "#60a5fa";
-  if (pos >= 18) return "#e0524a";
-  return "rgba(255,255,255,0.1)";
-}
 function sortedStandings(game) {
   return [...(game.standings ?? [])].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor);
 }
+function zoneForPos(pos, total) {
+  if (pos <= 4) return "cl";
+  if (pos <= 6) return "el";
+  if (pos > total - 3) return "descenso";
+  return "liga";
+}
+function newsAccent(type) {
+  if (type === "youth") return "#3ecf8e";
+  if (type === "board") return "#c9a84c";
+  return "var(--club-accent, #c9a84c)";
+}
+const fmtBudget = v => (v >= 1000 ? `€${(v / 1000).toFixed(1)}M` : `€${Math.round(v ?? 0)}K`);
 
 function FormDot({ result }) {
   const cls = result === "V" ? "fd-w" : result === "E" ? "fd-d" : "fd-l";
   return <div className={`pc-dash-v2-fd ${cls}`}>{result}</div>;
 }
 
-// Zona derecha del slide de noticias: avatar del jugador si la noticia lo menciona,
-// escudo del equipo si es una noticia de club, o un emoji genérico si no hay referencia.
+// Zona derecha del slide de noticias: avatar del jugador si la noticia lo menciona (con el
+// escudo del club debajo), o el escudo del equipo en grande si es una noticia de club.
 function NewsRightZone({ item, game, teams }) {
   const player = item.playerIds?.[0] ? (game.players ?? []).find(p => p.id === item.playerIds[0]) : null;
+  const team = item.teamIds?.[0] ? teams.find(t => t.id === item.teamIds[0]) : (player ? teams.find(t => t.id === game.teamId) : null);
   if (player) {
     return (
       <>
-        <Initials name={player.name} size={44} rarity={player.rarity} borderRadius={999} />
+        <Initials name={player.name} size={64} rarity={player.rarity} borderRadius={999} />
         <div className="pc-dash-v2-news-right-label">{player.name.split(" ").slice(-1)[0]}</div>
+        {team && <TeamCrest team={team} size={26} />}
       </>
     );
   }
-  const team = item.teamIds?.[0] ? teams.find(t => t.id === item.teamIds[0]) : null;
   if (team) {
     return (
       <>
-        <TeamCrest team={team} size={44} />
-        <div className="pc-dash-v2-news-right-label">{team.short}</div>
+        <TeamCrest team={team} size={52} />
+        <div className="pc-dash-v2-news-right-label">{team.name}</div>
       </>
     );
   }
-  return <span>{NEWS_TYPE_ICON[item.type] ?? "📌"}</span>;
+  return <span style={{ fontSize: 36 }}>{NEWS_TYPE_ICON[item.type] ?? "📌"}</span>;
 }
 
-function NextMatchCard({ game, teams, nextFixture, nextOpponent, position, lineup, setScreen, onPlay, anchorDate }) {
+function NextMatchPanel({ game, teams, nextFixture, nextOpponent, position, lineup, setScreen, onPlay, anchorDate }) {
   if (!nextFixture) {
     return (
-      <div className="pc-dash-v2-nm-section">
-        <div className="pc-dash-v2-sec-label">Próximo partido</div>
-        <div className="pc-dash-v2-next-match">
-          <div className="pc-dash-v2-empty">No hay más partidos programados.</div>
-        </div>
+      <div className="pc-dash-v2-panel-sm">
+        <div className="pc-dash-v2-panel-sm-title">Próximo Partido</div>
+        <div className="pc-dash-v2-empty">No hay más partidos programados.</div>
       </div>
     );
   }
@@ -104,9 +113,7 @@ function NextMatchCard({ game, teams, nextFixture, nextOpponent, position, lineu
   const fixtures = game.fixtures ?? [];
   const standings = sortedStandings(game);
   const posFor = id => standings.findIndex(s => s.teamId === id) + 1;
-  const homePos = posFor(homeTeam?.id);
-  const awayPos = posFor(awayTeam?.id);
-  const oppPos = isHome ? awayPos : homePos;
+  const oppPos = posFor(oppTeam?.id);
   const highImportance = position <= 6 || (oppPos && oppPos <= 6);
   const importanceLabel = highImportance ? "⭐ Alta importancia" : position >= 16 ? "Necesitas puntuar" : "Jornada clave";
   const available = (game.players ?? []).filter(p => !p.injured && !p.suspended);
@@ -116,38 +123,84 @@ function NextMatchCard({ game, teams, nextFixture, nextOpponent, position, lineu
   const kickoffLabel = `${WEEKDAY_SHORT[(kickoff.getDay() + 6) % 7]} ${kickoff.getDate()} ${MONTH_SHORT[kickoff.getMonth()]}`;
 
   return (
-    <div className="pc-dash-v2-nm-section">
-      <div className="pc-dash-v2-sec-label">Próximo partido · J{nextFixture.matchday}</div>
-      <div className="pc-dash-v2-next-match">
-        <div className="pc-dash-v2-nm-row">
-          <div className="pc-dash-v2-nm-team">
-            <TeamCrest team={homeTeam} size={32} className="pc-dash-v2-nm-crest" />
-            <div className="pc-dash-v2-nm-name">{homeTeam?.name}</div>
-            {formFor(homeTeam?.id, fixtures).length > 0 && (
-              <div className="pc-dash-v2-nm-form">{formFor(homeTeam?.id, fixtures).map((r, i) => <FormDot key={i} result={r} />)}</div>
-            )}
-          </div>
-          <div className="pc-dash-v2-nm-center">
-            <div className="pc-dash-v2-nm-vs">VS</div>
-            <div className="pc-dash-v2-nm-date">{kickoffLabel}</div>
-            <div className="pc-dash-v2-nm-venue">{homeTeam?.stadium ?? "—"} · LaLiga</div>
-            <div className="pc-dash-v2-nm-tags">
-              <span className="pc-dash-v2-nm-tag">{position ?? "—"}º vs {oppPos || "—"}º</span>
-              <span className={`pc-dash-v2-nm-tag${highImportance ? " hot" : ""}`}>{importanceLabel}</span>
-            </div>
-          </div>
-          <div className="pc-dash-v2-nm-team">
-            <TeamCrest team={awayTeam} size={32} className="pc-dash-v2-nm-crest" />
-            <div className="pc-dash-v2-nm-name">{awayTeam?.name}</div>
-            {formFor(awayTeam?.id, fixtures).length > 0 && (
-              <div className="pc-dash-v2-nm-form">{formFor(awayTeam?.id, fixtures).map((r, i) => <FormDot key={i} result={r} />)}</div>
-            )}
-          </div>
-          <button className="pc-dash-v2-nm-btn" onClick={goPlay}>
-            {lineupValid ? "▶ Preparar" : `⚠️ Alineación (${lineup.filter(Boolean).length}/11)`}
-          </button>
+    <div className="pc-dash-v2-panel-sm">
+      <div className="pc-dash-v2-panel-sm-title">Próximo Partido · J{nextFixture.matchday}</div>
+      <div className="pc-dash-v2-nm2-teams">
+        <div className="pc-dash-v2-nm2-team">
+          <TeamCrest team={homeTeam} size={22} />
+          <div className="pc-dash-v2-nm2-name">{homeTeam?.short ?? homeTeam?.name}</div>
+          {formFor(homeTeam?.id, fixtures).length > 0 && (
+            <div className="pc-dash-v2-nm2-form">{formFor(homeTeam?.id, fixtures).slice(0, 3).map((r, i) => <FormDot key={i} result={r} />)}</div>
+          )}
+        </div>
+        <div className="pc-dash-v2-nm2-vs">VS</div>
+        <div className="pc-dash-v2-nm2-team">
+          <TeamCrest team={awayTeam} size={22} />
+          <div className="pc-dash-v2-nm2-name">{awayTeam?.short ?? awayTeam?.name}</div>
+          {formFor(awayTeam?.id, fixtures).length > 0 && (
+            <div className="pc-dash-v2-nm2-form">{formFor(awayTeam?.id, fixtures).slice(0, 3).map((r, i) => <FormDot key={i} result={r} />)}</div>
+          )}
         </div>
       </div>
+      <div className="pc-dash-v2-nm2-date">{kickoffLabel} · {isHome ? "Local" : "Visitante"}</div>
+      <div className="pc-dash-v2-nm2-tag">{importanceLabel}</div>
+      <button className="pc-dash-v2-nm2-btn" onClick={goPlay}>
+        {lineupValid ? "▶ Preparar" : `⚠️ Alineación (${lineup.filter(Boolean).length}/11)`}
+      </button>
+    </div>
+  );
+}
+
+function ClubStatePanel({ game, setScreen, budgetSnapshot, medicalAlerts }) {
+  const lockerSummary = getLockerRoomSummary(game.players ?? []);
+  const fanSupport = Math.round(game.fanbase?.support ?? game.fanLove ?? 70);
+  const budgetLeft = budgetSnapshot?.transferBudget ?? 0;
+  const cells = [
+    { label: "Vestuario", value: lockerSummary.atmosphere === "tenso" ? "Tenso" : lockerSummary.atmosphere === "positivo" ? "Positivo" : "Estable", color: lockerSummary.atmosphere === "tenso" ? "#e0524a" : lockerSummary.atmosphere === "positivo" ? "#3ecf8e" : "#c9a84c", onClick: () => setScreen("lockerRoom") },
+    { label: "Afición", value: `${fanSupport}%`, color: fanSupport >= 70 ? "#3ecf8e" : fanSupport >= 50 ? "#e0a83e" : "#e0524a", onClick: () => setScreen("fans") },
+    { label: "Economía", value: fmtBudget(budgetLeft), color: budgetLeft > 0 ? "#e9edf6" : "#e0524a", onClick: () => setScreen("finances") },
+    { label: "Carga física", value: medicalAlerts.length ? `${medicalAlerts.length} alerta${medicalAlerts.length === 1 ? "" : "s"}` : "Controlada", color: medicalAlerts.length ? "#e0a83e" : "#3ecf8e", onClick: () => setScreen("medical") },
+  ];
+  return (
+    <div className="pc-dash-v2-panel-sm">
+      <div className="pc-dash-v2-panel-sm-title">Estado del Club</div>
+      <div className="pc-dash-v2-club-state-grid">
+        {cells.map(cell => (
+          <div key={cell.label} className="pc-dash-v2-club-state-item" onClick={cell.onClick}>
+            <div className="pc-dash-v2-club-state-label">{cell.label}</div>
+            <div className="pc-dash-v2-club-state-val" style={{ color: cell.color }}>{cell.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ObjectivesPanel({ game, position }) {
+  const sportObjective = (game.legacy?.objectives ?? []).find(o => o.type === "sport");
+  const target = sportObjective?.target ?? 17;
+  const sportProgress = Math.max(0, Math.min(100, sportObjective?.progress ?? 0));
+  const confidence = Math.round(game.legacy?.confidence ?? 65);
+  const clubPrestigeLevel = getPrestigeLevel(game.legacy?.clubPrestige ?? 30);
+  const managerPrestigeLevel = getPrestigeLevel(game.legacy?.manager?.prestige ?? 10, true);
+  const rows = [
+    { label: `Liga · Top ${target}`, value: `${position ?? "—"}º`, fill: sportProgress, color: "var(--club-accent, #c9a84c)" },
+    { label: "Confianza directiva", value: `${confidence}%`, fill: confidence, color: confidence >= 60 ? "#3ecf8e" : "#e0a83e" },
+    { label: "Prestigio club", value: clubPrestigeLevel.label, fill: game.legacy?.clubPrestige ?? 30, color: clubPrestigeLevel.color },
+    { label: "Entrenador", value: managerPrestigeLevel.label, fill: game.legacy?.manager?.prestige ?? 10, color: managerPrestigeLevel.color },
+  ];
+  return (
+    <div className="pc-dash-v2-panel-sm">
+      <div className="pc-dash-v2-panel-sm-title">Objetivos</div>
+      {rows.map(row => (
+        <div className="pc-dash-v2-obj-row" key={row.label}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="pc-dash-v2-obj-label">{row.label}</div>
+            <div className="pc-dash-v2-obj-bar"><div className="pc-dash-v2-obj-fill" style={{ width: `${row.fill}%`, background: row.color }} /></div>
+          </div>
+          <div className="pc-dash-v2-obj-val" style={{ color: row.color }}>{row.value}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -199,8 +252,8 @@ function CalendarPanel({ game, teams, anchorMatchday, anchorDate }) {
                     </div>
                     {fixture && (
                       <div className="pc-dash-v2-cal-crests">
-                        <TeamCrest team={teams.find(t => t.id === fixture.homeTeamId)} size={20} />
-                        <TeamCrest team={teams.find(t => t.id === fixture.awayTeamId)} size={20} />
+                        <TeamCrest team={teams.find(t => t.id === fixture.homeTeamId)} size={14} />
+                        <TeamCrest team={teams.find(t => t.id === fixture.awayTeamId)} size={14} />
                       </div>
                     )}
                   </div>
@@ -214,21 +267,23 @@ function CalendarPanel({ game, teams, anchorMatchday, anchorDate }) {
   );
 }
 
-function NextMatchdayFixtures({ game, teams }) {
+function NextMatchdayFixtures({ game, teams, setScreen }) {
   const targetMatchday = (game.fixtures ?? []).find(f => !f.played && (f.homeTeamId === game.teamId || f.awayTeamId === game.teamId))?.matchday ?? game.matchday;
   const rows = (game.fixtures ?? []).filter(f => f.matchday === targetMatchday);
   return (
     <div>
       <div className="pc-dash-v2-sec-label">Jornada {targetMatchday}</div>
-      <div className="pc-dash-v2-panel">
+      <div className="pc-dash-v2-panel" onClick={() => setScreen("calendar")}>
         {rows.map(f => {
           const home = teams.find(t => t.id === f.homeTeamId);
           const away = teams.find(t => t.id === f.awayTeamId);
           const isUser = f.homeTeamId === game.teamId || f.awayTeamId === game.teamId;
           return (
             <div key={f.id} className={`pc-dash-v2-fx-row${isUser ? " me" : ""}`}>
+              <TeamCrest team={home} size={16} />
               <div className={`pc-dash-v2-fx-team${f.homeTeamId === game.teamId ? " me" : ""}`}>{home?.name}</div>
               <div className="pc-dash-v2-fx-vs" style={isUser ? { color: "var(--club-accent, #c9a84c)" } : undefined}>vs</div>
+              <TeamCrest team={away} size={16} />
               <div className={`pc-dash-v2-fx-team right${f.awayTeamId === game.teamId ? " me" : ""}`}>{away?.name}</div>
             </div>
           );
@@ -238,23 +293,39 @@ function NextMatchdayFixtures({ game, teams }) {
   );
 }
 
-function StandingsPanel({ game, teams }) {
+function StandingsPanel({ game, teams, setScreen }) {
   const rows = sortedStandings(game);
+  const total = rows.length;
+  const movement = game.standingsMovement ?? {};
+  let lastZone = null;
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <div className="pc-dash-v2-sec-label">Clasificación</div>
-      <div className="pc-dash-v2-standings-panel">
+      <div className="pc-dash-v2-standings-panel" onClick={() => setScreen("standings")}>
         <div className="pc-dash-v2-standings-scroll">
           {rows.map((row, index) => {
             const pos = index + 1;
+            const zone = zoneForPos(pos, total);
+            const showHeader = zone !== lastZone;
+            lastZone = zone;
             const team = teams.find(t => t.id === row.teamId);
             const isMe = row.teamId === game.teamId;
+            const move = movement[row.teamId] ?? 0;
+            const arrow = move > 0 ? "▲" : move < 0 ? "▼" : "—";
+            const arrowColor = move > 0 ? "#3ecf8e" : move < 0 ? "#e0524a" : "rgba(255,255,255,0.2)";
             return (
-              <div key={row.teamId} className={`pc-dash-v2-st-row${isMe ? " hl" : ""}`}>
-                <div className="pc-dash-v2-st-pos" style={isMe ? { color: "var(--club-accent, #c9a84c)" } : undefined}>{pos}</div>
-                <div className="pc-dash-v2-st-zone" style={{ background: zoneColor(pos) }} />
-                <div className={`pc-dash-v2-st-team${isMe ? " me" : ""}`}>{team?.name ?? row.teamId}</div>
-                <div className="pc-dash-v2-st-pts" style={isMe ? { color: "var(--club-accent, #c9a84c)" } : undefined}>{row.points}</div>
+              <div key={row.teamId}>
+                {showHeader && (
+                  <div className="pc-dash-v2-st-zone-hdr" style={zone === "descenso" ? { color: "#e0524a" } : undefined}>{ZONE_LABEL[zone]}</div>
+                )}
+                <div className={`pc-dash-v2-st-row${isMe ? " hl" : ""}`}>
+                  <div className="pc-dash-v2-st-pos" style={isMe ? { color: "var(--club-accent, #c9a84c)" } : undefined}>{pos}</div>
+                  <div className="pc-dash-v2-st-arrow" style={{ color: arrowColor }}>{arrow}</div>
+                  <TeamCrest team={team} size={16} />
+                  <div className={`pc-dash-v2-st-team${isMe ? " me" : ""}`}>{team?.name ?? row.teamId}</div>
+                  <div className="pc-dash-v2-st-pj">{row.played ?? 0}</div>
+                  <div className="pc-dash-v2-st-pts" style={isMe ? { color: "var(--club-accent, #c9a84c)" } : undefined}>{row.points}</div>
+                </div>
               </div>
             );
           })}
@@ -266,7 +337,7 @@ function StandingsPanel({ game, teams }) {
 
 export default function PCDashboardContent({
   game, teams = [], position, nextFixture, nextOpponent, lineup = [],
-  setScreen, onPlay, directorItems = [], chiefBriefing, medicalAlerts = [], consequences = [],
+  setScreen, onPlay, directorItems = [], chiefBriefing, medicalAlerts = [], consequences = [], budgetSnapshot = null,
 }) {
   const [newsIndex, setNewsIndex] = useState(0);
 
@@ -274,7 +345,6 @@ export default function PCDashboardContent({
   const activeNewsIndex = Math.min(newsIndex, Math.max(0, topNews.length - 1));
 
   const nonInfoDirector = directorItems.filter(item => item.priority !== "info");
-  const firstAttention = nonInfoDirector[0];
 
   const allMedicalAlerts = medicalAlerts.length ? medicalAlerts : getMedicalAlerts(game);
   const topMedical = allMedicalAlerts.slice(0, 2);
@@ -361,36 +431,43 @@ export default function PCDashboardContent({
           <div className="pc-dash-v2-news-wrap">
             {topNews.length === 0 ? (
               <div className="pc-dash-v2-news-slide">
-                <div className="pc-dash-v2-news-body">
+                <div className="pc-dash-v2-news-content">
                   <div className="pc-dash-v2-empty">Todavía no hay noticias relevantes.</div>
                 </div>
               </div>
             ) : (
               <>
                 <div className="pc-dash-v2-news-track" style={{ transform: `translateX(-${activeNewsIndex * 100}%)` }}>
-                  {topNews.map(item => (
-                    <div className="pc-dash-v2-news-slide" key={item.id ?? item.title}>
-                      <div className="pc-dash-v2-news-left">{NEWS_TYPE_ICON[item.type] ?? "📰"}</div>
-                      <div className="pc-dash-v2-news-body">
-                        <div className="pc-dash-v2-news-cat">{NEWS_TYPE_LABEL[item.type] ?? "Club"}{item.matchday ? ` · J${item.matchday}` : ""}</div>
-                        <div className="pc-dash-v2-news-headline">{item.title}</div>
-                        {item.summary && <div className="pc-dash-v2-news-summary">{item.summary}</div>}
+                  {topNews.map(item => {
+                    const accent = newsAccent(item.type);
+                    return (
+                      <div className="pc-dash-v2-news-slide" key={item.id ?? item.title} onClick={() => setScreen("news")}>
+                        <div className="pc-dash-v2-news-bg" style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${accent} 12%, transparent), transparent 60%)` }} />
+                        <div className="pc-dash-v2-news-content">
+                          <div className="pc-dash-v2-news-cat" style={{ color: accent }}>
+                            <span className="pc-dash-v2-news-cat-bar" style={{ background: accent }} />
+                            {NEWS_TYPE_LABEL[item.type] ?? "Club"}{item.matchday ? ` · J${item.matchday}` : ""}
+                          </div>
+                          <div className="pc-dash-v2-news-headline">{item.title}</div>
+                          {item.summary && <div className="pc-dash-v2-news-summary">{item.summary}</div>}
+                          <div className="pc-dash-v2-news-meta">{NEWS_META_TEXT[item.type] ?? "Club"}</div>
+                        </div>
+                        <div className="pc-dash-v2-news-right">
+                          <NewsRightZone item={item} game={game} teams={teams} />
+                        </div>
                       </div>
-                      <div className="pc-dash-v2-news-right">
-                        <NewsRightZone item={item} game={game} teams={teams} />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {topNews.length > 1 && (
                   <div className="pc-dash-v2-news-nav">
-                    <button className="pc-dash-v2-news-nav-btn" onClick={() => setNewsIndex(i => (i - 1 + topNews.length) % topNews.length)} aria-label="Noticia anterior">‹</button>
+                    <button className="pc-dash-v2-news-nav-btn" onClick={(e) => { e.stopPropagation(); setNewsIndex(i => (i - 1 + topNews.length) % topNews.length); }} aria-label="Noticia anterior">‹</button>
                     <div className="pc-dash-v2-news-dots">
                       {topNews.map((_, i) => (
-                        <div key={i} className={`pc-dash-v2-ndot${i === activeNewsIndex ? " active" : ""}`} onClick={() => setNewsIndex(i)} />
+                        <div key={i} className={`pc-dash-v2-ndot${i === activeNewsIndex ? " active" : ""}`} onClick={(e) => { e.stopPropagation(); setNewsIndex(i); }} />
                       ))}
                     </div>
-                    <button className="pc-dash-v2-news-nav-btn" onClick={() => setNewsIndex(i => (i + 1) % topNews.length)} aria-label="Noticia siguiente">›</button>
+                    <button className="pc-dash-v2-news-nav-btn" onClick={(e) => { e.stopPropagation(); setNewsIndex(i => (i + 1) % topNews.length); }} aria-label="Noticia siguiente">›</button>
                   </div>
                 )}
               </>
@@ -398,14 +475,18 @@ export default function PCDashboardContent({
           </div>
         </div>
 
-        <NextMatchCard game={game} teams={teams} nextFixture={nextFixture} nextOpponent={nextOpponent} position={position} lineup={lineup} setScreen={setScreen} onPlay={onPlay} anchorDate={anchorDate} />
+        <div className="pc-dash-v2-three-row">
+          <NextMatchPanel game={game} teams={teams} nextFixture={nextFixture} nextOpponent={nextOpponent} position={position} lineup={lineup} setScreen={setScreen} onPlay={onPlay} anchorDate={anchorDate} />
+          <ClubStatePanel game={game} setScreen={setScreen} budgetSnapshot={budgetSnapshot} medicalAlerts={allMedicalAlerts} />
+          <ObjectivesPanel game={game} position={position} />
+        </div>
 
         <CalendarPanel game={game} teams={teams} anchorMatchday={anchorMatchday} anchorDate={anchorDate} />
       </div>
 
       <div className="pc-dash-v2-right-col">
-        <NextMatchdayFixtures game={game} teams={teams} />
-        <StandingsPanel game={game} teams={teams} />
+        <NextMatchdayFixtures game={game} teams={teams} setScreen={setScreen} />
+        <StandingsPanel game={game} teams={teams} setScreen={setScreen} />
       </div>
     </div>
   );
