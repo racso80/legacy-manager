@@ -2625,9 +2625,9 @@ const GLOBAL_CSS = `
     .pc-dash-v2-inbox-sep { height: 4px; background: var(--dv2-bg-app); }
 
     /* Centro */
-    .pc-dash-v2-center-col { display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto; min-width: 0; height: 100%; min-height: 0; }
+    .pc-dash-v2-center-col { display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto; min-width: 0; height: 100%; min-height: 0; overflow: hidden; }
 
-    .pc-dash-v2-news-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .pc-dash-v2-news-section { flex: 0 0 auto; height: 280px; display: flex; flex-direction: column; min-height: 0; }
     .pc-dash-v2-news-wrap { position: relative; overflow: hidden; border-radius: 8px; flex: 1; min-height: 0; min-width: 0; }
     .pc-dash-v2-news-track { display: flex; transition: transform 0.45s cubic-bezier(0.4,0,0.2,1); height: 100%; }
     .pc-dash-v2-news-slide { min-width: 100%; height: 100%; background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; display: flex; overflow: hidden; flex-shrink: 0; position: relative; cursor: pointer; transition: border-color .15s; }
