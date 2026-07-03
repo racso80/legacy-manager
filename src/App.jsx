@@ -2627,7 +2627,7 @@ const GLOBAL_CSS = `
     /* Centro */
     .pc-dash-v2-center-col { display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto; min-width: 0; height: 100%; min-height: 0; }
 
-    .pc-dash-v2-news-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .pc-dash-v2-news-section { flex: 35 1 0%; display: flex; flex-direction: column; min-height: 0; }
     .pc-dash-v2-news-wrap { position: relative; overflow: hidden; border-radius: 8px; flex: 1; min-height: 0; min-width: 0; }
     .pc-dash-v2-news-track { display: flex; transition: transform 0.45s cubic-bezier(0.4,0,0.2,1); height: 100%; }
     .pc-dash-v2-news-slide { min-width: 100%; height: 100%; background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; display: flex; overflow: hidden; flex-shrink: 0; position: relative; cursor: pointer; transition: border-color .15s; }
@@ -2648,16 +2648,16 @@ const GLOBAL_CSS = `
     .pc-dash-v2-ndot.active { background: var(--club-accent, #c9a84c); }
 
     /* Fila de 3 paneles: próximo partido / estado del club / objetivos */
-    .pc-dash-v2-three-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; flex-shrink: 0; }
+    .pc-dash-v2-three-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; flex: 65 1 0%; min-height: 210px; }
     .pc-dash-v2-panel-sm { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 11px 13px; display: flex; flex-direction: column; min-width: 0; }
     .pc-dash-v2-panel-sm-title { font-size: 8px; font-weight: 800; color: var(--club-accent, #c9a84c); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
 
     .pc-dash-v2-nm2-teams { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
     .pc-dash-v2-nm2-team { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 0; }
-    .pc-dash-v2-nm2-name { font-size: 8px; font-weight: 700; color: #e9edf6; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+    .pc-dash-v2-nm2-name { font-size: 10px; font-weight: 700; color: #e9edf6; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
     .pc-dash-v2-nm2-vs { font-size: 14px; font-weight: 900; color: rgba(255,255,255,0.1); flex-shrink: 0; }
     .pc-dash-v2-nm2-form { display: flex; gap: 2px; justify-content: center; margin-top: 2px; }
-    .pc-dash-v2-fd { width: 12px; height: 12px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 800; }
+    .pc-dash-v2-fd { width: 13px; height: 13px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; }
     .pc-dash-v2-fd.fd-w { background: #3ecf8e; color: #052e16; }
     .pc-dash-v2-fd.fd-d { background: #4b5563; color: #fff; }
     .pc-dash-v2-fd.fd-l { background: #e0524a; color: #fff; }
@@ -2686,7 +2686,7 @@ const GLOBAL_CSS = `
     .pc-dash-v2-cal-nav-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 3px; color: rgba(255,255,255,0.3); font-size: 9px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .pc-dash-v2-cal-weeks { display: flex; flex-direction: column; gap: 4px; flex: 1; min-height: 0; }
     .pc-dash-v2-cal-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; flex: 1; min-height: 0; }
-    .pc-dash-v2-cal-day { background: var(--dv2-bg-raised); border: 1px solid rgba(255,255,255,0.04); border-radius: 5px; padding: 4px 3px; display: flex; flex-direction: column; align-items: center; min-width: 0; min-height: 46px; }
+    .pc-dash-v2-cal-day { background: var(--dv2-bg-raised); border: 1px solid rgba(255,255,255,0.04); border-radius: 5px; padding: 3px 2px; display: flex; flex-direction: column; align-items: center; min-width: 0; min-height: 92px; }
     .pc-dash-v2-cal-day.weekend { opacity: .8; }
     .pc-dash-v2-cal-day.match { border-color: rgba(224,82,74,0.4); background: rgba(224,82,74,0.05); }
     .pc-dash-v2-cal-day.today { border-color: var(--club-accent, #c9a84c); }
@@ -2695,8 +2695,8 @@ const GLOBAL_CSS = `
     .pc-dash-v2-cal-day.match .pc-dash-v2-cal-num { color: #ff8fa3; }
     .pc-dash-v2-cal-day.today .pc-dash-v2-cal-num { color: var(--club-accent, #c9a84c); font-weight: 900; }
     .pc-dash-v2-cal-events { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; align-content: center; gap: 1px; flex: 1; min-height: 0; width: 100%; }
-    .pc-dash-v2-ce-icon { font-size: 16px; line-height: 1; }
-    .pc-dash-v2-cal-crests { display: flex; justify-content: center; align-items: center; gap: 3px; margin-top: 2px; flex-shrink: 0; }
+    .pc-dash-v2-ce-icon { font-size: 32px; line-height: 1; }
+    .pc-dash-v2-cal-crests { display: flex; justify-content: center; align-items: center; gap: 3px; margin-top: 1px; flex-shrink: 0; }
 
     /* Derecha: ancho fijo (340px) — 10 partidos + 20 equipos son un contenido de tamaño
        constante, así que no necesita una base proporcional como las otras columnas. */
