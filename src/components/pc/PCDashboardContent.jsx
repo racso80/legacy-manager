@@ -1,5 +1,6 @@
 import { useState } from "react";
 import TeamCrest from "../TeamCrest.jsx";
+import { Initials } from "../../App.jsx";
 import { getMedicalAlerts } from "../../state/gameStateSelectors.js";
 import { getDashboardNews } from "../../news/newsEngine.js";
 
@@ -59,6 +60,30 @@ function sortedStandings(game) {
 function FormDot({ result }) {
   const cls = result === "V" ? "fd-w" : result === "E" ? "fd-d" : "fd-l";
   return <div className={`pc-dash-v2-fd ${cls}`}>{result}</div>;
+}
+
+// Zona derecha del slide de noticias: avatar del jugador si la noticia lo menciona,
+// escudo del equipo si es una noticia de club, o un emoji genérico si no hay referencia.
+function NewsRightZone({ item, game, teams }) {
+  const player = item.playerIds?.[0] ? (game.players ?? []).find(p => p.id === item.playerIds[0]) : null;
+  if (player) {
+    return (
+      <>
+        <Initials name={player.name} size={44} rarity={player.rarity} borderRadius={999} />
+        <div className="pc-dash-v2-news-right-label">{player.name.split(" ").slice(-1)[0]}</div>
+      </>
+    );
+  }
+  const team = item.teamIds?.[0] ? teams.find(t => t.id === item.teamIds[0]) : null;
+  if (team) {
+    return (
+      <>
+        <TeamCrest team={team} size={44} />
+        <div className="pc-dash-v2-news-right-label">{team.short}</div>
+      </>
+    );
+  }
+  return <span>{NEWS_TYPE_ICON[item.type] ?? "📌"}</span>;
 }
 
 function NextMatchCard({ game, teams, nextFixture, nextOpponent, position, lineup, setScreen, onPlay, anchorDate }) {
@@ -163,19 +188,39 @@ function CalendarPanel({ game, teams, anchorMatchday, anchorDate }) {
                 const isCloseDay = marketOpen && isSameDay(day, closeDate);
                 const isTraining = !isWeekend && !fixture;
                 return (
-                  <div key={di} className={`pc-dash-v2-cal-day${isToday ? " today" : ""}${isWeekend ? " weekend" : ""}`}>
+                  <div key={di} className={`pc-dash-v2-cal-day${isToday ? " today" : ""}${isWeekend ? " weekend" : ""}${fixture ? " match" : ""}`}>
                     <div className="pc-dash-v2-cal-dn">{WEEKDAY_SHORT[di]}</div>
                     <div className="pc-dash-v2-cal-num">{day.getDate()}</div>
                     <div className="pc-dash-v2-cal-events">
-                      {fixture && <div className="pc-dash-v2-ce pc-dash-v2-ce-match">⚽ J{fixture.matchday}</div>}
-                      {isTraining && <div className="pc-dash-v2-ce pc-dash-v2-ce-train">🏃 Entreno</div>}
-                      {isMarketOpenDay && <div className="pc-dash-v2-ce pc-dash-v2-ce-open">🟢 Mercado</div>}
-                      {isCloseDay && <div className="pc-dash-v2-ce pc-dash-v2-ce-close">🔴 Cierre</div>}
+                      {fixture && (
+                        <>
+                          <div className="pc-dash-v2-ce-match-icon">⚽</div>
+                          <div className="pc-dash-v2-ce-label" style={{ color: "#ff8fa3" }}>J{fixture.matchday}</div>
+                        </>
+                      )}
+                      {isTraining && (
+                        <>
+                          <div className="pc-dash-v2-ce-icon">🏃</div>
+                          <div className="pc-dash-v2-ce-label">Entreno</div>
+                        </>
+                      )}
+                      {isMarketOpenDay && (
+                        <>
+                          <div className="pc-dash-v2-ce-market-icon">🟢</div>
+                          <div className="pc-dash-v2-ce-label" style={{ color: "#3ecf8e" }}>Mercado</div>
+                        </>
+                      )}
+                      {isCloseDay && (
+                        <>
+                          <div className="pc-dash-v2-ce-market-icon">🔴</div>
+                          <div className="pc-dash-v2-ce-label" style={{ color: "#e0524a" }}>Cierra</div>
+                        </>
+                      )}
                     </div>
                     {fixture && (
                       <div className="pc-dash-v2-cal-crests">
-                        <TeamCrest team={teams.find(t => t.id === fixture.homeTeamId)} size={14} />
-                        <TeamCrest team={teams.find(t => t.id === fixture.awayTeamId)} size={14} />
+                        <TeamCrest team={teams.find(t => t.id === fixture.homeTeamId)} size={12} />
+                        <TeamCrest team={teams.find(t => t.id === fixture.awayTeamId)} size={12} />
                       </div>
                     )}
                   </div>
@@ -246,7 +291,7 @@ export default function PCDashboardContent({
   const [newsIndex, setNewsIndex] = useState(0);
 
   const topNews = getDashboardNews(game.news ?? [], game, 5);
-  const currentNews = topNews[Math.min(newsIndex, Math.max(0, topNews.length - 1))] ?? null;
+  const activeNewsIndex = Math.min(newsIndex, Math.max(0, topNews.length - 1));
 
   const nonInfoDirector = directorItems.filter(item => item.priority !== "info");
   const firstAttention = nonInfoDirector[0];
@@ -296,27 +341,42 @@ export default function PCDashboardContent({
       <div className="pc-dash-v2-center-col">
         <div>
           <div className="pc-dash-v2-sec-label">Noticia destacada</div>
-          <div className="pc-dash-v2-news-card">
-            <div className="pc-dash-v2-news-body">
-              {currentNews ? (
-                <>
-                  <div className="pc-dash-v2-news-cat">{NEWS_TYPE_ICON[currentNews.type] ?? "📰"} {NEWS_TYPE_LABEL[currentNews.type] ?? "Club"}{currentNews.matchday ? ` · J${currentNews.matchday}` : ""}</div>
-                  <div className="pc-dash-v2-news-headline">{currentNews.title}</div>
-                  {currentNews.summary && <div className="pc-dash-v2-news-summary">{currentNews.summary}</div>}
-                  <div className="pc-dash-v2-news-meta">Temporada {currentNews.seasonLabel ?? game.season}{currentNews.matchday ? ` · Jornada ${currentNews.matchday}` : ""}</div>
-                </>
-              ) : (
-                <div className="pc-dash-v2-empty">Todavía no hay noticias relevantes.</div>
-              )}
-            </div>
-            {topNews.length > 1 && (
-              <div className="pc-dash-v2-news-ctrl">
-                <button className="pc-dash-v2-news-btn" onClick={() => setNewsIndex(i => (i - 1 + topNews.length) % topNews.length)} aria-label="Noticia anterior">▲</button>
-                <div className="pc-dash-v2-news-dots">
-                  {topNews.map((_, i) => <div key={i} className={`pc-dash-v2-ndot${i === newsIndex ? " active" : ""}`} />)}
+          <div className="pc-dash-v2-news-wrap">
+            {topNews.length === 0 ? (
+              <div className="pc-dash-v2-news-slide">
+                <div className="pc-dash-v2-news-body">
+                  <div className="pc-dash-v2-empty">Todavía no hay noticias relevantes.</div>
                 </div>
-                <button className="pc-dash-v2-news-btn" onClick={() => setNewsIndex(i => (i + 1) % topNews.length)} aria-label="Noticia siguiente">▼</button>
               </div>
+            ) : (
+              <>
+                <div className="pc-dash-v2-news-track" style={{ transform: `translateX(-${activeNewsIndex * 100}%)` }}>
+                  {topNews.map(item => (
+                    <div className="pc-dash-v2-news-slide" key={item.id ?? item.title}>
+                      <div className="pc-dash-v2-news-left">{NEWS_TYPE_ICON[item.type] ?? "📰"}</div>
+                      <div className="pc-dash-v2-news-body">
+                        <div className="pc-dash-v2-news-cat">{NEWS_TYPE_LABEL[item.type] ?? "Club"}{item.matchday ? ` · J${item.matchday}` : ""}</div>
+                        <div className="pc-dash-v2-news-headline">{item.title}</div>
+                        {item.summary && <div className="pc-dash-v2-news-summary">{item.summary}</div>}
+                      </div>
+                      <div className="pc-dash-v2-news-right">
+                        <NewsRightZone item={item} game={game} teams={teams} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {topNews.length > 1 && (
+                  <div className="pc-dash-v2-news-nav">
+                    <button className="pc-dash-v2-news-nav-btn" onClick={() => setNewsIndex(i => (i - 1 + topNews.length) % topNews.length)} aria-label="Noticia anterior">‹</button>
+                    <div className="pc-dash-v2-news-dots">
+                      {topNews.map((_, i) => (
+                        <div key={i} className={`pc-dash-v2-ndot${i === activeNewsIndex ? " active" : ""}`} onClick={() => setNewsIndex(i)} />
+                      ))}
+                    </div>
+                    <button className="pc-dash-v2-news-nav-btn" onClick={() => setNewsIndex(i => (i + 1) % topNews.length)} aria-label="Noticia siguiente">›</button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
