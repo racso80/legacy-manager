@@ -89,7 +89,7 @@ function NewsRightZone({ item, game, teams }) {
 function NextMatchCard({ game, teams, nextFixture, nextOpponent, position, lineup, setScreen, onPlay, anchorDate }) {
   if (!nextFixture) {
     return (
-      <div>
+      <div className="pc-dash-v2-nm-section">
         <div className="pc-dash-v2-sec-label">Próximo partido</div>
         <div className="pc-dash-v2-next-match">
           <div className="pc-dash-v2-empty">No hay más partidos programados.</div>
@@ -116,7 +116,7 @@ function NextMatchCard({ game, teams, nextFixture, nextOpponent, position, lineu
   const kickoffLabel = `${WEEKDAY_SHORT[(kickoff.getDay() + 6) % 7]} ${kickoff.getDate()} ${MONTH_SHORT[kickoff.getMonth()]}`;
 
   return (
-    <div>
+    <div className="pc-dash-v2-nm-section">
       <div className="pc-dash-v2-sec-label">Próximo partido · J{nextFixture.matchday}</div>
       <div className="pc-dash-v2-next-match">
         <div className="pc-dash-v2-nm-row">
@@ -192,35 +192,15 @@ function CalendarPanel({ game, teams, anchorMatchday, anchorDate }) {
                     <div className="pc-dash-v2-cal-dn">{WEEKDAY_SHORT[di]}</div>
                     <div className="pc-dash-v2-cal-num">{day.getDate()}</div>
                     <div className="pc-dash-v2-cal-events">
-                      {fixture && (
-                        <>
-                          <div className="pc-dash-v2-ce-match-icon">⚽</div>
-                          <div className="pc-dash-v2-ce-label" style={{ color: "#ff8fa3" }}>J{fixture.matchday}</div>
-                        </>
-                      )}
-                      {isTraining && (
-                        <>
-                          <div className="pc-dash-v2-ce-icon">🏃</div>
-                          <div className="pc-dash-v2-ce-label">Entreno</div>
-                        </>
-                      )}
-                      {isMarketOpenDay && (
-                        <>
-                          <div className="pc-dash-v2-ce-market-icon">🟢</div>
-                          <div className="pc-dash-v2-ce-label" style={{ color: "#3ecf8e" }}>Mercado</div>
-                        </>
-                      )}
-                      {isCloseDay && (
-                        <>
-                          <div className="pc-dash-v2-ce-market-icon">🔴</div>
-                          <div className="pc-dash-v2-ce-label" style={{ color: "#e0524a" }}>Cierra</div>
-                        </>
-                      )}
+                      {fixture && <div className="pc-dash-v2-ce-icon">⚽</div>}
+                      {isTraining && <div className="pc-dash-v2-ce-icon">🏃</div>}
+                      {isMarketOpenDay && <div className="pc-dash-v2-ce-icon">🟢</div>}
+                      {isCloseDay && <div className="pc-dash-v2-ce-icon">🔴</div>}
                     </div>
                     {fixture && (
                       <div className="pc-dash-v2-cal-crests">
-                        <TeamCrest team={teams.find(t => t.id === fixture.homeTeamId)} size={12} />
-                        <TeamCrest team={teams.find(t => t.id === fixture.awayTeamId)} size={12} />
+                        <TeamCrest team={teams.find(t => t.id === fixture.homeTeamId)} size={20} />
+                        <TeamCrest team={teams.find(t => t.id === fixture.awayTeamId)} size={20} />
                       </div>
                     )}
                   </div>
@@ -376,7 +356,7 @@ export default function PCDashboardContent({
       </div>
 
       <div className="pc-dash-v2-center-col">
-        <div>
+        <div className="pc-dash-v2-news-section">
           <div className="pc-dash-v2-sec-label">Noticia destacada</div>
           <div className="pc-dash-v2-news-wrap">
             {topNews.length === 0 ? (

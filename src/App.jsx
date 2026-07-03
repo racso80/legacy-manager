@@ -30,7 +30,6 @@ import { useIsPC } from "./utils/responsive.js";
 import { getClubAccentColor, getClubTextColor } from "./utils/tokens.js";
 import PCTopBar from "./components/pc/PCTopBar.jsx";
 import PCSidebar from "./components/pc/PCSidebar.jsx";
-import PCRightPanel from "./components/pc/PCRightPanel.jsx";
 import PCDashboardContent from "./components/pc/PCDashboardContent.jsx";
 import PCSquadScreen from "./components/pc/PCSquadScreen.jsx";
 import PCLineupScreen from "./components/pc/PCLineupScreen.jsx";
@@ -2628,7 +2627,8 @@ const GLOBAL_CSS = `
     /* Centro */
     .pc-dash-v2-center-col { display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto; min-width: 0; height: 100%; min-height: 0; }
 
-    .pc-dash-v2-news-wrap { position: relative; overflow: hidden; border-radius: 8px; flex-shrink: 0; height: 180px; min-width: 0; }
+    .pc-dash-v2-news-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .pc-dash-v2-news-wrap { position: relative; overflow: hidden; border-radius: 8px; flex: 1; min-height: 0; min-width: 0; }
     .pc-dash-v2-news-track { display: flex; transition: transform 0.45s cubic-bezier(0.4,0,0.2,1); height: 100%; }
     .pc-dash-v2-news-slide { min-width: 100%; height: 100%; background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; display: flex; overflow: hidden; flex-shrink: 0; }
     .pc-dash-v2-news-left { display: flex; align-items: center; justify-content: center; width: 80px; flex-shrink: 0; font-size: 42px; background: rgba(0,0,0,0.2); border-right: 1px solid rgba(255,255,255,0.05); }
@@ -2645,7 +2645,8 @@ const GLOBAL_CSS = `
     .pc-dash-v2-ndot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.15); cursor: pointer; transition: background .2s; border: none; padding: 0; }
     .pc-dash-v2-ndot.active { background: var(--club-accent, #c9a84c); }
 
-    .pc-dash-v2-next-match { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 16px; flex-shrink: 0; }
+    .pc-dash-v2-nm-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .pc-dash-v2-next-match { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 16px; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
     .pc-dash-v2-nm-row { display: flex; align-items: center; gap: 12px; }
     .pc-dash-v2-nm-team { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 70px; }
     .pc-dash-v2-nm-name { font-size: 10px; font-weight: 700; color: #e9edf6; text-align: center; }
@@ -2663,7 +2664,7 @@ const GLOBAL_CSS = `
     .pc-dash-v2-nm-tag.hot { background: rgba(224,168,62,0.1); color: #e0a83e; }
     .pc-dash-v2-nm-btn { background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #0d0f14); border: none; border-radius: 5px; padding: 8px 14px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 
-    .pc-dash-v2-cal-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+    .pc-dash-v2-cal-wrap { flex: 0 0 auto; height: 210px; min-width: 0; display: flex; flex-direction: column; }
     .pc-dash-v2-calendar { background: var(--dv2-bg-panel); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 10px 12px; flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
     .pc-dash-v2-cal-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-shrink: 0; }
     .pc-dash-v2-cal-title { font-size: 10px; font-weight: 700; color: #e9edf6; }
@@ -2680,11 +2681,8 @@ const GLOBAL_CSS = `
     .pc-dash-v2-cal-day.match .pc-dash-v2-cal-num { color: #ff8fa3; }
     .pc-dash-v2-cal-day.today .pc-dash-v2-cal-num { color: var(--club-accent, #c9a84c); font-weight: 900; }
     .pc-dash-v2-cal-events { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; flex: 1; min-height: 0; width: 100%; }
-    .pc-dash-v2-ce-icon { font-size: 18px; line-height: 1; }
-    .pc-dash-v2-ce-match-icon { font-size: 18px; line-height: 1; }
-    .pc-dash-v2-ce-market-icon { font-size: 14px; line-height: 1; }
-    .pc-dash-v2-ce-label { font-size: 6px; color: rgba(255,255,255,0.3); text-align: center; }
-    .pc-dash-v2-cal-crests { display: flex; justify-content: center; align-items: center; gap: 1px; margin-top: 2px; flex-shrink: 0; }
+    .pc-dash-v2-ce-icon { font-size: 28px; line-height: 1; }
+    .pc-dash-v2-cal-crests { display: flex; justify-content: center; align-items: center; gap: 3px; margin-top: 2px; flex-shrink: 0; }
 
     /* Derecha: ancho fijo (240px) — 10 partidos + 20 equipos son un contenido de tamaño
        constante, así que no necesita una base proporcional como las otras columnas. */
@@ -8646,9 +8644,6 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       {showPCShell ? (
         <div className={`pc-shell-body${screen==="match"?" pc-match-fullscreen":""}`}>
           <div className="pc-main-col">{screenContent}</div>
-          {screen !== "match" && screen !== "dashboard" && (
-            <PCRightPanel game={game} directorItems={legacyDirectorItems} onOpenScene={handleOpenScene} setScreen={setScreen} chiefBriefing={chiefBriefing} medicalAlerts={pcMedicalAlerts} consequences={pcConsequences} />
-          )}
         </div>
       ) : (
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
