@@ -40,30 +40,38 @@ const PC_NAV_GROUPS = [
   },
 ];
 
-export default function PCSidebar({ screen, setScreen, attentionCount = 0 }) {
+export default function PCSidebar({ screen, setScreen, attentionCount = 0, onExit }) {
   return (
     <nav className="pc-sidebar">
-      {PC_NAV_GROUPS.map(group => (
-        <div key={group.label} className="pc-sidebar-group">
-          <div className="pc-sidebar-group-label">{group.label}</div>
-          {group.items.map(item => {
-            const active = screen === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setScreen(item.id)}
-                className={`pc-nav-item${active ? " active" : ""}`}
-              >
-                <span className="pc-nav-item-icon">{item.icon}</span>
-                <span className="pc-nav-item-label">{item.label}</span>
-                {item.badge && attentionCount > 0 && (
-                  <span className="pc-nav-item-badge">{attentionCount}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      ))}
+      <div className="pc-sidebar-scroll">
+        {PC_NAV_GROUPS.map(group => (
+          <div key={group.label} className="pc-sidebar-group">
+            <div className="pc-sidebar-group-label">{group.label}</div>
+            {group.items.map(item => {
+              const active = screen === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setScreen(item.id)}
+                  className={`pc-nav-item${active ? " active" : ""}`}
+                >
+                  <span className="pc-nav-item-icon">{item.icon}</span>
+                  <span className="pc-nav-item-label">{item.label}</span>
+                  {item.badge && attentionCount > 0 && (
+                    <span className="pc-nav-item-badge">{attentionCount}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div className="pc-sidebar-exit-wrap">
+        <button onClick={() => (onExit ? onExit() : setScreen("menu"))} className="pc-sidebar-exit">
+          <span className="pc-nav-item-icon">⬅</span>
+          <span className="pc-nav-item-label">Salir al menú</span>
+        </button>
+      </div>
     </nav>
   );
 }

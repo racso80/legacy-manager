@@ -113,6 +113,7 @@ export default function PCMatchScreen({
   const alertText = liveDecision ? `${liveDecision.title}. ${liveDecision.message}` : toast;
   const onDismissAlert = liveDecision ? acknowledgeLiveDecision : (toast ? () => setToast(null) : null);
   const latestEvent = events.length ? events[events.length - 1] : null;
+  const canAbandon = !playing && currentMinute === 0;
 
   return (
     <div className="pc-match-v2-root">
@@ -128,6 +129,7 @@ export default function PCMatchScreen({
         settingsOpen={settingsOpen}
         onToggleSettings={() => setSettingsOpen(o => !o)}
         onAbandon={() => { setSettingsOpen(false); abandonMatch(); }}
+        canAbandon={canAbandon}
       />
 
       <div className="pc-match-v2-row1">
@@ -168,7 +170,12 @@ export default function PCMatchScreen({
       {finished ? (
         <button className="pc-match-v2-finished-bar" onClick={endMatch}>Partido finalizado → Continuar</button>
       ) : (
-        <CommentaryTicker latestEvent={latestEvent} matchPhase={matchPhase} />
+        <>
+          <CommentaryTicker latestEvent={latestEvent} matchPhase={matchPhase} />
+          {!playing && currentMinute === 0 && (
+            <button className="pc-match-v2-prematch-abandon" onClick={abandonMatch}>🟥 Abandonar partido</button>
+          )}
+        </>
       )}
 
       <StartingXIBar

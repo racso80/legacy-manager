@@ -2251,8 +2251,16 @@ const GLOBAL_CSS = `
     .pc-sidebar {
       position: fixed; top: 44px; left: 0; width: 200px; height: calc(100vh - 44px); z-index: 50;
       background: #080a0d;
-      border-right: 1px solid #1e2435; overflow-y: auto; padding: 0 0 14px;
+      border-right: 1px solid #1e2435; overflow: hidden; padding: 0;
+      display: flex; flex-direction: column;
     }
+    .pc-sidebar-scroll { flex: 1; overflow-y: auto; padding: 0 0 14px; min-height: 0; }
+    .pc-sidebar-exit-wrap { flex-shrink: 0; border-top: 1px solid #1e2435; padding: 8px 0; }
+    .pc-sidebar-exit {
+      display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+      background: transparent; border: none; color: #6b7280; padding: 8px 14px; font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    .pc-sidebar-exit:hover { color: #ef4444; background: rgba(239,68,68,.06); }
     .pc-sidebar-group { margin-bottom: 16px; }
     .pc-sidebar-group-label { color: #5f6675; font-size: 9px; font-weight: 900; letter-spacing: 1px; padding: 0 16px; margin-bottom: 6px; }
     .pc-nav-item {
@@ -2610,6 +2618,8 @@ const GLOBAL_CSS = `
     .pc-match-v2-ticker { flex-shrink: 0; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 9px 18px; text-align: center; font-size: 12px; color: var(--text-muted); font-style: italic; }
     .pc-match-v2-finished-bar { flex-shrink: 0; width: 100%; background: var(--home); color: var(--bg-app); border: none; border-radius: 10px; padding: 12px; font-size: 13px; font-weight: 800; font-family: var(--font-display); letter-spacing: .5px; }
     .pc-match-v2-finished-bar:hover { filter: brightness(1.1); }
+    .pc-match-v2-prematch-abandon { flex-shrink: 0; width: 100%; background: transparent; color: var(--text-faint); border: 1px solid var(--border); border-radius: 10px; padding: 9px; font-size: 11px; font-weight: 600; margin-top: 6px; }
+    .pc-match-v2-prematch-abandon:hover { color: var(--bad); border-color: var(--bad); background: rgba(239,68,68,.06); }
 
     /* Franja de titulares */
     .pc-match-v2-squadbar { flex-shrink: 0; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; display: flex; overflow-x: auto; }
@@ -6455,9 +6465,11 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
             Cambiar tactica desde la pizarra
           </button>
           <div style={{fontSize:9,color:pauseEvent?"#c9a84c":"#6b7280",textAlign:"center",lineHeight:1.4,marginTop:7}}>{pauseEvent?`Partido detenido en el ${currentMinute}'. Pulsa Play para reanudar o Avance manual para continuar paso a paso.`:"1 segundo real = 1 minuto de partido. Se detiene en goles, penaltis, tarjetas, lesiones y decisiones."}</div>
-          <button onClick={abandonMatch} className="btn-danger" style={{ width:"100%", padding:11, borderRadius:9, fontSize:12, marginTop:9 }}>
-            Abandonar partido y volver al inicio
-          </button>
+          {!playing && currentMinute===0 && (
+            <button onClick={abandonMatch} className="btn-danger" style={{ width:"100%", padding:11, borderRadius:9, fontSize:12, marginTop:9 }}>
+              Abandonar partido y volver al inicio
+            </button>
+          )}
           </>
         ) : (
           <>
@@ -8921,7 +8933,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       {showPCShell && (
         <>
           <PCTopBar team={pcTeam} game={game} position={pcPosition} cloudSession={cloudSession} cloudSyncState={cloudSyncState} cloudConflict={cloudConflict} onOpenCloudSaves={()=>setScreen("cloudSaves")} clubAccent={clubAccent} clubTextOnAccent={clubTextOnAccent} />
-          <PCSidebar screen={screen} setScreen={setScreen} attentionCount={attentionCount} />
+          <PCSidebar screen={screen} setScreen={setScreen} attentionCount={attentionCount} onExit={handleExitToMenu} />
         </>
       )}
       {!showPCShell && screen !== "menu" && (

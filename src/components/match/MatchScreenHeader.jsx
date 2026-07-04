@@ -5,7 +5,7 @@ export default function MatchScreenHeader({
   clockLabel, phaseLabel, momentumPct = 50, scorePop,
   playing, onTogglePlay, onManualAdvance, matchSpeed = 1, onSetSpeed,
   alertText, onDismissAlert,
-  settingsOpen, onToggleSettings, onAbandon,
+  settingsOpen, onToggleSettings, onAbandon, canAbandon = true,
 }) {
   return (
     <div className="pc-match-v2-topbar">
@@ -60,7 +60,14 @@ export default function MatchScreenHeader({
               <>
                 <div className="pc-match-v2-menu-backdrop" onClick={onToggleSettings} />
                 <div className="pc-match-v2-settings-menu">
-                  <button onClick={onAbandon}>🟥 Abandonar partido</button>
+                  <button
+                    onClick={canAbandon ? onAbandon : undefined}
+                    disabled={!canAbandon}
+                    title={canAbandon ? undefined : "No puedes abandonar un partido en curso"}
+                    style={canAbandon ? undefined : { opacity: .4, cursor: "not-allowed" }}
+                  >
+                    🟥 Abandonar partido
+                  </button>
                 </div>
               </>
             )}
