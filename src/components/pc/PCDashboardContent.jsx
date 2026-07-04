@@ -5,7 +5,16 @@ import { getMedicalAlerts } from "../../state/gameStateSelectors.js";
 import { getDashboardNews } from "../../news/newsEngine.js";
 import { getLockerRoomSummary } from "../../morale/moraleEngine.js";
 import { getPrestigeLevel } from "../../legacy/legacyEngine.js";
-import { getStandingsZone } from "../../data/leagues.js";
+import { getStandingsZone, LEAGUES } from "../../data/leagues.js";
+
+const ALL_LEAGUES_FILTER = "all";
+// Las noticias no guardan leagueId propio: se deriva del equipo mencionado (item.teamIds[0]),
+// que ya refleja la liga actual del equipo (incluso tras un ascenso/descenso reciente).
+// Si la noticia no menciona ningún equipo, se asume la liga del propio club del usuario.
+function resolveNewsLeagueId(item, game, teams) {
+  const team = item.teamIds?.[0] ? teams.find(t => t.id === item.teamIds[0]) : null;
+  return team?.leagueId ?? game.leagueId ?? "esp_primera";
+}
 
 const WEEKDAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MONTH_LABELS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -334,9 +343,15 @@ export default function PCDashboardContent({
   setScreen, onPlay, directorItems = [], chiefBriefing, medicalAlerts = [], consequences = [], budgetSnapshot = null,
 }) {
   const [newsIndex, setNewsIndex] = useState(0);
+  const [newsLeagueFilter, setNewsLeagueFilter] = useState(game.leagueId);
 
-  const topNews = getDashboardNews(game.news ?? [], game, 5);
-  const activeNewsIndex = Math.min(newsIndex, Math.max(0, topNews.length - 1));
+  const topNews = getDashboardNews(game.news ?? [], game, 10);
+  const newsLeagueIds = [...new Set((game.news ?? []).map(item => resolveNewsLeagueId(item, game, teams)))];
+  const filteredNews = newsLeagueFilter === ALL_LEAGUES_FILTER
+    ? topNews
+    : topNews.filter(item => resolveNewsLeagueId(item, game, teams) === newsLeagueFilter);
+  const activeNewsIndex = Math.min(newsIndex, Math.max(0, filteredNews.length - 1));
+  const handleNewsLeagueFilterChange = (id) => { setNewsLeagueFilter(id); setNewsIndex(0); };
 
   const nonInfoDirector = directorItems.filter(item => item.priority !== "info");
 
@@ -423,7 +438,7 @@ export default function PCDashboardContent({
         <div className="pc-dash-v2-news-section">
           <div className="pc-dash-v2-sec-label">Noticia destacada</div>
           <div className="pc-dash-v2-news-wrap">
-            {topNews.length === 0 ? (
+            {filteredNews.length === 0 ? (
               <div className="pc-dash-v2-news-slide">
                 <div className="pc-dash-v2-news-content">
                   <div className="pc-dash-v2-empty">Todavía no hay noticias relevantes.</div>
@@ -432,7 +447,7 @@ export default function PCDashboardContent({
             ) : (
               <>
                 <div className="pc-dash-v2-news-track" style={{ transform: `translateX(-${activeNewsIndex * 100}%)` }}>
-                  {topNews.map(item => {
+                  {filteredNews.map(item => {
                     const accent = newsAccent(item.type);
                     return (
                       <div className="pc-dash-v2-news-slide" key={item.id ?? item.title} onClick={() => setScreen("news")}>
@@ -453,20 +468,39 @@ export default function PCDashboardContent({
                     );
                   })}
                 </div>
-                {topNews.length > 1 && (
+                {filteredNews.length > 1 && (
                   <div className="pc-dash-v2-news-nav">
-                    <button className="pc-dash-v2-news-nav-btn" onClick={(e) => { e.stopPropagation(); setNewsIndex(i => (i - 1 + topNews.length) % topNews.length); }} aria-label="Noticia anterior">‹</button>
+                    <button className="pc-dash-v2-news-nav-btn" onClick={(e) => { e.stopPropagation(); setNewsIndex(i => (i - 1 + filteredNews.length) % filteredNews.length); }} aria-label="Noticia anterior">‹</button>
                     <div className="pc-dash-v2-news-dots">
-                      {topNews.map((_, i) => (
+                      {filteredNews.map((_, i) => (
                         <div key={i} className={`pc-dash-v2-ndot${i === activeNewsIndex ? " active" : ""}`} onClick={(e) => { e.stopPropagation(); setNewsIndex(i); }} />
                       ))}
                     </div>
-                    <button className="pc-dash-v2-news-nav-btn" onClick={(e) => { e.stopPropagation(); setNewsIndex(i => (i + 1) % topNews.length); }} aria-label="Noticia siguiente">›</button>
+                    <button className="pc-dash-v2-news-nav-btn" onClick={(e) => { e.stopPropagation(); setNewsIndex(i => (i + 1) % filteredNews.length); }} aria-label="Noticia siguiente">›</button>
                   </div>
                 )}
               </>
             )}
           </div>
+          {newsLeagueIds.length > 0 && (
+            <div className="pc-dash-v2-news-league-filters">
+              <button
+                className={`pc-dash-v2-news-league-pill${newsLeagueFilter === ALL_LEAGUES_FILTER ? " active" : ""}`}
+                onClick={() => handleNewsLeagueFilterChange(ALL_LEAGUES_FILTER)}
+              >
+                Todas
+              </button>
+              {newsLeagueIds.map(id => (
+                <button
+                  key={id}
+                  className={`pc-dash-v2-news-league-pill${newsLeagueFilter === id ? " active" : ""}`}
+                  onClick={() => handleNewsLeagueFilterChange(id)}
+                >
+                  {LEAGUES.find(l => l.id === id)?.shortName ?? id}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="pc-dash-v2-three-row">

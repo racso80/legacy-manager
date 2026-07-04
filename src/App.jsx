@@ -2731,6 +2731,10 @@ const GLOBAL_CSS = `
     .pc-dash-v2-news-dots { display: flex; gap: 4px; }
     .pc-dash-v2-ndot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.15); cursor: pointer; transition: background .2s; border: none; padding: 0; }
     .pc-dash-v2-ndot.active { background: var(--club-accent, #c9a84c); }
+    .pc-dash-v2-news-league-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .pc-dash-v2-news-league-pill { background: rgba(255,255,255,0.06); color: #9aa0b4; font-size: 9px; font-weight: 700; border: none; border-radius: 10px; padding: 2px 8px; cursor: pointer; transition: background .15s, color .15s; }
+    .pc-dash-v2-news-league-pill:hover { background: rgba(255,255,255,0.1); }
+    .pc-dash-v2-news-league-pill.active { background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #1a1200); }
 
     /* Fila de 3 paneles: próximo partido / estado del club / objetivos */
     .pc-dash-v2-three-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; flex: 0 0 160px; }
