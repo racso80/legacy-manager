@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { LEAGUES, getLeaguesByCountry } from "../../data/leagues.js";
 import { resolveTeamCrest } from "../../data/dataLoader.js";
-import { REAL_SQUADS } from "../../App.jsx";
+import { computeRarityCount, computeSquadRatings, getTeamDifficulty, getTopPlayers, lineRatingColor } from "../../data/teamStats.js";
+import { NAT_FLAG, RARITY_ACCENT, RARITY_LABEL, REAL_SQUADS, TEAM_DETAILS } from "../../App.jsx";
 
 // País disponibles = países con al menos una liga en LEAGUES. Nunca se hardcodea
 // la lista: añadir una liga nueva a LEAGUES basta para que su país aparezca aquí.
@@ -37,11 +38,144 @@ function TeamCardCrest({ team }) {
   return <img className="pc-cs-crest-img" src={source} alt={team.name} onError={() => setFailed(true)} />;
 }
 
+function DetailCrest({ team }) {
+  const [failed, setFailed] = useState(false);
+  const source = resolveTeamCrest(team);
+  if (failed || !source) {
+    return <div className="pc-cs-detail-crest-fallback">{team.short}</div>;
+  }
+  return <img className="pc-cs-detail-crest-img" src={source} alt={team.name} onError={() => setFailed(true)} />;
+}
+
+// Ficha detallada del club elegido: mismo contenido y misma lógica que la ficha
+// móvil (TeamSelection en App.jsx — medias por línea, jugadores estrella, info
+// del club, dificultad), adaptada al layout de columnas de PC.
+function ClubDetail({ team, onBack, onConfirm }) {
+  const squad = REAL_SQUADS[team.id] ?? [];
+  const details = TEAM_DETAILS[team.id] ?? {};
+  const stars = getTopPlayers(squad, 3);
+  const { gkAvg, defAvg, medAvg, delAvg, totalAvg } = computeSquadRatings(squad, team.avg);
+  const rarityCount = computeRarityCount(squad);
+  const diff = getTeamDifficulty(totalAvg);
+
+  return (
+    <div className="pc-clubselect">
+      <button className="pc-cs-detail-back" onClick={onBack}>← Volver a la selección</button>
+
+      <div className="pc-cs-detail-head">
+        <DetailCrest team={team} />
+        <div>
+          <div className="pc-cs-detail-name">{team.name}</div>
+          <div className="pc-cs-detail-meta">📍 {team.city} · {team.stadium}</div>
+          <div className="pc-cs-detail-obj" style={{ color: team.color }}>🎯 Objetivo: {team.obj}</div>
+        </div>
+      </div>
+
+      <div className="pc-cs-detail-grid">
+        <div className="pc-cs-detail-panel">
+          <div className="pc-cs-detail-panel-title">Nivel de la plantilla</div>
+          <div className="pc-cs-rating-row">
+            <div className="pc-cs-rating-total">
+              <div className="val" style={{ color: lineRatingColor(totalAvg) }}>{totalAvg}</div>
+              <div className="lbl">MEDIA</div>
+            </div>
+            <div className="pc-cs-rating-lines">
+              {[["POR", gkAvg], ["DEF", defAvg], ["MED", medAvg], ["DEL", delAvg]].map(([label, val]) => (
+                <div key={label} className="pc-cs-rating-line">
+                  <div className="val" style={{ color: lineRatingColor(val) }}>{val}</div>
+                  <div className="lbl">{label}</div>
+                  <div className="pc-cs-rating-bar">
+                    <div className="pc-cs-rating-bar-fill" style={{ width: `${((val - 60) / 40) * 100}%`, background: lineRatingColor(val) }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="pc-cs-rarity-row">
+            {Object.entries(rarityCount).filter(([, v]) => v > 0).map(([r, v]) => (
+              <div key={r} className="pc-cs-rarity-chip" style={{ background: `${RARITY_ACCENT[r]}18`, border: `1px solid ${RARITY_ACCENT[r]}44`, color: RARITY_ACCENT[r] }}>
+                {v} {RARITY_LABEL[r]}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="pc-cs-detail-panel">
+          <div className="pc-cs-detail-panel-title">⭐ Jugadores estrella</div>
+          {stars.map(p => {
+            const acc = RARITY_ACCENT[p.rarity];
+            return (
+              <div key={p.id} className="pc-cs-star-row">
+                <div className="pc-cs-star-badge" style={{ background: `${acc}20`, border: `1.5px solid ${acc}55`, color: acc }}>{p.overall}</div>
+                <div className="pc-cs-star-info">
+                  <div className="pc-cs-star-name">{p.name}</div>
+                  <div className="pc-cs-star-meta">{p.pos} · {p.age} años · {NAT_FLAG[p.nat] ?? ""}</div>
+                </div>
+                <div className="pc-cs-star-attrs">
+                  {Object.entries(p.attrs).filter(([k]) => k !== "porteria" || p.group === "POR").slice(0, 3).map(([k, v]) => (
+                    <div key={k} className="pc-cs-star-attr">
+                      <div className="v" style={{ color: v >= 80 ? "#22c55e" : v >= 70 ? "#c9a84c" : "#9aa0b4" }}>{v}</div>
+                      <div className="k">{k.slice(0, 3).toUpperCase()}</div>
+                    </div>
+                  ))}
+                </div>
+                <span className="pc-cs-star-rarity" style={{ color: acc, background: `${acc}18` }}>{RARITY_LABEL[p.rarity]}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="pc-cs-detail-grid">
+        <div className="pc-cs-detail-panel">
+          <div className="pc-cs-detail-panel-title">Info del club</div>
+          {[
+            ["🏟️ Estadio", team.stadium],
+            ["📅 Fundación", details.fundacion],
+            ["⚔️ Rival", details.rivalidad],
+            ["💶 Presupuesto", `€${team.budget}M`],
+            ["👥 Plantilla", `${squad.length} jugadores`],
+            ["🎮 Estilo", details.estilo],
+          ].map(([label, val]) => (
+            <div key={label} className="pc-cs-info-row">
+              <span className="pc-cs-info-label">{label}</span>
+              <span className="pc-cs-info-value">{val}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="pc-cs-detail-panel">
+          <div className="pc-cs-detail-panel-title">Dificultad</div>
+          <div className="pc-cs-diff-row">
+            <div style={{ flex: 1 }}>
+              <div className="pc-cs-diff-label" style={{ color: diff.color }}>{diff.label}</div>
+              <div className="pc-cs-diff-desc">{diff.desc}</div>
+            </div>
+            <div className="pc-cs-diff-dots">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="pc-cs-diff-dot" style={{ background: i <= diff.stars ? diff.color : "#1e2330" }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pc-cs-detail-footer">
+        <button className="pc-cs-detail-back" onClick={onBack}>← Volver</button>
+        <button className="pc-cs-continue-btn ready" onClick={() => onConfirm(team)}>
+          Elegir {team.name} →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function PCClubSelectScreen({ teams, onContinue }) {
   const countries = getAvailableCountries();
   const [countryId, setCountryId] = useState(countries[0]?.id ?? null);
   const [leagueId, setLeagueId] = useState(null);
   const [teamId, setTeamId] = useState(null);
+  const [showDetail, setShowDetail] = useState(false);
 
   const leagues = countryId ? [...getLeaguesByCountry(countryId)].sort((a, b) => a.tier - b.tier) : [];
   const activeLeague = leagues.find(l => l.id === leagueId) ?? null;
@@ -58,6 +192,10 @@ export default function PCClubSelectScreen({ teams, onContinue }) {
   function selectLeague(id) {
     setLeagueId(id);
     setTeamId(null);
+  }
+
+  if (showDetail && selectedTeam) {
+    return <ClubDetail team={selectedTeam} onBack={() => setShowDetail(false)} onConfirm={onContinue} />;
   }
 
   return (
@@ -140,7 +278,7 @@ export default function PCClubSelectScreen({ teams, onContinue }) {
         <button
           className={`pc-cs-continue-btn${selectedTeam ? " ready" : ""}`}
           disabled={!selectedTeam}
-          onClick={() => selectedTeam && onContinue(selectedTeam)}
+          onClick={() => selectedTeam && setShowDetail(true)}
         >
           {selectedTeam ? `Continuar con ${selectedTeam.name} →` : "Continuar →"}
         </button>

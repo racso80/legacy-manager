@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { resolvePlayerPhoto } from "./data/dataLoader.js";
+import { computeRarityCount, computeSquadRatings, getTeamDifficulty, getTopPlayers, lineRatingColor } from "./data/teamStats.js";
 import NewsScreen from "./components/NewsScreen.jsx";
 import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
 import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
@@ -2935,6 +2936,58 @@ const GLOBAL_CSS = `
     .pc-cs-footer { margin-top: 20px; display: flex; justify-content: flex-end; flex-shrink: 0; }
     .pc-cs-continue-btn { background: linear-gradient(180deg, var(--cs-gold), #b8934a); color: #0b1210; border: none; padding: 12px 26px; border-radius: 10px; font-size: 13px; font-weight: 700; letter-spacing: .4px; cursor: not-allowed; opacity: .4; transition: opacity .2s; }
     .pc-cs-continue-btn.ready { opacity: 1; cursor: pointer; }
+
+    /* ─── PC club detail (ficha del equipo, entre selección y coachCreate) ── */
+    .pc-cs-detail-back { background: transparent; border: none; color: var(--cs-text-dim); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px; padding: 0; margin-bottom: 16px; flex-shrink: 0; }
+    .pc-cs-detail-back:hover { color: var(--cs-gold); }
+    .pc-cs-detail-head { display: flex; align-items: center; gap: 18px; padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--cs-line); flex-shrink: 0; }
+    .pc-cs-detail-crest-img { width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); flex-shrink: 0; }
+    .pc-cs-detail-crest-fallback { width: 64px; height: 64px; border-radius: 12px; background: var(--cs-panel); border: 1px solid var(--cs-line); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; color: #e8ebe6; flex-shrink: 0; }
+    .pc-cs-detail-name { font-size: 22px; font-weight: 800; color: #e8ebe6; }
+    .pc-cs-detail-meta { font-size: 12px; color: var(--cs-text-dim); margin-top: 4px; }
+    .pc-cs-detail-obj { font-size: 12px; font-weight: 700; margin-top: 4px; }
+
+    .pc-cs-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .pc-cs-detail-panel { background: var(--cs-panel); border: 1px solid var(--cs-line); border-radius: 12px; padding: 16px; }
+    .pc-cs-detail-panel-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--cs-text-dim); margin-bottom: 12px; font-weight: 700; }
+
+    .pc-cs-rating-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .pc-cs-rating-total { text-align: center; }
+    .pc-cs-rating-total .val { font-size: 32px; font-weight: 800; }
+    .pc-cs-rating-total .lbl { font-size: 10px; color: var(--cs-text-dim); font-weight: 700; }
+    .pc-cs-rating-lines { display: flex; gap: 16px; }
+    .pc-cs-rating-line { text-align: center; }
+    .pc-cs-rating-line .val { font-size: 18px; font-weight: 700; }
+    .pc-cs-rating-line .lbl { font-size: 10px; color: var(--cs-text-dim); font-weight: 700; }
+    .pc-cs-rating-bar { width: 32px; height: 3px; border-radius: 2px; background: var(--cs-line); margin-top: 4px; overflow: hidden; }
+    .pc-cs-rating-bar-fill { height: 100%; border-radius: 2px; }
+    .pc-cs-rarity-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pc-cs-rarity-chip { border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 700; }
+
+    .pc-cs-star-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+    .pc-cs-star-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .pc-cs-star-badge { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 800; font-size: 14px; }
+    .pc-cs-star-info { flex: 1; min-width: 0; }
+    .pc-cs-star-name { font-size: 13px; font-weight: 700; color: #e8ebe6; }
+    .pc-cs-star-meta { font-size: 10.5px; color: var(--cs-text-dim); margin-top: 1px; }
+    .pc-cs-star-attrs { display: flex; gap: 8px; }
+    .pc-cs-star-attr { text-align: center; }
+    .pc-cs-star-attr .v { font-size: 11px; font-weight: 700; }
+    .pc-cs-star-attr .k { font-size: 8.5px; color: #4b5563; }
+    .pc-cs-star-rarity { font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px; flex-shrink: 0; }
+
+    .pc-cs-info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 12px; }
+    .pc-cs-info-row:last-child { border-bottom: none; }
+    .pc-cs-info-label { color: var(--cs-text-dim); }
+    .pc-cs-info-value { color: #e8ebe6; font-weight: 600; text-align: right; max-width: 60%; }
+
+    .pc-cs-diff-row { display: flex; align-items: center; gap: 16px; }
+    .pc-cs-diff-label { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .pc-cs-diff-desc { font-size: 11.5px; color: var(--cs-text-dim); }
+    .pc-cs-diff-dots { display: flex; gap: 4px; flex-shrink: 0; }
+    .pc-cs-diff-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    .pc-cs-detail-footer { margin-top: 4px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
   }
 `;
 
@@ -3175,7 +3228,7 @@ function LeagueScreen({ country, onSelect, onBack }) {
 }
 
 // Datos extra por equipo para la ficha de selección
-const TEAM_DETAILS = {
+export const TEAM_DETAILS = {
   athletic:    { liga: "Primera División", fundacion: 1898, rivalidad: "Real Sociedad", estilo: "Cantera vasca · Físico · Presión alta" },
   atletico:    { liga: "Primera División", fundacion: 1903, rivalidad: "Real Madrid",   estilo: "Defensivo · Intenso · Contraataque" },
   barcelona:   { liga: "Primera División", fundacion: 1899, rivalidad: "Real Madrid",   estilo: "Posesión · Toque corto · Presión alta" },
@@ -3214,23 +3267,14 @@ function TeamSelection({ league, onSelect }) {
     const details = TEAM_DETAILS[selected.id] ?? {};
 
     // Jugadores estrella: top 3 por overall
-    const stars = [...squad].sort((a,b) => b.overall - a.overall).slice(0, 3);
+    const stars = getTopPlayers(squad, 3);
 
     // Media real de porteros, defensas, medios, delanteros
-    const groupAvg = (group) => {
-      const g = squad.filter(p => p.group === group);
-      return g.length ? Math.round(g.reduce((s,p)=>s+p.overall,0)/g.length) : 0;
-    };
-    const gkAvg  = groupAvg("POR");
-    const defAvg = groupAvg("DEF");
-    const medAvg = groupAvg("MED");
-    const delAvg = groupAvg("DEL");
-    const totalAvg = squad.length ? Math.round(squad.reduce((s,p)=>s+p.overall,0)/squad.length) : selected.avg;
+    const { gkAvg, defAvg, medAvg, delAvg, totalAvg } = computeSquadRatings(squad, selected.avg);
 
-    const rarityCount = { SPECIAL:0, GOLD:0, SILVER:0, BRONZE:0 };
-    squad.forEach(p => rarityCount[p.rarity]++);
+    const rarityCount = computeRarityCount(squad);
 
-    const diffColor = (v) => v >= 80 ? "#22c55e" : v >= 74 ? "#c9a84c" : v >= 68 ? "#f59e0b" : "#ef4444";
+    const diffColor = lineRatingColor;
 
     return (
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
@@ -3331,12 +3375,7 @@ function TeamSelection({ league, onSelect }) {
           <div style={{ background:"#161a24", borderRadius:10, padding:14, marginBottom:16 }}>
             <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:8 }}>DIFICULTAD</div>
             {(() => {
-              const avg = totalAvg;
-              const diff = avg >= 85 ? { label:"Muy difícil", color:"#ef4444", stars:5, desc:"Máxima exigencia. Se esperan títulos." }
-                         : avg >= 79 ? { label:"Difícil",     color:"#f97316", stars:4, desc:"Objetivo Champions. Presión alta." }
-                         : avg >= 74 ? { label:"Media",       color:"#f59e0b", stars:3, desc:"Competir en la mitad alta de la tabla." }
-                         : avg >= 70 ? { label:"Asequible",   color:"#22c55e", stars:2, desc:"Salvar la categoría como prioridad." }
-                         :             { label:"Fácil",        color:"#3b82f6", stars:1, desc:"Sin presión. Ideal para aprender." };
+              const diff = getTeamDifficulty(totalAvg);
               return (
                 <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                   <div style={{ flex:1 }}>
