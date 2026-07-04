@@ -40,15 +40,3 @@ export function buildPlayoffPairing(candidates = []) {
     semiB: { home: p4 ?? null, away: p5 ?? null },
   };
 }
-
-// La liga que el usuario no esta jugando esa temporada no tiene jornadas
-// simuladas ni clasificacion real. Se aproxima su fuerza con la media de
-// overall de la plantilla para poder resolver ascensos/descensos de forma
-// coherente sin simular una segunda liga completa (fuera de alcance).
-export function rankOffscreenTeams(teamIds = [], REAL_SQUADS = {}) {
-  const strength = id => {
-    const squad = REAL_SQUADS[id] ?? [];
-    return squad.length ? squad.reduce((sum, p) => sum + (p.overall ?? 0), 0) / squad.length : 0;
-  };
-  return [...teamIds].sort((a, b) => strength(b) - strength(a));
-}

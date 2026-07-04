@@ -61,7 +61,8 @@ import { buildSceneExpectation, buildSceneFromDirectorItem, ensureSceneState, re
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
 import { buildPlayerState, cleanConsequenceText, getInjuryRiskBadge, getMedicalAlerts, getPlayerSmartActions, sanitizeLineupSelection } from "./state/gameStateSelectors.js";
 import { LEAGUES, getLeagueById, getLeaguesByCountry, getStandingsZone, getTotalMatchdays } from "./data/leagues.js";
-import { getRelegationCandidates, getDirectPromotionCandidates, getPlayoffCandidates, rankOffscreenTeams } from "./season/promotionEngine.js";
+import { getRelegationCandidates, getDirectPromotionCandidates, getPlayoffCandidates, buildPlayoffPairing } from "./season/promotionEngine.js";
+import { simulateLeagueMatchday, simulateLeagueToMatchday } from "./season/leagueSimEngine.js";
 import { SEGUNDA_TEAMS } from "./data/segundaTeams.js";
 import { SEGUNDA_SQUADS } from "./data/segundaSquads.js";
 import { _p, _r } from "./data/playerHelpers.js";
@@ -670,6 +671,43 @@ function generateFixtures(leagueId = "esp_primera") {
 
 function initStandings(leagueId = "esp_primera") {
   return TEAMS.filter(t => t.leagueId === leagueId).map(t => ({ teamId: t.id, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0 }));
+}
+
+// Construye game.leagues para TODAS las ligas activas (no solo la del
+// usuario), usadas por la simulacion de fondo. La liga activa reutiliza los
+// fixtures/standings ya generados por el llamador para no duplicar el sorteo.
+function buildFreshLeaguesState(activeLeagueId, activeFixtures, activeStandings) {
+  const leagues = {};
+  LEAGUES.forEach(league => {
+    leagues[league.id] = league.id === activeLeagueId
+      ? { fixtures: activeFixtures, standings: activeStandings, matchday: 1, leagueConfig: league }
+      : { fixtures: generateFixtures(league.id), standings: initStandings(league.id), matchday: 1, leagueConfig: league };
+  });
+  return leagues;
+}
+
+// Migración: guardados anteriores al soporte de simulación multi-liga no
+// tienen game.leagues (o pueden faltarles ligas añadidas más adelante).
+// Rellena solo lo que falte y adelanta las ligas nuevas hasta la jornada
+// actual del usuario, para que no aparezcan a mitad de temporada en la jornada 1.
+function backfillMissingLeagues(parsed) {
+  const activeId = parsed.leagueId ?? "esp_primera";
+  const leagues = { ...(parsed.leagues ?? {}) };
+  if (!leagues[activeId]) {
+    leagues[activeId] = {
+      fixtures: parsed.fixtures ?? generateFixtures(activeId),
+      standings: parsed.standings ?? initStandings(activeId),
+      matchday: parsed.matchday ?? 1,
+      leagueConfig: parsed.leagueConfig ?? getLeagueById(activeId),
+    };
+  }
+  LEAGUES.forEach(league => {
+    if (leagues[league.id]) return;
+    const fresh = { fixtures: generateFixtures(league.id), standings: initStandings(league.id), matchday: 1, leagueConfig: league };
+    const { league: caughtUp } = simulateLeagueToMatchday(fresh, TEAMS, simAIGame, parsed.matchday ?? 1);
+    leagues[league.id] = caughtUp;
+  });
+  return leagues;
 }
 
 // ─── TÁCTICAS ─────────────────────────────────────────────────────────────────
@@ -7724,6 +7762,7 @@ export default function App({ externalData }) {
           parsed.tier = loadedTeam?.tier ?? 1;
         }
         parsed.leagueConfig = getLeagueById(parsed.leagueId) ?? getLeagueById("esp_primera");
+        parsed.leagues = backfillMissingLeagues(parsed);
         let migrated=ensureSceneState(ensureLegacyDirectorState(ensureClubLifeState(ensureConversationState(ensureFanbaseState(ensureCoachCareer(ensureStaffState(ensureContractState(ensureScoutingState(ensureYouthState(ensureLegacyState(parsed,loadedTeam),loadedTeam))),TEAMS),loadedTeam,TEAMS),loadedTeam,TEAMS)))));
         migrated.youth={...migrated.youth,players:migrated.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,parsed.season??"2025",parsed.matchday??1),parsed.season??"2025")))};
         migrated=migrateNewDataPlayersToSave(migrated,currentDataVersion);
@@ -7862,8 +7901,9 @@ export default function App({ externalData }) {
     const players  = generatePlayers(team.id).map(player => ensurePlayerMorale(normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player, "2025", 1), "2025")), "2025"));
     const fixtures = generateFixtures(leagueId);
     const standings = initStandings(leagueId);
+    const leagues = buildFreshLeaguesState(leagueId, fixtures, standings);
     const newId = `save_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-    const seeded = ensureYouthState(ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, season: "2025", dataVersion:currentDataVersion, saveDataVersion:currentDataVersion, dataPlayerIds:collectDataPlayers().map(({player})=>player.id).filter(Boolean), freeAgents:[], dataMigrations:[], history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
+    const seeded = ensureYouthState(ensureLegacyState({ id: newId, name: team.name, teamId: team.id, matchday: 1, players, fixtures, standings, leagues, season: "2025", dataVersion:currentDataVersion, saveDataVersion:currentDataVersion, dataPlayerIds:collectDataPlayers().map(({player})=>player.id).filter(Boolean), freeAgents:[], dataMigrations:[], history: [], news: [], trainingPlan:normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
       leagueId, countryId: team.countryId ?? "ES", tier: team.tier ?? 1, leagueConfig: getLeagueById(leagueId) ?? getLeagueById("esp_primera") },team),team);
     let g={...seeded,youth:{...seeded.youth,players:seeded.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,"2025",1),"2025")))}};
     g=ensureFanbaseState(ensureCoachCareer({...g,coachCareer:createCoachCareer(coachData??{},team,"2025")},team,TEAMS),team,TEAMS);
@@ -7988,6 +8028,28 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         else if (hg < ag) { newStandings[ai].won++;  newStandings[ai].points += 3; newStandings[hi].lost++; }
         else              { newStandings[hi].drawn++; newStandings[ai].drawn++; newStandings[hi].points++; newStandings[ai].points++; }
       });
+
+      // Simular en paralelo la misma jornada en el resto de ligas activas,
+      // para que su calendario y clasificación sean reales durante toda la
+      // temporada (no solo la liga del usuario). Si una liga ya agotó su
+      // calendario (menos jornadas que la del usuario) se deja en espera:
+      // el cierre de temporada la pondrá al día antes de resolver ascensos.
+      const newLeagues = { ...(prev.leagues ?? {}) };
+      LEAGUES.forEach(leagueDef => {
+        if (leagueDef.id === prev.leagueId) return;
+        const leagueState = newLeagues[leagueDef.id];
+        if (!leagueState) return;
+        const hasFixturesForMatchday = leagueState.fixtures.some(f => f.matchday === leagueState.matchday);
+        if (!hasFixturesForMatchday) return;
+        const { league: updatedLeague, simulatedFixtures } = simulateLeagueMatchday(leagueState, TEAMS, simAIGame);
+        simulatedFixtures.forEach(f => {
+          applyAiPhysicalAfterMatch(f.homeTeamId, chooseOpponentFormation(f.homeTeamId));
+          applyAiPhysicalAfterMatch(f.awayTeamId, chooseOpponentFormation(f.awayTeamId));
+        });
+        newLeagues[leagueDef.id] = updatedLeague;
+      });
+      newLeagues[prev.leagueId] = { fixtures: finalFixtures, standings: newStandings, matchday: matchday + 1, leagueConfig: prev.leagueConfig };
+
       const isHome    = fixture.homeTeamId === prev.teamId;
       const currentPositions=Object.fromEntries([...newStandings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference||b.goalsFor-a.goalsFor).map((row,index)=>[row.teamId,index+1]));
       const standingsMovement=Object.fromEntries(newStandings.map(row=>[row.teamId,(previousPositions[row.teamId]??currentPositions[row.teamId])-currentPositions[row.teamId]]));
@@ -8124,7 +8186,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       });
       const boardNews = generateBoardNews({items:legacyEvaluation.news,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
       const updatedNews = mergeNews(prev.news ?? [], [...matchdayNews, ...medicalNews, ...youthNews, ...developmentNews, ...boardNews, ...lockerNews]);
-      let newGame = { ...prev, fixtures: finalFixtures, standings: newStandings, players: newPlayers,
+      let newGame = { ...prev, fixtures: finalFixtures, standings: newStandings, leagues: newLeagues, players: newPlayers,
         matchday: matchday + 1, season: prev.season ?? "2025", history: prev.history ?? [],
         budgetAdjustment: nextBudgetAdjustment,
         incomeLog: newIncomeLog,
@@ -8263,32 +8325,46 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       (prev.transfers??[]).filter(item=>item.type==="loan"&&String(item.season)===String(prev.season)).forEach(item=>{if(REAL_SQUADS[item.toTeamId]&&REAL_SQUADS[item.fromTeamId]){REAL_SQUADS[item.toTeamId]=REAL_SQUADS[item.toTeamId].filter(player=>player.id!==item.player.id);if(!REAL_SQUADS[item.fromTeamId].some(player=>player.id===item.player.id))REAL_SQUADS[item.fromTeamId]=[...REAL_SQUADS[item.fromTeamId],item.player];}});
 
       // ── Ascensos y descensos entre Primera y Segunda ──
-      // La liga que el usuario NO jugo esta temporada no tiene clasificacion
-      // real (no se simulan sus jornadas), asi que sus movimientos se resuelven
-      // aproximando la fuerza de sus equipos por la plantilla (rankOffscreenTeams).
+      // Toda liga tiene ahora fixtures/standings reales todo el año
+      // (game.leagues). La liga que el usuario no jugó esta temporada puede
+      // tener menos jornadas simuladas si su calendario es más largo que el
+      // de la liga del usuario: aquí se pone al día jugando de golpe sus
+      // jornadas restantes antes de resolver ascensos/descensos, de modo que
+      // ninguna liga dependa ya de una aproximación por overall de plantilla.
       const primeraConfig = getLeagueById("esp_primera");
       const segundaConfig = getLeagueById("esp_segunda");
       const prevLeagueId = prev.leagueId ?? "esp_primera";
       const userWasPrimera = prevLeagueId === "esp_primera";
+
+      const caughtUpLeagues = { ...(prev.leagues ?? {}) };
+      LEAGUES.forEach(leagueDef => {
+        if (leagueDef.id === prevLeagueId) return; // la del usuario ya está completa y es la fuente real (prev.standings)
+        const leagueState = caughtUpLeagues[leagueDef.id];
+        if (!leagueState) return;
+        const totalMatchdaysForLeague = getTotalMatchdays(leagueDef);
+        if (leagueState.matchday > totalMatchdaysForLeague) return; // ya completa
+        const { league: caughtUp } = simulateLeagueToMatchday(leagueState, TEAMS, simAIGame, totalMatchdaysForLeague + 1);
+        caughtUpLeagues[leagueDef.id] = caughtUp;
+      });
+      const segundaStandings = userWasPrimera ? (caughtUpLeagues["esp_segunda"]?.standings ?? []) : prev.standings;
+      const primeraStandings = userWasPrimera ? prev.standings : (caughtUpLeagues["esp_primera"]?.standings ?? []);
+
       let relegatedFromPrimera = [], promotedToPrimera = [];
       if (userWasPrimera) {
-        relegatedFromPrimera = getRelegationCandidates(prev.standings, primeraConfig);
-        const segundaTeamIds = TEAMS.filter(t=>t.leagueId==="esp_segunda").map(t=>t.id);
-        const segundaRanked = rankOffscreenTeams(segundaTeamIds, REAL_SQUADS);
-        const direct = segundaRanked.slice(0, segundaConfig?.promotionSpots ?? 2);
-        const playoffPool = segundaRanked.slice(segundaConfig?.promotionSpots ?? 2, (segundaConfig?.promotionSpots ?? 2) + (segundaConfig?.playoffSpots ?? 4));
+        relegatedFromPrimera = getRelegationCandidates(primeraStandings, primeraConfig);
+        const direct = getDirectPromotionCandidates(segundaStandings, segundaConfig);
+        const playoffPool = getPlayoffCandidates(segundaStandings, segundaConfig);
         const playoffWinner = simulateOffscreenPlayoff(playoffPool);
         promotedToPrimera = [...direct, playoffWinner].filter(Boolean);
       } else {
-        const direct = getDirectPromotionCandidates(prev.standings, segundaConfig);
+        const direct = getDirectPromotionCandidates(segundaStandings, segundaConfig);
         let playoffWinner = prev.playoff?.stage === "done" ? prev.playoff.promotedTeamId : null;
         if (!playoffWinner) {
-          const playoffPool = getPlayoffCandidates(prev.standings, segundaConfig);
+          const playoffPool = getPlayoffCandidates(segundaStandings, segundaConfig);
           playoffWinner = simulateOffscreenPlayoff(playoffPool);
         }
         promotedToPrimera = [...direct, playoffWinner].filter(Boolean);
-        const primeraTeamIds = TEAMS.filter(t=>t.leagueId==="esp_primera").map(t=>t.id);
-        relegatedFromPrimera = rankOffscreenTeams(primeraTeamIds, REAL_SQUADS).slice(-(primeraConfig?.relegationSpots ?? 3));
+        relegatedFromPrimera = getRelegationCandidates(primeraStandings, primeraConfig);
       }
       relegatedFromPrimera.forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t){t.leagueId="esp_segunda";t.tier=2;}});
       promotedToPrimera.forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t){t.leagueId="esp_primera";t.tier=1;}});
@@ -8309,6 +8385,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
 
       const newFixtures  = generateFixtures(resolvedLeagueId);
       const newStandings = initStandings(resolvedLeagueId);
+      const newLeagues = buildFreshLeaguesState(resolvedLeagueId, newFixtures, newStandings);
       // Recuperar jugadores: reset fatiga, reducir lesiones, mantener moral parcialmente
       const teamData = TEAMS.find(team => team.id === prev.teamId);
       const baseBudget=(teamData?.budget??50)*1000;
@@ -8352,7 +8429,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       });
       const agedYouth=advanceSquadLifecycle(prev.youth?.players??[],{previousSeason:prev.season??"2025",newSeason,teamId:prev.teamId,userTeamId:prev.teamId,allowRetirements:false}).players.map(player=>({...player,seasonStartOverall:player.overall,seasonStartValue:getMarketValue(player)}));
       const carriedMissions=(prev.scouting?.missions??[]).map(item=>item.status!=="active"?item:{...item,startedMatchday:1,completeMatchday:1+Math.max(1,Math.ceil((item.durationDays*(1-(item.progress??0)/100))/7))});
-      let g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, standingsMovement:{}, players: newPlayers, budgetAdjustment:openingBalance-baseBudget,incomeLog:[],seasonOpeningStatement,transfers:(prev.transfers??[]).map(item=>item.season?item:{...item,season:String(prev.season)}), legacy:startNextLegacySeason(prev.legacy,teamData,newSeason),scouting:{...(prev.scouting??{}),missions:carriedMissions,lastProcessedMatchday:1},youth:{...prev.youth,players:agedYouth},seasonTransition:"preseason",
+      let g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, leagues: newLeagues, standingsMovement:{}, players: newPlayers, budgetAdjustment:openingBalance-baseBudget,incomeLog:[],seasonOpeningStatement,transfers:(prev.transfers??[]).map(item=>item.season?item:{...item,season:String(prev.season)}), legacy:startNextLegacySeason(prev.legacy,teamData,newSeason),scouting:{...(prev.scouting??{}),missions:carriedMissions,lastProcessedMatchday:1},youth:{...prev.youth,players:agedYouth},seasonTransition:"preseason",
         leagueId:resolvedLeagueId, tier:resolvedTier, leagueConfig:resolvedLeagueConfig, playoff:null };
       const retirementNews=lifecycleNews(lifecycleEvents,{season:newSeason,matchday:1,userTeamId:prev.teamId});
       g={...g,legacy:applyRetirementsToLegacy(g.legacy,lifecycleEvents,newSeason),news:mergeNews(g.news??[],[...promotionRelegationNews,...retirementNews])};
