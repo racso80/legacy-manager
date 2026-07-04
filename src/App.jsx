@@ -58,7 +58,7 @@ import { buildLegacyDirectorEvents, dedupeAttentionItems, legacyDirectorEventsTo
 import { buildSceneExpectation, buildSceneFromDirectorItem, ensureSceneState, recordSceneDecision } from "./scenes/sceneEngine.js";
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
 import { buildPlayerState, cleanConsequenceText, getInjuryRiskBadge, getMedicalAlerts, getPlayerSmartActions, sanitizeLineupSelection } from "./state/gameStateSelectors.js";
-import { LEAGUES, getLeagueById, getLeaguesByCountry } from "./data/leagues.js";
+import { LEAGUES, getLeagueById, getLeaguesByCountry, getStandingsZone } from "./data/leagues.js";
 import { SEGUNDA_TEAMS } from "./data/segundaTeams.js";
 import { SEGUNDA_SQUADS } from "./data/segundaSquads.js";
 import { _p, _r } from "./data/playerHelpers.js";
@@ -2953,12 +2953,8 @@ function getAvailableCountries() {
 // ─── PANTALLA: SELECCIÓN DE PAÍS ─────────────────────────────────────────────
 function CountryScreen({ onSelect, onBack }) {
   const countries = getAvailableCountries();
-  // Si solo hay un país con ligas configuradas, nos lo saltamos e ("Country → League" se
-  // convierte en solo "League") sin que el jugador vea un paso vacío de un único botón.
-  useEffect(() => {
-    if (countries.length === 1) onSelect(countries[0]);
-  }, []);
-  if (countries.length === 1) return null;
+  // Se muestra siempre, incluso con un único país (España), para que el flujo
+  // País → Liga → Equipo sea consistente y quede listo para añadir más países.
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"14px 16px", flexShrink:0 }}>
@@ -4961,11 +4957,11 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen }
     </div>
   );
 }
-function StandingsScreen({ standings, teamId, fixtures, players, movement={}, onOpenPlayer, isPC, teams, season }) {
+function StandingsScreen({ standings, teamId, fixtures, players, movement={}, onOpenPlayer, isPC, teams, season, leagueConfig }) {
   const [tab, setTab] = useState("tabla"); // tabla | goleadores | stats
 
   if (isPC) {
-    return <PCStandingsScreen standings={standings} teamId={teamId} fixtures={fixtures} players={players} movement={movement} teams={teams} onOpenPlayer={onOpenPlayer} season={season} />;
+    return <PCStandingsScreen standings={standings} teamId={teamId} fixtures={fixtures} players={players} movement={movement} teams={teams} onOpenPlayer={onOpenPlayer} season={season} leagueConfig={leagueConfig} />;
   }
 
   const sorted   = [...standings].sort((a,b) => b.points-a.points || b.goalDifference-a.goalDifference || b.goalsFor-a.goalsFor);
@@ -5048,10 +5044,12 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
                   {sorted.map((s,i)=>{
                     const t=getTeam(s.teamId);
                     const isUser=s.teamId===teamId;const isNext=s.teamId===nextOpponentId;const move=movement[s.teamId]??0;const last=lastResultFor(s.teamId);
-                    const posColor=i<4?"#c9a84c":i<6?"#22c55e":i<7?"#3b82f6":i>16?"#ef4444":"#6b7280";
-                    const zoneBorder=i===3?"border-bottom:2px solid #c9a84c44":i===6?"border-bottom:1px dashed #22c55e33":i===16?"border-bottom:2px solid #ef444433":"";
+                    const zone=getStandingsZone(i+1, sorted.length, leagueConfig);
+                    const nextZone=i+1<sorted.length?getStandingsZone(i+2, sorted.length, leagueConfig):null;
+                    const isZoneEnd=nextZone && nextZone.key!==zone.key;
+                    const posColor=zone.color;
                     return (
-                      <tr key={s.teamId} style={{ borderBottom:i===3?"2px solid rgba(201,168,76,.2)":i===6?"1px dashed rgba(34,197,94,.15)":i===16?"2px solid rgba(239,68,68,.2)":"1px solid rgba(255,255,255,.03)", background:isUser?"rgba(201,168,76,.09)":isNext?"rgba(96,165,250,.08)":"transparent", transition:"background .1s" }}>
+                      <tr key={s.teamId} style={{ borderBottom:isZoneEnd?`2px solid ${zone.color}33`:"1px solid rgba(255,255,255,.03)", background:isUser?"rgba(201,168,76,.09)":isNext?"rgba(96,165,250,.08)":"transparent", transition:"background .1s" }}>
                         <td style={{ padding:"7px 4px", textAlign:"center", fontWeight:700, color:posColor, fontSize:11 }}>{i+1}<span style={{display:"block",fontSize:8,color:move>0?"#22c55e":move<0?"#ef4444":"#4b5563"}}>{move>0?`▲${move}`:move<0?`▼${Math.abs(move)}`:"—"}</span></td>
                         <td style={{ padding:"7px 4px" }}>
                           <div style={{ display:"flex", alignItems:"center", gap:5 }}>
@@ -5074,12 +5072,22 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
             </div>
             {/* Leyenda */}
             <div style={{ marginTop:14, display:"flex", flexWrap:"wrap", gap:10 }}>
-              {[["#c9a84c","Champions (1-4)"],["#22c55e","Europa (5-6)"],["#3b82f6","Conference (7)"],["#ef4444","Descenso (18-20)"]].map(([c,l])=>(
-                <div key={l} style={{ display:"flex", alignItems:"center", gap:5 }}>
-                  <div style={{ width:8, height:8, borderRadius:2, background:c }}/>
-                  <span style={{ fontSize:10, color:"#4b5563" }}>{l}</span>
-                </div>
-              ))}
+              {(() => {
+                const total = sorted.length;
+                const legend = [];
+                for (let p = 1; p <= total; p++) {
+                  const z = getStandingsZone(p, total, leagueConfig);
+                  const last = legend[legend.length - 1];
+                  if (last && last.key === z.key) last.to = p;
+                  else legend.push({ key: z.key, label: z.label, color: z.color, from: p, to: p });
+                }
+                return legend.filter(z => z.key !== "mid").map(z => (
+                  <div key={z.key} style={{ display:"flex", alignItems:"center", gap:5 }}>
+                    <div style={{ width:8, height:8, borderRadius:2, background:z.color }}/>
+                    <span style={{ fontSize:10, color:"#4b5563" }}>{z.label} ({z.from === z.to ? z.from : `${z.from}-${z.to}`})</span>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         )}
@@ -8611,7 +8619,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} isPC={isPC} onPlay={() => setScreen("match")} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} setScreen={setScreen} />}
-          {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} isPC={isPC} teams={TEAMS} season={game.season} />}
+          {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} isPC={isPC} teams={TEAMS} season={game.season} leagueConfig={game.leagueConfig} />}
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
           {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
           {screen === "lockerRoom" && game && <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />}

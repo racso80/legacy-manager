@@ -1,15 +1,7 @@
 import { Fragment } from "react";
 import TeamCrest from "../TeamCrest.jsx";
 import { REAL_SQUADS } from "../../App.jsx";
-
-const ZONE_LABEL = { cl: "Champions League", el: "Europa League", liga: "Liga", descenso: "Descenso" };
-
-function zoneForPos(pos, total) {
-  if (pos <= 4) return "cl";
-  if (pos <= 6) return "el";
-  if (pos > total - 3) return "descenso";
-  return "liga";
-}
+import { getStandingsZone } from "../../data/leagues.js";
 function sortedStandings(standings) {
   return [...(standings ?? [])].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor);
 }
@@ -135,7 +127,7 @@ function RankPanel({ icon, title, rows, teams, unit, onOpenPlayer, valueColor })
   );
 }
 
-export default function PCStandingsScreen({ standings, teamId, fixtures, players, movement = {}, teams = [], onOpenPlayer, season }) {
+export default function PCStandingsScreen({ standings, teamId, fixtures, players, movement = {}, teams = [], onOpenPlayer, season, leagueConfig }) {
   const sorted = sortedStandings(standings);
   const total = sorted.length;
   const getTeam = id => teams.find(t => t.id === id);
@@ -150,11 +142,11 @@ export default function PCStandingsScreen({ standings, teamId, fixtures, players
   return (
     <div className="pc-standings-page">
       <div className="pc-standings-main">
-        <div className="pc-dash-v2-sec-label">Clasificación — LaLiga {season ?? ""}</div>
+        <div className="pc-dash-v2-sec-label">Clasificación — {leagueConfig?.shortName ?? "LaLiga"} {season ?? ""}</div>
         <div className="pc-standings-table-wrap">
           <div className="pc-standings-table-hdr">
             <span className="pc-standings-table-hdr-icon">🏆</span>
-            <div className="pc-standings-table-hdr-title">LaLiga EA Sports</div>
+            <div className="pc-standings-table-hdr-title">{leagueConfig?.name ?? "LaLiga Santander"}</div>
             <div className="pc-standings-table-hdr-sub">Temporada {season ?? "—"}</div>
           </div>
           <div className="pc-standings-table-scroll">
@@ -171,9 +163,9 @@ export default function PCStandingsScreen({ standings, teamId, fixtures, players
               <tbody>
                 {sorted.map((row, index) => {
                   const pos = index + 1;
-                  const zone = zoneForPos(pos, total);
-                  const showZone = zone !== lastZone;
-                  lastZone = zone;
+                  const zone = getStandingsZone(pos, total, leagueConfig);
+                  const showZone = zone.key !== lastZone;
+                  lastZone = zone.key;
                   const team = getTeam(row.teamId);
                   const isMe = row.teamId === teamId;
                   const move = movement[row.teamId] ?? 0;
@@ -184,7 +176,7 @@ export default function PCStandingsScreen({ standings, teamId, fixtures, players
                     <Fragment key={row.teamId}>
                       {showZone && (
                         <tr className="pc-standings-zone-label">
-                          <td colSpan={12} style={zone === "descenso" ? { color: "#e0524a" } : undefined}>{ZONE_LABEL[zone]}</td>
+                          <td colSpan={12} style={{ color: zone.color }}>{zone.label}</td>
                         </tr>
                       )}
                       <tr className={`pc-standings-row${isMe ? " me" : ""}`}>
