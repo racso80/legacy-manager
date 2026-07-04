@@ -5,6 +5,7 @@ import { getMedicalAlerts } from "../../state/gameStateSelectors.js";
 import { getDashboardNews } from "../../news/newsEngine.js";
 import { getLockerRoomSummary } from "../../morale/moraleEngine.js";
 import { getPrestigeLevel } from "../../legacy/legacyEngine.js";
+import { getStandingsZone } from "../../data/leagues.js";
 
 const WEEKDAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MONTH_LABELS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -12,7 +13,6 @@ const MONTH_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Se
 const NEWS_TYPE_ICON = { result: "⚽", standings: "📊", streak: "🔥", scorer: "🥇", performance: "⭐", transfer: "🔄", finance: "💶", injury: "🚑", board: "🤝", youth: "🌱", scouting: "🔎" };
 const NEWS_TYPE_LABEL = { result: "Liga", standings: "Liga", streak: "Liga", scorer: "Liga", performance: "Liga", transfer: "Mercado", finance: "Finanzas", injury: "Médico", board: "Directiva", youth: "Cantera", scouting: "Scouting" };
 const NEWS_META_TEXT = { result: "LaLiga", standings: "LaLiga", streak: "LaLiga", scorer: "LaLiga", performance: "LaLiga", transfer: "Mercado de fichajes", finance: "Finanzas del club", injury: "Parte médico", board: "Directiva del club", youth: "Academia", scouting: "Departamento de scouting" };
-const ZONE_LABEL = { cl: "Champions League", el: "Europa League", liga: "Liga", descenso: "Descenso" };
 
 // El juego no tiene un calendario real (solo número de jornada), así que las fechas de
 // partidos/entrenos/mercado en el calendario se sintetizan anclando la próxima jornada del
@@ -53,12 +53,6 @@ function formFor(teamId, fixtures) {
 }
 function sortedStandings(game) {
   return [...(game.standings ?? [])].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor);
-}
-function zoneForPos(pos, total) {
-  if (pos <= 4) return "cl";
-  if (pos <= 6) return "el";
-  if (pos > total - 3) return "descenso";
-  return "liga";
 }
 function newsAccent(type) {
   if (type === "youth") return "#3ecf8e";
@@ -305,9 +299,9 @@ function StandingsPanel({ game, teams, setScreen }) {
         <div className="pc-dash-v2-standings-scroll">
           {rows.map((row, index) => {
             const pos = index + 1;
-            const zone = zoneForPos(pos, total);
-            const showHeader = zone !== lastZone;
-            lastZone = zone;
+            const zone = getStandingsZone(pos, total, game.leagueConfig);
+            const showHeader = zone.key !== lastZone;
+            lastZone = zone.key;
             const team = teams.find(t => t.id === row.teamId);
             const isMe = row.teamId === game.teamId;
             const move = movement[row.teamId] ?? 0;
@@ -316,7 +310,7 @@ function StandingsPanel({ game, teams, setScreen }) {
             return (
               <div key={row.teamId}>
                 {showHeader && (
-                  <div className="pc-dash-v2-st-zone-hdr" style={zone === "descenso" ? { color: "#e0524a" } : undefined}>{ZONE_LABEL[zone]}</div>
+                  <div className="pc-dash-v2-st-zone-hdr" style={{ color: zone.color }}>{zone.label}</div>
                 )}
                 <div className={`pc-dash-v2-st-row${isMe ? " hl" : ""}`}>
                   <div className="pc-dash-v2-st-pos" style={isMe ? { color: "var(--club-accent, #c9a84c)" } : undefined}>{pos}</div>
