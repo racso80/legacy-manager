@@ -35,6 +35,7 @@ import PCStandingsScreen from "./components/pc/PCStandingsScreen.jsx";
 import PCSquadScreen from "./components/pc/PCSquadScreen.jsx";
 import PCLineupScreen from "./components/pc/PCLineupScreen.jsx";
 import PCMatchScreen from "./components/pc/PCMatchScreen.jsx";
+import PCClubSelectScreen from "./components/pc/PCClubSelectScreen.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
 import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle, lifecycleNews, processBirthdays } from "./players/lifecycle.js";
@@ -2876,6 +2877,64 @@ const GLOBAL_CSS = `
       .pc-dash-v2 { flex-direction: column; height: auto; }
       .pc-dash-v2-inbox-col, .pc-dash-v2-right-col { flex: none; width: 100%; min-width: 0; max-width: none; }
     }
+
+    /* ─── PC club select (país → liga → equipo, pantalla única previa a la partida) ── */
+    .pc-clubselect {
+      --cs-gold: #d9b25f; --cs-gold-dim: #8a7240; --cs-line: #26362f;
+      --cs-panel: #121b18; --cs-text-dim: #8b988f;
+      flex: 1; overflow-y: auto; padding: 28px 36px 40px; display: flex; flex-direction: column;
+    }
+    .pc-clubselect-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 24px; border-bottom: 1px solid var(--cs-line); padding-bottom: 16px; flex-shrink: 0; }
+    .pc-clubselect-header h1 { font-size: 20px; font-weight: 800; color: #e8ebe6; }
+    .pc-clubselect-header h1 span { color: var(--cs-gold); }
+    .pc-clubselect-step { font-size: 11px; color: var(--cs-text-dim); text-transform: uppercase; letter-spacing: 1.2px; }
+
+    .pc-cs-country-wrap { margin-bottom: 20px; flex-shrink: 0; }
+    .pc-cs-country-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--cs-text-dim); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .pc-cs-country-title .note { font-size: 10px; color: var(--cs-gold-dim); text-transform: none; letter-spacing: 0; font-style: italic; }
+    .pc-cs-country-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+    .pc-cs-country-pill { flex: 0 0 auto; display: flex; align-items: center; gap: 9px; background: var(--cs-panel); border: 1px solid var(--cs-line); border-radius: 10px; padding: 9px 15px; cursor: pointer; transition: border-color .15s, transform .15s; white-space: nowrap; }
+    .pc-cs-country-pill:hover { border-color: var(--cs-gold-dim); transform: translateY(-1px); }
+    .pc-cs-country-pill.active { background: linear-gradient(180deg, rgba(217,178,95,.16), rgba(217,178,95,.05)); border-color: var(--cs-gold); }
+    .pc-cs-flag-img { width: 22px; height: 16px; object-fit: cover; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.08); flex-shrink: 0; }
+    .pc-cs-flag-emoji { font-size: 19px; line-height: 1; flex-shrink: 0; }
+    .pc-cs-country-pill .name { font-size: 12px; font-weight: 600; color: #e8ebe6; }
+    .pc-cs-country-pill.active .name { color: var(--cs-gold); }
+    .pc-cs-country-pill .count { font-size: 10px; color: var(--cs-text-dim); background: rgba(255,255,255,.05); padding: 2px 6px; border-radius: 20px; }
+
+    .pc-cs-columns { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
+    .pc-cs-panel { background: var(--cs-panel); border: 1px solid var(--cs-line); border-radius: 12px; overflow: hidden; }
+    .pc-cs-panel-head { padding: 12px 16px; border-bottom: 1px solid var(--cs-line); font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--cs-text-dim); display: flex; justify-content: space-between; }
+    .pc-cs-panel-head .active { color: var(--cs-gold); }
+
+    .pc-cs-league-list { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+    .pc-cs-league-item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; transition: background .15s, border-color .15s; }
+    .pc-cs-league-item:hover { background: rgba(255,255,255,.03); }
+    .pc-cs-league-item.active { background: linear-gradient(90deg, rgba(217,178,95,.14), transparent); border-color: var(--cs-gold-dim); }
+    .pc-cs-league-badge { width: 32px; height: 32px; border-radius: 8px; background: #1f3a2c; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--cs-gold); flex-shrink: 0; }
+    .pc-cs-league-info .l-name { font-size: 12.5px; font-weight: 700; color: #e8ebe6; }
+    .pc-cs-league-info .l-meta { font-size: 10.5px; color: var(--cs-text-dim); margin-top: 2px; }
+    .pc-cs-league-item.active .l-name { color: var(--cs-gold); }
+    .pc-cs-chevron { margin-left: auto; color: var(--cs-text-dim); font-size: 12px; }
+
+    .pc-cs-team-grid { padding: 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .pc-cs-team-card { border: 1px solid var(--cs-line); border-radius: 14px; padding: 16px; display: flex; align-items: center; justify-content: center; gap: 14px; cursor: pointer; transition: border-color .15s, transform .15s, box-shadow .15s; min-height: 150px; position: relative; overflow: hidden; }
+    .pc-cs-team-card:hover { border-color: var(--cs-gold-dim); transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.4); }
+    .pc-cs-team-card.selected { border-color: var(--cs-gold); box-shadow: 0 0 0 1px var(--cs-gold), 0 10px 22px rgba(0,0,0,.4); }
+    .pc-cs-crest-fallback { width: 60px; height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; color: rgba(255,255,255,.92); text-shadow: 0 2px 8px rgba(0,0,0,.4); }
+    .pc-cs-crest-img { width: 60px; height: 60px; object-fit: contain; flex-shrink: 0; filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); }
+    .pc-cs-team-info { flex: 0 1 auto; min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: 9px; }
+    .pc-cs-team-name { font-size: 14.5px; font-weight: 700; line-height: 1.25; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.5); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .pc-cs-team-stats { display: flex; flex-direction: column; gap: 5px; }
+    .pc-cs-team-stat-row { display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; color: rgba(255,255,255,.85); }
+    .pc-cs-team-stat-row .label { color: rgba(255,255,255,.6); }
+    .pc-cs-team-stat-row .value { font-weight: 700; font-size: 12px; color: #fff; }
+
+    .pc-cs-empty { padding: 50px 18px; text-align: center; color: var(--cs-text-dim); font-size: 12px; }
+
+    .pc-cs-footer { margin-top: 20px; display: flex; justify-content: flex-end; flex-shrink: 0; }
+    .pc-cs-continue-btn { background: linear-gradient(180deg, var(--cs-gold), #b8934a); color: #0b1210; border: none; padding: 12px 26px; border-radius: 10px; font-size: 13px; font-weight: 700; letter-spacing: .4px; cursor: not-allowed; opacity: .4; transition: opacity .2s; }
+    .pc-cs-continue-btn.ready { opacity: 1; cursor: pointer; }
   }
 `;
 
@@ -8848,6 +8907,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
 
   const isPC = useIsPC();
   const showPCShell = isPC && Boolean(game) && screen !== "menu";
+  // Pantalla única País → Liga → Equipo en PC: sustituye a los 3 pasos separados
+  // (que siguen existiendo para móvil) sin usar PCTopBar/PCSidebar, ya que todavía
+  // no existe game/team en este punto del flujo.
+  const showClubSelectPC = isPC && ["country", "league", "teams"].includes(screen);
   const pcTeam = game ? TEAMS.find(t=>t.id===game.teamId) : null;
   const clubAccent = pcTeam ? getClubAccentColor(pcTeam.color) : "#c9a84c";
   const clubTextOnAccent = pcTeam ? getClubTextColor(pcTeam.color) : "#0d0f14";
@@ -8889,9 +8952,15 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         <ScreenWrapper animKey={screen}>
           {screen === "menu"      && <MainMenu onNew={() => setScreen("country")} onSaves={() => setScreen("saves")} onCloud={() => setScreen("cloudSaves")} savesCount={savesIndex.length} />}
           {screen === "saves"     && <SavesScreen saves={savesIndex} onLoad={loadGame} onDelete={deleteSave} onNew={() => setScreen("country")} onBack={() => setScreen("menu")} />}
-          {screen === "country"   && <CountryScreen onSelect={c => { setPendingCountry(c); setScreen("league"); }} onBack={() => setScreen("menu")} />}
-          {screen === "league"    && <LeagueScreen country={pendingCountry} onSelect={l => { setPendingLeague(l); setScreen("teams"); }} onBack={() => setScreen("country")} />}
-          {screen === "teams"     && <TeamSelection league={pendingLeague} onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
+          {(screen === "country" || screen === "league" || screen === "teams") && (showClubSelectPC ? (
+            <PCClubSelectScreen teams={TEAMS} onContinue={team => { setPendingTeam(team); setScreen("coachCreate"); }} />
+          ) : (
+            <>
+              {screen === "country" && <CountryScreen onSelect={c => { setPendingCountry(c); setScreen("league"); }} onBack={() => setScreen("menu")} />}
+              {screen === "league"  && <LeagueScreen country={pendingCountry} onSelect={l => { setPendingLeague(l); setScreen("teams"); }} onBack={() => setScreen("country")} />}
+              {screen === "teams"   && <TeamSelection league={pendingLeague} onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
+            </>
+          ))}
           {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
           {screen === "dashboard" && game && (isPC
             ? <PCDashboardContent game={game} teams={TEAMS} position={pcPosition} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} lineup={lineup} setScreen={setScreen} onPlay={() => setScreen("match")} directorItems={legacyDirectorItems} chiefBriefing={chiefBriefing} medicalAlerts={pcMedicalAlerts} consequences={pcConsequences} budgetSnapshot={pcBudgetSnapshot} />
@@ -8932,7 +9001,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   );
 
   return (
-    <div {...edgeSwipe.handlers} className={showPCShell?`pc-shell${screen==="match"?" pc-match-fullscreen":""}`:undefined} style={{ background:showPCShell?undefined:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:showPCShell?"none":540, margin:showPCShell?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y", ...(showPCShell?{"--club-accent":clubAccent,"--club-text-on-accent":clubTextOnAccent}:{}) }}>
+    <div {...edgeSwipe.handlers} className={showPCShell?`pc-shell${screen==="match"?" pc-match-fullscreen":""}`:undefined} style={{ background:showPCShell?undefined:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:(showPCShell||showClubSelectPC)?"none":540, margin:(showPCShell||showClubSelectPC)?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y", ...(showPCShell?{"--club-accent":clubAccent,"--club-text-on-accent":clubTextOnAccent}:{}) }}>
       {edgeSwipe.indicator}
       {showPCShell && (
         <>
@@ -8940,7 +9009,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           <PCSidebar screen={screen} setScreen={setScreen} attentionCount={attentionCount} onExit={handleExitToMenu} />
         </>
       )}
-      {!showPCShell && screen !== "menu" && (
+      {!showPCShell && !showClubSelectPC && screen !== "menu" && (
         <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"11px 14px", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
           {screen === "dashboard" && game && (
             <button onClick={handleExitToMenu}
