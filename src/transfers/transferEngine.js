@@ -1,4 +1,5 @@
 import { staffModifier } from "../staff/staffEngine.js";
+import { getTotalMatchdays } from "../data/leagues.js";
 
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 
@@ -73,7 +74,9 @@ function targetForNeed(buyer,buyerSquad,teams,squads,game){
 export function refreshTransferListings(game,teams,squads,force=false){
   const current=ensureTransferState(game);if(!force&&(current.transferMarket.listings??[]).length)return current;
   const listings=[];
-  teams.filter(team=>team.id!==game.teamId).forEach((team,teamIndex)=>{
+  // Un club solo ve listados de su propia division y de las inferiores (nunca hacia arriba).
+  const userTier=teams.find(team=>team.id===game.teamId)?.tier??1;
+  teams.filter(team=>team.id!==game.teamId&&(team.tier??1)>=userTier).forEach((team,teamIndex)=>{
     const squad=squads[team.id]??[];
     const balance=squadBalance(squad);
     const safeFallback=stableSort(squad.filter(player=>player.overall<=84&&player.group!=="POR"&&(balance.counts[player.group]??0)>groupMin[player.group]&&!isCorePlayer(player,team)),team.id)[0];
@@ -167,7 +170,7 @@ export function resolveIncomingOffer(game,offerId,decision){const current=ensure
 
 export function maybeCreateIncomingOffer(game,teams){
   const current=ensureTransferState(game);const candidates=current.players.filter(player=>player.marketStatus&&!current.transferMarket.incomingOffers.some(item=>item.playerId===player.id&&item.status==="pending"));
-  if(!candidates.length||Math.random()>.42)return current;const player=candidates[Math.floor(Math.random()*candidates.length)];const buyers=teams.filter(team=>team.id!==game.teamId);const buyer=buyers[Math.floor(Math.random()*buyers.length)];
+  if(!candidates.length||Math.random()>.42)return current;const player=candidates[Math.floor(Math.random()*candidates.length)];const buyers=teams.filter(team=>team.id!==game.teamId&&team.leagueId===(game.leagueId??"esp_primera"));if(!buyers.length)return current;const buyer=buyers[Math.floor(Math.random()*buyers.length)];
   const value=marketValue(player);
   const offer={id:`incoming-${game.season}-${game.matchday}-${player.id}`,playerId:player.id,playerName:player.name,fromTeamId:game.teamId,toTeamId:buyer.id,type:player.marketStatus==="loan"?"loan":"transfer",amount:player.marketStatus==="loan"?Math.round(value*.06):Math.round(value*(.88+Math.random()*.25)),status:"pending",createdMatchday:game.matchday};
   return{...current,transferMarket:{...current.transferMarket,incomingOffers:[offer,...current.transferMarket.incomingOffers]}};
@@ -175,9 +178,10 @@ export function maybeCreateIncomingOffer(game,teams){
 
 export function maybeCreateAITransfer(game,teams,squads){
   const current=ensureTransferState(game);const market=current.transferMarket;const matchday=current.matchday??1;
-  const isWindow=matchday<=8||matchday>=31;
+  const totalMatchdays=getTotalMatchdays(game.leagueConfig);
+  const isWindow=matchday<=8||matchday>=totalMatchdays-7;
   if(matchday<2||matchday-(market.lastAiMatchday??0)<(isWindow?1:3)||Math.random()>(isWindow ? .82 : .46))return current;
-  const clubs=teams.filter(team=>team.id!==game.teamId&&(squads[team.id]??[]).length>16);
+  const clubs=teams.filter(team=>team.id!==game.teamId&&team.leagueId===(game.leagueId??"esp_primera")&&(squads[team.id]??[]).length>16);
   if(clubs.length<2)return current;
   const needy=clubs.map(team=>({team,balance:squadBalance(squads[team.id]??[])})).filter(row=>row.balance.needs.length).map(row=>row.team);
   const buyer=(needy.length&&Math.random()<.62)?needy[Math.floor(Math.random()*needy.length)]:clubs[Math.floor(Math.random()*clubs.length)];

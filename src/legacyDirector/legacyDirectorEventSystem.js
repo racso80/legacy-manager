@@ -1,6 +1,7 @@
 import { calculateInjuryRisk, formatMedicalDuration } from "../medical/medicalEngine.js";
 import { getPlayerPersonality } from "../morale/moraleEngine.js";
 import { buildStaffRecommendations } from "../staff/staffEngine.js";
+import { getTotalMatchdays } from "../data/leagues.js";
 
 const DEBUG_EVENTS = true;
 
@@ -50,7 +51,8 @@ function weeklyPreparationMoment(game, fixture, context = {}, activeEvents = [])
   if (!game || !fixture) return null;
   const stamp = currentStamp(game);
   const matchday = stamp.matchday ?? 1;
-  if (matchday > 38) return null;
+  const totalMatchdays = getTotalMatchdays(game.leagueConfig);
+  if (matchday > totalMatchdays) return null;
   const pressureCount = activeEvents.filter(event => ["critical", "important"].includes(event.priority)).length;
   if (activeEvents.some(event => event.priority === "critical") || pressureCount >= 3) return null;
   if (matchday > 1 && matchday % 7 === 0 && pressureCount > 0) return null;
@@ -58,7 +60,7 @@ function weeklyPreparationMoment(game, fixture, context = {}, activeEvents = [])
   const opponentId = fixture.homeTeamId === game.teamId ? fixture.awayTeamId : fixture.homeTeamId;
   const opponentPos = standingPosition(game, opponentId);
   const userPos = standingPosition(game, game.teamId);
-  const isImportantMatch = matchday >= 31 || (opponentPos && opponentPos <= 6) || (userPos && userPos <= 6);
+  const isImportantMatch = matchday >= totalMatchdays - 7 || (opponentPos && opponentPos <= 6) || (userPos && userPos <= 6);
   const tiredPlayer = [...(game.players ?? [])].sort((a, b) => (b.fatigue ?? 0) - (a.fatigue ?? 0))[0];
   const avgFatigue = (game.players ?? []).length ? (game.players ?? []).reduce((sum, player) => sum + (player.fatigue ?? 0), 0) / (game.players ?? []).length : 20;
   const bestYouth = [...(game.youth?.players ?? [])].sort((a, b) => (b.potential ?? 0) - (a.potential ?? 0))[0];
@@ -215,7 +217,8 @@ function externalWorldMoment(game, activeEvents = []) {
   if (!game) return null;
   const stamp = currentStamp(game);
   const matchday = stamp.matchday ?? 1;
-  if (matchday <= 1 || matchday > 39) return null;
+  const totalMatchdays = getTotalMatchdays(game.leagueConfig);
+  if (matchday <= 1 || matchday > totalMatchdays + 1) return null;
   if (activeEvents.some(event => event.priority === "critical")) return null;
   if (activeEvents.filter(event => event.priority === "important").length >= 3) return null;
 
@@ -227,7 +230,7 @@ function externalWorldMoment(game, activeEvents = []) {
   const commonId = `${stamp.season}:${lastFixture.matchday}`;
   const userPos = standingPosition(game, game.teamId);
   const opponentPos = standingPosition(game, result.opponentId);
-  const topContext = (userPos && userPos <= 6) || (opponentPos && opponentPos <= 6) || lastFixture.matchday >= 31;
+  const topContext = (userPos && userPos <= 6) || (opponentPos && opponentPos <= 6) || lastFixture.matchday >= totalMatchdays - 7;
   const derby = isRivalry(game, result.opponentId);
   const recentResults = recent.slice(0, 4).map(item => userFixtureResult(game, item)).filter(Boolean);
   let winStreakLen = 0;
@@ -240,7 +243,7 @@ function externalWorldMoment(game, activeEvents = []) {
   const seriousInjury = (game.players ?? []).find(player => (player.medical?.startedMatchday ?? player.injuryMatchday) === lastFixture.matchday && (player.medical?.remainingDays ?? 0) >= 28);
   const recentOwnTransfer = [...(game.transfers ?? [])].reverse().find(item => Number(item.matchday ?? 0) >= matchday - 1 && (item.toTeamId === game.teamId || ["buy", "loanIn"].includes(item.type)));
   const star = [...(game.players ?? [])].filter(player => (player.overall ?? 0) >= 82).sort((a, b) => (b.overall ?? 0) - (a.overall ?? 0))[0];
-  const marketWindow = matchday <= 8 || matchday >= 31;
+  const marketWindow = matchday <= 8 || matchday >= totalMatchdays - 7;
   const canRumor = marketWindow && star && matchday % 5 === 0 && !recentOwnTransfer;
   const base = { season:stamp.season, matchday };
   const candidates = [
@@ -437,7 +440,8 @@ function lockerRoomLifeMoment(game, activeEvents = []) {
   if (!game) return null;
   const stamp = currentStamp(game);
   const matchday = stamp.matchday ?? 1;
-  if (matchday <= 1 || matchday > 39) return null;
+  const totalMatchdays = getTotalMatchdays(game.leagueConfig);
+  if (matchday <= 1 || matchday > totalMatchdays + 1) return null;
   if (activeEvents.some(event => event.priority === "critical")) return null;
   if (activeEvents.filter(event => event.priority === "important").length >= 3) return null;
 

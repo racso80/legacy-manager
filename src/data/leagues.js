@@ -43,6 +43,15 @@ export const getLeagueById = id => LEAGUES.find(l => l.id === id);
 export const getLeaguesByCountry = country => LEAGUES.filter(l => l.country === country);
 
 /**
+ * Numero total de jornadas de una liga (ida y vuelta contra todos los rivales),
+ * derivado de teamsCount en vez de asumir siempre 38 (20 equipos).
+ */
+export function getTotalMatchdays(league) {
+  const teamsCount = league?.teamsCount ?? 20;
+  return (teamsCount - 1) * 2;
+}
+
+/**
  * Zona de clasificacion (ascenso/Europa/descenso) para una posicion dada,
  * derivada de la config de la liga en vez de asumir siempre las reglas de
  * Primera. `league` es un objeto LEAGUES (o game.leagueConfig).

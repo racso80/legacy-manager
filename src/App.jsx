@@ -58,7 +58,8 @@ import { buildLegacyDirectorEvents, dedupeAttentionItems, legacyDirectorEventsTo
 import { buildSceneExpectation, buildSceneFromDirectorItem, ensureSceneState, recordSceneDecision } from "./scenes/sceneEngine.js";
 import { CloudSaveConflictError, deleteCloudSave, getCloudSyncSnapshot, getCurrentSession, loadCloudSave, logCloudEvent, onAuthStateChange, serializeSavePayload, signInWithEmail, signOut, signUpWithEmail, upsertCloudSave } from "./cloud/cloudSaveService.js";
 import { buildPlayerState, cleanConsequenceText, getInjuryRiskBadge, getMedicalAlerts, getPlayerSmartActions, sanitizeLineupSelection } from "./state/gameStateSelectors.js";
-import { LEAGUES, getLeagueById, getLeaguesByCountry, getStandingsZone } from "./data/leagues.js";
+import { LEAGUES, getLeagueById, getLeaguesByCountry, getStandingsZone, getTotalMatchdays } from "./data/leagues.js";
+import { getRelegationCandidates, getDirectPromotionCandidates, getPlayoffCandidates, rankOffscreenTeams } from "./season/promotionEngine.js";
 import { SEGUNDA_TEAMS } from "./data/segundaTeams.js";
 import { SEGUNDA_SQUADS } from "./data/segundaSquads.js";
 import { _p, _r } from "./data/playerHelpers.js";
@@ -581,7 +582,10 @@ function getScoutingPool(game) {
   const bought=new Set((game?.transfers??[]).filter(item=>item.type==="buy").map(item=>item.player?.id));
   const freeAgentIds=new Set((game?.freeAgents??[]).map(player=>player.id));
   const season=game?.season??"2025", matchday=game?.matchday??1;
-  const external=TEAMS.filter(team=>team.id!==game?.teamId).flatMap(team=>(REAL_SQUADS[team.id]??[]).filter(player=>!owned.has(player.id)&&!bought.has(player.id)&&!freeAgentIds.has(player.id)).map(player=>({...enrichPlayerProfile(ensurePlayerLifecycle(player,season,matchday),season),_teamId:team.id,_teamName:team.name,_teamColor:team.color})));
+  // Un club solo tiene ojeadores en su propia division y en las inferiores (nunca hacia arriba):
+  // Primera (tier 1) explora Primera+Segunda, Segunda (tier 2) solo explora Segunda.
+  const userTier=TEAMS.find(team=>team.id===game?.teamId)?.tier??1;
+  const external=TEAMS.filter(team=>team.id!==game?.teamId&&(team.tier??1)>=userTier).flatMap(team=>(REAL_SQUADS[team.id]??[]).filter(player=>!owned.has(player.id)&&!bought.has(player.id)&&!freeAgentIds.has(player.id)).map(player=>({...enrichPlayerProfile(ensurePlayerLifecycle(player,season,matchday),season),_teamId:team.id,_teamName:team.name,_teamColor:team.color})));
   const migratedFreeAgents=(game?.freeAgents??[]).filter(player=>!owned.has(player.id)).map(player=>({...enrichPlayerProfile(ensurePlayerLifecycle(player,season,matchday),season),_teamId:"agente_libre",_teamName:"Agente libre",_teamColor:"#6b7280"}));
   const soldFreeAgents=(game?.transfers??[]).filter(item=>item.type==="sell"&&!owned.has(item.player?.id)).map(item=>({...enrichPlayerProfile(ensurePlayerLifecycle(item.player,season,matchday),season),_teamId:"agente_libre",_teamName:"Agente libre",_teamColor:"#6b7280"}));
   const freeAgents=[...migratedFreeAgents,...soldFreeAgents];
@@ -598,11 +602,11 @@ function generateFixtures(leagueId = "esp_primera") {
   let id = 1;
 
   // Circle (round-robin) algorithm — fixes the fixed team at position 0
-  // Each team plays home once and away once vs every other team across 38 jornadas
-  const rotating = [...teamIds.slice(1)]; // teams 1..19 rotate
+  // Each team plays home once and away once vs every other team across (n-1)*2 jornadas
+  const rotating = [...teamIds.slice(1)]; // teams 1..n-1 rotate
   const fixed    = teamIds[0];            // team 0 is fixed
 
-  const rounds = []; // 19 rounds × 10 pairs
+  const rounds = []; // (n-1) rounds × n/2 pairs
 
   for (let r = 0; r < n - 1; r++) {
     const circle = [fixed, ...rotating];
@@ -620,7 +624,7 @@ function generateFixtures(leagueId = "esp_primera") {
     rotating.unshift(rotating.pop());
   }
 
-  // Primera vuelta (J1–J19)
+  // Primera vuelta (J1–J(n-1))
   rounds.forEach((pairs, r) => {
     pairs.forEach(([h, a]) => {
       fixtures.push({
@@ -631,11 +635,11 @@ function generateFixtures(leagueId = "esp_primera") {
     });
   });
 
-  // Segunda vuelta (J20–J38): invertir local/visitante de la primera
+  // Segunda vuelta (Jn–J(2n-2)): invertir local/visitante de la primera
   rounds.forEach((pairs, r) => {
     pairs.forEach(([h, a]) => {
       fixtures.push({
-        id: id++, matchday: r + 20,
+        id: id++, matchday: r + n,
         homeTeamId: a, awayTeamId: h,
         played: false, homeGoals: null, awayGoals: null, events: []
       });
@@ -911,6 +915,77 @@ function simAIGame(homeTeam, awayTeam, fixtures = []) {
   }
 
   return { homeGoals: hGoals, awayGoals: aGoals, events };
+}
+
+// ─── PLAYOFF DE ASCENSO (Segunda División) ──────────────────────────────────
+
+// Resuelve un cruce a partido unico entre dos equipos IA. Un empate se decide
+// por penaltis (aqui, una moneda al aire: no se modela la tanda en si).
+function resolveOneLegWinner(homeId, awayId) {
+  const home = TEAMS.find(t => t.id === homeId);
+  const away = TEAMS.find(t => t.id === awayId);
+  if (!home) return awayId;
+  if (!away) return homeId;
+  const result = simAIGame(home, away);
+  if (result.homeGoals === result.awayGoals) return Math.random() < 0.5 ? homeId : awayId;
+  return result.homeGoals > result.awayGoals ? homeId : awayId;
+}
+
+// Resuelve un playoff completo (semifinales + final) a partir de 4 equipos ya
+// ordenados [p3,p4,p5,p6] — usado para la liga que el usuario no esta jugando
+// esa temporada, donde no hay forma de que dispute el playoff en persona.
+function simulateOffscreenPlayoff([p3, p4, p5, p6] = []) {
+  if (!p3) return null;
+  const semiAWinner = resolveOneLegWinner(p3, p6);
+  const semiBWinner = resolveOneLegWinner(p4, p5);
+  return resolveOneLegWinner(semiAWinner, semiBWinner);
+}
+
+// Construye el estado inicial del playoff cuando el USUARIO termina la
+// temporada de Segunda en posiciones 3-6. La semifinal que no le incluye se
+// resuelve al instante (IA vs IA); la suya queda pendiente de jugarse.
+function buildInitialPlayoffState(game, standings, leagueConfig) {
+  const candidates = getPlayoffCandidates(standings, leagueConfig);
+  const { semiA, semiB } = buildPlayoffPairing(candidates);
+  const userInSemiA = semiA.home === game.teamId || semiA.away === game.teamId;
+  const resolvedSemiB = userInSemiA ? { ...semiB, winnerId: resolveOneLegWinner(semiB.home, semiB.away) } : semiB;
+  const resolvedSemiA = userInSemiA ? semiA : { ...semiA, winnerId: resolveOneLegWinner(semiA.home, semiA.away) };
+  return {
+    season: game.season, leagueId: game.leagueId ?? "esp_segunda",
+    stage: "semis", userSemi: userInSemiA ? "A" : "B",
+    semiA: resolvedSemiA, semiB: resolvedSemiB,
+    final: null, promotedTeamId: null,
+  };
+}
+
+// Simulacion de la pierna del USUARIO en el playoff: a diferencia de simAIGame
+// (que usa la media historica del equipo), aqui la fuerza sale de la
+// alineacion y tactica realmente elegidas, para que la seleccion del usuario
+// tenga un efecto genuino en el resultado.
+function simPlayoffLeg({ userPlayers, userLineupIds, tactics, oppTeamId, isHome }) {
+  const oppSquad = REAL_SQUADS[oppTeamId] ?? [];
+  const oppFormation = chooseOpponentFormation(oppTeamId);
+  const oppCallup = buildMatchdaySquad(oppSquad, oppFormation, BENCH_SLOTS);
+  const oppStarters = oppCallup.lineup.map(id => oppSquad.find(p => p.id === id)).filter(Boolean);
+  const userStarters = userLineupIds.map(id => userPlayers.find(p => p.id === id)).filter(Boolean);
+
+  const userAtk = calcTeamStrength(userStarters, isHome, tactics);
+  const userDef = calcDefStrength(userStarters, tactics);
+  const oppAtk  = calcTeamStrength(oppStarters, !isHome, DEFAULT_TACTICS);
+  const oppDef  = calcDefStrength(oppStarters, DEFAULT_TACTICS);
+
+  const userExpected = Math.max(0.3, Math.min(3.2, 1.35 + (userAtk - oppDef) * 0.045));
+  const oppExpected  = Math.max(0.25, Math.min(3.0, 1.15 + (oppAtk - userDef) * 0.045));
+  const userGoals = Math.min(6, poissonGoals(userExpected));
+  const oppGoals  = Math.min(6, poissonGoals(oppExpected));
+
+  const events = [];
+  for (let i = 0; i < userGoals; i++) events.push(createGoalEvent({ minute: 1 + Math.floor(Math.random()*89), team:"user", squad:userStarters, teamName:"", tactics, fixtures:[] }));
+  for (let i = 0; i < oppGoals; i++) events.push(createGoalEvent({ minute: 1 + Math.floor(Math.random()*89), team:"opp", squad:oppStarters, teamName:"", tactics:DEFAULT_TACTICS, fixtures:[] }));
+
+  let wentToPenalties = false, userWon = userGoals > oppGoals;
+  if (userGoals === oppGoals) { wentToPenalties = true; userWon = Math.random() < 0.5; }
+  return { userGoals, oppGoals, events, userWon, wentToPenalties };
 }
 
 // Descripciones contextuales por estilo táctico
@@ -3561,7 +3636,7 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
   const agendaItems = [
     nextFixture && { icon:"⚽", title:`Partido de Liga · Jornada ${nextFixture.matchday}`, detail:`${nextFixture.homeTeamId===game.teamId?"Recibes a":"Visitas a"} ${nextOpponent?.name ?? "rival por confirmar"}`, action:"match" },
     { icon:"🏋️", title:"Entrenamiento de la plantilla", detail:`Carga ${game.trainingPlan?.load ?? "media"} · revisar si hay fatiga acumulada`, action:"training" },
-    (game.matchday<=8||game.matchday>=31) && { icon:"💰", title:"Mercado abierto", detail:game.matchday<=8?`Quedan ${Math.max(0,9-game.matchday)} jornadas para el cierre inicial`:`Quedan ${Math.max(0,39-game.matchday)} jornadas para el cierre final`, action:"transfers" },
+    (game.matchday<=8||game.matchday>=getTotalMatchdays(game.leagueConfig)-7) && { icon:"💰", title:"Mercado abierto", detail:game.matchday<=8?`Quedan ${Math.max(0,9-game.matchday)} jornadas para el cierre inicial`:`Quedan ${Math.max(0,getTotalMatchdays(game.leagueConfig)+1-game.matchday)} jornadas para el cierre final`, action:"transfers" },
     urgentAttention.find(item=>item.category==="contracts") && { icon:"📄", title:"Contratos pendientes", detail:"Hay decisiones contractuales que requieren revisión", action:"contracts" },
     (game.transferMarket?.offers??[]).some(offer=>["clubCounter","playerCounter","ready","clubAccepted"].includes(offer.status)) && { icon:"📬", title:"Negociaciones activas", detail:"Hay respuestas de mercado esperando decisión", action:"transfers" },
   ].filter(Boolean).slice(0,4);
@@ -4821,7 +4896,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen }
   const myLost   = myPlayed - myWon - myDrawn;
   const myGF     = myResults.reduce((s,f)=>s+(f.homeTeamId===teamId?f.homeGoals:f.awayGoals),0);
   const myGA     = myResults.reduce((s,f)=>s+(f.homeTeamId===teamId?f.awayGoals:f.homeGoals),0);
-  const totalMD  = 38;
+  const totalMD  = fixtures.length ? Math.max(...fixtures.map(f=>f.matchday)) : 38;
   const mdOptions = Array.from({length:totalMD},(_,i)=>i+1);
 
   const resultColor = (f) => {
@@ -4867,7 +4942,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen }
             <option key={md} value={md}>Jornada {md}{md===nextUnplayed?.matchday?" ← siguiente":""}</option>
           ))}
         </select>
-        <button onClick={()=>setMatchday(m=>Math.min(38,m+1))}
+        <button onClick={()=>setMatchday(m=>Math.min(totalMD,m+1))}
           style={{ background:"#1e2330", color:"#e8eaf0", border:"1px solid rgba(255,255,255,.08)", padding:"7px 12px", borderRadius:7, cursor:"pointer", fontSize:14, fontWeight:600 }}>→</button>
       </div>
 
@@ -6636,7 +6711,8 @@ export function TacticsInMatch({ tactics, setTactics, formation, onFormationChan
 
 function MatchSummaryScreen({ summary, onContinue }) {
   const { userTeam, oppTeam, isHome, userGoals, oppGoals, matchday,
-          events, players, opponentPlayers=[], participation={}, jornadaResults, newStandings, teamId, income } = summary;
+          events, players, opponentPlayers=[], participation={}, jornadaResults, newStandings, teamId, income, leagueConfig } = summary;
+  const totalMatchdays = getTotalMatchdays(leagueConfig);
 
   const won  = userGoals > oppGoals;
   const drew = userGoals === oppGoals;
@@ -6912,13 +6988,102 @@ function MatchSummaryScreen({ summary, onContinue }) {
       {/* Botón continuar */}
       <button onClick={onContinue} className="btn-gold"
         style={{ width:"100%", padding:14, borderRadius:9, fontSize:15, marginBottom:4 }}>
-        {matchday >= 38 ? "Ver resumen de temporada →" : `Continuar a Jornada ${matchday + 1} →`}
+        {matchday >= totalMatchdays ? "Ver resumen de temporada →" : `Continuar a Jornada ${matchday + 1} →`}
       </button>
     </div>
   );
 }
 
 // ─── FIN DE TEMPORADA ────────────────────────────────────────────────────────
+
+// ─── PLAYOFF DE ASCENSO (pantalla interactiva) ──────────────────────────────
+function PlayoffMatchRow({ label, pairing, teams, userTeamId }) {
+  const home = teams.find(t => t.id === pairing?.home);
+  const away = teams.find(t => t.id === pairing?.away);
+  const result = pairing?.result;
+  const resolved = Boolean(pairing?.winnerId);
+  return (
+    <div style={{ background:"#161a24", border:"1px solid rgba(255,255,255,.07)", borderRadius:10, padding:12, marginBottom:8 }}>
+      <div style={{ fontSize:10, color:"#6b7280", fontWeight:700, letterSpacing:".5px", marginBottom:8 }}>{label}</div>
+      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+        <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, opacity: resolved && pairing.winnerId!==home?.id ? .5 : 1 }}>
+          <TeamCrest team={home} size={22}/>
+          <span style={{ fontSize:12, fontWeight: home?.id===userTeamId?700:500, color: home?.id===userTeamId?"#c9a84c":"#e8eaf0" }}>{home?.name ?? "?"}</span>
+        </div>
+        <div style={{ fontSize:13, fontWeight:800, color:"#e8eaf0", background:"#0d0f14", padding:"3px 10px", borderRadius:6, minWidth:44, textAlign:"center" }}>
+          {result ? `${result.homeGoals}-${result.awayGoals}` : "vs"}
+        </div>
+        <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end", opacity: resolved && pairing.winnerId!==away?.id ? .5 : 1 }}>
+          <span style={{ fontSize:12, fontWeight: away?.id===userTeamId?700:500, color: away?.id===userTeamId?"#c9a84c":"#e8eaf0", textAlign:"right" }}>{away?.name ?? "?"}</span>
+          <TeamCrest team={away} size={22}/>
+        </div>
+      </div>
+      {result?.wentToPenalties && <div style={{ fontSize:10, color:"#f59e0b", marginTop:6, textAlign:"center" }}>Resuelto en la tanda de penaltis</div>}
+    </div>
+  );
+}
+
+function PlayoffBracketScreen({ game, teams, lineup, setScreen, onPlayLeg, onFinish }) {
+  const playoff = game.playoff;
+  const teamId = game.teamId;
+  const teamName = teams.find(t => t.id === teamId)?.name ?? "Tu equipo";
+  const available = (game.players ?? []).filter(p => !p.injured && !p.suspended);
+  const lineupValid = lineup.filter(id => id && available.find(p => p.id === id)).length === 11;
+
+  const userPairing = playoff.stage === "final" ? playoff.final : (playoff.userSemi === "A" ? playoff.semiA : playoff.semiB);
+  const userPending = playoff.stage !== "done" && !userPairing?.winnerId;
+  const lastLeg = game._lastPlayoffLeg;
+
+  const promoted = playoff.stage === "done" && playoff.promotedTeamId === teamId;
+  const eliminated = playoff.stage === "done" && playoff.promotedTeamId !== teamId;
+
+  return (
+    <div style={{ flex:1, overflowY:"auto", padding:16 }}>
+      <div style={{ fontSize:18, fontWeight:800, color:"#e8eaf0", marginBottom:2 }}>Playoff de Ascenso a LaLiga</div>
+      <div style={{ fontSize:11, color:"#6b7280", marginBottom:16 }}>{teamName} · Temporada {playoff.season}</div>
+
+      <PlayoffMatchRow label="SEMIFINAL A" pairing={playoff.semiA} teams={teams} userTeamId={teamId} />
+      <PlayoffMatchRow label="SEMIFINAL B" pairing={playoff.semiB} teams={teams} userTeamId={teamId} />
+      {playoff.final && <PlayoffMatchRow label="FINAL" pairing={playoff.final} teams={teams} userTeamId={teamId} />}
+
+      {playoff.stage === "done" && (
+        <div style={{ background: promoted ? "rgba(34,197,94,.12)" : "rgba(239,68,68,.1)", border:`1px solid ${promoted?"#22c55e":"#ef4444"}44`, borderRadius:10, padding:16, marginTop:12, textAlign:"center" }}>
+          <div style={{ fontSize:28, marginBottom:6 }}>{promoted ? "🏆" : "😔"}</div>
+          <div style={{ fontSize:14, fontWeight:800, color: promoted?"#22c55e":"#ef4444" }}>
+            {promoted ? "¡Ascenso a Primera División!" : "Playoff superado por el rival"}
+          </div>
+        </div>
+      )}
+
+      {!lineupValid && userPending && (
+        <div style={{ background:"#1a1500", border:"1px solid #f59e0b33", borderRadius:10, padding:12, marginTop:12, textAlign:"center" }}>
+          <div style={{ fontSize:12, color:"#f59e0b", marginBottom:8 }}>Configura tu alineación antes de disputar el partido.</div>
+          <button onClick={() => setScreen("lineup")} className="btn-gold" style={{ padding:"8px 16px", borderRadius:8, fontSize:12 }}>Ir a Alineación</button>
+        </div>
+      )}
+
+      {lastLeg && userPending === false && playoff.stage !== "done" && (
+        <div style={{ background:"#161a24", borderRadius:10, padding:12, marginTop:12, textAlign:"center", fontSize:12, color:"#e8eaf0" }}>
+          Resultado: {lastLeg.homeGoals}-{lastLeg.awayGoals}{lastLeg.wentToPenalties ? " (penaltis)" : ""}
+        </div>
+      )}
+
+      <div style={{ marginTop:16 }}>
+        {userPending && (
+          <button onClick={onPlayLeg} disabled={!lineupValid} className="btn-gold"
+            style={{ width:"100%", padding:14, borderRadius:9, fontSize:15, ...(!lineupValid ? { background:"#374151", color:"#9aa0b4" } : {}) }}>
+            {playoff.stage === "final" ? "▶ Jugar la Final" : "▶ Jugar Semifinal"}
+          </button>
+        )}
+        {playoff.stage === "done" && (
+          <button onClick={onFinish} className="btn-gold" style={{ width:"100%", padding:14, borderRadius:9, fontSize:15 }}>
+            Continuar a pretemporada →
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function SeasonEndScreen({ seasonSummary, onNewSeason }) {
   const { standings, teamId, season, history, players, legacy } = seasonSummary;
@@ -7812,6 +7977,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         newStandings,
         teamId:         prev.teamId,
         income:         incomeResult,
+        leagueConfig:   prev.leagueConfig,
       };
       const newIncomeLog = [...(prev.incomeLog ?? []), { matchday, ...incomeResult }];
       const playerLookup = buildPlayerLookup(TEAMS, REAL_SQUADS, newPlayers, prev.teamId);
@@ -7889,7 +8055,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
 
       // Detectar fin de temporada (última jornada jugada)
       const allPlayed = finalFixtures.every(f => f.played);
-      if (allPlayed || matchday >= 38) {
+      if (allPlayed || matchday >= getTotalMatchdays(newGame.leagueConfig)) {
         const userSt = newStandings.find(s => s.teamId === prev.teamId);
         const sorted = [...newStandings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference);
         const userPos = sorted.findIndex(s=>s.teamId===prev.teamId)+1;
@@ -7903,6 +8069,15 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         const academyReportNews=generateYouthNews({items:[{title:"La cantera presenta su informe anual",summary:`${youthAnnualReport.promoted} promocionados · valor generado ${youthAnnualReport.generatedValue>=1000?`€${(youthAnnualReport.generatedValue/1000).toFixed(1)}M`:`€${youthAnnualReport.generatedValue}K`}.`,importance:youthAnnualReport.promoted>0?"high":"medium",fingerprint:`academy-annual:${prev.season}`}],season:prev.season??"2025",matchday,userTeamId:prev.teamId});
         let finalSeasonGame={...newGame,players:finalPlayers,history:newHistory,legacy:legacyFinal.legacy,budgetAdjustment:newGame.budgetAdjustment+legacyFinal.budgetReward,youth:{...newGame.youth,annualReports:[youthAnnualReport,...(newGame.youth?.annualReports??[])]},news:mergeNews(newGame.news,[...seasonBoardNews,...academyReportNews]),seasonTransition:"seasonEnd"};
         finalSeasonGame=finalizeCoachSeason(finalSeasonGame,{team:userTeamData,position:userPos,points:userSt?.points??0,title:legacyFinal.title,confidence:legacyFinal.legacy.confidence,youthReport:youthAnnualReport,legacyDelta:legacyFinal.managerDelta});
+        // Si el usuario termina en zona de playoff de ascenso (Segunda), se arma
+        // el bracket: la semifinal que no le incluye se resuelve al instante.
+        const userLeagueConfigEnd = finalSeasonGame.leagueConfig ?? getLeagueById(finalSeasonGame.leagueId ?? "esp_primera");
+        const promotionSpotsEnd = userLeagueConfigEnd?.promotionSpots ?? 0;
+        const playoffSpotsEnd = userLeagueConfigEnd?.playoffSpots ?? 0;
+        const inPlayoffZone = userLeagueConfigEnd?.hasPlayoff && userPos > promotionSpotsEnd && userPos <= promotionSpotsEnd + playoffSpotsEnd;
+        if (inPlayoffZone) {
+          finalSeasonGame = { ...finalSeasonGame, playoff: buildInitialPlayoffState(finalSeasonGame, newStandings, userLeagueConfigEnd) };
+        }
         const endData = { standings: newStandings, teamId: prev.teamId, season: prev.season??"2025", history: newHistory, players: finalPlayers, legacy:legacyFinal.legacy,game:finalSeasonGame };
         setTimeout(() => { setSeasonSummary(endData); setScreen("seasonEnd"); }, 0);
         saveGame(finalSeasonGame);
@@ -7920,20 +8095,113 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     }, 0);
   };
 
+  // El usuario juega su propia pierna del playoff de ascenso (semifinal o final).
+  // La alineacion/tactica activas (las mismas que en liga) determinan el resultado.
+  const handlePlayoffPlayLeg = () => {
+    setGame(prev => {
+      const playoff = prev.playoff;
+      if (!playoff || playoff.stage === "done") return prev;
+      const stage = playoff.stage;
+      const myPairing = stage === "semis" ? (playoff.userSemi === "A" ? playoff.semiA : playoff.semiB) : playoff.final;
+      const isHome = myPairing.home === prev.teamId;
+      const oppTeamId = isHome ? myPairing.away : myPairing.home;
+      const teamName = TEAMS.find(t => t.id === prev.teamId)?.name ?? prev.name ?? "El equipo";
+      const oppTeam = TEAMS.find(t => t.id === oppTeamId);
+      const leg = simPlayoffLeg({ userPlayers: prev.players, userLineupIds: lineup, tactics, oppTeamId, isHome });
+      const winnerId = leg.userWon ? prev.teamId : oppTeamId;
+      const legSummary = {
+        homeTeamId: isHome ? prev.teamId : oppTeamId, awayTeamId: isHome ? oppTeamId : prev.teamId,
+        homeGoals: isHome ? leg.userGoals : leg.oppGoals, awayGoals: isHome ? leg.oppGoals : leg.userGoals,
+        wentToPenalties: leg.wentToPenalties, winnerId, events: leg.events,
+      };
+      let newPlayoff, extraItems = [];
+      if (stage === "semis") {
+        const updated = { ...myPairing, winnerId, result: legSummary };
+        const semiA = playoff.userSemi === "A" ? updated : playoff.semiA;
+        const semiB = playoff.userSemi === "B" ? updated : playoff.semiB;
+        if (leg.userWon) {
+          const rivalId = semiA.winnerId === prev.teamId ? semiB.winnerId : semiA.winnerId;
+          newPlayoff = { ...playoff, semiA, semiB, stage: "final", final: { home: semiA.winnerId, away: semiB.winnerId } };
+          extraItems.push({ title: `${teamName} avanza a la final del playoff`, summary: `Se medirá a ${TEAMS.find(t=>t.id===rivalId)?.name ?? "su rival"} por la última plaza de ascenso.`, importance:"high", fingerprint:`playoff-final:${prev.season}:${prev.teamId}` });
+        } else {
+          const finalWinner = resolveOneLegWinner(semiA.winnerId, semiB.winnerId);
+          newPlayoff = { ...playoff, semiA, semiB, stage: "done", final: { home: semiA.winnerId, away: semiB.winnerId, winnerId: finalWinner }, promotedTeamId: finalWinner };
+          extraItems.push({ title: `${teamName} cae eliminado del playoff de ascenso`, summary:"La temporada termina sin el ascenso a Primera División.", importance:"high", fingerprint:`playoff-out:${prev.season}:${prev.teamId}` });
+        }
+      } else {
+        newPlayoff = { ...playoff, stage: "done", final: { ...playoff.final, winnerId, result: legSummary }, promotedTeamId: winnerId };
+        extraItems.push(leg.userWon
+          ? { title: `¡${teamName} asciende a Primera División!`, summary:"El equipo gana la final del playoff y jugará en LaLiga la próxima temporada.", importance:"critical", fingerprint:`playoff-champion:${prev.season}:${prev.teamId}` }
+          : { title: `${teamName} pierde la final del playoff`, summary:`${oppTeam?.name ?? "El rival"} certifica el ascenso a Primera División.`, importance:"critical", fingerprint:`playoff-final-loss:${prev.season}:${prev.teamId}` });
+      }
+      const news = generateBoardNews({ items: extraItems, season: prev.season ?? "2025", matchday: prev.matchday ?? 1, userTeamId: prev.teamId });
+      const newGame = { ...prev, playoff: newPlayoff, news: mergeNews(prev.news ?? [], news), _lastPlayoffLeg: legSummary };
+      saveGame(newGame);
+      autosaveCloud(newGame, "playoff");
+      return newGame;
+    });
+  };
+
   const handleNewSeason = () => {
     if (!seasonSummary) return;
     setGame(prev => {
       const newSeason = String(parseInt(prev.season ?? "2025") + 1);
       (prev.transfers??[]).filter(item=>item.type==="loan"&&String(item.season)===String(prev.season)).forEach(item=>{if(REAL_SQUADS[item.toTeamId]&&REAL_SQUADS[item.fromTeamId]){REAL_SQUADS[item.toTeamId]=REAL_SQUADS[item.toTeamId].filter(player=>player.id!==item.player.id);if(!REAL_SQUADS[item.fromTeamId].some(player=>player.id===item.player.id))REAL_SQUADS[item.fromTeamId]=[...REAL_SQUADS[item.fromTeamId],item.player];}});
-      const newFixtures  = generateFixtures(prev.leagueId ?? "esp_primera");
-      const newStandings = initStandings(prev.leagueId ?? "esp_primera");
+
+      // ── Ascensos y descensos entre Primera y Segunda ──
+      // La liga que el usuario NO jugo esta temporada no tiene clasificacion
+      // real (no se simulan sus jornadas), asi que sus movimientos se resuelven
+      // aproximando la fuerza de sus equipos por la plantilla (rankOffscreenTeams).
+      const primeraConfig = getLeagueById("esp_primera");
+      const segundaConfig = getLeagueById("esp_segunda");
+      const prevLeagueId = prev.leagueId ?? "esp_primera";
+      const userWasPrimera = prevLeagueId === "esp_primera";
+      let relegatedFromPrimera = [], promotedToPrimera = [];
+      if (userWasPrimera) {
+        relegatedFromPrimera = getRelegationCandidates(prev.standings, primeraConfig);
+        const segundaTeamIds = TEAMS.filter(t=>t.leagueId==="esp_segunda").map(t=>t.id);
+        const segundaRanked = rankOffscreenTeams(segundaTeamIds, REAL_SQUADS);
+        const direct = segundaRanked.slice(0, segundaConfig?.promotionSpots ?? 2);
+        const playoffPool = segundaRanked.slice(segundaConfig?.promotionSpots ?? 2, (segundaConfig?.promotionSpots ?? 2) + (segundaConfig?.playoffSpots ?? 4));
+        const playoffWinner = simulateOffscreenPlayoff(playoffPool);
+        promotedToPrimera = [...direct, playoffWinner].filter(Boolean);
+      } else {
+        const direct = getDirectPromotionCandidates(prev.standings, segundaConfig);
+        let playoffWinner = prev.playoff?.stage === "done" ? prev.playoff.promotedTeamId : null;
+        if (!playoffWinner) {
+          const playoffPool = getPlayoffCandidates(prev.standings, segundaConfig);
+          playoffWinner = simulateOffscreenPlayoff(playoffPool);
+        }
+        promotedToPrimera = [...direct, playoffWinner].filter(Boolean);
+        const primeraTeamIds = TEAMS.filter(t=>t.leagueId==="esp_primera").map(t=>t.id);
+        relegatedFromPrimera = rankOffscreenTeams(primeraTeamIds, REAL_SQUADS).slice(-(primeraConfig?.relegationSpots ?? 3));
+      }
+      relegatedFromPrimera.forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t){t.leagueId="esp_segunda";t.tier=2;}});
+      promotedToPrimera.forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t){t.leagueId="esp_primera";t.tier=1;}});
+
+      let resolvedLeagueId = prevLeagueId, resolvedTier = prev.tier ?? (userWasPrimera?1:2);
+      const transitionNewsItems=[];
+      if (userWasPrimera && relegatedFromPrimera.includes(prev.teamId)) {
+        resolvedLeagueId="esp_segunda"; resolvedTier=2;
+        transitionNewsItems.push({title:`${TEAMS.find(t=>t.id===prev.teamId)?.name??prev.name} desciende a LaLiga Hypermotion`,summary:"El club competirá la próxima temporada en Segunda División.",importance:"critical",fingerprint:`relegation:${newSeason}:${prev.teamId}`});
+      } else if (!userWasPrimera && promotedToPrimera.includes(prev.teamId)) {
+        resolvedLeagueId="esp_primera"; resolvedTier=1;
+        transitionNewsItems.push({title:`¡${TEAMS.find(t=>t.id===prev.teamId)?.name??prev.name} asciende a LaLiga!`,summary:"El equipo jugará la próxima temporada en Primera División.",importance:"critical",fingerprint:`promotion:${newSeason}:${prev.teamId}`});
+      }
+      relegatedFromPrimera.filter(id=>id!==prev.teamId).forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t)transitionNewsItems.push({title:`${t.name} desciende a LaLiga Hypermotion`,summary:"Finaliza la temporada entre los últimos clasificados.",importance:"medium",fingerprint:`relegation:${newSeason}:${id}`});});
+      promotedToPrimera.filter(id=>id!==prev.teamId).forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t)transitionNewsItems.push({title:`${t.name} asciende a LaLiga`,summary:"Certifica el ascenso a Primera División.",importance:"medium",fingerprint:`promotion:${newSeason}:${id}`});});
+      const resolvedLeagueConfig = getLeagueById(resolvedLeagueId) ?? primeraConfig;
+      const promotionRelegationNews = generateBoardNews({items:transitionNewsItems,season:prev.season??"2025",matchday:1,userTeamId:prev.teamId});
+
+      const newFixtures  = generateFixtures(resolvedLeagueId);
+      const newStandings = initStandings(resolvedLeagueId);
       // Recuperar jugadores: reset fatiga, reducir lesiones, mantener moral parcialmente
       const teamData = TEAMS.find(team => team.id === prev.teamId);
       const baseBudget=(teamData?.budget??50)*1000;
       const weeklyWages=prev.players.reduce((sum,player)=>sum+(player.salary??0),0);
       const closingBalance=Math.round(baseBudget-Math.max(0,(prev.matchday??1)-1)*weeklyWages+(prev.budgetAdjustment??0));
       const finalPosition=[...prev.standings].sort((a,b)=>b.points-a.points||b.goalDifference-a.goalDifference).findIndex(row=>row.teamId===prev.teamId)+1;
-      const tvRights=Math.round(16000+(21-finalPosition)*350+(teamData?.fanbase??2)*700);
+      const tvRights=Math.round(16000+(prev.standings.length+1-finalPosition)*350+(teamData?.fanbase??2)*700);
       const sponsorship=Math.round(3500+(prev.legacy?.clubPrestige??30)*55);
       const members=Math.round(2500+(teamData?.fanbase??2)*750);
       const positionPrize=finalPosition===1?12000:finalPosition<=4?8000:finalPosition<=6?5000:finalPosition<=10?2500:1000;
@@ -7949,7 +8217,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const lifecycleResult=advanceSquadLifecycle(seasonPlayers,{previousSeason:prev.season??"2025",newSeason,teamId:prev.teamId,userTeamId:prev.teamId,allowRetirements:true});
       const worldLifecycleEvents=[];
       TEAMS.filter(team=>team.id!==prev.teamId).forEach(team=>{
-        const result=advanceSquadLifecycle((REAL_SQUADS[team.id]??[]).map(player=>ensurePlayerLifecycle(player,prev.season??"2025",38)),{previousSeason:prev.season??"2025",newSeason,teamId:team.id,userTeamId:prev.teamId,allowRetirements:true});
+        const result=advanceSquadLifecycle((REAL_SQUADS[team.id]??[]).map(player=>ensurePlayerLifecycle(player,prev.season??"2025",getTotalMatchdays(getLeagueById(team.leagueId)))),{previousSeason:prev.season??"2025",newSeason,teamId:team.id,userTeamId:prev.teamId,allowRetirements:true});
         REAL_SQUADS[team.id]=result.players;
         worldLifecycleEvents.push(...result.events);
       });
@@ -7970,9 +8238,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       });
       const agedYouth=advanceSquadLifecycle(prev.youth?.players??[],{previousSeason:prev.season??"2025",newSeason,teamId:prev.teamId,userTeamId:prev.teamId,allowRetirements:false}).players.map(player=>({...player,seasonStartOverall:player.overall,seasonStartValue:getMarketValue(player)}));
       const carriedMissions=(prev.scouting?.missions??[]).map(item=>item.status!=="active"?item:{...item,startedMatchday:1,completeMatchday:1+Math.max(1,Math.ceil((item.durationDays*(1-(item.progress??0)/100))/7))});
-      let g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, standingsMovement:{}, players: newPlayers, budgetAdjustment:openingBalance-baseBudget,incomeLog:[],seasonOpeningStatement,transfers:(prev.transfers??[]).map(item=>item.season?item:{...item,season:String(prev.season)}), legacy:startNextLegacySeason(prev.legacy,teamData,newSeason),scouting:{...(prev.scouting??{}),missions:carriedMissions,lastProcessedMatchday:1},youth:{...prev.youth,players:agedYouth},seasonTransition:"preseason" };
+      let g = { ...prev, season: newSeason, matchday: 1, fixtures: newFixtures, standings: newStandings, standingsMovement:{}, players: newPlayers, budgetAdjustment:openingBalance-baseBudget,incomeLog:[],seasonOpeningStatement,transfers:(prev.transfers??[]).map(item=>item.season?item:{...item,season:String(prev.season)}), legacy:startNextLegacySeason(prev.legacy,teamData,newSeason),scouting:{...(prev.scouting??{}),missions:carriedMissions,lastProcessedMatchday:1},youth:{...prev.youth,players:agedYouth},seasonTransition:"preseason",
+        leagueId:resolvedLeagueId, tier:resolvedTier, leagueConfig:resolvedLeagueConfig, playoff:null };
       const retirementNews=lifecycleNews(lifecycleEvents,{season:newSeason,matchday:1,userTeamId:prev.teamId});
-      g={...g,legacy:applyRetirementsToLegacy(g.legacy,lifecycleEvents,newSeason),news:mergeNews(g.news??[],retirementNews)};
+      g={...g,legacy:applyRetirementsToLegacy(g.legacy,lifecycleEvents,newSeason),news:mergeNews(g.news??[],[...promotionRelegationNews,...retirementNews])};
       g=ensureYouthState(g,teamData);
       g={...g,youth:{...g.youth,players:g.youth.players.map(player=>normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player,newSeason,1),newSeason)))}};
       g=refreshScoutingRecommendations(g,getScoutingPool(g));
@@ -8554,10 +8823,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     squad: "Plantilla", lineup: "Alineación", tactics: "Tácticas",
     calendar: "Calendario", standings: "Clasificación", match: "Partido",
     summary: "Resumen del partido", finances: "Finanzas",
-    seasonEnd: "Gala de Fin de Temporada", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", staff:"Staff Técnico", career:"Mi Carrera", cloudSaves:"Mis partidas", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", fans:"Afición", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
+    seasonEnd: "Gala de Fin de Temporada", playoffBracket:"Playoff de Ascenso", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", staff:"Staff Técnico", career:"Mi Carrera", cloudSaves:"Mis partidas", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", fans:"Afición", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador", conversation: selectedConversation?.actorName ?? "Conversación", scene: selectedScene?.actor?.name ?? "Escena",
   };
-  const showNav = Boolean(game) && !["menu","saves","country","league","teams","match","summary","seasonEnd","preseason","playerProfile","conversation","scene"].includes(screen);
+  const showNav = Boolean(game) && !["menu","saves","country","league","teams","match","summary","seasonEnd","playoffBracket","preseason","playerProfile","conversation","scene"].includes(screen);
   const inGame  = Boolean(game) && !["menu","saves","country","league","teams","coachCreate"].includes(screen);
   const edgeSwipe=useEdgeSwipeBack(goBack,{enabled:screen!=="dashboard"&&(showNav||screen==="playerProfile"||screen==="conversation"||screen==="scene")});
 
@@ -8640,7 +8909,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "scene" && game && <InteractiveSceneScreen scene={selectedScene} onChoose={handleSceneDecision} onBack={goBack} />}
           {screen === "match"     && game && <MatchScreen game={game} saveId={activeSaveId} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} onAbandonMatch={()=>{setRecoverableMatch(null);setScreen("dashboard");}} isPC={isPC} />}
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
-          {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} teams={TEAMS} squads={REAL_SQUADS} />}
+          {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} onPlayoff={()=>setScreen("playoffBracket")} teams={TEAMS} squads={REAL_SQUADS} />}
+          {screen === "playoffBracket" && game?.playoff && <PlayoffBracketScreen game={game} teams={TEAMS} lineup={lineup} setScreen={setScreen} onPlayLeg={handlePlayoffPlayLeg} onFinish={handleNewSeason} />}
           {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"preseason-start",{lineup,formation,subs});return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}
         </ScreenWrapper>
   );

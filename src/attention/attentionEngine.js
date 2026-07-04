@@ -3,6 +3,7 @@ import { ensurePlayerMorale } from "../morale/moraleEngine.js";
 import { buildStaffRecommendations, ensureStaffState, getStaffMember } from "../staff/staffEngine.js";
 import { getCoachPrestigeLevel } from "../coach/coachCareerEngine.js";
 import { getFanPressureItems } from "../fans/fanEngine.js";
+import { getTotalMatchdays } from "../data/leagues.js";
 
 const PRIORITY_ORDER = { critical: 0, important: 1, info: 2 };
 const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "career", "lockerRoom", "fans", "staff", "youth", "scouting", "training"];
@@ -65,9 +66,11 @@ function squadNeeds(players = []) {
     .filter(item => item.count < item.target);
 }
 
-function marketWindowStatus(matchday = 1) {
+function marketWindowStatus(matchday = 1, leagueConfig = null) {
+  const total = getTotalMatchdays(leagueConfig);
+  const winterStart = total - 7;
   if (matchday <= 8) return { id: "summer", closesIn: 9 - matchday, label: "mercado inicial" };
-  if (matchday >= 31 && matchday <= 38) return { id: "winter", closesIn: 39 - matchday, label: "mercado final" };
+  if (matchday >= winterStart && matchday <= total) return { id: "winter", closesIn: total + 1 - matchday, label: "mercado final" };
   return null;
 }
 
@@ -271,7 +274,7 @@ export function getAttentionItems(game, context = {}) {
     }));
   }
 
-  const windowStatus = marketWindowStatus(game.matchday ?? 1);
+  const windowStatus = marketWindowStatus(game.matchday ?? 1, game.leagueConfig);
   if (windowStatus && windowStatus.closesIn <= 2) {
     items.push(createItem(game, {
       id: `market-window-closing:${game.season}:${windowStatus.id}:${game.matchday}`,
