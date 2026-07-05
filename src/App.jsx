@@ -2215,6 +2215,10 @@ const GLOBAL_CSS = `
   }
   .lm-btn--danger:hover { box-shadow: 0 6px 20px rgba(239,68,68,.36); filter: brightness(1.04); }
 
+  .league-switch-pill { background:#1e2330; color:#9aa0b4; border:none; border-radius:20px; padding:6px 14px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; transition:background .15s, color .15s; }
+  .league-switch-pill:hover { background:#262c3a; }
+  .league-switch-pill.active { background:#c9a84c; color:#1a1200; }
+
   .btn-secondary { background: rgba(255,255,255,.08); color:#f4f7fb; border:1px solid rgba(255,255,255,.18); }
   .btn-attention { background: linear-gradient(135deg,#f59e0b,#facc15); color:#1f1300; border:1px solid rgba(250,204,21,.45); }
   .btn-danger { background: linear-gradient(135deg,#ef4444,#f97316); color:#fff7ed; border:1px solid rgba(248,113,113,.45); }
@@ -5021,66 +5025,108 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   );
 }
 
-function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen }) {
-  const teamFixtures   = fixtures.filter(f => f.homeTeamId === teamId || f.awayTeamId === teamId);
+// Selector de liga reutilizado por Calendario y Clasificación: recorre LEAGUES
+// (leagues.js) igual que PCClubSelectScreen, así que una liga/país nuevo aparece
+// aquí solo con añadirla a esa config, sin tocar este componente.
+function LeagueSwitchPills({ selectedId, onSelect }) {
+  return (
+    <div style={{ display:"flex", gap:6, overflowX:"auto", padding:"10px 14px 8px", flexShrink:0 }}>
+      {LEAGUES.map(l => (
+        <button key={l.id} onClick={() => onSelect(l.id)} className={`league-switch-pill${selectedId===l.id?" active":""}`}>
+          {l.flag} {l.shortName ?? l.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen, leagues, activeLeagueId }) {
+  const [selectedLeagueId, setSelectedLeagueId] = useState(activeLeagueId);
+  const isViewingActive = selectedLeagueId === activeLeagueId;
+  const vFixtures = isViewingActive ? fixtures : (leagues?.[selectedLeagueId]?.fixtures ?? []);
+  const vTeamId   = isViewingActive ? teamId : null;
+
+  const teamFixtures   = vFixtures.filter(f => f.homeTeamId === vTeamId || f.awayTeamId === vTeamId);
   const nextUnplayed   = teamFixtures.find(f => !f.played);
   const [matchday, setMatchday] = useState(nextUnplayed?.matchday ?? 1);
   const [tab, setTab]           = useState("todos");
+
+  // Cambiar de liga reinicia jornada/pestaña a un valor válido para la nueva liga
+  // (la jornada seleccionada en la liga anterior puede no existir en la nueva).
+  const handleSelectLeague = (id) => {
+    const nextIsActive = id === activeLeagueId;
+    const nextFixtures = nextIsActive ? fixtures : (leagues?.[id]?.fixtures ?? []);
+    const nextTeamId = nextIsActive ? teamId : null;
+    const nextTeamFixtures = nextFixtures.filter(f => f.homeTeamId === nextTeamId || f.awayTeamId === nextTeamId);
+    const nextDefaultMatchday = nextTeamFixtures.find(f => !f.played)?.matchday ?? (leagues?.[id]?.matchday ?? 1);
+    setSelectedLeagueId(id);
+    setMatchday(nextDefaultMatchday);
+    if (!nextIsActive) setTab("todos");
+  };
 
   const getTeam = (id) => TEAMS.find(t => t.id === id);
   const available    = players ? players.filter(p => !p.injured && !p.suspended) : [];
   const lineupValid  = lineup.filter(id => id && available.find(p => p.id === id)).length === 11;
 
-  const allDayFixtures = fixtures.filter(f => f.matchday === matchday)
+  const allDayFixtures = vFixtures.filter(f => f.matchday === matchday)
     .sort((a,b) => {
-      const aUser = a.homeTeamId===teamId||a.awayTeamId===teamId ? 1 : 0;
-      const bUser = b.homeTeamId===teamId||b.awayTeamId===teamId ? 1 : 0;
+      const aUser = a.homeTeamId===vTeamId||a.awayTeamId===vTeamId ? 1 : 0;
+      const bUser = b.homeTeamId===vTeamId||b.awayTeamId===vTeamId ? 1 : 0;
       return bUser - aUser;
     });
-  const myFixture      = allDayFixtures.find(f => f.homeTeamId===teamId||f.awayTeamId===teamId);
+  const myFixture      = allDayFixtures.find(f => f.homeTeamId===vTeamId||f.awayTeamId===vTeamId);
   const isNextMatchday = myFixture?.id === nextUnplayed?.id;
   const myResults      = teamFixtures.filter(f => f.played).reverse();
   const myPlayed       = myResults.length;
-  const myWon    = myResults.filter(f => { const h=f.homeTeamId===teamId; return h?f.homeGoals>f.awayGoals:f.awayGoals>f.homeGoals; }).length;
+  const myWon    = myResults.filter(f => { const h=f.homeTeamId===vTeamId; return h?f.homeGoals>f.awayGoals:f.awayGoals>f.homeGoals; }).length;
   const myDrawn  = myResults.filter(f => f.homeGoals===f.awayGoals).length;
   const myLost   = myPlayed - myWon - myDrawn;
-  const myGF     = myResults.reduce((s,f)=>s+(f.homeTeamId===teamId?f.homeGoals:f.awayGoals),0);
-  const myGA     = myResults.reduce((s,f)=>s+(f.homeTeamId===teamId?f.awayGoals:f.homeGoals),0);
-  const totalMD  = fixtures.length ? Math.max(...fixtures.map(f=>f.matchday)) : 38;
+  const myGF     = myResults.reduce((s,f)=>s+(f.homeTeamId===vTeamId?f.homeGoals:f.awayGoals),0);
+  const myGA     = myResults.reduce((s,f)=>s+(f.homeTeamId===vTeamId?f.awayGoals:f.homeGoals),0);
+  const totalMD  = vFixtures.length ? Math.max(...vFixtures.map(f=>f.matchday)) : 38;
   const mdOptions = Array.from({length:totalMD},(_,i)=>i+1);
 
   const resultColor = (f) => {
     if (!f.played) return "#6b7280";
-    const h=f.homeTeamId===teamId; const my=h?f.homeGoals:f.awayGoals; const th=h?f.awayGoals:f.homeGoals;
+    const h=f.homeTeamId===vTeamId; const my=h?f.homeGoals:f.awayGoals; const th=h?f.awayGoals:f.homeGoals;
     return my>th?"#22c55e":my===th?"#f59e0b":"#ef4444";
   };
   const resultLabel = (f) => {
     if (!f.played) return "";
-    const h=f.homeTeamId===teamId; const my=h?f.homeGoals:f.awayGoals; const th=h?f.awayGoals:f.homeGoals;
+    const h=f.homeTeamId===vTeamId; const my=h?f.homeGoals:f.awayGoals; const th=h?f.awayGoals:f.homeGoals;
     return my>th?"V":my===th?"E":"D";
   };
 
   const shownFixtures = tab==="mi_equipo"
-    ? allDayFixtures.filter(f=>f.homeTeamId===teamId||f.awayTeamId===teamId)
+    ? allDayFixtures.filter(f=>f.homeTeamId===vTeamId||f.awayTeamId===vTeamId)
     : allDayFixtures;
 
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-      {/* Stats temporada */}
-      <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.06)", padding:"10px 14px", flexShrink:0 }}>
-        <div style={{ display:"flex", gap:14, justifyContent:"center", alignItems:"center" }}>
-          {[["PJ",myPlayed,"#e8eaf0"],["V",myWon,"#22c55e"],["E",myDrawn,"#f59e0b"],["D",myLost,"#ef4444"],["GF",myGF,"#c9a84c"],["GC",myGA,"#9aa0b4"]].map(([l,v,c])=>(
-            <div key={l} style={{ textAlign:"center" }}>
-              <div style={{ fontSize:17, fontWeight:700, color:c, lineHeight:1 }}>{v}</div>
-              <div style={{ fontSize:9, color:"#4b5563", fontWeight:600, letterSpacing:".5px", marginTop:2 }}>{l}</div>
+      {/* Selector de liga */}
+      <LeagueSwitchPills selectedId={selectedLeagueId} onSelect={handleSelectLeague} />
+
+      {/* Stats temporada — solo tiene sentido en la liga del usuario */}
+      {isViewingActive ? (
+        <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.06)", padding:"10px 14px", flexShrink:0 }}>
+          <div style={{ display:"flex", gap:14, justifyContent:"center", alignItems:"center" }}>
+            {[["PJ",myPlayed,"#e8eaf0"],["V",myWon,"#22c55e"],["E",myDrawn,"#f59e0b"],["D",myLost,"#ef4444"],["GF",myGF,"#c9a84c"],["GC",myGA,"#9aa0b4"]].map(([l,v,c])=>(
+              <div key={l} style={{ textAlign:"center" }}>
+                <div style={{ fontSize:17, fontWeight:700, color:c, lineHeight:1 }}>{v}</div>
+                <div style={{ fontSize:9, color:"#4b5563", fontWeight:600, letterSpacing:".5px", marginTop:2 }}>{l}</div>
+              </div>
+            ))}
+            <div style={{ display:"flex", gap:3, marginLeft:2 }}>
+              {myResults.slice(0,5).map((f,i)=>{ const col=resultColor(f); const lbl=resultLabel(f);
+                return <div key={i} style={{ width:18,height:18,borderRadius:4,background:`${col}22`,border:`1px solid ${col}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:col }}>{lbl}</div>; })}
             </div>
-          ))}
-          <div style={{ display:"flex", gap:3, marginLeft:2 }}>
-            {myResults.slice(0,5).map((f,i)=>{ const col=resultColor(f); const lbl=resultLabel(f);
-              return <div key={i} style={{ width:18,height:18,borderRadius:4,background:`${col}22`,border:`1px solid ${col}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:col }}>{lbl}</div>; })}
           </div>
         </div>
-      </div>
+      ) : (
+        <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.06)", padding:"9px 14px", flexShrink:0, fontSize:11, color:"#6b7280" }}>
+          Viendo el calendario de otra liga — no es la tuya.
+        </div>
+      )}
 
       {/* Selector jornada */}
       <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
@@ -5098,7 +5144,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen }
 
       {/* Tabs */}
       <div style={{ display:"flex", background:"#161a24", borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
-        {[["todos","🗓️ Todos"],["mi_equipo","⚽ Mi partido"]].map(([id,label])=>(
+        {[["todos","🗓️ Todos"],...(isViewingActive?[["mi_equipo","⚽ Mi partido"]]:[])].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)}
             style={{ flex:1, background:"transparent", border:"none", borderBottom:tab===id?"2px solid #c9a84c":"2px solid transparent", color:tab===id?"#c9a84c":"#6b7280", padding:"9px 8px", fontSize:12, fontWeight:tab===id?700:500, cursor:"pointer" }}>
             {label}
@@ -5119,9 +5165,9 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen }
 
         {shownFixtures.map(f => {
           const home=getTeam(f.homeTeamId); const away=getTeam(f.awayTeamId);
-          const isUserGame=f.homeTeamId===teamId||f.awayTeamId===teamId;
+          const isUserGame=f.homeTeamId===vTeamId||f.awayTeamId===vTeamId;
           const isNext=f.id===nextUnplayed?.id;
-          const isH=f.homeTeamId===teamId;
+          const isH=f.homeTeamId===vTeamId;
           const rCol=isUserGame?resultColor(f):null;
           const rLbl=isUserGame?resultLabel(f):null;
           return (
@@ -5135,7 +5181,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen }
               )}
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                 <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
-                  <div style={{ fontSize:isUserGame?13:11, fontWeight:f.homeTeamId===teamId?700:400, color:f.homeTeamId===teamId?"#c9a84c":"#e8eaf0", textAlign:"right", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{home?.name}</div>
+                  <div style={{ fontSize:isUserGame?13:11, fontWeight:f.homeTeamId===vTeamId?700:400, color:f.homeTeamId===vTeamId?"#c9a84c":"#e8eaf0", textAlign:"right", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{home?.name}</div>
                   <TeamCrest team={home} size={24}/>
                 </div>
                 <div style={{ background:"#0d0f14", borderRadius:7, padding:"5px 10px", minWidth:52, textAlign:"center", flexShrink:0 }}>
@@ -5146,7 +5192,7 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen }
                 </div>
                 <div style={{ flex:1, display:"flex", alignItems:"center", gap:6 }}>
                   <TeamCrest team={away} size={24}/>
-                  <div style={{ fontSize:isUserGame?13:11, fontWeight:f.awayTeamId===teamId?700:400, color:f.awayTeamId===teamId?"#c9a84c":"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{away?.name}</div>
+                  <div style={{ fontSize:isUserGame?13:11, fontWeight:f.awayTeamId===vTeamId?700:400, color:f.awayTeamId===vTeamId?"#c9a84c":"#e8eaf0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{away?.name}</div>
                 </div>
               </div>
               {isNext&&!f.played&&tab==="mi_equipo"&&(
@@ -5164,8 +5210,8 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen }
           <div style={{ marginTop:14 }}>
             <div style={{ fontSize:11, color:"#6b7280", fontWeight:600, letterSpacing:".5px", marginBottom:8 }}>HISTORIAL</div>
             {myResults.slice(0,10).map(f=>{
-              const opp=getTeam(f.homeTeamId===teamId?f.awayTeamId:f.homeTeamId);
-              const isH=f.homeTeamId===teamId; const col=resultColor(f); const lbl=resultLabel(f);
+              const opp=getTeam(f.homeTeamId===vTeamId?f.awayTeamId:f.homeTeamId);
+              const isH=f.homeTeamId===vTeamId; const col=resultColor(f); const lbl=resultLabel(f);
               return (
                 <div key={f.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0", borderBottom:"1px solid rgba(255,255,255,.04)" }}>
                   <div style={{ width:20,height:20,borderRadius:4,background:`${col}22`,border:`1px solid ${col}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:col,flexShrink:0 }}>{lbl}</div>
@@ -5182,18 +5228,31 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen }
     </div>
   );
 }
-function StandingsScreen({ standings, teamId, fixtures, players, movement={}, onOpenPlayer, isPC, teams, season, leagueConfig }) {
+function StandingsScreen({ standings, teamId, fixtures, players, movement={}, onOpenPlayer, isPC, teams, season, leagueConfig, leagues, activeLeagueId }) {
   const [tab, setTab] = useState("tabla"); // tabla | goleadores | stats
+  const [selectedLeagueId, setSelectedLeagueId] = useState(activeLeagueId);
+  const isViewingActive = selectedLeagueId === activeLeagueId;
+  const viewedLeague = leagues?.[selectedLeagueId];
+  const vStandings = isViewingActive ? standings : (viewedLeague?.standings ?? []);
+  const vFixtures  = isViewingActive ? fixtures  : (viewedLeague?.fixtures ?? []);
+  const vLeagueConfig = isViewingActive ? leagueConfig : (viewedLeague?.leagueConfig ?? getLeagueById(selectedLeagueId));
 
   if (isPC) {
-    return <PCStandingsScreen standings={standings} teamId={teamId} fixtures={fixtures} players={players} movement={movement} teams={teams} onOpenPlayer={onOpenPlayer} season={season} leagueConfig={leagueConfig} />;
+    return (
+      <div style={{ display:"flex", flexDirection:"column", height:"100%" }}>
+        <LeagueSwitchPills selectedId={selectedLeagueId} onSelect={setSelectedLeagueId} />
+        <div style={{ flex:1, minHeight:0 }}>
+          <PCStandingsScreen standings={vStandings} teamId={teamId} fixtures={vFixtures} players={players} movement={isViewingActive?movement:{}} teams={teams} onOpenPlayer={onOpenPlayer} season={season} leagueConfig={vLeagueConfig} />
+        </div>
+      </div>
+    );
   }
 
-  const sorted   = [...standings].sort((a,b) => b.points-a.points || b.goalDifference-a.goalDifference || b.goalsFor-a.goalsFor);
+  const sorted   = [...vStandings].sort((a,b) => b.points-a.points || b.goalDifference-a.goalDifference || b.goalsFor-a.goalsFor);
   const getTeam  = (id) => TEAMS.find(t => t.id === id);
-  const nextFixture=fixtures.find(f=>!f.played&&(f.homeTeamId===teamId||f.awayTeamId===teamId));
+  const nextFixture=vFixtures.find(f=>!f.played&&(f.homeTeamId===teamId||f.awayTeamId===teamId));
   const nextOpponentId=nextFixture?(nextFixture.homeTeamId===teamId?nextFixture.awayTeamId:nextFixture.homeTeamId):null;
-  const lastResultFor=clubId=>[...fixtures].filter(f=>f.played&&(f.homeTeamId===clubId||f.awayTeamId===clubId)).sort((a,b)=>(b.matchday??0)-(a.matchday??0))[0];
+  const lastResultFor=clubId=>[...vFixtures].filter(f=>f.played&&(f.homeTeamId===clubId||f.awayTeamId===clubId)).sort((a,b)=>(b.matchday??0)-(a.matchday??0))[0];
 
   // ── Goleadores: extraer de todos los eventos de fixtures jugados ──
   // Función para resolver el EQUIPO ACTUAL de un jugador (puede haber cambiado por fichaje)
@@ -5207,7 +5266,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
   };
 
   const scorerMap = {};  // playerId → { goals, name, teamId, overall, rarity, pos }
-  fixtures.filter(f => f.played && f.events?.length).forEach(f => {
+  vFixtures.filter(f => f.played && f.events?.length).forEach(f => {
     f.events.filter(e => (e.type==="GOAL"||e.type==="PENALTY") && e.playerId).forEach(e => {
       // Eventos antiguos usan home/away; Partido Vivo usa user/opp.
       const scoringTeamIdAtTime =
@@ -5239,6 +5298,9 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
 
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      {/* Selector de liga */}
+      <LeagueSwitchPills selectedId={selectedLeagueId} onSelect={setSelectedLeagueId} />
+
       {/* Tabs */}
       <div style={{ display:"flex", background:"#161a24", borderBottom:"1px solid rgba(255,255,255,.06)", flexShrink:0 }}>
         {tabs.map(([id,label])=>(
@@ -5269,8 +5331,8 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
                   {sorted.map((s,i)=>{
                     const t=getTeam(s.teamId);
                     const isUser=s.teamId===teamId;const isNext=s.teamId===nextOpponentId;const move=movement[s.teamId]??0;const last=lastResultFor(s.teamId);
-                    const zone=getStandingsZone(i+1, sorted.length, leagueConfig);
-                    const nextZone=i+1<sorted.length?getStandingsZone(i+2, sorted.length, leagueConfig):null;
+                    const zone=getStandingsZone(i+1, sorted.length, vLeagueConfig);
+                    const nextZone=i+1<sorted.length?getStandingsZone(i+2, sorted.length, vLeagueConfig):null;
                     const isZoneEnd=nextZone && nextZone.key!==zone.key;
                     const posColor=zone.color;
                     return (
@@ -5301,7 +5363,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
                 const total = sorted.length;
                 const legend = [];
                 for (let p = 1; p <= total; p++) {
-                  const z = getStandingsZone(p, total, leagueConfig);
+                  const z = getStandingsZone(p, total, vLeagueConfig);
                   const last = legend[legend.length - 1];
                   if (last && last.key === z.key) last.to = p;
                   else legend.push({ key: z.key, label: z.label, color: z.color, from: p, to: p });
@@ -5438,7 +5500,7 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
 
             {/* Racha actual del equipo del usuario */}
             {(() => {
-              const myFixtures = fixtures.filter(f=>(f.homeTeamId===teamId||f.awayTeamId===teamId)&&f.played).reverse();
+              const myFixtures = vFixtures.filter(f=>(f.homeTeamId===teamId||f.awayTeamId===teamId)&&f.played).reverse();
               if (!myFixtures.length) return null;
               const getRes = (f) => {
                 const h=f.homeTeamId===teamId;
@@ -9096,8 +9158,8 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} isPC={isPC} />}
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} isPC={isPC} onPlay={() => setScreen("match")} />}
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
-          {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} setScreen={setScreen} />}
-          {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} isPC={isPC} teams={TEAMS} season={game.season} leagueConfig={game.leagueConfig} />}
+          {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} setScreen={setScreen} leagues={game.leagues} activeLeagueId={game.leagueId} />}
+          {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} isPC={isPC} teams={TEAMS} season={game.season} leagueConfig={game.leagueConfig} leagues={game.leagues} activeLeagueId={game.leagueId} />}
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
           {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
           {screen === "lockerRoom" && game && <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />}
