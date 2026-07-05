@@ -7587,7 +7587,16 @@ function detachFreeAgentsFromRealSquads(game) {
 export default function App({ externalData }) {
   useGlobalStyles();
   const currentDataVersion = externalData?.dataVersion ?? DATA_VERSION;
-  if (externalData?.players) Object.assign(REAL_SQUADS, externalData.players);
+  // Object.assign corría en TODOS los renders (App() se re-ejecuta con cada cambio de
+  // estado), así que cualquier mutación en tiempo real de REAL_SQUADS para un equipo de
+  // Primera (fichajes IA, ascensos de cantera...) se deshacía en el siguiente render,
+  // porque se volvía a pisar con el snapshot estático de data.json. Se aplica una sola
+  // vez, al montar la app, para que las mutaciones posteriores persistan de verdad.
+  const externalPlayersMergedRef = useRef(false);
+  if (externalData?.players && !externalPlayersMergedRef.current) {
+    Object.assign(REAL_SQUADS, externalData.players);
+    externalPlayersMergedRef.current = true;
+  }
   if (externalData?.teams) {
     externalData.teams.forEach(et => {
       const idx = TEAMS.findIndex(t => t.id === et.id);
