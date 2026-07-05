@@ -23,7 +23,7 @@ export function _p(id, name, pos, group, ov, age, nat, pace, shoot, pass, drib, 
     id, name, pos, group, overall: ov, age, nat, rarity: _r(ov), potential: pot, contractEnd,
     fatigue: Math.floor(Math.random() * 25), morale: 65 + Math.floor(Math.random() * 30),
     injured: false, injuryGames: 0, suspended: false, suspGames: 0,
-    yellowCards: Math.floor(Math.random() * 3),
+    yellowCards: 0,
     salary, // €K/semana
     attrs: { ritmo: pace, tiro: shoot, pase: pass, regate: drib, defensa: def, fisico: phys, porteria: gk },
   };

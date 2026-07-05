@@ -7721,6 +7721,14 @@ export default function App({ externalData }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         parsed.players = (parsed.players ?? []).map(player => ensurePlayerMorale(normalizeMedicalPlayer(enrichPlayerProfile(ensurePlayerLifecycle(player, parsed.season ?? "2025", parsed.matchday ?? 1), parsed.season ?? "2025")), parsed.season ?? "2025"));
+        // Migración: partidas creadas con el bug de playerHelpers.js (yellowCards aleatorias
+        // al generar el jugador, ya arregladas en la fuente) pueden traer tarjetas "acumuladas"
+        // sin haber jugado ningún partido real. Solo se corrige si la temporada todavía no
+        // arrancó (matchday <= 1) — a partir de ahí las tarjetas ya reflejan partidos jugados
+        // y no deben tocarse.
+        if ((parsed.matchday ?? 1) <= 1) {
+          parsed.players = parsed.players.map(player => ({ ...player, yellowCards: 0 }));
+        }
         parsed.trainingPlan = normalizeTrainingPlan(parsed.trainingPlan);
         let loadedLineup = emptyLineup();
         let loadedFormation = "4-3-3";
