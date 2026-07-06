@@ -125,10 +125,16 @@ function buildSquad(team) {
     const [pace, shoot, pass, drib, def, phys] = attrsForGroup(anchor.group, anchorOv);
     const anchorPlayer = _p(`${team.id}-anchor`, anchor.name, anchor.pos, anchor.group, anchorOv, anchor.age, anchor.nat, pace, shoot, pass, drib, def, phys, Math.min(82, anchorOv + randInt(0, 3)), String(randInt(2026, 2028)));
     anchorPlayer.salary = segundaSalary(anchorOv);
-    // Sustituye al jugador generado del mismo grupo con menor overall para no desbordar la plantilla.
+    // Sustituye siempre al ÚLTIMO jugador generado del mismo grupo (posición fija en
+    // SLOTS) para no desbordar la plantilla. Antes se elegía al de menor overall
+    // aleatorio, así que el id sustituido cambiaba en cada recarga (REAL_SQUADS se
+    // reconstruye desde cero en cada carga de página) — un gol/asistencia guardado con
+    // ese id dejaba de resolver a un nombre real ("Jugador desconocido") en cuanto esa
+    // plaza le tocaba a otro jugador. Con una posición fija, el id sustituido es siempre
+    // el mismo, así que las plantillas ya no cambian de composición entre recargas.
     const sameGroup = players.filter(p => p.group === anchor.group);
-    const weakest = sameGroup.reduce((min, p) => (p.overall < min.overall ? p : min), sameGroup[0]);
-    const idx = players.findIndex(p => p.id === weakest.id);
+    const replaced = sameGroup[sameGroup.length - 1];
+    const idx = players.findIndex(p => p.id === replaced.id);
     players[idx] = anchorPlayer;
   }
 
