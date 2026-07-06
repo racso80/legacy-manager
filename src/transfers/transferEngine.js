@@ -138,25 +138,39 @@ export function completeOffer(game,offerId){
   const current=ensureTransferState(game);return {...current,transferMarket:{...current.transferMarket,offers:current.transferMarket.offers.map(item=>item.id===offerId?{...item,status:"completed"}:item)}};
 }
 
+// Umbrales de ratio que deciden aceptar/contraofertar/rechazar en advanceTransferNegotiations,
+// exportados junto al boost de negociación para que la UI pueda explicar la misma decisión
+// en lenguaje llano (p.ej. el "Director Deportivo" del Centro de Fichajes PC) sin reimplementar
+// ni aproximar la fórmula real.
+export const CLUB_ACCEPT_RATIO=.98;
+export const CLUB_LOAN_ACCEPT_RATIO=.05;
+export const CLUB_COUNTER_RATIO=.78;
+export const PLAYER_ACCEPT_RATIO=.96;
+export const PLAYER_COUNTER_RATIO=.78;
+
+export function getNegotiationBoost(game){
+  return Math.max(0,staffModifier(game,"sportingDirector","negotiation",.08));
+}
+
 export function advanceTransferNegotiations(game){
   const current=ensureTransferState(game);const matchday=current.matchday??1;
-  const negotiationBoost=Math.max(0,staffModifier(current,"sportingDirector","negotiation",.08));
+  const negotiationBoost=getNegotiationBoost(current);
   const offers=current.transferMarket.offers.map(item=>{
     if(item.resolveMatchday>matchday)return item;
     if(item.status==="pendingClub"){
       const competitionChance = clamp(.07 + (item.marketValue >= 30000 ? .08 : 0) + (item.marketValue >= 50000 ? .08 : 0) + (item.dealType === "loan" ? .03 : 0), .05, .28);
       if(Math.random()<competitionChance)return {...item,status:"outbid",outbidAmount:Math.round(item.amount*(1.05+Math.random()*.16))};
       const ratio=item.amount/Math.max(1,item.marketValue)+negotiationBoost;
-      if(item.dealType==="loan"&&ratio>=.05)return {...item,status:"clubAccepted"};
-      if(ratio>=.98)return {...item,status:"clubAccepted"};
-      if(ratio>=.78)return {...item,status:"clubCounter",counterAmount:Math.round(item.marketValue*(1.02+Math.random()*.1))};
+      if(item.dealType==="loan"&&ratio>=CLUB_LOAN_ACCEPT_RATIO)return {...item,status:"clubAccepted"};
+      if(ratio>=CLUB_ACCEPT_RATIO)return {...item,status:"clubAccepted"};
+      if(ratio>=CLUB_COUNTER_RATIO)return {...item,status:"clubCounter",counterAmount:Math.round(item.marketValue*(1.02+Math.random()*.1))};
       return {...item,status:"rejected"};
     }
     if(item.status==="pendingPlayer"){
       const expected=Math.max(8,item.salary??8);const baseline=Math.max(8,item.expectedSalary??expected);
       const ratio=expected/baseline+negotiationBoost;
-      if(ratio>=.96&&["Estrella","Titular","Rotación"].includes(item.role))return {...item,status:"ready"};
-      if(ratio>=.78)return Math.random()<.35?{...item,status:"roleCounter",counterRole:item.role==="Promesa"?"Rotación":"Titular"}:{...item,status:"playerCounter",counterSalary:Math.round(baseline*(1+Math.random()*.08))};
+      if(ratio>=PLAYER_ACCEPT_RATIO&&["Estrella","Titular","Rotación"].includes(item.role))return {...item,status:"ready"};
+      if(ratio>=PLAYER_COUNTER_RATIO)return Math.random()<.35?{...item,status:"roleCounter",counterRole:item.role==="Promesa"?"Rotación":"Titular"}:{...item,status:"playerCounter",counterSalary:Math.round(baseline*(1+Math.random()*.08))};
       return {...item,status:"playerRejected"};
     }
     return item;
