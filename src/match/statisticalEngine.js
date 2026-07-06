@@ -124,6 +124,25 @@ export function selectGoalkeeper(squad = []) {
   return squad.find(player => player.group === "POR") ?? null;
 }
 
+// Recupera el nombre del goleador/asistente a partir del texto de `description` cuando
+// el id del evento ya no resuelve a un jugador real (p.ej. una plantilla de Segunda
+// regenerada tras un reload — ver buildSquad() en segundaSquads.js). Es un fallback
+// puramente de visualización: nunca toca los datos guardados, y si el texto no encaja
+// con el patrón esperado devuelve null en ambos campos para que el llamador pueda caer
+// de vuelta a "Jugador desconocido" en vez de lanzar o mostrar basura.
+export function extractNamesFromDescription(description) {
+  if (typeof description !== "string" || !description) return { scorerName: null, assistName: null };
+  const goalMatch = description.match(/^Gol de (.+?)(?:, asistido por (.+?))?\.$/);
+  if (goalMatch) {
+    return { scorerName: goalMatch[1]?.trim() || null, assistName: goalMatch[2]?.trim() || null };
+  }
+  const penaltyMatch = description.match(/^(.+?) marca de penalti\.$/);
+  if (penaltyMatch) {
+    return { scorerName: penaltyMatch[1]?.trim() || null, assistName: null };
+  }
+  return { scorerName: null, assistName: null };
+}
+
 export function createGoalEvent({ minute, team, squad, teamName, tactics, fixtures, descriptionPrefix = "" }) {
   const scorer = selectGoalScorer(squad, { tactics, fixtures });
   const isPenalty = Boolean(scorer) && Math.random() < (["DC", "MCO"].includes(scorer.pos) ? 0.12 : 0.06);

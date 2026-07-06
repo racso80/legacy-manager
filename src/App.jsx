@@ -11,7 +11,7 @@ import ScoutingScreen from "./components/ScoutingScreen.jsx";
 import TeamCrest from "./components/TeamCrest.jsx";
 import { MATCH_FORMATIONS, buildMatchdaySquad, buildStartingEleven, calculateMatchRatings, chooseOpponentFormation, eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
 import { buildLiveMatchState } from "./match/liveMatchEngine.js";
-import { createGoalEvent, selectAssistant, selectCardedPlayer, selectGoalScorer } from "./match/statisticalEngine.js";
+import { createGoalEvent, selectAssistant, selectCardedPlayer, selectGoalScorer, extractNamesFromDescription } from "./match/statisticalEngine.js";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
@@ -5280,7 +5280,8 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
           ?? (REAL_SQUADS[scoringTeamIdAtTime] ?? []).find(p => p.id === e.playerId);
         // Equipo a mostrar: el ACTUAL del jugador (puede haber cambiado de equipo desde que marcó este gol)
         const currentTeamId = resolveCurrentTeamId(e.playerId, scoringTeamIdAtTime);
-        scorerMap[e.playerId] = { id:e.playerId, player:pl, goals:0, name: pl?.name ?? "Jugador desconocido", teamId: currentTeamId, overall: pl?.overall??75, rarity: pl?.rarity??"GOLD", pos: pl?.pos??"DC", isUser: currentTeamId===teamId };
+        const fallbackName = pl?.name ?? extractNamesFromDescription(e.description).scorerName ?? "Jugador desconocido";
+        scorerMap[e.playerId] = { id:e.playerId, player:pl, goals:0, name: fallbackName, teamId: currentTeamId, overall: pl?.overall??75, rarity: pl?.rarity??"GOLD", pos: pl?.pos??"DC", isUser: currentTeamId===teamId };
       }
       scorerMap[e.playerId].goals++;
     });

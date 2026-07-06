@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import TeamCrest from "../TeamCrest.jsx";
 import { REAL_SQUADS } from "../../App.jsx";
 import { getStandingsZone } from "../../data/leagues.js";
+import { extractNamesFromDescription } from "../../match/statisticalEngine.js";
 function sortedStandings(standings) {
   return [...(standings ?? [])].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor);
 }
@@ -50,7 +51,8 @@ function buildPlayerRankings({ fixtures, players, teamId }) {
         const currentTeamId = resolveCurrentTeamId(e.playerId, scoringTeamIdAtTime, players, teamId);
         if (!goalMap[e.playerId]) {
           const pl = findPlayer(e.playerId, scoringTeamIdAtTime, players);
-          goalMap[e.playerId] = { id: e.playerId, name: pl?.name ?? e.playerName ?? "Jugador desconocido", teamId: currentTeamId, count: 0 };
+          const fallbackName = pl?.name ?? e.playerName ?? extractNamesFromDescription(e.description).scorerName ?? "Jugador desconocido";
+          goalMap[e.playerId] = { id: e.playerId, name: fallbackName, teamId: currentTeamId, count: 0 };
         }
         goalMap[e.playerId].count++;
       }
@@ -58,7 +60,8 @@ function buildPlayerRankings({ fixtures, players, teamId }) {
         const currentTeamId = resolveCurrentTeamId(e.assistId, scoringTeamIdAtTime, players, teamId);
         if (!assistMap[e.assistId]) {
           const pl = findPlayer(e.assistId, scoringTeamIdAtTime, players);
-          assistMap[e.assistId] = { id: e.assistId, name: pl?.name ?? "Jugador desconocido", teamId: currentTeamId, count: 0 };
+          const fallbackName = pl?.name ?? extractNamesFromDescription(e.description).assistName ?? "Jugador desconocido";
+          assistMap[e.assistId] = { id: e.assistId, name: fallbackName, teamId: currentTeamId, count: 0 };
         }
         assistMap[e.assistId].count++;
       }
