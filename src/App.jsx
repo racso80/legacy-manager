@@ -3032,71 +3032,89 @@ const GLOBAL_CSS = `
 
     .pc-cs-detail-footer { margin-top: 4px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 
-    /* ─── PC Centro de Fichajes (Mercado + Scouting unificados) ── */
-    .pc-tc-root { --tc-gold: #d9b25f; --tc-gold-dim: #8a7240; --tc-line: #26362f; --tc-panel: #121b18; --tc-card: #1a2521; --tc-text-dim: #8b988f; --tc-pitch: #1f3a2c; --tc-green: #5fbf7a; --tc-red: #d9705f; --tc-blue: #7fa8d9; }
+    /* ─── PC Centro de Fichajes (Mercado + Scouting unificados) ──
+       Tokens reutilizados de los que ya usan Dashboard/Squad/Standings/el shell,
+       no una paleta propia: --tc-gold es var(--club-accent) (mismo color que topbar/
+       sidebar/OVR de plantilla), fondo de panel #111726 (Standings/Dashboard-v2),
+       bordes rgba(255,255,255,.07), radios 6-8px, pills activas con relleno sólido
+       igual que .pc-squad-filter-pill[data-active]. */
+    .pc-tc-root {
+      --tc-gold: var(--club-accent, #c9a84c);
+      --tc-text-on-accent: var(--club-text-on-accent, #1a1200);
+      --tc-gold-soft: color-mix(in srgb, var(--club-accent, #c9a84c) 14%, transparent);
+      --tc-gold-border: color-mix(in srgb, var(--club-accent, #c9a84c) 40%, transparent);
+      --tc-panel: #111726;
+      --tc-card: #13161e;
+      --tc-line: rgba(255,255,255,.07);
+      --tc-pitch: #061206;
+      --tc-text-dim: #8b92a3;
+      --tc-green: #22c55e;
+      --tc-red: #ef4444;
+      --tc-blue: #60a5fa;
+    }
     .pc-tc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-    .pc-tc-header h1 { font-size: 19px; font-weight: 700; color: #e8ebe6; }
-    .pc-tc-budget-box { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 10px; padding: 8px 16px; text-align: right; }
+    .pc-tc-header h1 { font-size: 19px; font-weight: 700; color: #e8eaf0; }
+    .pc-tc-budget-box { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 8px; padding: 8px 16px; text-align: right; }
     .pc-tc-budget-box .label { font-size: 9px; text-transform: uppercase; letter-spacing: .8px; color: var(--tc-text-dim); }
     .pc-tc-budget-box .amount { font-size: 17px; font-weight: 700; color: var(--tc-gold); }
 
     .pc-tc-main-tabs { display: flex; gap: 8px; margin-bottom: 14px; border-bottom: 1px solid var(--tc-line); padding-bottom: 10px; }
-    .pc-tc-main-tab { padding: 8px 18px; border-radius: 8px; font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--tc-text-dim); }
-    .pc-tc-main-tab.active { background: var(--tc-panel); border: 1px solid var(--tc-gold-dim); color: var(--tc-gold); }
+    .pc-tc-main-tab { padding: 8px 18px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; color: #9aa0b4; background: #1e2330; transition: background .15s, color .15s; }
+    .pc-tc-main-tab.active { background: var(--tc-gold); color: var(--tc-text-on-accent); }
 
     .pc-tc-sub-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
-    .pc-tc-sub-tab { padding: 7px 13px; border-radius: 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; color: var(--tc-text-dim); border: 1px solid transparent; background: none; }
-    .pc-tc-sub-tab.active { background: rgba(217,178,95,.1); border-color: var(--tc-gold-dim); color: var(--tc-gold); }
+    .pc-tc-sub-tab { padding: 7px 13px; border-radius: 6px; font-size: 11.5px; font-weight: 600; cursor: pointer; color: #9aa0b4; background: #1e2330; border: none; transition: background .15s, color .15s; }
+    .pc-tc-sub-tab.active { background: var(--tc-gold); color: var(--tc-text-on-accent); }
 
     .pc-tc-hub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-    .pc-tc-hub-card { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 13px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+    .pc-tc-hub-card { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 8px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
     .pc-tc-hub-card-head { display: flex; justify-content: space-between; align-items: center; }
-    .pc-tc-hub-title { font-size: 12.5px; font-weight: 700; color: var(--tc-gold); }
+    .pc-tc-hub-title { font-size: 11px; font-weight: 900; letter-spacing: .5px; color: var(--tc-gold); }
     .pc-tc-hub-link { font-size: 10px; color: var(--tc-text-dim); cursor: pointer; background: none; border: none; }
     .pc-tc-hub-link:hover { color: var(--tc-gold); }
-    .pc-tc-hub-big { font-size: 24px; font-weight: 800; color: #e8ebe6; }
+    .pc-tc-hub-big { font-size: 24px; font-weight: 800; color: #e8eaf0; }
     .pc-tc-hub-big .unit { font-size: 12px; color: var(--tc-text-dim); font-weight: 400; margin-left: 5px; }
     .pc-tc-hub-sub { font-size: 10.5px; color: var(--tc-text-dim); }
     .pc-tc-hub-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--tc-line); font-size: 11.5px; }
     .pc-tc-hub-row:last-child { border-bottom: none; }
-    .pc-tc-hub-row .r-name { font-weight: 600; color: #e8ebe6; }
+    .pc-tc-hub-row .r-name { font-weight: 600; color: #e8eaf0; }
     .pc-tc-hub-row .r-meta { font-size: 10px; color: var(--tc-text-dim); }
     .pc-tc-hub-row .r-value { font-weight: 700; color: var(--tc-gold); font-size: 11.5px; }
     .pc-tc-hub-empty { font-size: 11px; color: var(--tc-text-dim); font-style: italic; }
 
-    .pc-tc-athletic-note { background: rgba(217,178,95,.08); border: 1px solid var(--tc-gold-dim); border-radius: 10px; padding: 10px 14px; font-size: 11.5px; color: #e8ebe6; margin-bottom: 14px; line-height: 1.5; }
+    .pc-tc-athletic-note { background: var(--tc-gold-soft); border: 1px solid var(--tc-gold-border); border-radius: 8px; padding: 10px 14px; font-size: 11.5px; color: #e8eaf0; margin-bottom: 14px; line-height: 1.5; }
 
     .pc-tc-listing-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 13px; }
-    .pc-tc-listing-card { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 13px; padding: 14px; display: flex; flex-direction: column; gap: 9px; }
+    .pc-tc-listing-card { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 9px; }
     .pc-tc-listing-top { display: flex; align-items: center; gap: 9px; }
-    .pc-tc-p-name { font-size: 13px; font-weight: 700; color: #e8ebe6; }
+    .pc-tc-p-name { font-size: 13px; font-weight: 700; color: #e8eaf0; }
     .pc-tc-p-sub { font-size: 10px; color: var(--tc-text-dim); margin-top: 2px; }
-    .pc-tc-deal-badge { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 6px; width: fit-content; }
-    .pc-tc-deal-badge.transfer { background: rgba(217,178,95,.14); color: var(--tc-gold); }
-    .pc-tc-deal-badge.loan { background: rgba(127,168,217,.14); color: var(--tc-blue); }
-    .pc-tc-deal-badge.free { background: rgba(95,191,122,.14); color: var(--tc-green); }
+    .pc-tc-deal-badge { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 999px; width: fit-content; }
+    .pc-tc-deal-badge.transfer { background: var(--tc-gold-soft); color: var(--tc-gold); }
+    .pc-tc-deal-badge.loan { background: rgba(96,165,250,.14); color: var(--tc-blue); }
+    .pc-tc-deal-badge.free { background: rgba(34,197,94,.14); color: var(--tc-green); }
     .pc-tc-loan-terms { font-size: 9.5px; color: var(--tc-text-dim); }
     .pc-tc-listing-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 9px; border-top: 1px solid var(--tc-line); }
     .pc-tc-value-cell { font-size: 13px; font-weight: 800; color: var(--tc-gold); }
     .pc-tc-btn-sm { padding: 6px 12px; font-size: 10.5px; }
-    .pc-tc-empty { grid-column: 1 / -1; background: var(--tc-panel); border-radius: 11px; padding: 24px; text-align: center; font-size: 11.5px; color: var(--tc-text-dim); }
+    .pc-tc-empty { grid-column: 1 / -1; background: var(--tc-panel); border-radius: 8px; padding: 24px; text-align: center; font-size: 11.5px; color: var(--tc-text-dim); }
 
     .pc-tc-master-detail { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
     .pc-tc-offer-list { display: flex; flex-direction: column; gap: 8px; }
-    .pc-tc-offer-list-item { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 11px; padding: 11px 13px; cursor: pointer; }
-    .pc-tc-offer-list-item:hover { border-color: var(--tc-gold-dim); }
-    .pc-tc-offer-list-item.selected { border-color: var(--tc-gold); background: rgba(217,178,95,.06); }
-    .pc-tc-offer-list-item .ol-name { font-size: 12px; font-weight: 700; color: #e8ebe6; }
+    .pc-tc-offer-list-item { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 8px; padding: 11px 13px; cursor: pointer; }
+    .pc-tc-offer-list-item:hover { border-color: var(--tc-gold-border); }
+    .pc-tc-offer-list-item.selected { border-color: var(--tc-gold); background: var(--tc-gold-soft); }
+    .pc-tc-offer-list-item .ol-name { font-size: 12px; font-weight: 700; color: #e8eaf0; }
     .pc-tc-offer-list-item .ol-club { font-size: 9.5px; color: var(--tc-text-dim); margin-top: 2px; }
-    .pc-tc-offer-list-item .ol-status { font-size: 9px; font-weight: 700; margin-top: 6px; display: inline-block; padding: 2px 7px; border-radius: 5px; }
-    .pc-tc-offer-list-item .ol-status.pending { background: rgba(217,178,95,.14); color: var(--tc-gold); }
-    .pc-tc-offer-list-item .ol-status.good { background: rgba(95,191,122,.14); color: var(--tc-green); }
-    .pc-tc-offer-list-item .ol-status.bad { background: rgba(217,112,95,.14); color: var(--tc-red); }
+    .pc-tc-offer-list-item .ol-status { font-size: 9px; font-weight: 700; margin-top: 6px; display: inline-block; padding: 2px 7px; border-radius: 999px; }
+    .pc-tc-offer-list-item .ol-status.pending { background: var(--tc-gold-soft); color: var(--tc-gold); }
+    .pc-tc-offer-list-item .ol-status.good { background: rgba(34,197,94,.14); color: var(--tc-green); }
+    .pc-tc-offer-list-item .ol-status.bad { background: rgba(239,68,68,.14); color: var(--tc-red); }
 
-    .pc-tc-detail-panel { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 13px; padding: 22px; max-width: 560px; }
+    .pc-tc-detail-panel { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 8px; padding: 22px; max-width: 560px; }
     .pc-tc-offer-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
     .pc-tc-offer-top-buyer { display: flex; align-items: center; gap: 10px; }
-    .pc-tc-offer-player { font-size: 13.5px; font-weight: 700; color: #e8ebe6; }
+    .pc-tc-offer-player { font-size: 13.5px; font-weight: 700; color: #e8eaf0; }
     .pc-tc-offer-club { font-size: 10.5px; color: var(--tc-text-dim); margin-top: 2px; }
     .pc-tc-offer-amount { font-size: 15px; font-weight: 800; color: var(--tc-gold); text-align: right; }
     .pc-tc-offer-amount .sub { display: block; font-size: 9.5px; color: var(--tc-text-dim); font-weight: 400; }
@@ -3108,73 +3126,73 @@ const GLOBAL_CSS = `
     .pc-tc-step.rejected { background: var(--tc-red); }
     .pc-tc-pipeline-labels { display: flex; justify-content: space-between; font-size: 8.5px; color: var(--tc-text-dim); margin-bottom: 13px; text-transform: uppercase; letter-spacing: .4px; }
 
-    .pc-tc-status-line { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 13px; color: #e8ebe6; }
+    .pc-tc-status-line { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 13px; color: #e8eaf0; }
     .pc-tc-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     .pc-tc-status-dot.pending { background: var(--tc-gold); }
     .pc-tc-status-dot.good { background: var(--tc-green); }
     .pc-tc-status-dot.bad { background: var(--tc-red); }
 
-    .pc-tc-advisor-box { background: var(--tc-card); border: 1px solid var(--tc-line); border-radius: 12px; padding: 13px 15px; margin-bottom: 13px; display: flex; gap: 11px; }
+    .pc-tc-advisor-box { background: var(--tc-card); border: 1px solid var(--tc-line); border-radius: 8px; padding: 13px 15px; margin-bottom: 13px; display: flex; gap: 11px; }
     .pc-tc-advisor-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--tc-pitch); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--tc-gold); }
     .pc-tc-advisor-name { font-size: 11px; font-weight: 700; color: var(--tc-gold); margin-bottom: 2px; }
     .pc-tc-advisor-role { font-size: 9px; color: var(--tc-text-dim); margin-bottom: 7px; }
-    .pc-tc-advisor-note { font-size: 11.5px; color: #e8ebe6; line-height: 1.5; margin-bottom: 5px; }
+    .pc-tc-advisor-note { font-size: 11.5px; color: #e8eaf0; line-height: 1.5; margin-bottom: 5px; }
     .pc-tc-advisor-note:last-child { margin-bottom: 0; }
     .pc-tc-advisor-note.warn { color: var(--tc-gold); }
 
     .pc-tc-offer-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
     .pc-tc-contract-form { display: grid; grid-template-columns: 1fr 72px; gap: 6px; width: 100%; }
-    .pc-tc-contract-form input, .pc-tc-contract-form select { background: #0d0f14; border: 1px solid rgba(255,255,255,.1); color: #fff; border-radius: 7px; padding: 8px 9px; font-size: 12px; }
+    .pc-tc-contract-form input, .pc-tc-contract-form select { background: #0d0f14; border: 1px solid rgba(255,255,255,.1); color: #e8eaf0; border-radius: 6px; padding: 8px 9px; font-size: 12px; }
     .pc-tc-contract-role { grid-column: 1 / -1; }
     .pc-tc-contract-submit { grid-column: 1 / -1; }
     .pc-tc-club-offer-form { display: flex; flex-direction: column; gap: 8px; width: 100%; }
     .pc-tc-club-offer-form label { font-size: 10px; color: var(--tc-text-dim); text-transform: uppercase; letter-spacing: .5px; }
-    .pc-tc-club-offer-form input { background: #0d0f14; border: 1px solid rgba(255,255,255,.1); color: #fff; border-radius: 7px; padding: 9px 10px; font-size: 12px; }
+    .pc-tc-club-offer-form input { background: #0d0f14; border: 1px solid rgba(255,255,255,.1); color: #e8eaf0; border-radius: 6px; padding: 9px 10px; font-size: 12px; }
 
     .pc-tc-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .pc-tc-modal { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 14px; padding: 20px; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 12px; }
+    .pc-tc-modal { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 8px; padding: 20px; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 12px; }
     .pc-tc-modal-head { display: flex; align-items: center; gap: 11px; }
     .pc-tc-modal-close { width: 100%; }
 
     .pc-tc-scout-grid { display: grid; grid-template-columns: 280px 1fr; gap: 18px; }
-    .pc-tc-mission-form { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 13px; padding: 16px; display: flex; flex-direction: column; gap: 13px; }
+    .pc-tc-mission-form { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 13px; }
     .pc-tc-mission-form label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--tc-text-dim); margin-bottom: 5px; }
-    .pc-tc-mission-form select, .pc-tc-mission-form input { width: 100%; background: var(--tc-card); border: 1px solid var(--tc-line); color: #e8ebe6; padding: 8px 9px; border-radius: 8px; font-size: 11.5px; }
-    .pc-tc-mission-submit { margin-top: 4px; padding: 9px; border-radius: 8px; font-size: 12px; }
+    .pc-tc-mission-form select, .pc-tc-mission-form input { width: 100%; background: var(--tc-card); border: 1px solid var(--tc-line); color: #e8eaf0; padding: 8px 9px; border-radius: 6px; font-size: 11.5px; }
+    .pc-tc-mission-submit { margin-top: 4px; padding: 9px; border-radius: 6px; font-size: 12px; }
     .pc-tc-region-hint { font-size: 9.5px; color: var(--tc-text-dim); font-style: italic; margin-top: 5px; }
 
-    .pc-tc-position-picker { background: var(--tc-pitch); border-radius: 11px; padding: 14px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+    .pc-tc-position-picker { background: var(--tc-pitch); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
     .pc-tc-pos-row { display: flex; gap: 8px; justify-content: center; width: 100%; }
-    .pc-tc-pos-btn { background: rgba(11,18,16,.55); border: 1px solid var(--tc-line); color: var(--tc-text-dim); font-size: 10px; font-weight: 700; padding: 8px 5px; border-radius: 8px; cursor: pointer; min-width: 48px; text-align: center; }
-    .pc-tc-pos-btn:hover { border-color: var(--tc-gold-dim); }
-    .pc-tc-pos-btn.selected { background: rgba(217,178,95,.22); border-color: var(--tc-gold); color: var(--tc-gold); }
-    .pc-tc-pos-btn.any { background: rgba(217,178,95,.1); border-color: var(--tc-gold-dim); color: var(--tc-gold); width: 100%; margin-top: 4px; }
+    .pc-tc-pos-btn { background: rgba(255,255,255,.06); border: 1px solid var(--tc-line); color: var(--tc-text-dim); font-size: 10px; font-weight: 700; padding: 8px 5px; border-radius: 6px; cursor: pointer; min-width: 48px; text-align: center; }
+    .pc-tc-pos-btn:hover { border-color: var(--tc-gold-border); }
+    .pc-tc-pos-btn.selected { background: var(--tc-gold-soft); border-color: var(--tc-gold); color: var(--tc-gold); }
+    .pc-tc-pos-btn.any { background: var(--tc-gold-soft); border-color: var(--tc-gold-border); color: var(--tc-gold); width: 100%; margin-top: 4px; }
 
     .pc-tc-section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--tc-text-dim); margin-bottom: 9px; }
-    .pc-tc-mission-card { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 13px; padding: 14px 16px; margin-bottom: 18px; }
+    .pc-tc-mission-card { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 8px; padding: 14px 16px; margin-bottom: 18px; }
     .pc-tc-status-detail { color: var(--tc-text-dim); font-size: 10.5px; margin: 4px 0 9px; }
     .pc-tc-scout-roster { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .pc-tc-scout-card { min-height: 0; }
     .pc-tc-scout-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--tc-pitch); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
 
     .pc-tc-report-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-    .pc-tc-report-card { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 13px; padding: 15px 17px; }
+    .pc-tc-report-card { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 8px; padding: 15px 17px; }
     .pc-tc-report-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
-    .pc-tc-report-name { font-size: 13.5px; font-weight: 700; color: #e8ebe6; }
+    .pc-tc-report-name { font-size: 13.5px; font-weight: 700; color: #e8eaf0; }
     .pc-tc-report-meta { font-size: 10.5px; color: var(--tc-text-dim); margin-top: 2px; }
-    .pc-tc-talent-badge { font-size: 9.5px; font-weight: 700; padding: 3px 9px; border-radius: 6px; flex-shrink: 0; }
+    .pc-tc-talent-badge { font-size: 9.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; flex-shrink: 0; }
     .pc-tc-range-row { display: flex; gap: 20px; margin-bottom: 10px; flex-wrap: wrap; }
     .pc-tc-range-block { font-size: 10.5px; color: var(--tc-text-dim); }
-    .pc-tc-range-block .val { font-size: 14px; font-weight: 700; color: #e8ebe6; display: block; }
+    .pc-tc-range-block .val { font-size: 14px; font-weight: 700; color: #e8eaf0; display: block; }
     .pc-tc-confidence-row { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
     .pc-tc-confidence-bar { flex: 1; height: 6px; background: var(--tc-line); border-radius: 4px; overflow: hidden; }
-    .pc-tc-confidence-fill { height: 100%; background: linear-gradient(90deg, var(--tc-gold-dim), var(--tc-gold)); }
+    .pc-tc-confidence-fill { height: 100%; background: linear-gradient(90deg, var(--tc-gold-border), var(--tc-gold)); }
     .pc-tc-confidence-pct { font-size: 10.5px; font-weight: 700; color: var(--tc-gold); width: 32px; text-align: right; flex-shrink: 0; }
     .pc-tc-opportunity-tag { font-size: 10px; color: var(--tc-green); }
     .pc-tc-lock-notice { font-size: 10px; color: var(--tc-text-dim); font-style: italic; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--tc-line); }
     .pc-tc-report-actions { display: flex; gap: 7px; margin-top: 11px; align-items: center; }
-    .pc-tc-star-btn { background: none; border: 1px solid var(--tc-line); color: var(--tc-text-dim); border-radius: 8px; padding: 7px 10px; cursor: pointer; font-size: 12px; }
-    .pc-tc-star-btn.active { color: var(--tc-gold); border-color: var(--tc-gold-dim); }
+    .pc-tc-star-btn { background: none; border: 1px solid var(--tc-line); color: var(--tc-text-dim); border-radius: 6px; padding: 7px 10px; cursor: pointer; font-size: 12px; }
+    .pc-tc-star-btn.active { color: var(--tc-gold); border-color: var(--tc-gold-border); }
   }
 `;
 
