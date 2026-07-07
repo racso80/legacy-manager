@@ -1,5 +1,6 @@
 import { staffModifier } from "../staff/staffEngine.js";
 import { getPlayerPersonality } from "../morale/moraleEngine.js";
+import { getReleaseClauseValue } from "../players/playerProfile.js";
 
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 
@@ -73,7 +74,7 @@ export function completeRenewal(game,offerId){
   const newEnd=String(Number(current.season??2025)+Number(offer.years??3));
   return {
     ...current,
-    players:current.players.map(player=>player.id===offer.playerId?{...player,salary:offer.salary,contractYears:offer.years,contractEnd:newEnd,squadRole:offer.role,releaseClause:Math.round((player.marketValue??player.overall*500)*1.9)}:player),
+    players:current.players.map(player=>player.id===offer.playerId?{...player,salary:offer.salary,contractYears:offer.years,contractEnd:newEnd,squadRole:offer.role,releaseClause:getReleaseClauseValue(player)}:player),
     transfers:[...(current.transfers??[]),{id:`renewal-${offer.id}`,type:"renewal",player:{id:offer.playerId,name:offer.playerName},fromTeamId:current.teamId,toTeamId:current.teamId,value:0,season:String(current.season),matchday:current.matchday}],
     contracts:{...current.contracts,renewals:current.contracts.renewals.map(item=>item.id===offerId?{...item,status:"completed",completedMatchday:current.matchday}:item)}
   };

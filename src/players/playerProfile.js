@@ -17,6 +17,15 @@ export function getPotential(player) {
   return Math.min(95, player.overall + Math.max(0, room - (hashNumber(player.id) % 3)));
 }
 
+// Única fuente de verdad para la cláusula de rescisión — usada tanto en la
+// generación inicial (enrichPlayerProfile) como al recalcularla tras una
+// renovación (contractEngine.completeRenewal), para que ambas partan siempre
+// del mismo getMarketValue() y no diverjan en una fórmula más burda.
+export function getReleaseClauseValue(player) {
+  const marketValue = getMarketValue(player);
+  return Math.round(marketValue * (1.5 + (hashNumber(`${player.id}:clause`) % 40) / 100));
+}
+
 export function enrichPlayerProfile(player, season = "2025") {
   const contractYears = player.age >= 32 ? 2 : 3 + (hashNumber(player.id) % 3);
   const marketValue = getMarketValue(player);
@@ -24,7 +33,7 @@ export function enrichPlayerProfile(player, season = "2025") {
     ...player,
     potential: getPotential(player),
     contractEnd: player.contractEnd ?? String(Number(season) + contractYears),
-    releaseClause: player.releaseClause ?? Math.round(marketValue * (1.5 + (hashNumber(`${player.id}:clause`) % 40) / 100)),
+    releaseClause: player.releaseClause ?? getReleaseClauseValue(player),
     seasonStartOverall: player.seasonStartOverall ?? player.overall,
     seasonStartValue: player.seasonStartValue ?? marketValue,
     careerHistory: player.careerHistory ?? [],

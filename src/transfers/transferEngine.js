@@ -1,5 +1,6 @@
 import { staffModifier } from "../staff/staffEngine.js";
 import { getTotalMatchdays } from "../data/leagues.js";
+import { getMarketValue } from "../players/playerProfile.js";
 
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 
@@ -102,6 +103,30 @@ export function createClubOffer(game,{player,fromTeamId,amount,dealType="transfe
     fromTeamId,amount:Math.max(1,Math.round(amount)),marketValue:Math.max(1,Math.round(player.marketValue??amount)),dealType,listingId,
     status:"pendingClub",createdMatchday:game.matchday,resolveMatchday:game.matchday+1,
     salary:previous?.salary??player.salary,expectedSalary:player.expectedSalary??player.salary,years:previous?.years??3,role:previous?.role??"Rotación",responseDays:1+Math.floor(Math.random()*3),counterAmount:null,counterSalary:null,
+  };
+  return {...current,transferMarket:{...current.transferMarket,offers:[offer,...offers.filter(item=>item.id!==offer.id)]}};
+}
+
+// Paga la cláusula de rescisión: el club de origen queda obligado a aceptar,
+// sin pasar por el ratio/competencia de advanceTransferNegotiations (ese
+// código sigue existiendo para ofertas normales, esto solo lo evita). La
+// oferta nace ya en "clubAccepted" para caer en el mismo flujo de
+// negociación personal con el jugador que cualquier otra oferta aceptada
+// (createContractOffer, acceptPlayerCounter, acceptRoleCounter, etc.) sin
+// tocar esa parte. Solo uso del usuario por ahora — no hay disparo de
+// cláusula entre IAs ni de una IA contra la plantilla del usuario.
+export function triggerReleaseClause(game,{player,fromTeamId}){
+  const current=ensureTransferState(game);
+  const clause=player.releaseClause;
+  if(!Number.isFinite(clause)||clause<=0)return current;
+  if(!fromTeamId||fromTeamId===game.teamId)return current;
+  const offers=current.transferMarket.offers??[];
+  const previous=offers.find(item=>item.playerId===player.id&&!["completed","withdrawn","rejected"].includes(item.status));
+  const offer={
+    id:previous?.id??`offer-clause-${Date.now()}-${player.id}`,playerId:player.id,playerName:player.name,
+    fromTeamId,amount:Math.round(clause),marketValue:Math.max(1,Math.round(getMarketValue(player))),dealType:"clause",listingId:null,
+    status:"clubAccepted",createdMatchday:game.matchday,resolveMatchday:game.matchday,
+    salary:previous?.salary??player.salary,expectedSalary:player.expectedSalary??player.salary,years:previous?.years??3,role:previous?.role??"Rotación",responseDays:0,counterAmount:null,counterSalary:null,
   };
   return {...current,transferMarket:{...current.transferMarket,offers:[offer,...offers.filter(item=>item.id!==offer.id)]}};
 }
