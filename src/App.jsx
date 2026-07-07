@@ -1959,12 +1959,12 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
                   style={{ background:"rgba(255,255,255,.08)", border:"none", color:"#6b7280", cursor:"pointer", padding:"4px 8px", borderRadius:5, fontSize:12 }}>✕</button>
               </div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
-                {[["Estado",isFreeAgent(selected)?"Agente libre":selected._teamName],["Coste traspaso",fmt(transferCost(selected))],
-                  ["Negociación",isFreeAgent(selected)?"Directa con jugador":"Club + jugador"],["Tras fichaje",fmt(budgetLeft-transferCost(selected))]
+                {[["Estado",isFreeAgent(selected)?"Agente libre":selected._teamName],["Coste traspaso",fmt(activeOffer?activeOffer.amount:transferCost(selected))],
+                  ["Negociación",isFreeAgent(selected)?"Directa con jugador":"Club + jugador"],["Tras fichaje",fmt(budgetLeft-(activeOffer?activeOffer.amount:transferCost(selected)))]
                 ].map(([l,v])=>(
                   <div key={l} style={{ background:"#0d0f14", borderRadius:7, padding:"8px 10px" }}>
                     <div style={{ fontSize:9, color:"#6b7280", fontWeight:600 }}>{l.toUpperCase()}</div>
-                    <div style={{ fontSize:13, fontWeight:700, color: l==="Tras fichaje"&&budgetLeft<transferCost(selected)?"#ef4444":"#e8eaf0", marginTop:2 }}>{v}</div>
+                    <div style={{ fontSize:13, fontWeight:700, color: l==="Tras fichaje"&&budgetLeft<(activeOffer?activeOffer.amount:transferCost(selected))?"#ef4444":"#e8eaf0", marginTop:2 }}>{v}</div>
                   </div>
                 ))}
               </div>
