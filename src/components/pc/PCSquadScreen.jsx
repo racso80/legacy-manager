@@ -120,7 +120,7 @@ export default function PCSquadScreen({ game, players, onOpenPlayer }) {
         {selectedPlayer ? (
           <>
             <div className="pc-squad-detail-header">
-              <SquadPhoto player={selectedPlayer} size={80} />
+              <SquadPhoto key={selectedPlayer.id} player={selectedPlayer} size={80} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div className="pc-squad-detail-name">{selectedPlayer.name}</div>
                 <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>

@@ -25,13 +25,20 @@ renderizado (`<img>` no valida la codificación interna contra la extensión).
 ## Cobertura
 
 **Primera (416 jugadores internos, 20 equipos):** 379/416 con foto.
-`athletic` (23/23) y `barcelona` (20/20) ya tenían fotos reales de una
-descarga anterior (commit `70c8112` / `684dc6b`) y no se tocaron. El resto
-sin foto son jugadores internos ficticios/de relleno que no tienen
-contrapartida en la plantilla real vigente de la API (frecuente en
-`villarreal`, cuya plantilla interna incluye varias salidas reales recientes
-— Pau Torres, Albiol, Bailly, Chukwueze, etc. — que ya no aparecen en el
-registro actual del club).
+`athletic` (23/23) y `barcelona` (20/20) tenían fotos reales de una
+descarga anterior (commit `70c8112` / `684dc6b`) en un formato distinto (PNG
+639×900 con fondo transparente / WebP 670×790) al del resto de equipos (PNG
+150×150 de `media.api-sports.io`); el 07-07-2026 se volvieron a descargar
+por el mismo proceso y se sobrescribieron para unificar formato/dimensiones
+con el resto de la plantilla. La única excepción es `bar-7.png` (Pau
+Cubarsí): sin coincidencia en el endpoint de plantilla del plan free, se
+dejó el archivo antiguo (WebP 670×790) en vez de borrar una foto que sí
+funciona — es el único archivo de jugador que aún no comparte el formato
+150×150 del resto. El resto de jugadores sin foto son internos ficticios/de
+relleno que no tienen contrapartida en la plantilla real vigente de la API
+(frecuente en `villarreal`, cuya plantilla interna incluye varias salidas
+reales recientes — Pau Torres, Albiol, Bailly, Chukwueze, etc. — que ya no
+aparecen en el registro actual del club).
 
 **Segunda (14 "anchors" — jugadores reales insertados en plantillas
 procedurales, ver `ANCHORS` en `src/data/segundaSquads.js`):** 5/14 con foto
