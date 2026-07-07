@@ -19,6 +19,7 @@ import SeasonTransitionScreen from "./components/SeasonTransitionScreen.jsx";
 import PreseasonScreen from "./components/PreseasonScreen.jsx";
 import AttentionCenterScreen from "./components/AttentionCenterScreen.jsx";
 import ContractsScreen from "./components/ContractsScreen.jsx";
+import PCContractsScreen from "./components/pc/PCContractsScreen.jsx";
 import StaffScreen from "./components/StaffScreen.jsx";
 import CoachCreateScreen from "./components/CoachCreateScreen.jsx";
 import CoachCareerScreen from "./components/CoachCareerScreen.jsx";
@@ -3193,6 +3194,92 @@ const GLOBAL_CSS = `
     .pc-tc-report-actions { display: flex; gap: 7px; margin-top: 11px; align-items: center; }
     .pc-tc-star-btn { background: none; border: 1px solid var(--tc-line); color: var(--tc-text-dim); border-radius: 6px; padding: 7px 10px; cursor: pointer; font-size: 12px; }
     .pc-tc-star-btn.active { color: var(--tc-gold); border-color: var(--tc-gold-border); }
+
+    /* ─── PC Contratos ── Mismos tokens que .pc-tc-root (Centro de Fichajes):
+       dorado = --club-accent, panel #111726, líneas rgba(255,255,255,.07),
+       radios 6-8px. Todas las var(--ct-*) llevan su fallback explícito porque
+       PCRenewalForm se monta vía portal a document.body, fuera del subárbol
+       de .pc-ct-root, así que no puede depender de heredar estas variables. */
+    .pc-ct-root {
+      --ct-gold: var(--club-accent, #c9a84c);
+      --ct-text-on-accent: var(--club-text-on-accent, #1a1200);
+      --ct-gold-soft: color-mix(in srgb, var(--club-accent, #c9a84c) 14%, transparent);
+      --ct-gold-border: color-mix(in srgb, var(--club-accent, #c9a84c) 40%, transparent);
+      --ct-panel: #111726;
+      --ct-card: #161d2e;
+      --ct-line: rgba(255,255,255,.07);
+      --ct-text-dim: #9aa0b4;
+      --ct-text-dim2: #6b7280;
+      --ct-green: #22c55e;
+      --ct-red: #ef4444;
+      --ct-blue: #60a5fa;
+    }
+    .pc-ct-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .pc-ct-header h1 { font-size: 19px; font-weight: 700; color: #e8eaf0; }
+
+    .pc-ct-summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+    .pc-ct-summary-card { background: var(--ct-panel, #111726); border: 1px solid var(--ct-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 14px 16px; }
+    .pc-ct-summary-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--ct-text-dim, #9aa0b4); margin-bottom: 6px; }
+    .pc-ct-summary-value { font-size: 20px; font-weight: 800; color: #e8eaf0; }
+    .pc-ct-summary-value .unit { font-size: 12px; color: var(--ct-text-dim, #9aa0b4); font-weight: 400; }
+    .pc-ct-summary-value.warn { color: var(--ct-gold, #c9a84c); }
+    .pc-ct-summary-sub { font-size: 10.5px; color: var(--ct-text-dim2, #6b7280); margin-top: 3px; }
+
+    .pc-ct-filter-row { display: flex; gap: 8px; margin-bottom: 18px; }
+    .pc-ct-filter-pill { padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--ct-text-dim, #9aa0b4); border: 1px solid var(--ct-line, rgba(255,255,255,.07)); background: transparent; transition: background .15s, color .15s; }
+    .pc-ct-filter-pill.active { background: var(--ct-gold, #c9a84c); color: var(--ct-text-on-accent, #1a1200); border-color: var(--ct-gold, #c9a84c); }
+    .pc-ct-filter-pill .count { opacity: .75; margin-left: 4px; }
+
+    .pc-ct-layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+
+    .pc-ct-player-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .pc-ct-player-card { background: var(--ct-panel, #111726); border: 1px solid var(--ct-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; border-left: 3px solid transparent; }
+    .pc-ct-player-card.urgent { border-left-color: var(--ct-red, #ef4444); }
+    .pc-ct-player-card.soon { border-left-color: var(--ct-gold, #c9a84c); }
+    .pc-ct-card-top { display: flex; gap: 10px; align-items: center; }
+    .pc-ct-p-name { font-size: 13px; font-weight: 700; color: #e8eaf0; }
+    .pc-ct-p-sub { font-size: 10px; color: var(--ct-text-dim, #9aa0b4); margin-top: 2px; }
+    .pc-ct-role-badge { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,.06); color: var(--ct-text-dim, #9aa0b4); display: inline-block; margin-top: 3px; }
+    .pc-ct-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; font-size: 11.5px; }
+    .pc-ct-stat-label { color: var(--ct-text-dim2, #6b7280); font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
+    .pc-ct-stat-value { font-weight: 700; margin-top: 1px; color: #e8eaf0; }
+    .pc-ct-stat-value.expiry-urgent { color: var(--ct-red, #ef4444); }
+    .pc-ct-stat-value.expiry-soon { color: var(--ct-gold, #c9a84c); }
+    .pc-ct-clause-row { display: flex; align-items: center; gap: 5px; }
+    .pc-ct-shield-badge { font-size: 10px; cursor: help; }
+    .pc-ct-card-foot { display: flex; justify-content: flex-end; margin-top: 2px; }
+    .pc-ct-btn-sm { padding: 6px 12px; font-size: 11px; }
+
+    .pc-ct-renewals-panel { background: var(--ct-panel, #111726); border: 1px solid var(--ct-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; position: sticky; top: 20px; }
+    .pc-ct-renewals-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--ct-text-dim, #9aa0b4); margin-bottom: 12px; }
+    .pc-ct-renewal-item { background: var(--ct-card, #161d2e); border: 1px solid var(--ct-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; }
+    .pc-ct-renewal-item:hover { border-color: var(--ct-gold-border, rgba(201,168,76,.4)); }
+    .pc-ct-renewal-item.selected { border-color: var(--ct-gold, #c9a84c); }
+    .pc-ct-ri-name { font-size: 12.5px; font-weight: 700; color: #e8eaf0; }
+    .pc-ct-ri-detail { font-size: 10.5px; color: var(--ct-text-dim, #9aa0b4); margin-top: 3px; }
+    .pc-ct-ri-status { font-size: 9.5px; font-weight: 700; margin-top: 6px; display: inline-block; padding: 2px 7px; border-radius: 999px; }
+    .pc-ct-ri-status.pending { background: rgba(96,165,250,.15); color: var(--ct-blue, #60a5fa); }
+    .pc-ct-ri-status.counter { background: var(--ct-gold-soft, rgba(201,168,76,.14)); color: var(--ct-gold, #c9a84c); }
+    .pc-ct-ri-status.good { background: rgba(34,197,94,.15); color: var(--ct-green, #22c55e); }
+
+    .pc-ct-detail-block { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--ct-line, rgba(255,255,255,.07)); }
+    .pc-ct-detail-title { font-size: 12.5px; font-weight: 700; color: #e8eaf0; margin-bottom: 10px; }
+    .pc-ct-db-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 8px; }
+    .pc-ct-db-row .lbl { color: var(--ct-text-dim, #9aa0b4); }
+    .pc-ct-db-row .val { font-weight: 700; color: #e8eaf0; }
+    .pc-ct-db-row .val.counter { color: var(--ct-gold, #c9a84c); }
+    .pc-ct-counter-actions { display: flex; gap: 6px; margin-top: 12px; }
+
+    .pc-ct-empty { grid-column: 1 / -1; background: var(--ct-panel, #111726); border-radius: 8px; padding: 24px; text-align: center; font-size: 11.5px; color: var(--ct-text-dim, #9aa0b4); }
+
+    .pc-ct-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .pc-ct-modal { background: var(--ct-panel, #111726); border: 1px solid var(--ct-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 20px; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 12px; }
+    .pc-ct-modal-head { display: flex; align-items: center; gap: 11px; }
+    .pc-ct-modal-close { width: 100%; }
+    .pc-ct-form { display: grid; grid-template-columns: 1fr 82px; gap: 7px; width: 100%; }
+    .pc-ct-form input, .pc-ct-form select { background: #0d0f14; border: 1px solid rgba(255,255,255,.1); color: #e8eaf0; border-radius: 6px; padding: 9px 10px; font-size: 12px; }
+    .pc-ct-form-role { grid-column: 1 / -1; }
+    .pc-ct-form-submit { grid-column: 1 / -1; }
   }
 `;
 
@@ -9350,7 +9437,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           )}
           {screen === "settings"  && game && <SettingsScreen game={game} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
-          {screen === "contracts" && game && <ContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />}
+          {screen === "contracts" && game && (isPC
+            ? <PCContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />
+            : <ContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />
+          )}
           {screen === "transfers" && game && (isPC
             ? <PCTransferCenterScreen initialMainTab="mercado" game={game} teams={TEAMS} candidates={getScoutingPool(game)} budgetSnapshot={pcBudgetSnapshot} onOpenPlayer={openPlayerProfile} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} />
             : <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} />
