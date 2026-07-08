@@ -6,6 +6,7 @@ import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
 import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
 import PCMedicalScreen from "./components/pc/PCMedicalScreen.jsx";
 import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
+import PCTrainingScreen from "./components/pc/PCTrainingScreen.jsx";
 import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
 import LegacyMuseumScreen from "./components/LegacyMuseumScreen.jsx";
 import ScoutingScreen from "./components/ScoutingScreen.jsx";
@@ -3356,6 +3357,86 @@ const GLOBAL_CSS = `
     .pc-md-staff-row .val { font-weight: 700; color: var(--md-green, #22c55e); }
     .pc-md-staff-row .val.bad { color: var(--md-red, #ef4444); }
     .pc-md-staff-empty { font-size: 11px; color: var(--md-text-dim, #9aa0b4); font-style: italic; line-height: 1.5; }
+
+    /* ─── PC Entrenamientos ── Mismos tokens que .pc-ct-root/.pc-md-root:
+       dorado = --club-accent, panel #111726, líneas rgba(255,255,255,.07),
+       radios 6-8px. */
+    .pc-tr-root {
+      --tr-gold: var(--club-accent, #c9a84c);
+      --tr-panel: #111726;
+      --tr-card: #161d2e;
+      --tr-line: rgba(255,255,255,.07);
+      --tr-text-dim: #9aa0b4;
+      --tr-text-dim2: #6b7280;
+      --tr-green: #22c55e;
+      --tr-red: #ef4444;
+      --tr-orange: #f59e0b;
+    }
+    .pc-tr-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .pc-tr-header h1 { font-size: 19px; font-weight: 700; color: #e8eaf0; }
+
+    .pc-tr-tabs { display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--tr-line, rgba(255,255,255,.07)); padding-bottom: 12px; }
+    .pc-tr-tab { padding: 8px 16px; border-radius: 6px; font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--tr-text-dim, #9aa0b4); }
+    .pc-tr-tab.active { background: var(--tr-gold, #c9a84c); color: var(--club-text-on-accent, #1a1200); }
+
+    .pc-tr-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--tr-text-dim, #9aa0b4); margin: 4px 0 10px; }
+    .pc-tr-empty { background: var(--tr-panel, #111726); border-radius: 8px; padding: 24px; text-align: center; font-size: 11.5px; color: var(--tr-text-dim, #9aa0b4); }
+
+    .pc-tr-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+
+    .pc-tr-preset-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
+    .pc-tr-preset-pill { background: var(--tr-panel, #111726); border: 1px solid var(--tr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 10px 12px; cursor: pointer; font-size: 11.5px; font-weight: 600; color: var(--tr-text-dim, #9aa0b4); display: flex; align-items: center; gap: 7px; }
+    .pc-tr-preset-pill.active { border-color: var(--tr-gold, #c9a84c); color: var(--tr-gold, #c9a84c); background: rgba(201,168,76,.08); }
+
+    .pc-tr-load-row { display: flex; gap: 8px; margin-bottom: 20px; }
+    .pc-tr-load-pill { flex: 1; text-align: center; padding: 12px; border-radius: 8px; border: 1px solid var(--tr-line, rgba(255,255,255,.07)); background: var(--tr-panel, #111726); cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--tr-text-dim, #9aa0b4); }
+    .pc-tr-load-pill.active { border-color: var(--tr-gold, #c9a84c); color: #e8eaf0; background: rgba(201,168,76,.1); }
+    .pc-tr-load-pill .dot { font-size: 16px; display: block; margin-bottom: 4px; }
+
+    .pc-tr-week-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px; }
+    .pc-tr-day-col { background: var(--tr-panel, #111726); border: 1px solid var(--tr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 12px 10px; text-align: center; }
+    .pc-tr-day-name { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--tr-text-dim, #9aa0b4); margin-bottom: 8px; }
+    .pc-tr-day-type { font-size: 22px; margin-bottom: 6px; }
+    .pc-tr-day-select { width: 100%; background: #0d0f14; border: 1px solid rgba(255,255,255,.1); color: #e8eaf0; border-radius: 6px; padding: 6px 4px; font-size: 10.5px; text-align: center; }
+
+    .pc-tr-tradeoff-box { background: var(--tr-panel, #111726); border: 1px solid var(--tr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px 18px; margin-bottom: 20px; }
+    .pc-tr-tradeoff-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .pc-tr-tradeoff-row:last-child { margin-bottom: 0; }
+    .pc-tr-tradeoff-label { width: 150px; font-size: 12px; color: var(--tr-text-dim, #9aa0b4); flex-shrink: 0; }
+    .pc-tr-tradeoff-bar { flex: 1; height: 8px; border-radius: 4px; background: var(--tr-card, #161d2e); overflow: hidden; }
+    .pc-tr-tradeoff-fill { height: 100%; border-radius: 4px; }
+    .pc-tr-tradeoff-fill.dev { background: var(--tr-green, #22c55e); }
+    .pc-tr-tradeoff-fill.fatigue { background: var(--tr-orange, #f59e0b); }
+    .pc-tr-tradeoff-fill.risk { background: var(--tr-red, #ef4444); }
+    .pc-tr-tradeoff-value { width: 48px; text-align: right; font-size: 12px; font-weight: 700; color: #e8eaf0; flex-shrink: 0; }
+
+    .pc-tr-side-panel { background: var(--tr-panel, #111726); border: 1px solid var(--tr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; }
+    .pc-tr-staff-name { font-size: 12.5px; font-weight: 700; color: #e8eaf0; margin-bottom: 10px; }
+    .pc-tr-staff-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; color: #e8eaf0; }
+    .pc-tr-staff-row .val { font-weight: 700; color: var(--tr-green, #22c55e); }
+    .pc-tr-staff-row .val.neg { color: var(--tr-red, #ef4444); }
+    .pc-tr-staff-empty { font-size: 11px; color: var(--tr-text-dim, #9aa0b4); font-style: italic; line-height: 1.5; }
+
+    .pc-tr-field-label { font-size: 11px; color: var(--tr-text-dim, #9aa0b4); margin-bottom: 10px; }
+    .pc-tr-select { width: 100%; background: var(--tr-card, #161d2e); border: 1px solid var(--tr-line, rgba(255,255,255,.07)); color: #e8eaf0; padding: 9px 10px; border-radius: 6px; font-size: 12.5px; margin-bottom: 14px; }
+    .pc-tr-attr-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .pc-tr-assign-btn { width: 100%; padding: 10px; border-radius: 8px; font-size: 12.5px; }
+    .pc-tr-assign-btn:disabled { opacity: .5; cursor: default; }
+
+    .pc-tr-individual-item { background: var(--tr-card, #161d2e); border: 1px solid var(--tr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; }
+    .pc-tr-individual-item .in-name { font-weight: 700; color: #e8eaf0; }
+    .pc-tr-individual-item .in-attr { color: var(--tr-gold, #c9a84c); font-size: 11px; margin-top: 2px; }
+
+    .pc-tr-report-list { display: flex; flex-direction: column; gap: 8px; }
+    .pc-tr-report-row { background: var(--tr-panel, #111726); border: 1px solid var(--tr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; }
+    .pc-tr-report-name-block { width: 170px; flex-shrink: 0; }
+    .pc-tr-report-name { font-size: 13px; font-weight: 700; color: #e8eaf0; }
+    .pc-tr-prospect-badge { font-size: 9px; color: var(--tr-green, #22c55e); }
+    .pc-tr-report-deltas { flex: 1; display: flex; gap: 10px; flex-wrap: wrap; }
+    .pc-tr-delta-chip { font-size: 11px; padding: 3px 9px; border-radius: 999px; font-weight: 700; }
+    .pc-tr-delta-chip.gain { background: rgba(34,197,94,.12); color: var(--tr-green, #22c55e); }
+    .pc-tr-delta-chip.neutral { background: rgba(255,255,255,.05); color: var(--tr-text-dim, #9aa0b4); font-weight: 400; }
+    .pc-tr-delta-chip.decline { background: rgba(239,68,68,.1); color: var(--tr-red, #ef4444); font-weight: 400; }
   }
 `;
 
@@ -9504,7 +9585,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           )}
           {screen === "lockerRoom" && game && <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />}
           {screen === "fans" && game && <FanbaseScreen game={ensureFanbaseState(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} />}
-          {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}
+          {screen === "training"  && game && (isPC
+            ? <PCTrainingScreen game={game} teams={TEAMS} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />
+            : <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />
+          )}
           {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}
           {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}
           {screen === "legacyMuseum" && game && <LegacyMuseumScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}

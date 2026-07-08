@@ -118,7 +118,7 @@ export function getTrainingMatchModifiers(rawPlan) {
   };
 }
 
-function developmentFactor(player, stats) {
+export function developmentFactor(player, stats) {
   const room = Math.max(0, (player.potential ?? player.overall) - player.overall);
   const age = player.age <= 20 ? 1.45 : player.age <= 23 ? 1.25 : player.age <= 27 ? 1 : player.age <= 31 ? .72 : .42;
   const potential = room >= 7 ? 1.35 : room >= 3 ? 1.1 : room > 0 ? .8 : .25;
@@ -236,5 +236,50 @@ export function applyWeeklyTraining(players, game, rawPlan) {
     players:result,
     report:{ matchday:game.matchday, load:plan.load, weeklyFocus:focus.id, weeklyFocusName:focus.name, changes, improved:improved.map(item=>item.playerId), prospects:prospects.map(player=>player.id), stagnant:stagnant.map(item=>item.playerId), avgFatigueDelta, generatedAt:new Date().toISOString() },
     tacticalBonus:result.length ? result.reduce((sum,player)=>sum+(player.tacticalSharpness??0),0)/result.length : 0,
+  };
+}
+
+// Previsualización de un plan sin aplicarlo — no muta jugadores. Deliberadamente
+// NO reutiliza applyWeeklyTraining por dentro: reescribe las mismas líneas de
+// fatigueDelta/trainingRiskModifier/loadDelta que applyWeeklyTraining ya calcula
+// (líneas ~144-158 arriba) para no arriesgar la función real de resolución
+// semanal —la que corre cada jornada y determina el progreso real— con un
+// refactor solo para poder previsualizar. Si se ajusta esa fórmula ahí, hay que
+// replicar el ajuste aquí también.
+//
+// fatigueDelta/riskDelta/loadDelta no dependen del jugador concreto (solo de
+// plan+staff), así que se calculan una sola vez. developmentFactor sí es por
+// jugador (edad/potencial/minutos/moral), así que developmentMultiplier
+// promedia esa fórmula real sobre la plantilla disponible (se excluye a
+// lesionados/en recuperación, igual que hace applyWeeklyTraining) en vez de
+// aproximarla con un número inventado.
+export function previewWeeklyTrainingEffect(players, game, rawPlan) {
+  const plan = normalizeTrainingPlan(rawPlan);
+  const load = TRAINING_LOADS[plan.load];
+  const focus = getTrainingFocusMeta(plan.weeklyFocus);
+  const fitnessDevelopmentBoost = 1 + Math.max(-.08, staffModifier(game, "fitnessCoach", "fitness", .1));
+  const loadManagementBoost = staffModifier(game, "fitnessCoach", "loadManagement", .16);
+  const recoveryBoost = staffModifier(game, "fitnessCoach", "recovery", .14);
+  const sessions = plan.days.map(id => TRAINING_TYPES[id]);
+
+  let fatigueDelta = sessions.reduce((sum,session)=>sum+session.fatigue,0) * load.fatigue * (focus.fatigueMultiplier ?? 1);
+  if (fatigueDelta > 0) fatigueDelta *= Math.max(.82, 1 - loadManagementBoost);
+  if (fatigueDelta < 0) fatigueDelta *= Math.max(.9, 1 + recoveryBoost);
+  const recoveryCount = sessions.filter(session => session.id === "recovery").length;
+  const highIntensityCount = sessions.filter(session => ["physical","technical"].includes(session.id)).length;
+  const riskDelta = clamp(load.risk + (focus.riskDelta ?? 0) + Math.max(0,fatigueDelta)*.45 - recoveryCount*3 - Math.max(0, loadManagementBoost) * 12, 0, 25);
+  const loadDelta = Math.round(((load.id==="veryHigh"?7:load.id==="high"?4:load.id==="medium"?1:-2) + highIntensityCount*1.2 - recoveryCount*3 + Math.max(0,fatigueDelta)*.18) * Math.max(.82, 1 - loadManagementBoost));
+
+  const available = (players ?? []).filter(player => !player.injured && !["injured","recovery"].includes(player.medical?.phase));
+  const avgDevelopmentFactor = available.length
+    ? available.reduce((sum,player) => sum + developmentFactor(player, getPlayerSeasonStats(player, game, game.teamId)), 0) / available.length
+    : 1;
+  const developmentMultiplier = avgDevelopmentFactor * load.development * fitnessDevelopmentBoost;
+
+  return {
+    developmentMultiplier,
+    fatigueDelta: Math.round(fatigueDelta),
+    loadDelta,
+    riskDelta: Math.round(riskDelta),
   };
 }
