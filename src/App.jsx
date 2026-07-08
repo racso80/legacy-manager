@@ -44,7 +44,7 @@ import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generate
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
 import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle, lifecycleNews, processBirthdays } from "./players/lifecycle.js";
 import { advanceMedicalRecovery, applyInjury, createInjuryEvent, getAccumulatedLoad, getLoadLevel, getPhysicalStatus, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
-import { applyWeeklyTraining, DEFAULT_TRAINING_PLAN, getTrainingMatchModifiers, normalizeTrainingPlan } from "./training/trainingEngine.js";
+import { applyTrainingFocusPreset, applyWeeklyTraining, DEFAULT_TRAINING_PLAN, getTrainingMatchModifiers, normalizeTrainingPlan } from "./training/trainingEngine.js";
 import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason } from "./legacy/legacyEngine.js";
 import { applyYouthDevelopmentCycle, createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
 import { advanceScouting, bootstrapScouting, cancelScoutingMission, createScoutingMission, ensureScoutingState, refreshScoutingRecommendations, registerScoutingSigning, toggleScoutingWatch } from "./scouting/scoutingEngine.js";
@@ -849,12 +849,12 @@ function liveFormationStrengthBonus(formation) {
 }
 
 function opponentTrainingPlanForMatch(tactics = DEFAULT_TACTICS, formation = "4-3-3") {
-  if (tactics.presion === "alta") return { ...DEFAULT_TRAINING_PLAN, weeklyFocus:"highPress" };
-  if (tactics.mentalidad === "defensiva" || String(formation).startsWith("5-")) return { ...DEFAULT_TRAINING_PLAN, weeklyFocus:"defensiveShape" };
-  if (tactics.estilo === "bandas") return { ...DEFAULT_TRAINING_PLAN, weeklyFocus:"wingAttack" };
-  if (tactics.estilo === "posesion") return { ...DEFAULT_TRAINING_PLAN, weeklyFocus:"possession" };
-  if (tactics.estilo === "contraataque" || tactics.estilo === "directo") return { ...DEFAULT_TRAINING_PLAN, weeklyFocus:"transitions" };
-  return { ...DEFAULT_TRAINING_PLAN, weeklyFocus:"balanced" };
+  if (tactics.presion === "alta") return applyTrainingFocusPreset(DEFAULT_TRAINING_PLAN, "highPress");
+  if (tactics.mentalidad === "defensiva" || String(formation).startsWith("5-")) return applyTrainingFocusPreset(DEFAULT_TRAINING_PLAN, "defensiveShape");
+  if (tactics.estilo === "bandas") return applyTrainingFocusPreset(DEFAULT_TRAINING_PLAN, "wingAttack");
+  if (tactics.estilo === "posesion") return applyTrainingFocusPreset(DEFAULT_TRAINING_PLAN, "possession");
+  if (tactics.estilo === "contraataque" || tactics.estilo === "directo") return applyTrainingFocusPreset(DEFAULT_TRAINING_PLAN, "transitions");
+  return applyTrainingFocusPreset(DEFAULT_TRAINING_PLAN, "balanced");
 }
 
 // ─── MOTOR DE PARTIDO ────────────────────────────────────────────────────────

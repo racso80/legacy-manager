@@ -1,3 +1,5 @@
+import { WEEKLY_TRAINING_FOCUSES } from "../training/trainingEngine.js";
+
 const STAFF_SCENE_ACTORS = {
   sportingDirector: {
     id: "sportingDirector",
@@ -753,7 +755,11 @@ function sceneOptions(item, actor) {
             tone:"preparacion",
             type:"act",
             navigateTo:"dashboard",
-            trainingPlan:{ weeklyFocus:recommendedFocus, load:recommendedLoad },
+            // days incluido explícitamente: si solo se pisa weeklyFocus/load y
+            // se deja el days[] previo (posiblemente de otro preset), el plan
+            // queda incoherente y normalizeTrainingPlan lo degrada a "custom"
+            // en el acto, perdiendo el bonus que esta decisión promete.
+            trainingPlan:{ weeklyFocus:recommendedFocus, load:recommendedLoad, days:WEEKLY_TRAINING_FOCUSES[recommendedFocus]?.days ?? WEEKLY_TRAINING_FOCUSES.balanced.days },
             consequence:"El cuerpo tecnico adapta la semana sin pedirte mas gestion.",
             reaction:`${actor.name} asiente. El staff ya sabe hacia donde orientar el trabajo diario.`,
           },
@@ -772,7 +778,10 @@ function sceneOptions(item, actor) {
             tone:"exigente",
             type:"act",
             navigateTo:"dashboard",
-            trainingPlan:{ weeklyFocus:"highPress", load:"veryHigh" },
+            // Misma identidad highPress (days canónicos) pero a carga veryHigh
+            // — load no participa en la comprobación de coherencia, así que
+            // esto se queda en "highPress" con más carga, no en "custom".
+            trainingPlan:{ weeklyFocus:"highPress", load:"veryHigh", days:WEEKLY_TRAINING_FOCUSES.highPress.days },
             consequence:"Aumenta la intensidad, pero tambien la carga y el riesgo fisico.",
             reaction:`${actor.name} no discute, pero deja claro que vigilara las piernas de cerca.`,
           },

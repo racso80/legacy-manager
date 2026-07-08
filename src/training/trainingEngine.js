@@ -36,6 +36,11 @@ export const WEEKLY_TRAINING_FOCUSES = {
   stamina:{ id:"stamina", icon:"🏃", name:"Resistencia", description:"Sube el fondo físico con más carga acumulada.", load:"high", days:["physical","physical","tactical","physical","activation"], attrs:{ fisico:2.6, ritmo:.7 }, match:{ fatigueMultiplier:.94 }, fatigueMultiplier:1.24, riskDelta:5 },
   cohesion:{ id:"cohesion", icon:"🤝", name:"Cohesión de grupo", description:"Refuerza confianza colectiva y automatismos sencillos.", load:"low", days:["recovery","tactical","technical","tactical","activation"], attrs:{ tactical:1.8 }, match:{ attack:.4, defense:.4 }, fatigueMultiplier:.82, riskDelta:-1, moraleDelta:1 },
   youth:{ id:"youth", icon:"🌱", name:"Trabajo específico para jóvenes", description:"Acelera aprendizaje de jugadores jóvenes sin cargar a todo el grupo.", load:"medium", days:["technical","tactical","technical","recovery","activation"], attrs:{ pase:.8, regate:.8, tiro:.8, tactical:1.2 }, match:{}, fatigueMultiplier:.94, riskDelta:0, youthBoost:.18 },
+  // No es seleccionable desde la UI (se llega aquí solo cuando days[] deja de
+  // representar al preset que dice weeklyFocus, ver normalizeTrainingPlan) —
+  // sin bonus ni modificadores de partido, solo el efecto directo de cada
+  // sesión programada esa semana.
+  custom:{ id:"custom", icon:"🔧", name:"Personalizado", description:"Combinación de sesiones que no corresponde a ningún preset — se aplica el efecto de cada sesión, sin bonus temático.", load:null, days:null, attrs:{}, match:{}, fatigueMultiplier:1, riskDelta:0 },
 };
 
 export const DEFAULT_TRAINING_PLAN = {
@@ -45,13 +50,34 @@ export const DEFAULT_TRAINING_PLAN = {
   individual:{},
 };
 
+// Compara days[] contra los días canónicos de un preset por composición (qué
+// tipos de sesión y cuántas veces cada uno), no por orden ni por día exacto —
+// mover qué día de la semana cae una sesión no cambia lo que esa semana
+// realmente entrena. focusId="custom" (u otro id sin days canónicos) nunca
+// "coincide", así que una vez en custom no vuelve a un preset con nombre solo
+// por edición — hace falta reelegir ese preset explícitamente.
+function daysMatchFocus(days, focusId) {
+  const canonicalDays = WEEKLY_TRAINING_FOCUSES[focusId]?.days;
+  if (!canonicalDays) return false;
+  const tally = list => list.reduce((counts,id)=>{counts[id]=(counts[id]??0)+1;return counts;},{});
+  const actual = tally(days), expected = tally(canonicalDays);
+  const keys = new Set([...Object.keys(actual), ...Object.keys(expected)]);
+  return [...keys].every(key => (actual[key] ?? 0) === (expected[key] ?? 0));
+}
+
 export function normalizeTrainingPlan(plan) {
-  return {
-    load:TRAINING_LOADS[plan?.load] ? plan.load : DEFAULT_TRAINING_PLAN.load,
-    weeklyFocus:WEEKLY_TRAINING_FOCUSES[plan?.weeklyFocus] ? plan.weeklyFocus : DEFAULT_TRAINING_PLAN.weeklyFocus,
-    days:TRAINING_DAYS.map((_,index)=>TRAINING_TYPES[plan?.days?.[index]] ? plan.days[index] : DEFAULT_TRAINING_PLAN.days[index]),
-    individual:{ ...(plan?.individual ?? {}) },
-  };
+  const load = TRAINING_LOADS[plan?.load] ? plan.load : DEFAULT_TRAINING_PLAN.load;
+  const days = TRAINING_DAYS.map((_,index)=>TRAINING_TYPES[plan?.days?.[index]] ? plan.days[index] : DEFAULT_TRAINING_PLAN.days[index]);
+  const requestedFocus = WEEKLY_TRAINING_FOCUSES[plan?.weeklyFocus] ? plan.weeklyFocus : DEFAULT_TRAINING_PLAN.weeklyFocus;
+  // Un preset con nombre solo es válido mientras days[] siga siendo (en
+  // composición) la misma semana que ese preset define. Si el usuario mezcla
+  // tipos de sesión que ya no forman esa combinación, el plan pasa a "custom"
+  // en vez de seguir cobrando en secreto los bonus/modificadores de partido
+  // de un preset que ya no representa lo que realmente se entrena. load no
+  // participa de esta comprobación — es intencional (ver sceneEngine.js's
+  // "Entrenamiento muy intenso": misma identidad highPress, carga más alta).
+  const weeklyFocus = daysMatchFocus(days, requestedFocus) ? requestedFocus : "custom";
+  return { load, weeklyFocus, days, individual:{ ...(plan?.individual ?? {}) } };
 }
 
 export function applyTrainingFocusPreset(plan, focusId) {
