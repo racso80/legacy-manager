@@ -4,6 +4,7 @@ import { computeRarityCount, computeSquadRatings, getTeamDifficulty, getTopPlaye
 import NewsScreen from "./components/NewsScreen.jsx";
 import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
 import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
+import PCMedicalScreen from "./components/pc/PCMedicalScreen.jsx";
 import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
 import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
 import LegacyMuseumScreen from "./components/LegacyMuseumScreen.jsx";
@@ -3280,6 +3281,81 @@ const GLOBAL_CSS = `
     .pc-ct-form input, .pc-ct-form select { background: #0d0f14; border: 1px solid rgba(255,255,255,.1); color: #e8eaf0; border-radius: 6px; padding: 9px 10px; font-size: 12px; }
     .pc-ct-form-role { grid-column: 1 / -1; }
     .pc-ct-form-submit { grid-column: 1 / -1; }
+
+    /* ─── PC Centro Médico ── Mismos tokens que .pc-ct-root/.pc-tc-root:
+       dorado = --club-accent, panel #111726, líneas rgba(255,255,255,.07),
+       radios 6-8px. Sin portal en esta pantalla (es de solo lectura), pero se
+       mantienen los fallbacks explícitos en var() por consistencia con el
+       resto de pantallas PC. */
+    .pc-md-root {
+      --md-gold: var(--club-accent, #c9a84c);
+      --md-panel: #111726;
+      --md-card: #161d2e;
+      --md-line: rgba(255,255,255,.07);
+      --md-text-dim: #9aa0b4;
+      --md-text-dim2: #6b7280;
+      --md-green: #22c55e;
+      --md-red: #ef4444;
+      --md-blue: #60a5fa;
+      --md-orange: #f59e0b;
+    }
+    .pc-md-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .pc-md-header h1 { font-size: 19px; font-weight: 700; color: #e8eaf0; }
+
+    .pc-md-summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+    .pc-md-summary-card { background: var(--md-panel, #111726); border: 1px solid var(--md-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 14px 16px; }
+    .pc-md-summary-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--md-text-dim, #9aa0b4); margin-bottom: 6px; }
+    .pc-md-summary-value { font-size: 20px; font-weight: 800; color: #e8eaf0; }
+    .pc-md-summary-value.danger { color: var(--md-red, #ef4444); }
+    .pc-md-summary-value.warn { color: var(--md-orange, #f59e0b); }
+    .pc-md-summary-value.good { color: var(--md-green, #22c55e); }
+    .pc-md-summary-sub { font-size: 10.5px; color: var(--md-text-dim2, #6b7280); margin-top: 3px; }
+
+    .pc-md-tabs { display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--md-line, rgba(255,255,255,.07)); padding-bottom: 12px; }
+    .pc-md-tab { padding: 8px 16px; border-radius: 6px; font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--md-text-dim, #9aa0b4); }
+    .pc-md-tab .count { opacity: .7; }
+    .pc-md-tab.active { background: var(--md-gold, #c9a84c); color: var(--club-text-on-accent, #1a1200); }
+
+    .pc-md-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--md-text-dim, #9aa0b4); margin: 4px 0 12px; }
+    .pc-md-empty { background: var(--md-panel, #111726); border-radius: 8px; padding: 24px; text-align: center; font-size: 11.5px; color: var(--md-text-dim, #9aa0b4); margin-bottom: 18px; }
+
+    .pc-md-patient-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 26px; }
+    .pc-md-patient-card { background: var(--md-panel, #111726); border: 1px solid var(--md-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; cursor: pointer; }
+    .pc-md-pt-top { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .pc-md-p-name { font-size: 13px; font-weight: 700; color: #e8eaf0; }
+    .pc-md-injury-type { font-size: 11px; color: var(--md-red, #ef4444); margin-top: 2px; }
+    .pc-md-phase-tag { margin-left: auto; font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; flex-shrink: 0; }
+    .pc-md-phase-tag.injured { background: rgba(239,68,68,.15); color: var(--md-red, #ef4444); }
+    .pc-md-phase-tag.recovery { background: rgba(245,158,11,.15); color: var(--md-orange, #f59e0b); }
+    .pc-md-phase-tag.limited { background: rgba(96,165,250,.15); color: var(--md-blue, #60a5fa); }
+
+    .pc-md-recovery-track { height: 8px; border-radius: 4px; background: var(--md-card, #161d2e); overflow: hidden; margin-bottom: 8px; }
+    .pc-md-recovery-fill { height: 100%; border-radius: 4px; }
+    .pc-md-recovery-fill.injured { background: var(--md-red, #ef4444); }
+    .pc-md-recovery-fill.recovery { background: var(--md-orange, #f59e0b); }
+    .pc-md-recovery-fill.limited { background: var(--md-blue, #60a5fa); }
+    .pc-md-recovery-meta { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--md-text-dim, #9aa0b4); }
+    .pc-md-recovery-meta b { color: #e8eaf0; }
+
+    .pc-md-risk-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 26px; }
+    .pc-md-risk-row { background: var(--md-panel, #111726); border: 1px solid var(--md-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 14px 16px; display: flex; align-items: center; gap: 16px; cursor: pointer; }
+    .pc-md-risk-name-block { width: 170px; flex-shrink: 0; }
+    .pc-md-risk-name { font-size: 13px; font-weight: 700; color: #e8eaf0; }
+    .pc-md-risk-role { font-size: 10.5px; color: var(--md-text-dim, #9aa0b4); margin-top: 2px; }
+    .pc-md-risk-score-block { width: 64px; text-align: center; flex-shrink: 0; }
+    .pc-md-risk-score { font-size: 20px; font-weight: 800; }
+    .pc-md-risk-level-label { font-size: 9px; text-transform: uppercase; color: var(--md-text-dim, #9aa0b4); }
+    .pc-md-risk-factors { flex: 1; display: flex; gap: 6px; flex-wrap: wrap; }
+    .pc-md-factor-chip { font-size: 10px; padding: 4px 9px; border-radius: 999px; background: rgba(255,255,255,.05); color: var(--md-text-dim, #9aa0b4); }
+    .pc-md-factor-chip.hot { background: rgba(239,68,68,.12); color: var(--md-red, #ef4444); }
+
+    .pc-md-staff-impact { background: var(--md-panel, #111726); border: 1px solid var(--md-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px 18px; display: flex; gap: 32px; }
+    .pc-md-staff-col { flex: 1; }
+    .pc-md-staff-col-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--md-text-dim, #9aa0b4); margin-bottom: 8px; }
+    .pc-md-staff-row { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 6px; }
+    .pc-md-staff-row .val { font-weight: 700; color: var(--md-green, #22c55e); }
+    .pc-md-staff-row .val.bad { color: var(--md-red, #ef4444); }
+    .pc-md-staff-empty { font-size: 11px; color: var(--md-text-dim, #9aa0b4); font-style: italic; line-height: 1.5; }
   }
 `;
 
@@ -9422,7 +9498,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} setScreen={setScreen} leagues={game.leagues} activeLeagueId={game.leagueId} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} isPC={isPC} teams={TEAMS} season={game.season} leagueConfig={game.leagueConfig} leagues={game.leagues} activeLeagueId={game.leagueId} />}
           {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
-          {screen === "medical"   && game && <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />}
+          {screen === "medical"   && game && (isPC
+            ? <PCMedicalScreen game={game} teams={TEAMS} onOpenPlayer={openPlayerProfile} />
+            : <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />
+          )}
           {screen === "lockerRoom" && game && <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />}
           {screen === "fans" && game && <FanbaseScreen game={ensureFanbaseState(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} />}
           {screen === "training"  && game && <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />}

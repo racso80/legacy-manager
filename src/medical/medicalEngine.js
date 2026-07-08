@@ -55,23 +55,41 @@ function workload(playerId, fixtures = [], teamId) {
   return { consecutiveStarts, seasonMinutes };
 }
 
-export function calculateInjuryRisk(player, { fixtures = [], teamId, tactics, currentMatchMinutes = 0, game = null } = {}) {
-  if (player.medical?.phase === "injured" || player.medical?.phase === "recovery") return 100;
+// Única fuente de verdad para el riesgo de lesión y su desglose por factor —
+// calculateInjuryRisk() delega aquí y solo se queda con el total, para que la
+// UI (p.ej. la vista de Prevención del Centro Médico en PC) pueda mostrar qué
+// factores pesan más por jugador sin reimplementar la fórmula por su cuenta.
+export function getInjuryRiskBreakdown(player, { fixtures = [], teamId, tactics, currentMatchMinutes = 0, game = null } = {}) {
+  if (player.medical?.phase === "injured" || player.medical?.phase === "recovery") {
+    return { total: 100, factors: {}, staffPrevention: 0, meta: {} };
+  }
   const load = workload(player.id, fixtures, teamId);
   const fatigue = Math.max(0, Math.min(100, player.fatigue ?? 20));
   const accumulatedLoad = getAccumulatedLoad(player);
-  const fatigueRisk = Math.max(0, fatigue - 18) * .66;
-  const accumulatedRisk = Math.max(0, accumulatedLoad - 30) * .22;
-  const ageRisk = Math.max(0, (player.age ?? 25) - 29) * 1.6 * (player.injuryRiskAgeModifier ?? 1);
-  const streakRisk = Math.min(20, load.consecutiveStarts * 4);
-  const minutesRisk = Math.min(10, load.seasonMinutes / 450);
-  const inMatchRisk = Math.min(10, currentMatchMinutes / 12);
-  const historyRisk = Math.min(10, (player.medicalHistory ?? []).filter(item => item.totalDays >= 28).length * 3);
-  const limitationRisk = player.medical?.phase === "limited" ? 24 : 0;
-  const trainingRisk = Math.max(0, Math.min(25, player.trainingRiskModifier ?? 0));
-  const tacticalRisk = (tactics?.presion === "alta" ? 5 : 0) + (tactics?.ritmo === "rapido" ? 4 : 0);
+  const seriousInjuryCount = (player.medicalHistory ?? []).filter(item => item.totalDays >= 28).length;
+  const factors = {
+    fatigueRisk: Math.max(0, fatigue - 18) * .66,
+    accumulatedRisk: Math.max(0, accumulatedLoad - 30) * .22,
+    ageRisk: Math.max(0, (player.age ?? 25) - 29) * 1.6 * (player.injuryRiskAgeModifier ?? 1),
+    streakRisk: Math.min(20, load.consecutiveStarts * 4),
+    minutesRisk: Math.min(10, load.seasonMinutes / 450),
+    inMatchRisk: Math.min(10, currentMatchMinutes / 12),
+    historyRisk: Math.min(10, seriousInjuryCount * 3),
+    limitationRisk: player.medical?.phase === "limited" ? 24 : 0,
+    trainingRisk: Math.max(0, Math.min(25, player.trainingRiskModifier ?? 0)),
+    tacticalRisk: (tactics?.presion === "alta" ? 5 : 0) + (tactics?.ritmo === "rapido" ? 4 : 0),
+  };
   const staffPrevention = Math.max(0, staffModifier(game, "medicalDirector", "prevention", .1) + staffModifier(game, "fitnessCoach", "prevention", .08));
-  return Math.round(Math.max(2, Math.min(98, (3 + fatigueRisk + accumulatedRisk + ageRisk + streakRisk + minutesRisk + inMatchRisk + historyRisk + limitationRisk + trainingRisk + tacticalRisk) * Math.max(.86, 1 - staffPrevention))));
+  const rawSum = 3 + Object.values(factors).reduce((sum, value) => sum + value, 0);
+  const total = Math.round(Math.max(2, Math.min(98, rawSum * Math.max(.86, 1 - staffPrevention))));
+  return {
+    total, factors, staffPrevention,
+    meta: { fatigue, accumulatedLoad, age: player.age ?? null, consecutiveStarts: load.consecutiveStarts, seasonMinutes: load.seasonMinutes, seriousInjuryCount },
+  };
+}
+
+export function calculateInjuryRisk(player, context = {}) {
+  return getInjuryRiskBreakdown(player, context).total;
 }
 
 function chooseInjuryType(risk, playerId, matchday) {
