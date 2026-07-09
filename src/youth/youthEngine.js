@@ -1,4 +1,5 @@
 import { getMarketValue } from "../players/playerProfile.js";
+import { staffModifier } from "../staff/staffEngine.js";
 
 const BASQUE_FIRST=["Iker","Unai","Aitor","Oier","Beñat","Mikel","Ander","Jon","Asier","Peru","Eneko","Ibai"];
 const BASQUE_LAST=["Etxebarria","Aguirre","Aramburu","Goikoetxea","Zubiaurre","Elizondo","Irazabal","Lertxundi","Garmendia","Urrutia"];
@@ -90,9 +91,19 @@ function attributes(overall,pos,group,random){
   return{ritmo:value(group==="DEL"?5:0),tiro:value(group==="DEL"?5:-3),pase:value(group==="MED"?5:0),regate:value(group==="DEL"||group==="MED"?4:0),defensa:value(group==="DEF"?7:group==="MED"?1:-7),fisico:value(group==="DEF"?5:0),porteria:group==="POR"?value(12):Math.round(5+random()*9)};
 }
 
-export function generateYouthIntake(team,season,clubPrestige=30){
+export function generateYouthIntake(team,season,clubPrestige=30,game=null){
   const random=rng(`${team?.id}:${season}:academy`);
   const count=3+Math.floor(random()*3);
+  // academyDirector.academyVision desplaza los tres umbrales de la escalera de
+  // potencial (no el overall, que sigue dependiendo solo de clubPrestige) —
+  // un director top hace más probable encontrar una joya, uno flojo lo
+  // vuelve más raro. Los clamp() por umbral son un margen de seguridad, no
+  // el límite real: con la escala .02 y los rangos de atributo de staff
+  // (35-97), el shift efectivo ronda ±0.02, muy por debajo de esos bordes.
+  const academyVisionShift=staffModifier(game,"academyDirector","academyVision",.02);
+  const generationalThreshold=clamp(.985-academyVisionShift,.96,.995);
+  const eliteThreshold=clamp(.90-academyVisionShift,.82,.95);
+  const standardThreshold=clamp(.55-academyVisionShift,.45,.65);
   const players=Array.from({length:count},(_,index)=>{
     const identityData=identity(random,team);
     const [pos,group]=pick(random,POSITIONS);
@@ -100,7 +111,7 @@ export function generateYouthIntake(team,season,clubPrestige=30){
     const prestigeBoost=Math.round((clubPrestige-40)/25);
     const overall=clamp(52+Math.floor(random()*14)+prestigeBoost,49,68);
     const rareRoll=random();
-    const potentialBoost=rareRoll>.985?28:rareRoll>.90?22:rareRoll>.55?16:10;
+    const potentialBoost=rareRoll>generationalThreshold?28:rareRoll>eliteThreshold?22:rareRoll>standardThreshold?16:10;
     const potential=clamp(overall+potentialBoost+Math.floor(random()*7),overall+7,95);
     const category=getTalentCategory(potential);
     const id=`youth_${team?.id}_${season}_${index}_${hash(identityData.name).toString(36).slice(0,4)}`;
@@ -118,7 +129,7 @@ export function ensureYouthState(game,team){
   const youth=game.youth??{players:[],promotions:[],sales:[],annualReports:[],historical:[],generatedSeasons:[]};
   const normalizedYouth={...youth,players:(youth.players??[]).map(player=>normalizeYouthProspect(player,game))};
   if(normalizedYouth.generatedSeasons.includes(String(game.season)))return{...game,youth:normalizedYouth};
-  const intake=generateYouthIntake(team,game.season,game.legacy?.clubPrestige??30);
+  const intake=generateYouthIntake(team,game.season,game.legacy?.clubPrestige??30,game);
   return{...game,youth:{...normalizedYouth,players:[...normalizedYouth.players,...intake],generatedSeasons:[...normalizedYouth.generatedSeasons,String(game.season)],lastIntake:intake.map(player=>player.id)}};
 }
 

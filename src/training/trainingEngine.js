@@ -148,7 +148,13 @@ export function applyWeeklyTraining(players, game, rawPlan) {
     const personality = getPlayerPersonality(original);
     const personalityTraining = personalityModifier(original, "trainingResponse", 1);
     const confidenceBoost = personality.id === "insecureYoung" && focus.id === "youth" ? 1.12 : 1;
-    const factor = developmentFactor(original,stats) * load.development * fitnessDevelopmentBoost * (1 + youthBoost) * personalityTraining * confidenceBoost;
+    // academyDirector.talentDevelopment solo aplica a canteranos aún sin promocionar —
+    // academyStatus pasa a "firstTeam" en la promoción (App.jsx), así que esta condición
+    // nunca afecta al resto de la plantilla, sea cual sea la llamada (primer equipo o
+    // cantera comparten esta misma función).
+    const isAcademyPlayer = original.academyStatus === "academy";
+    const academyDevelopmentBoost = isAcademyPlayer ? 1 + Math.max(-.08, staffModifier(game, "academyDirector", "talentDevelopment", .12)) : 1;
+    const factor = developmentFactor(original,stats) * load.development * fitnessDevelopmentBoost * academyDevelopmentBoost * (1 + youthBoost) * personalityTraining * confidenceBoost;
     const xp = { ...(original.developmentXP ?? {}) };
     const attrs = { ...(original.attrs ?? {}) };
     const playerChanges = [];
