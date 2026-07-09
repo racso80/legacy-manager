@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getAcademyMetrics, getTalentCategory, getYouthProjection } from "../youth/youthEngine.js";
+import { getAcademyGraduates, getAcademyMetrics, getTalentCategory, getYouthProjection } from "../youth/youthEngine.js";
 import Button from "./ui/Button.jsx";
 import { SwipeTabs } from "./SwipeNavigation.jsx";
 import { COUNTRY_NAMES, FLAGS } from "./PlayerProfileScreen.jsx";
@@ -42,10 +42,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
     }
     return text;
   })();
-  const historical = [
-    ...game.players.filter(player => player.academyData),
-    ...(youth.historical ?? []),
-  ].sort((a, b) => (b.academyStats?.appearances ?? 0) - (a.academyStats?.appearances ?? 0) || b.overall - a.overall);
+  const historical = getAcademyGraduates(game);
   const promotePlayer = (player) => {
     const result = onPromote?.(player.id);
     setFeedback(result ?? { ok:false, message:"No se ha podido promocionar al canterano." });

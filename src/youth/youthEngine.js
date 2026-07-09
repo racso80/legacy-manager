@@ -245,6 +245,13 @@ export function createYouthAnnualReport(game){
   return{id:`academy_report_${game.season}`,season:String(game.season),promoted:promotions.length,sold:sales.length,generatedValue,standout:standout?{id:standout.id,name:standout.name,potential:standout.potential}:null,createdAt:new Date().toISOString()};
 }
 
+export function getAcademyGraduates(game){
+  return [
+    ...(game.players??[]).filter(player=>player.academyData),
+    ...(game.youth?.historical??[]),
+  ].sort((a,b)=>(b.academyStats?.appearances??0)-(a.academyStats?.appearances??0)||b.overall-a.overall);
+}
+
 export function getAcademyMetrics(game){
   const firstTeam=game.players.filter(player=>player.academyData);
   const sold=game.youth?.sales??[];

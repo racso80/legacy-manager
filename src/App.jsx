@@ -15,6 +15,7 @@ import { MATCH_FORMATIONS, buildMatchdaySquad, buildStartingEleven, calculateMat
 import { buildLiveMatchState } from "./match/liveMatchEngine.js";
 import { createGoalEvent, selectAssistant, selectCardedPlayer, selectGoalScorer, extractNamesFromDescription } from "./match/statisticalEngine.js";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
+import PCYouthAcademyScreen from "./components/pc/PCYouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
 import SeasonTransitionScreen from "./components/SeasonTransitionScreen.jsx";
@@ -3437,6 +3438,91 @@ const GLOBAL_CSS = `
     .pc-tr-delta-chip.gain { background: rgba(34,197,94,.12); color: var(--tr-green, #22c55e); }
     .pc-tr-delta-chip.neutral { background: rgba(255,255,255,.05); color: var(--tr-text-dim, #9aa0b4); font-weight: 400; }
     .pc-tr-delta-chip.decline { background: rgba(239,68,68,.1); color: var(--tr-red, #ef4444); font-weight: 400; }
+
+    /* ─── PC Cantera ── Mismos tokens que .pc-ct-root/.pc-md-root/.pc-tr-root:
+       dorado = --club-accent, panel #111726, líneas rgba(255,255,255,.07),
+       radios 6-8px. Los colores de tier/proyección NO se redefinen aquí: se
+       toman directamente de category.color / projection.color (youthEngine.js),
+       que ya son la fuente real de esos colores en toda la app (móvil incluido). */
+    .pc-yt-root {
+      --yt-gold: var(--club-accent, #c9a84c);
+      --yt-text-on-accent: var(--club-text-on-accent, #1a1200);
+      --yt-panel: #111726;
+      --yt-card: #161d2e;
+      --yt-line: rgba(255,255,255,.07);
+      --yt-text-dim: #9aa0b4;
+      --yt-text-dim2: #6b7280;
+      --yt-green: #22c55e;
+      --yt-red: #ef4444;
+    }
+    .pc-yt-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .pc-yt-header h1 { font-size: 19px; font-weight: 700; color: #e8eaf0; }
+
+    .pc-yt-summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+    .pc-yt-summary-card { background: var(--yt-panel, #111726); border: 1px solid var(--yt-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 14px 16px; }
+    .pc-yt-summary-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--yt-text-dim, #9aa0b4); margin-bottom: 6px; }
+    .pc-yt-summary-value { font-size: 20px; font-weight: 800; color: #e8eaf0; }
+    .pc-yt-summary-value .unit { font-size: 12px; color: var(--yt-text-dim, #9aa0b4); font-weight: 400; }
+    .pc-yt-summary-value.good { color: var(--yt-green, #22c55e); }
+    .pc-yt-summary-value.warn { color: var(--yt-gold, #c9a84c); }
+    .pc-yt-summary-sub { font-size: 10.5px; color: var(--yt-text-dim2, #6b7280); margin-top: 3px; }
+
+    .pc-yt-tabs { display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--yt-line, rgba(255,255,255,.07)); padding-bottom: 12px; }
+    .pc-yt-tab { padding: 8px 16px; border-radius: 6px; font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--yt-text-dim, #9aa0b4); }
+    .pc-yt-tab .count { opacity: .7; }
+    .pc-yt-tab.active { background: var(--yt-gold, #c9a84c); color: var(--yt-text-on-accent, #1a1200); }
+
+    .pc-yt-feedback { border-radius: 8px; padding: 10px 14px; font-size: 12px; font-weight: 600; margin-bottom: 14px; }
+    .pc-yt-feedback.ok { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); color: var(--yt-green, #22c55e); }
+    .pc-yt-feedback.warn { background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.3); color: #f59e0b; }
+
+    .pc-yt-empty { grid-column: 1 / -1; background: var(--yt-panel, #111726); border-radius: 8px; padding: 24px; text-align: center; font-size: 11.5px; color: var(--yt-text-dim, #9aa0b4); }
+
+    .pc-yt-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+
+    .pc-yt-prospect-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .pc-yt-prospect-card { position: relative; background: var(--yt-panel, #111726); border: 1px solid var(--yt-line, rgba(255,255,255,.07)); border-left: 3px solid transparent; border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+    .pc-yt-tier-badge { align-self: flex-start; font-size: 9px; font-weight: 800; padding: 3px 8px; border-radius: 999px; }
+    .pc-yt-card-top { display: flex; gap: 10px; align-items: center; }
+    .pc-yt-p-name { font-size: 13px; font-weight: 700; color: #e8eaf0; display: flex; align-items: center; gap: 6px; }
+    .pc-yt-new-badge { font-size: 8px; font-weight: 800; color: var(--yt-green, #22c55e); background: rgba(34,197,94,.12); padding: 2px 6px; border-radius: 4px; }
+    .pc-yt-p-sub { font-size: 10px; color: var(--yt-text-dim, #9aa0b4); margin-top: 2px; }
+
+    .pc-yt-potential-row { display: flex; align-items: center; justify-content: center; gap: 14px; background: rgba(0,0,0,.18); border-radius: 7px; padding: 8px; }
+    .pc-yt-ov-block { text-align: center; }
+    .pc-yt-ov-value { font-size: 18px; font-weight: 900; color: #e8eaf0; }
+    .pc-yt-ov-label { font-size: 8px; font-weight: 800; color: var(--yt-text-dim2, #6b7280); margin-top: 2px; }
+    .pc-yt-ov-arrow { color: var(--yt-text-dim, #9aa0b4); font-size: 14px; }
+
+    .pc-yt-projection-tag { align-self: flex-start; font-size: 10px; font-weight: 800; border: 1px solid; border-radius: 999px; padding: 4px 9px; }
+
+    .pc-yt-card-foot { display: flex; gap: 7px; margin-top: 2px; }
+    .pc-yt-btn-sm { flex: 1; padding: 7px 10px; font-size: 11px; }
+
+    .pc-yt-side-panel { background: var(--yt-panel, #111726); border: 1px solid var(--yt-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; position: sticky; top: 20px; }
+    .pc-yt-staff-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--yt-text-dim, #9aa0b4); margin-bottom: 10px; }
+    .pc-yt-staff-name { font-size: 12.5px; font-weight: 700; color: #e8eaf0; margin-bottom: 10px; }
+    .pc-yt-staff-row { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; margin-bottom: 8px; color: #e8eaf0; }
+    .pc-yt-staff-row .val { font-weight: 700; color: var(--yt-green, #22c55e); text-align: right; }
+    .pc-yt-staff-row .val.neg { color: var(--yt-red, #ef4444); }
+    .pc-yt-staff-row .val.neutral { color: var(--yt-text-dim, #9aa0b4); font-weight: 600; }
+    .pc-yt-staff-empty { font-size: 11px; color: var(--yt-text-dim, #9aa0b4); font-style: italic; line-height: 1.5; }
+
+    .pc-yt-notes-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--yt-text-dim, #9aa0b4); margin: 16px 0 10px; padding-top: 14px; border-top: 1px solid var(--yt-line, rgba(255,255,255,.07)); }
+    .pc-yt-notes-feed { display: flex; flex-direction: column; gap: 9px; }
+    .pc-yt-note-item { font-size: 11px; color: var(--yt-text-dim, #9aa0b4); line-height: 1.5; }
+    .pc-yt-note-item b { color: #e8eaf0; }
+
+    .pc-yt-history-table { display: flex; flex-direction: column; gap: 4px; }
+    .pc-yt-history-row { display: grid; grid-template-columns: 1.6fr 1.4fr .8fr .7fr .7fr .7fr .7fr; gap: 10px; align-items: center; background: var(--yt-panel, #111726); border: 1px solid var(--yt-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 11px 16px; font-size: 12px; color: #c9ced8; cursor: pointer; }
+    .pc-yt-history-head { background: transparent; border: none; padding: 0 16px; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--yt-text-dim2, #6b7280); cursor: default; }
+    .pc-yt-hist-name { font-weight: 700; color: #e8eaf0; }
+    .pc-yt-hist-status { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+    .pc-yt-hist-status .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .pc-yt-hist-status.active .dot { background: var(--yt-green, #22c55e); }
+    .pc-yt-hist-status.active { color: var(--yt-green, #22c55e); }
+    .pc-yt-hist-status.sold .dot { background: var(--yt-text-dim, #9aa0b4); }
+    .pc-yt-hist-status.sold { color: var(--yt-text-dim, #9aa0b4); }
   }
 `;
 
@@ -9589,7 +9675,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             ? <PCTrainingScreen game={game} teams={TEAMS} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />
             : <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />
           )}
-          {screen === "youth"     && game && <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />}
+          {screen === "youth"     && game && (isPC
+            ? <PCYouthAcademyScreen game={game} teams={TEAMS} onPromote={handleYouthPromotion} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />
+            : <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />
+          )}
           {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}
           {screen === "legacyMuseum" && game && <LegacyMuseumScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
           {screen === "career" && game && <CoachCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
