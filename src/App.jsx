@@ -731,6 +731,35 @@ const DEFAULT_TACTICS = {
   riesgo:     "normal",       // conservador | normal | agresivo
 };
 
+const TACTICS_FIELD_OPTIONS = {
+  mentalidad: ["defensiva", "equilibrada", "ofensiva"],
+  presion:    ["baja", "media", "alta"],
+  ritmo:      ["lento", "normal", "rapido"],
+  estilo:     ["directo", "posesion", "bandas", "contraataque"],
+  riesgo:     ["conservador", "normal", "agresivo"],
+};
+
+const TACTICS_FIELD_LABELS = {
+  mentalidad: { defensiva:"Defensiva", equilibrada:"Equilibrada", ofensiva:"Ofensiva" },
+  presion:    { baja:"Presión baja", media:"Presión media", alta:"Presión alta" },
+  ritmo:      { lento:"Ritmo lento", normal:"Ritmo normal", rapido:"Ritmo rápido" },
+  estilo:     { directo:"Directo", posesion:"Posesión", bandas:"Bandas", contraataque:"Contra" },
+  riesgo:     { conservador:"Conservador", normal:"Riesgo normal", agresivo:"Agresivo" },
+};
+
+const TACTICS_PRESET_ICONS = ["⚙️","🛡️","⚔️","🔥","🧊","🎯","🔄"];
+
+// Migración: partidas guardadas sin _tactics (o con un valor corrupto en algún
+// campo) caen de vuelta a DEFAULT_TACTICS campo a campo, igual que
+// normalizeTrainingPlan hace con el plan de entrenamiento semanal.
+function normalizeTactics(tactics) {
+  const result = { ...DEFAULT_TACTICS };
+  Object.keys(TACTICS_FIELD_OPTIONS).forEach(field => {
+    if (TACTICS_FIELD_OPTIONS[field].includes(tactics?.[field])) result[field] = tactics[field];
+  });
+  return result;
+}
+
 // Modificadores tácticos sobre la fuerza de ataque/defensa y cansancio
 function tacticModifiers(tactics) {
   const m = { atkBonus: 0, defBonus: 0, fatigueExtra: 0, goalConvRate: 0, chancesRate: 0, yellowRisk: 0 };
@@ -6502,9 +6531,35 @@ function StandingsScreen({ standings, teamId, fixtures, players, movement={}, on
 
 // ─── PANTALLA DE TÁCTICAS ─────────────────────────────────────────────────────
 
-function TacticsScreen({ tactics, setTactics }) {
+function TacticsScreen({ tactics, setTactics, savedTacticsPresets = [], onSaveTacticsPresets }) {
   const S = { background: "#161a24", borderRadius: 10, padding: 14, marginBottom: 12 };
   const labelStyle = { fontSize: 11, color: "#6b7280", fontWeight: 600, letterSpacing: ".5px", marginBottom: 10 };
+
+  const [showSavedPresets, setShowSavedPresets] = useState(false);
+  const [savingPreset, setSavingPreset] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const [presetIcon, setPresetIcon] = useState(TACTICS_PRESET_ICONS[0]);
+  const [confirmDeletePresetId, setConfirmDeletePresetId] = useState(null);
+
+  const describePreset = presetTactics => ["mentalidad", "presion", "estilo"].map(field => TACTICS_FIELD_LABELS[field][presetTactics?.[field]]).filter(Boolean).join(" · ");
+
+  const saveCurrentAsPreset = () => {
+    if (!presetName.trim()) return;
+    const newPreset = { id: `tactics_${Date.now()}`, name: presetName.trim(), icon: presetIcon, tactics: { ...tactics } };
+    onSaveTacticsPresets?.([...(savedTacticsPresets ?? []), newPreset]);
+    setSavingPreset(false);
+    setPresetName("");
+    setPresetIcon(TACTICS_PRESET_ICONS[0]);
+  };
+
+  const loadPreset = preset => {
+    setTactics(normalizeTactics(preset.tactics));
+    setShowSavedPresets(false);
+  };
+
+  const deletePreset = presetId => {
+    onSaveTacticsPresets?.((savedTacticsPresets ?? []).filter(p => p.id !== presetId));
+  };
 
   function OptionGroup({ label, field, options, descriptions }) {
     return (
@@ -6557,10 +6612,18 @@ function TacticsScreen({ tactics, setTactics }) {
     },
   };
 
-  // Calcular fuerza táctica estimada
+  // Impacto real: mismos pesos que calcTeamStrength/calcDefStrength/matchFatigueDelta
+  // usan de verdad al simular el partido (no una aproximación de UI aparte).
+  // - Ataque: atkBonus*0.5, igual que calcTeamStrength (App.jsx ~calcTeamStrength).
+  // - Defensa: defBonus a peso completo, igual que calcDefStrength.
+  // - Cansancio: fatigueExtra*0.75 es el término que matchFatigueDelta suma a su
+  //   base de 5.2 por cada 15 minutos; aquí se muestra ya proyectado a un partido
+  //   completo (×6) para un jugador "tipo" — el cansancio real de cada jugador
+  //   varía además por posición, edad, físico y carga acumulada.
   const mod = tacticModifiers(tactics);
-  const atkNet = mod.atkBonus + mod.chancesRate * 20;
+  const atkNet = mod.atkBonus * 0.5;
   const defNet = mod.defBonus;
+  const fatigueNet = mod.fatigueExtra * 0.75 * 6;
 
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
@@ -6571,7 +6634,7 @@ function TacticsScreen({ tactics, setTactics }) {
           {[
             ["Ataque", atkNet, "#22c55e", "#ef4444"],
             ["Defensa", defNet, "#22c55e", "#ef4444"],
-            ["Cansancio", mod.fatigueExtra, "#ef4444", "#22c55e"],
+            ["Cansancio", fatigueNet, "#ef4444", "#22c55e"],
           ].map(([label, val, posCol, negCol]) => (
             <div key={label} style={{ background: "#0d0f14", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
               <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 3 }}>{label}</div>
@@ -6581,7 +6644,97 @@ function TacticsScreen({ tactics, setTactics }) {
             </div>
           ))}
         </div>
+        <div style={{ fontSize: 9.5, color: "#4b5563", marginTop: 9, lineHeight: 1.4 }}>
+          Ataque y defensa: mismo peso que usa el motor de partido. Cansancio: estimado para un jugador tipo en 90 minutos — varía según posición, edad y forma física.
+        </div>
       </div>
+
+      {/* Presets guardados */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        <button onClick={() => setShowSavedPresets(s => !s)}
+          style={{ flex: 1, background: "rgba(59,130,246,.1)", border: "1px solid rgba(59,130,246,.25)", color: "#60a5fa", padding: "7px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+          ⚙️ Tácticas guardadas {savedTacticsPresets?.length ? `(${savedTacticsPresets.length})` : ""} {showSavedPresets ? "▴" : "▾"}
+        </button>
+        <button onClick={() => setSavingPreset(true)}
+          style={{ background: "rgba(34,197,94,.1)", border: "1px solid rgba(34,197,94,.25)", color: "#22c55e", padding: "7px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+          💾 Guardar actual
+        </button>
+      </div>
+
+      {showSavedPresets && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+          {(!savedTacticsPresets || savedTacticsPresets.length === 0) && (
+            <div style={{ fontSize: 11, color: "#4b5563", textAlign: "center", padding: "10px 0" }}>
+              Aún no tienes tácticas guardadas. Ajusta los diales y pulsa "Guardar actual".
+            </div>
+          )}
+          {(savedTacticsPresets ?? []).map(preset => (
+            <div key={preset.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#161a24", border: "1px solid rgba(255,255,255,.07)", borderRadius: 7, padding: "8px 10px" }}>
+              {confirmDeletePresetId === preset.id ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+                  <div style={{ flex: 1, fontSize: 11, color: "#ef4444", lineHeight: 1.3 }}>¿Eliminar esta táctica guardada?</div>
+                  <button onClick={() => { deletePreset(preset.id); setConfirmDeletePresetId(null); }}
+                    style={{ background: "rgba(239,68,68,.15)", border: "1px solid rgba(239,68,68,.3)", color: "#ef4444", padding: "6px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                    Confirmar
+                  </button>
+                  <button onClick={() => setConfirmDeletePresetId(null)}
+                    style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)", color: "#9aa0b4", padding: "6px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <span style={{ fontSize: 18 }}>{preset.icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#e8eaf0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{preset.name}</div>
+                    <div style={{ fontSize: 10, color: "#6b7280" }}>{describePreset(preset.tactics)}</div>
+                  </div>
+                  <button onClick={() => loadPreset(preset)} className="btn-gold"
+                    style={{ padding: "6px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                    Cargar
+                  </button>
+                  <button onClick={() => setConfirmDeletePresetId(preset.id)}
+                    style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", color: "#ef4444", padding: "6px 9px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
+                    🗑
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {savingPreset && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+          onClick={() => setSavingPreset(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: "#161a24", border: "1px solid rgba(201,168,76,.3)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 320 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#c9a84c", marginBottom: 12 }}>Guardar táctica actual</div>
+            <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="Nombre (ej. Fuera, Contra rival top...)"
+              autoFocus
+              style={{ width: "100%", background: "#1e2330", border: "1px solid rgba(255,255,255,.1)", color: "#e8eaf0", padding: "9px 11px", borderRadius: 7, fontSize: 13, marginBottom: 12, fontFamily: "inherit" }} />
+            <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 600, marginBottom: 6 }}>ICONO</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+              {TACTICS_PRESET_ICONS.map(icon => (
+                <button key={icon} onClick={() => setPresetIcon(icon)}
+                  style={{ width: 36, height: 36, borderRadius: 7, fontSize: 17, cursor: "pointer",
+                    background: presetIcon === icon ? "rgba(201,168,76,.2)" : "#1e2330",
+                    border: `1.5px solid ${presetIcon === icon ? "#c9a84c" : "rgba(255,255,255,.08)"}` }}>
+                  {icon}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { setSavingPreset(false); setPresetName(""); }} className="btn-ghost"
+                style={{ flex: 1, padding: 10, borderRadius: 8, fontSize: 12, cursor: "pointer" }}>Cancelar</button>
+              <button onClick={saveCurrentAsPreset} disabled={!presetName.trim()} className="btn-gold"
+                style={{ flex: 1, padding: 10, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: presetName.trim() ? "pointer" : "not-allowed", opacity: presetName.trim() ? 1 : .5 }}>
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <OptionGroup label="Mentalidad" field="mentalidad"
         options={[["defensiva","Defensiva"],["equilibrada","Equilibrada"],["ofensiva","Ofensiva"]]}
@@ -7789,6 +7942,11 @@ export function TacticsInMatch({ tactics, setTactics, formation, onFormationChan
     ["riesgo",     "Riesgo",     [["conservador","Conservador"],["normal","Normal"],["agresivo","Agresivo"]]],
   ];
   const mod = tacticModifiers(tactics);
+  // Mismos pesos que TacticsScreen (App.jsx ~TacticsScreen) y que el motor de
+  // partido usa de verdad — ver calcTeamStrength/calcDefStrength/matchFatigueDelta.
+  const atkNet = mod.atkBonus * 0.5;
+  const defNet = mod.defBonus;
+  const fatigueNet = mod.fatigueExtra * 0.75 * 6;
   const formationSlots = MATCH_FORMATIONS[formation] ?? MATCH_FORMATIONS["4-3-3"];
   return (
     <div>
@@ -7877,7 +8035,7 @@ export function TacticsInMatch({ tactics, setTactics, formation, onFormationChan
         </div>
       ))}
       <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-        {[["Ataque", mod.atkBonus,"#22c55e","#ef4444"],["Defensa",mod.defBonus,"#22c55e","#ef4444"],["Cansancio/tr",mod.fatigueExtra,"#ef4444","#22c55e"]].map(([l,v,pc,nc])=>(
+        {[["Ataque", atkNet,"#22c55e","#ef4444"],["Defensa",defNet,"#22c55e","#ef4444"],["Cansancio",fatigueNet,"#ef4444","#22c55e"]].map(([l,v,pc,nc])=>(
           <div key={l} style={{ flex:1, background:"#0d0f14", borderRadius:8, padding:"8px 6px", textAlign:"center" }}>
             <div style={{ fontSize:10, color:"#6b7280" }}>{l}</div>
             <div style={{ fontSize:16, fontWeight:700, color: v>0?pc:v<0?nc:"#6b7280" }}>{v>0?"+":""}{Math.round(v*10)/10}</div>
@@ -8635,14 +8793,14 @@ export default function App({ externalData }) {
     return () => { mounted = false; subscription?.data?.subscription?.unsubscribe?.(); };
   }, []);
 
-  // Auto-guardar alineación, suplentes y formación cuando cambian
+  // Auto-guardar alineación, suplentes, formación y tácticas cuando cambian
   useEffect(() => {
     if (!game || !activeSaveId) return;
-    saveGame(game, lineup, formation, subs);
-    autosaveCloud(game, "lineup", { lineup, formation, subs });
-  }, [lineup, formation, subs]);
+    saveGame(game, lineup, formation, subs, tactics);
+    autosaveCloud(game, "lineup", { lineup, formation, subs, tactics });
+  }, [lineup, formation, subs, tactics]);
 
-  const saveGame = useCallback((g, lineupToSave, formationToSave, subsToSave, saveIdOverride) => {
+  const saveGame = useCallback((g, lineupToSave, formationToSave, subsToSave, tacticsToSave, saveIdOverride) => {
     const targetId = saveIdOverride ?? activeSaveId;
     if (!targetId) return;
     try {
@@ -8655,6 +8813,7 @@ export default function App({ externalData }) {
         _lineup: normalizeSlots(lineupToSave !== undefined ? lineupToSave : lineup, STARTERS_SLOTS),
         _formation: formationToSave !== undefined ? formationToSave : formation,
         _subs: normalizeSlots(subsToSave !== undefined ? subsToSave : subs, BENCH_SLOTS),
+        _tactics: normalizeTactics(tacticsToSave !== undefined ? tacticsToSave : tactics),
       };
       localStorage.setItem(saveSlotKey(targetId), JSON.stringify(toSave));
       // Actualizar el índice con metadatos rápidos para la lista de partidas
@@ -8681,7 +8840,7 @@ export default function App({ externalData }) {
         setCloudSyncState(prev => prev.state === "error" || prev.state === "conflict" ? prev : { state:"pending", lastSyncAt:snapshot.lastCloudSync, error:null });
       }
     } catch (e) {}
-  }, [lineup, formation, subs, activeSaveId, cloudSyncState.state]);
+  }, [lineup, formation, subs, tactics, activeSaveId, cloudSyncState.state]);
 
   const saveGameToCloud = useCallback(async (g = game, options = {}) => {
     if (!g || !cloudSession?.user?.id) return null;
@@ -8700,12 +8859,12 @@ export default function App({ externalData }) {
     try {
       setCloudStatus(options.silent ? "" : "Guardando en la nube...");
       setCloudSyncState(prev=>({ ...prev, state:"saving", error:null }));
-      const payload = serializeSavePayload(g, options.lineup ?? lineup, options.formation ?? formation, options.subs ?? subs, { starters:STARTERS_SLOTS, bench:BENCH_SLOTS });
+      const payload = serializeSavePayload(g, options.lineup ?? lineup, options.formation ?? formation, options.subs ?? subs, options.tactics ?? tactics, { starters:STARTERS_SLOTS, bench:BENCH_SLOTS });
       const snapshot = getCloudSyncSnapshot(g);
       const saved = await upsertCloudSave({ userId:cloudSession.user.id, cloudSaveId:g.cloudSaveId ?? null, game:g, payload, expectedLastCloudSync:snapshot.lastCloudSync, expectedCloudUpdatedAt:g.cloudUpdatedAt ?? null, localHasUnsyncedChanges:snapshot.localHasUnsyncedChanges, force:Boolean(options.force) });
       const updatedGame = { ...g, cloudSaveId:saved.id, cloudUpdatedAt:saved.updated_at, lastCloudSync:saved.updated_at, updatedAt:saved.updated_at };
       if (!options.skipState) setGame(current => current?.id === g.id ? updatedGame : current);
-      saveGame(updatedGame, options.lineup ?? lineup, options.formation ?? formation, options.subs ?? subs, options.saveIdOverride);
+      saveGame(updatedGame, options.lineup ?? lineup, options.formation ?? formation, options.subs ?? subs, options.tactics ?? tactics, options.saveIdOverride);
       setCloudConflict(null);
       setCloudStatus(`Partida guardada en la nube: ${new Date(saved.updated_at).toLocaleString("es-ES")}`);
       setCloudSyncState({ state:"saved", lastSyncAt:saved.updated_at, error:null });
@@ -8771,6 +8930,7 @@ export default function App({ externalData }) {
         let loadedLineup = emptyLineup();
         let loadedFormation = "4-3-3";
         let loadedSubs = emptyBench();
+        let loadedTactics = DEFAULT_TACTICS;
         if (parsed._lineup) {
           loadedLineup = normalizeSlots(parsed._lineup, STARTERS_SLOTS);
           delete parsed._lineup;
@@ -8784,6 +8944,11 @@ export default function App({ externalData }) {
           loadedSubs = normalizeSlots(parsed._subs, BENCH_SLOTS);
           delete parsed._subs;
         }
+        if (parsed._tactics) {
+          loadedTactics = normalizeTactics(parsed._tactics);
+          delete parsed._tactics;
+        }
+        setTactics(loadedTactics);
         const cleanLoadedSelection = sanitizeLineupSelection(loadedLineup, loadedSubs, parsed.players, { starters:STARTERS_SLOTS, bench:BENCH_SLOTS });
         loadedLineup = cleanLoadedSelection.lineup;
         loadedSubs = cleanLoadedSelection.subs;
@@ -8814,7 +8979,7 @@ export default function App({ externalData }) {
         migrated=migrateNewDataPlayersToSave(migrated,currentDataVersion);
         detachFreeAgentsFromRealSquads(migrated);
         migrated=ensureSceneState(ensureLegacyDirectorState(advanceClubLife(advanceConversationMemory(refreshTransferListings(ensureTransferState(bootstrapScouting(migrated,getScoutingPool(migrated))),TEAMS,REAL_SQUADS)),{lineup:loadedLineup})));
-        saveGame(migrated, loadedLineup, loadedFormation, loadedSubs, saveId);
+        saveGame(migrated, loadedLineup, loadedFormation, loadedSubs, loadedTactics, saveId);
         setGame(migrated);
         if(options.targetScreen){setScreen(options.targetScreen);}
         else if(migrated.seasonTransition==="seasonEnd"){setSeasonSummary({standings:migrated.standings,teamId:migrated.teamId,season:migrated.season,history:migrated.history??[],players:migrated.players,legacy:migrated.legacy,game:migrated});setScreen("seasonEnd");}
@@ -8962,7 +9127,7 @@ export default function App({ externalData }) {
     setFormation("4-3-3");
     setTactics(DEFAULT_TACTICS);
     setGame(g);
-    saveGame(g, emptyLineup(), "4-3-3", emptyBench(), newId);
+    saveGame(g, emptyLineup(), "4-3-3", emptyBench(), DEFAULT_TACTICS, newId);
     if (cloudSession?.user?.id) {
       saveGameToCloud(g,{saveIdOverride:newId,lineup:emptyLineup(),formation:"4-3-3",subs:emptyBench(),reason:"new-game"}).then(saved=>{
         if(saved)setGame(current=>current?.id===g.id?{...current,cloudSaveId:saved.id,cloudUpdatedAt:saved.updated_at,lastCloudSync:saved.updated_at,updatedAt:saved.updated_at}:current);
@@ -10148,7 +10313,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
           {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} isPC={isPC} />}
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} isPC={isPC} onPlay={() => setScreen("match")} />}
-          {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
+          {screen === "tactics"   && game && <TacticsScreen tactics={tactics} setTactics={setTactics} savedTacticsPresets={game.savedTacticsPresets ?? []} onSaveTacticsPresets={(newSaved) => { const newGame = {...game, savedTacticsPresets: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs, tactics); autosaveCloud(newGame,"tactics-presets",{lineup,formation,subs,tactics}); }} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} setScreen={setScreen} leagues={game.leagues} activeLeagueId={game.leagueId} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} isPC={isPC} teams={TEAMS} season={game.season} leagueConfig={game.leagueConfig} leagues={game.leagues} activeLeagueId={game.leagueId} />}
           {screen === "news"      && game && (isPC

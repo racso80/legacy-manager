@@ -31,7 +31,7 @@ export function getCloudLogs() {
   catch { return []; }
 }
 
-export function serializeSavePayload(game, lineup, formation, subs, slots = { starters: 11, bench: 12 }) {
+export function serializeSavePayload(game, lineup, formation, subs, tactics, slots = { starters: 11, bench: 12 }) {
   if (!game) return null;
   const normalize = (list = [], size) => [...list.slice(0, size), ...Array(Math.max(0, size - list.length)).fill(null)];
   return {
@@ -39,6 +39,7 @@ export function serializeSavePayload(game, lineup, formation, subs, slots = { st
     _lineup: normalize(lineup ?? game._lineup ?? [], slots.starters),
     _formation: formation ?? game._formation ?? "4-3-3",
     _subs: normalize(subs ?? game._subs ?? [], slots.bench),
+    _tactics: tactics ?? game._tactics ?? null,
     updatedAt: new Date().toISOString(),
   };
 }
