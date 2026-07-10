@@ -23,6 +23,7 @@ import PreseasonScreen from "./components/PreseasonScreen.jsx";
 import AttentionCenterScreen from "./components/AttentionCenterScreen.jsx";
 import ContractsScreen from "./components/ContractsScreen.jsx";
 import PCContractsScreen from "./components/pc/PCContractsScreen.jsx";
+import PCLockerRoomScreen from "./components/pc/PCLockerRoomScreen.jsx";
 import StaffScreen from "./components/StaffScreen.jsx";
 import CoachCreateScreen from "./components/CoachCreateScreen.jsx";
 import CoachCareerScreen from "./components/CoachCareerScreen.jsx";
@@ -3523,6 +3524,104 @@ const GLOBAL_CSS = `
     .pc-yt-hist-status.active { color: var(--yt-green, #22c55e); }
     .pc-yt-hist-status.sold .dot { background: var(--yt-text-dim, #9aa0b4); }
     .pc-yt-hist-status.sold { color: var(--yt-text-dim, #9aa0b4); }
+
+    /* ─── PC Vestuario ── Mismos tokens que .pc-ct-root/.pc-md-root/.pc-tr-root/.pc-yt-root:
+       dorado = --club-accent, panel #111726, líneas rgba(255,255,255,.07),
+       radios 6-8px. PCConversationModal se monta vía portal a document.body,
+       fuera del subárbol de .pc-lr-root, así que sus var(--lr-*) llevan fallback. */
+    .pc-lr-root {
+      --lr-gold: var(--club-accent, #c9a84c);
+      --lr-text-on-accent: var(--club-text-on-accent, #1a1200);
+      --lr-panel: #111726;
+      --lr-card: #161d2e;
+      --lr-line: rgba(255,255,255,.07);
+      --lr-text-dim: #9aa0b4;
+      --lr-text-dim2: #6b7280;
+      --lr-green: #22c55e;
+      --lr-red: #ef4444;
+      --lr-orange: #f59e0b;
+      --lr-blue: #60a5fa;
+    }
+    .pc-lr-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .pc-lr-header h1 { font-size: 19px; font-weight: 700; color: #e8eaf0; }
+
+    .pc-lr-summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+    .pc-lr-summary-card { background: var(--lr-panel, #111726); border: 1px solid var(--lr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 14px 16px; }
+    .pc-lr-summary-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--lr-text-dim, #9aa0b4); margin-bottom: 6px; }
+    .pc-lr-summary-value { font-size: 20px; font-weight: 800; color: #e8eaf0; }
+
+    .pc-lr-tabs { display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--lr-line, rgba(255,255,255,.07)); padding-bottom: 12px; }
+    .pc-lr-tab { padding: 8px 16px; border-radius: 6px; font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--lr-text-dim, #9aa0b4); }
+    .pc-lr-tab.active { background: var(--lr-gold, #c9a84c); color: var(--lr-text-on-accent, #1a1200); }
+
+    .pc-lr-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+    .pc-lr-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--lr-text-dim, #9aa0b4); margin: 4px 0 10px; }
+    .pc-lr-empty { background: var(--lr-panel, #111726); border-radius: 8px; padding: 24px; text-align: center; font-size: 11.5px; color: var(--lr-text-dim, #9aa0b4); }
+
+    .pc-lr-conv-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+    .pc-lr-conv-card { display: flex; gap: 12px; text-align: left; background: var(--lr-panel, #111726); border: 1px solid var(--lr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 12px 14px; cursor: pointer; width: 100%; }
+    .pc-lr-conv-card:hover { border-color: var(--lr-gold, #c9a84c); }
+    .pc-lr-conv-body { flex: 1; min-width: 0; }
+    .pc-lr-conv-top { display: flex; align-items: center; gap: 7px; }
+    .pc-lr-conv-name { font-size: 12.5px; font-weight: 700; color: #e8eaf0; }
+    .pc-lr-conv-title { font-size: 12px; color: var(--lr-gold, #c9a84c); font-weight: 600; margin-top: 3px; }
+    .pc-lr-conv-opening { font-size: 11px; color: var(--lr-text-dim, #9aa0b4); margin-top: 4px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-lr-priority-dot { width: 7px; height: 7px; border-radius: 50%; margin-left: auto; flex-shrink: 0; }
+    .pc-lr-team-badge { font-size: 8.5px; font-weight: 800; color: var(--lr-blue, #60a5fa); background: rgba(96,165,250,.14); padding: 2px 7px; border-radius: 999px; }
+
+    .pc-lr-avatar { border-radius: 50%; overflow: hidden; flex-shrink: 0; background: rgba(255,255,255,.04); }
+    .pc-lr-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pc-lr-avatar-icon { display: flex; align-items: center; justify-content: center; background: rgba(201,168,76,.12); }
+
+    .pc-lr-side-panel { background: var(--lr-panel, #111726); border: 1px solid var(--lr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; position: sticky; top: 20px; }
+    .pc-lr-side-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--lr-text-dim, #9aa0b4); margin-bottom: 10px; }
+    .pc-lr-side-title-spaced { margin-top: 18px; }
+    .pc-lr-leaders-list { display: flex; flex-direction: column; gap: 8px; }
+    .pc-lr-leader-row { display: flex; align-items: center; gap: 9px; text-align: left; background: transparent; border: none; padding: 6px; border-radius: 7px; cursor: pointer; width: 100%; }
+    .pc-lr-leader-row:hover { background: rgba(255,255,255,.04); }
+    .pc-lr-leader-info { min-width: 0; }
+    .pc-lr-leader-name { font-size: 12px; font-weight: 700; color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-lr-leader-sub { font-size: 10px; color: var(--lr-text-dim, #9aa0b4); margin-top: 2px; }
+    .pc-lr-moments-list { display: flex; flex-direction: column; gap: 8px; }
+    .pc-lr-moment-item { text-align: left; background: transparent; border: none; padding: 0; cursor: pointer; }
+    .pc-lr-moment-name { font-size: 11px; font-weight: 700; color: #e8eaf0; }
+    .pc-lr-moment-label { font-size: 10.5px; color: var(--lr-text-dim, #9aa0b4); margin-top: 2px; line-height: 1.4; }
+    .pc-lr-side-empty { font-size: 11px; color: var(--lr-text-dim, #9aa0b4); font-style: italic; }
+
+    .pc-lr-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .pc-lr-modal { background: var(--lr-panel, #111726); border: 1px solid var(--lr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 20px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 12px; }
+    .pc-lr-modal-head { display: flex; align-items: center; gap: 11px; }
+    .pc-lr-modal-name { font-size: 14px; font-weight: 700; color: #e8eaf0; display: flex; align-items: center; gap: 7px; }
+    .pc-lr-modal-role { font-size: 11px; color: var(--lr-text-dim, #9aa0b4); margin-top: 2px; }
+    .pc-lr-modal-title { font-size: 13px; font-weight: 700; color: var(--lr-gold, #c9a84c); }
+    .pc-lr-modal-opening { font-size: 12.5px; color: #e8eaf0; font-style: italic; line-height: 1.5; }
+    .pc-lr-modal-motive { font-size: 11.5px; color: var(--lr-text-dim, #9aa0b4); line-height: 1.5; }
+    .pc-lr-modal-options { display: flex; flex-direction: column; gap: 8px; }
+    .pc-lr-option-btn { background: var(--lr-card, #161d2e); border: 1px solid var(--lr-line, rgba(255,255,255,.07)); color: #e8eaf0; border-radius: 8px; padding: 10px 12px; text-align: left; cursor: pointer; }
+    .pc-lr-option-btn:hover { border-color: var(--lr-gold, #c9a84c); }
+    .pc-lr-option-label { font-size: 12.5px; font-weight: 600; }
+    .pc-lr-option-effects { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+    .pc-lr-effect-chip { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(34,197,94,.12); color: var(--lr-green, #22c55e); }
+    .pc-lr-effect-chip.neg { background: rgba(239,68,68,.12); color: var(--lr-red, #ef4444); }
+    .pc-lr-effect-chip.squad { border: 1px solid rgba(96,165,250,.3); }
+    .pc-lr-modal-close { width: 100%; }
+
+    .pc-lr-filter-row { display: flex; gap: 8px; margin-bottom: 18px; }
+    .pc-lr-filter-pill { padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--lr-text-dim, #9aa0b4); border: 1px solid var(--lr-line, rgba(255,255,255,.07)); background: transparent; }
+    .pc-lr-filter-pill.active { background: var(--lr-gold, #c9a84c); color: var(--lr-text-on-accent, #1a1200); border-color: var(--lr-gold, #c9a84c); }
+
+    .pc-lr-roster-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .pc-lr-roster-card { background: var(--lr-panel, #111726); border: 1px solid var(--lr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 13px; display: flex; flex-direction: column; gap: 10px; }
+    .pc-lr-roster-card.concern { border-color: rgba(249,115,22,.35); }
+    .pc-lr-roster-top { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+    .pc-lr-roster-info { min-width: 0; }
+    .pc-lr-roster-name { font-size: 12.5px; font-weight: 700; color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-lr-roster-sub { font-size: 10px; color: var(--lr-text-dim, #9aa0b4); margin-top: 2px; }
+    .pc-lr-roster-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .pc-lr-roster-stats > div { background: rgba(0,0,0,.18); border-radius: 6px; padding: 6px; text-align: center; }
+    .pc-lr-roster-stats .lbl { display: block; font-size: 8px; color: var(--lr-text-dim2, #6b7280); font-weight: 800; }
+    .pc-lr-roster-stats .val { display: block; font-size: 13px; font-weight: 800; color: #e8eaf0; margin-top: 2px; }
+    .pc-lr-roster-btn { width: 100%; padding: 7px; font-size: 11px; }
   }
 `;
 
@@ -9200,7 +9299,11 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     setScreen("conversation");
   };
 
-  const handleConversationResponse = (conversationId, responseId) => {
+  // stay:true evita el setScreen (usado por PCLockerRoomScreen, que gestiona su propia
+  // cola de conversaciones en pantalla y no debe expulsar al usuario al dashboard tras
+  // cada respuesta). El flujo de ConversationScreen (móvil) no pasa la opción y conserva
+  // el comportamiento original de navegar a "dashboard" o a options.navigateTo.
+  const handleConversationResponse = (conversationId, responseId, { stay = false } = {}) => {
     const currentConversation = activeConversations.find(item=>item.id===conversationId);
     const selectedResponse = currentConversation?.options?.find(item=>item.id===responseId);
     const nextScreen = selectedResponse?.navigateTo ?? "dashboard";
@@ -9213,7 +9316,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       return updated;
     });
     setSelectedConversationId(null);
-    setScreen(nextScreen);
+    if (!stay) setScreen(nextScreen);
   };
 
   const handleClubLifeIssueOpen = (issue) => {
@@ -9669,7 +9772,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             ? <PCMedicalScreen game={game} teams={TEAMS} onOpenPlayer={openPlayerProfile} />
             : <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />
           )}
-          {screen === "lockerRoom" && game && <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />}
+          {screen === "lockerRoom" && game && (isPC
+            ? <PCLockerRoomScreen game={game} conversations={activeConversations} onRespond={(conversationId,responseId)=>handleConversationResponse(conversationId,responseId,{stay:true})} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />
+            : <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />
+          )}
           {screen === "fans" && game && <FanbaseScreen game={ensureFanbaseState(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} />}
           {screen === "training"  && game && (isPC
             ? <PCTrainingScreen game={game} teams={TEAMS} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />
