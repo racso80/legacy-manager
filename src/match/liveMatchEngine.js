@@ -86,6 +86,7 @@ export function buildLiveMatchState({
   trainingPlan = null,
   subsUsed = 0,
   maxSubs = 5,
+  matchReadingShift = 0,
 }) {
   const userGoals = isHome ? score.home : score.away;
   const opponentGoals = isHome ? score.away : score.home;
@@ -178,11 +179,17 @@ export function buildLiveMatchState({
     });
   }
 
-  if (minute >= 60 && userGoals < opponentGoals && tactics.mentalidad !== "ofensiva") {
+  // assistantCoach.matchReading adelanta (staff bueno) o retrasa (staff flojo) estos dos
+  // umbrales ya existentes, en vez de crear una señal nueva — un segundo entrenador que
+  // lee mejor el partido detecta antes que vamos perdiendo o que el rival encuentra
+  // ocasiones. matchReadingShift ya viene acotado a ±8 min desde App.jsx.
+  const losingMidThreshold = 60 - matchReadingShift;
+  const losingLateThreshold = 75 - matchReadingShift;
+  if (minute >= losingMidThreshold && userGoals < opponentGoals && tactics.mentalidad !== "ofensiva") {
     signals.push({
-      key: `tactical:losing:${minute >= 75 ? "late" : "mid"}`,
+      key: `tactical:losing:${minute >= losingLateThreshold ? "late" : "mid"}`,
       source: "assistant",
-      severity: minute >= 75 ? "urgent" : "important",
+      severity: minute >= losingLateThreshold ? "urgent" : "important",
       title: "El partido pide una decision",
       message: `Vamos por detras y seguimos con mentalidad ${tactics.mentalidad ?? "equilibrada"}. El segundo entrenador propone ajustar el plan antes de que se escape.`,
       action: "Abrir tacticas",
@@ -246,7 +253,7 @@ export function buildLiveMatchState({
     });
   }
 
-  if (minute >= 50 && stats.opponentBigChances >= stats.userBigChances + 2) {
+  if (minute >= (50 - matchReadingShift) && stats.opponentBigChances >= stats.userBigChances + 2) {
     signals.push({
       key: "flow:opponent_chances",
       source: "assistant",

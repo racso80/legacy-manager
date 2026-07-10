@@ -57,7 +57,7 @@ import { acceptClubCounter, acceptPlayerCounter, acceptRoleCounter, advanceTrans
 import { getAttentionCount, getAttentionItems, markAttentionItem } from "./attention/attentionEngine.js";
 import { acceptRenewalCounter, advanceRenewals, completeRenewal, createRenewalOffer, ensureContractState, withdrawRenewalOffer } from "./contracts/contractEngine.js";
 import { ensurePlayerMorale, ensureSquadMorale, getLockerRoomSummary, getMoraleLevel, updatePlayerHumanState } from "./morale/moraleEngine.js";
-import { ensureStaffState } from "./staff/staffEngine.js";
+import { ensureStaffState, staffModifier } from "./staff/staffEngine.js";
 import { createCoachCareer, ensureCoachCareer, finalizeCoachSeason, recordCoachMatch } from "./coach/coachCareerEngine.js";
 import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, applyFanYouthReaction, ensureFanbaseState, estimateFanAttendance, generateFanNews } from "./fans/fanEngine.js";
 import { advanceConversationMemory, ensureConversationState, getActiveConversations, respondToConversation } from "./conversations/conversationEngine.js";
@@ -1104,7 +1104,10 @@ function generateSegmentEvents(segment, players, userStr, oppStr, score, tactics
 
   // Defensa rival reduce conversión de gol del usuario
   const oppDefStr   = calcDefStrength(oppSquad, oppTactics, medicalContext.oppTrainingPlan);
-  const userDefStr  = calcDefStrength(players,tactics,medicalContext.trainingPlan);
+  // Mismo boost de assistantCoach.tactics que en calcTeamStrength (App.jsx ~6752), aplicado
+  // aquí también para que cubra el lado defensivo — medicalContext.game siempre viene
+  // informado desde el único call site real (generateSegmentEvents se llama solo ahí).
+  const userDefStr  = calcDefStrength(players,tactics,medicalContext.trainingPlan) + staffModifier(medicalContext.game, "assistantCoach", "tactics", 2);
   const hGoalConv   = Math.min(0.78, Math.max(0.30, 0.52 + mod.goalConvRate + trainingMod.goalConv - (oppDefStr - 65) * 0.003));
   const aGoalConv   = Math.min(0.68, Math.max(0.25, 0.42 + oppMod.goalConvRate + oppTrainingMod.goalConv - (userDefStr - 65) * 0.004));
 
@@ -6681,6 +6684,13 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     return doOpponentSubstitution(outP.id, inP.id, minute, reason);
   };
 
+  // assistantCoach.matchReading: minutos que se adelanta (staff bueno) o retrasa (staff
+  // flojo) la detección de dos señales tácticas ya existentes ("vamos perdiendo" y "el
+  // rival encuentra ocasiones"). Clamp a ±8 min para que nunca empuje un umbral a algo
+  // absurdo; se calcula aquí (no dentro de liveMatchEngine.js) para no acoplar ese motor
+  // a staffEngine.js, igual que trainingPlan ya se pasa en crudo y se resuelve dentro.
+  const matchReadingShift = Math.round(Math.max(-8, Math.min(8, staffModifier(game, "assistantCoach", "matchReading", 8))));
+
   const getLiveMatchState = () => buildLiveMatchState({
     minute: currentMinute,
     events,
@@ -6700,6 +6710,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     trainingPlan: game.trainingPlan,
     subsUsed,
     maxSubs: MAX_SUBS,
+    matchReadingShift,
   });
 
   const dismissLiveSignal = (key) => {
@@ -6749,7 +6760,11 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     const trainingMod = getTrainingMatchModifiers(game.trainingPlan ?? DEFAULT_TRAINING_PLAN);
     const oppTrainingPlan = opponentTrainingPlanForMatch(oppTactics, oppFormation);
     const oppTrainingMod = getTrainingMatchModifiers(oppTrainingPlan);
-    const userStr=strengthWithPlayerCount(calcTeamStrength(starterPlayers,isHome,tactics,game.trainingPlan)+liveFormationStrengthBonus(matchFormation),starterPlayers.length);
+    // assistantCoach.tactics: solo del lado del usuario — calcTeamStrength/calcDefStrength son
+    // genéricas y se llaman también para el rival, así que el boost se suma aquí en vez de
+    // dentro de esas funciones, para no reforzar accidentalmente al equipo contrario.
+    const assistantTacticsBoost = staffModifier(game, "assistantCoach", "tactics", 2);
+    const userStr=strengthWithPlayerCount(calcTeamStrength(starterPlayers,isHome,tactics,game.trainingPlan)+liveFormationStrengthBonus(matchFormation)+assistantTacticsBoost,starterPlayers.length);
     const oppCount=Math.max(7,oppSquad.length);
     const oppStr=strengthWithPlayerCount(calcTeamStrength(oppSquad,!isHome,oppTactics,oppTrainingPlan)+liveFormationStrengthBonus(oppFormation)+(Math.random()*4-2),oppCount);
     const yellowCounts={user:{},opp:{}};
