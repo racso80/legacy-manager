@@ -39,7 +39,7 @@ export default function PCWeeklyReportTab({ game, onOpenPlayer }) {
           const item = changesByPlayer[player.id];
           const isProspect = player.age <= 23 && (player.potential ?? player.overall) - player.overall >= 3;
           return (
-            <div key={player.id} className="pc-tr-report-row" onClick={() => onOpenPlayer(player, game.teamId)}>
+            <div key={player.id} className="pc-tr-report-row" onClick={() => onOpenPlayer(player, game.teamId, sorted)}>
               <div className="pc-tr-report-name-block">
                 <div className="pc-tr-report-name">{player.name}</div>
                 {isProspect && <div className="pc-tr-prospect-badge">🌱 Promesa</div>}

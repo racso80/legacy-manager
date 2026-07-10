@@ -6,6 +6,7 @@ import PCNewsScreen from "./components/pc/PCNewsScreen.jsx";
 import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
 import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
 import PCMedicalScreen from "./components/pc/PCMedicalScreen.jsx";
+import PCPlayerProfileScreen from "./components/pc/PCPlayerProfileScreen.jsx";
 import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
 import PCTrainingScreen from "./components/pc/PCTrainingScreen.jsx";
 import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
@@ -3866,6 +3867,123 @@ const GLOBAL_CSS = `
     .pc-lc-history-season { font-size: 10px; color: var(--lc-text-dim, #9aa0b4); margin-top: 3px; }
     .pc-lc-history-result { text-align: right; font-size: 12px; font-weight: 800; color: var(--lc-text-dim, #9aa0b4); }
     .pc-lc-history-title { font-size: 10px; color: var(--lc-gold, #c9a84c); margin-top: 3px; }
+
+    /* ─── PC Perfil de Jugador ── Mismos tokens que el resto de pantallas PC.
+       Es la pantalla más reutilizada de la app (se abre desde Plantilla, Mercado,
+       Scouting, Contratos, Cantera, Vestuario, Médico, Entrenamientos, Noticias y
+       Clasificación), así que todas las var(--pp-*) llevan su fallback explícito. */
+    .pc-pp-root { padding-bottom: 30px; }
+    .pc-pp-root {
+      --pp-gold: var(--club-accent, #c9a84c);
+      --pp-text-on-accent: var(--club-text-on-accent, #1a1200);
+      --pp-panel: #111726;
+      --pp-card: #161d2e;
+      --pp-line: rgba(255,255,255,.07);
+      --pp-text-dim: #9aa0b4;
+      --pp-text-dim2: #6b7280;
+      --pp-green: #22c55e;
+      --pp-red: #ef4444;
+      --pp-blue: #60a5fa;
+      --pp-orange: #f59e0b;
+    }
+
+    .pc-pp-back-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .pc-pp-back-link { font-size: 12px; color: var(--pp-text-dim, #9aa0b4); cursor: pointer; }
+    .pc-pp-back-link:hover { color: var(--pp-gold, #c9a84c); }
+    .pc-pp-player-nav { display: flex; gap: 8px; }
+    .pc-pp-nav-btn { background: var(--pp-panel, #111726); border: 1px solid var(--pp-line, rgba(255,255,255,.07)); color: var(--pp-text-dim, #9aa0b4); border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+    .pc-pp-nav-btn:hover:not(:disabled) { border-color: var(--pp-gold, #c9a84c); color: #e8eaf0; }
+    .pc-pp-nav-btn:disabled { opacity: .35; cursor: default; }
+
+    .pc-pp-profile-header { display: flex; gap: 22px; margin-bottom: 20px; align-items: flex-end; }
+    .pc-pp-header-info { flex: 1; min-width: 0; }
+    .pc-pp-club-line { font-size: 12px; color: var(--pp-gold, #c9a84c); font-weight: 600; }
+    .pc-pp-player-name { font-size: 26px; font-weight: 800; margin: 4px 0; color: #e8eaf0; }
+    .pc-pp-player-sub { font-size: 12.5px; color: var(--pp-text-dim, #9aa0b4); }
+    .pc-pp-rating-row { display: flex; gap: 20px; margin-top: 12px; }
+    .pc-pp-rating-block { text-align: center; }
+    .pc-pp-rating-value { font-size: 22px; font-weight: 800; color: #e8eaf0; }
+    .pc-pp-rating-value.gold { color: var(--pp-gold, #c9a84c); }
+    .pc-pp-rating-label { font-size: 9.5px; color: var(--pp-text-dim2, #6b7280); text-transform: uppercase; }
+    .pc-pp-tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .pc-pp-tag-pill { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+
+    .pc-pp-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--pp-line, rgba(255,255,255,.07)); padding-bottom: 12px; }
+    .pc-pp-tab { padding: 8px 16px; border-radius: 6px; font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--pp-text-dim, #9aa0b4); }
+    .pc-pp-tab.active { background: var(--pp-gold, #c9a84c); color: var(--pp-text-on-accent, #1a1200); }
+
+    .pc-pp-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--pp-text-dim, #9aa0b4); margin: 4px 0 10px; }
+    .pc-pp-empty { background: var(--pp-panel, #111726); border-radius: 8px; padding: 24px; text-align: center; font-size: 11.5px; color: var(--pp-text-dim, #9aa0b4); }
+
+    .pc-pp-academy-box { background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.2); border-radius: 9px; padding: 13px 15px; margin-bottom: 16px; }
+    .pc-pp-academy-title { color: var(--pp-green, #22c55e); font-size: 11px; font-weight: 800; }
+    .pc-pp-academy-body { color: var(--pp-text-dim, #9aa0b4); font-size: 10.5px; line-height: 1.5; margin-top: 5px; }
+
+    .pc-pp-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .pc-pp-info-grid.two { grid-template-columns: repeat(2, 1fr); }
+    .pc-pp-info-grid.three { grid-template-columns: repeat(3, 1fr); }
+    .pc-pp-info-card { background: var(--pp-panel, #111726); border: 1px solid var(--pp-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 14px 16px; }
+    .pc-pp-info-card-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--pp-text-dim, #9aa0b4); margin-bottom: 10px; }
+    .pc-pp-info-row { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 8px; color: #e8eaf0; }
+    .pc-pp-info-row:last-child { margin-bottom: 0; }
+    .pc-pp-info-row .val { font-weight: 700; }
+    .pc-pp-stat-value { font-size: 19px; font-weight: 800; color: #e8eaf0; }
+    .pc-pp-stat-value.gold { color: var(--pp-gold, #c9a84c); }
+    .pc-pp-stat-value .unit { font-size: 11px; color: var(--pp-text-dim, #9aa0b4); font-weight: 400; }
+
+    .pc-pp-attr-section { background: var(--pp-panel, #111726); border: 1px solid var(--pp-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px 18px; margin-bottom: 20px; }
+    .pc-pp-attr-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .pc-pp-attr-row:last-child { margin-bottom: 0; }
+    .pc-pp-attr-label { width: 150px; font-size: 12px; color: var(--pp-text-dim, #9aa0b4); flex-shrink: 0; }
+    .pc-pp-attr-bar { flex: 1; height: 7px; border-radius: 4px; background: var(--pp-card, #161d2e); overflow: hidden; }
+    .pc-pp-attr-fill { height: 100%; border-radius: 4px; background: var(--pp-gold, #c9a84c); }
+    .pc-pp-attr-value { width: 30px; text-align: right; font-size: 12px; font-weight: 700; color: #e8eaf0; flex-shrink: 0; }
+
+    .pc-pp-stats-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .pc-pp-stats-header select { background: var(--pp-panel, #111726); border: 1px solid rgba(201,168,76,.25); color: var(--pp-gold, #c9a84c); border-radius: 7px; padding: 7px 10px; font-size: 11px; font-weight: 700; }
+    .pc-pp-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
+    .pc-pp-stats-note { font-size: 10.5px; color: var(--pp-text-dim2, #6b7280); line-height: 1.5; }
+
+    .pc-pp-report-box { background: var(--pp-panel, #111726); border-radius: 9px; padding: 13px; color: var(--pp-text-dim, #9aa0b4); font-size: 11.5px; line-height: 1.5; margin-bottom: 18px; }
+    .pc-pp-dev-history { display: flex; flex-direction: column; gap: 8px; }
+    .pc-pp-dev-history-row { background: var(--pp-panel, #111726); border-radius: 8px; padding: 11px 13px; display: flex; justify-content: space-between; align-items: center; }
+    .pc-pp-dev-history-season { color: var(--pp-gold, #c9a84c); font-size: 11.5px; font-weight: 700; }
+    .pc-pp-dev-history-value { color: var(--pp-text-dim, #9aa0b4); font-size: 10px; margin-top: 3px; }
+    .pc-pp-dev-history-overall { font-size: 14px; font-weight: 800; color: #e8eaf0; }
+
+    .pc-pp-contract-panel { background: var(--pp-panel, #111726); border-radius: 10px; padding: 14px; margin-top: 12px; font-size: 11px; color: var(--pp-text-dim, #9aa0b4); line-height: 1.5; }
+    .pc-pp-contract-panel.blue { border: 1px solid rgba(96,165,250,.22); }
+    .pc-pp-contract-panel.gold { border: 1px solid rgba(201,168,76,.22); }
+    .pc-pp-contract-panel.muted { background: rgba(201,168,76,.08); border: 1px solid rgba(201,168,76,.2); }
+    .pc-pp-contract-panel-title { font-size: 10px; font-weight: 900; margin-bottom: 8px; }
+    .pc-pp-contract-panel-title.blue { color: var(--pp-blue, #60a5fa); }
+    .pc-pp-contract-panel-title.gold { color: var(--pp-gold, #c9a84c); }
+    .pc-pp-contract-panel-line { font-size: 12px; color: #e8eaf0; margin-top: 5px; }
+    .pc-pp-contract-panel-line.blue { color: var(--pp-blue, #60a5fa); font-weight: 800; font-size: 10px; }
+    .pc-pp-contract-panel-sub { font-size: 10px; margin-top: 5px; }
+    .pc-pp-contract-hint { font-size: 9px; line-height: 1.4; margin-top: 8px; }
+    .pc-pp-clause-block { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.08); }
+    .pc-pp-renewal-form { display: grid; grid-template-columns: 1fr 90px; gap: 8px; margin-top: 4px; }
+    .pc-pp-renewal-form input, .pc-pp-renewal-form select { background: #1e2330; border: 1px solid rgba(255,255,255,.1); color: #fff; border-radius: 8px; padding: 9px; font-size: 12px; }
+    .pc-pp-renewal-form select.full { grid-column: 1 / -1; }
+
+    .pc-pp-history-list { display: flex; flex-direction: column; gap: 8px; }
+    .pc-pp-history-card { background: var(--pp-panel, #111726); border-radius: 9px; padding: 12px 14px; }
+    .pc-pp-history-season { color: var(--pp-gold, #c9a84c); font-weight: 800; font-size: 13px; }
+    .pc-pp-history-club { color: var(--pp-text-dim, #9aa0b4); font-size: 11px; margin: 3px 0 9px; }
+    .pc-pp-history-stats { display: flex; gap: 16px; font-size: 11px; color: #e8eaf0; }
+    .pc-pp-medical-list { display: flex; flex-direction: column; gap: 7px; }
+    .pc-pp-medical-card { background: var(--pp-panel, #111726); border-left: 3px solid var(--pp-orange, #f59e0b); border-radius: 8px; padding: 10px 12px; }
+    .pc-pp-medical-type { color: #e8eaf0; font-size: 12px; font-weight: 700; }
+    .pc-pp-medical-meta { color: var(--pp-text-dim, #9aa0b4); font-size: 10px; margin-top: 3px; }
+
+    .pc-pp-news-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .pc-pp-actions-footer { position: sticky; bottom: 0; background: var(--pp-panel, #111726); border-top: 1px solid var(--pp-line, rgba(255,255,255,.07)); padding: 14px 0; margin-top: 24px; display: flex; gap: 10px; justify-content: flex-end; }
+    .pc-pp-btn { border: none; padding: 10px 18px; border-radius: 6px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+    .pc-pp-btn.gold { background: var(--pp-gold, #c9a84c); color: var(--pp-text-on-accent, #1a1200); }
+    .pc-pp-btn.gold.full { width: 100%; margin-top: 10px; }
+    .pc-pp-btn.ghost { background: transparent; border: 1px solid var(--pp-line, rgba(255,255,255,.07)); color: var(--pp-text-dim, #9aa0b4); }
   }
 `;
 
@@ -9536,18 +9654,28 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     setSelectedPlayer(enrichPlayerProfile(ensurePlayerLifecycle(nextPlayer, game.season ?? "2025", game.matchday ?? 1), game.season ?? "2025"));
   };
 
-  const openPlayerProfileById = (playerId) => {
-    if (!game) return;
+  const resolvePlayerById = (playerId) => {
+    if (!game) return null;
     const ownPlayer = game.players.find(player => player.id === playerId);
-    if (ownPlayer) return openPlayerProfile(ownPlayer, game.teamId);
-    const academyPlayer=game.youth?.players?.find(player=>player.id===playerId);
-    if(academyPlayer)return openPlayerProfile(academyPlayer,game.teamId);
+    if (ownPlayer) return { player: ownPlayer, teamId: game.teamId };
+    const academyPlayer = game.youth?.players?.find(player => player.id === playerId);
+    if (academyPlayer) return { player: academyPlayer, teamId: game.teamId };
     for (const team of TEAMS) {
       const player = (REAL_SQUADS[team.id] ?? []).find(item => item.id === playerId);
-      if (player) return openPlayerProfile(player, team.id);
+      if (player) return { player, teamId: team.id };
     }
     const transfer = [...(game.transfers ?? [])].reverse().find(item => item.player?.id === playerId);
-    if (transfer?.player) openPlayerProfile(transfer.player, transfer.type === "buy" ? game.teamId : null);
+    if (transfer?.player) return { player: transfer.player, teamId: transfer.type === "buy" ? game.teamId : null };
+    return null;
+  };
+
+  // relatedIds: ids opcionales de otros jugadores mencionados en el mismo contexto
+  // (p.ej. el feed de Noticias visible) para poder navegar prev/next entre ellos.
+  const openPlayerProfileById = (playerId, relatedIds = null) => {
+    const resolved = resolvePlayerById(playerId);
+    if (!resolved) return;
+    const list = relatedIds?.length ? relatedIds.map(id => resolvePlayerById(id)?.player).filter(Boolean) : null;
+    openPlayerProfile(resolved.player, resolved.teamId, list);
   };
 
   const openConversation = (conversationId) => {
@@ -10032,7 +10160,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             : <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />
           )}
           {screen === "lockerRoom" && game && (isPC
-            ? <PCLockerRoomScreen game={game} conversations={activeConversations} onRespond={(conversationId,responseId)=>handleConversationResponse(conversationId,responseId,{stay:true})} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />
+            ? <PCLockerRoomScreen game={game} conversations={activeConversations} onRespond={(conversationId,responseId)=>handleConversationResponse(conversationId,responseId,{stay:true})} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />
             : <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />
           )}
           {screen === "fans" && game && <FanbaseScreen game={ensureFanbaseState(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} />}
@@ -10041,7 +10169,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             : <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />
           )}
           {screen === "youth"     && game && (isPC
-            ? <PCYouthAcademyScreen game={game} teams={TEAMS} onPromote={handleYouthPromotion} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />
+            ? <PCYouthAcademyScreen game={game} teams={TEAMS} onPromote={handleYouthPromotion} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />
             : <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />
           )}
           {screen === "board"     && game && (isPC
@@ -10067,14 +10195,17 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "settings"  && game && <SettingsScreen game={game} />}
           {screen === "finances"  && game && <FinancesScreen game={game} />}
           {screen === "contracts" && game && (isPC
-            ? <PCContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />
+            ? <PCContractsScreen game={ensureContractState(game)} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />
             : <ContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />
           )}
           {screen === "transfers" && game && (isPC
             ? <PCTransferCenterScreen initialMainTab="mercado" game={game} teams={TEAMS} candidates={getScoutingPool(game)} budgetSnapshot={pcBudgetSnapshot} onOpenPlayer={openPlayerProfile} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} />
             : <TransferMarketScreen game={game} onTransfer={handleTransfer} onOpenPlayer={openPlayerProfile} onGoScouting={()=>{setScoutingFocusId(null);setScreen("scouting")}} onViewReport={reportId=>{setScoutingFocusId(reportId);setScreen("scouting")}} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} />
           )}
-          {screen === "playerProfile" && game && selectedPlayer && <PlayerProfileScreen player={selectedPlayer} players={selectedPlayerList} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} onNavigatePlayer={navigateToPlayerInList} onPayClause={handleClauseTrigger} />}
+          {screen === "playerProfile" && game && selectedPlayer && (isPC
+            ? <PCPlayerProfileScreen player={selectedPlayer} players={selectedPlayerList} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} teams={TEAMS} returnScreen={profileReturnScreen} onBack={goBack} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} onNavigatePlayer={navigateToPlayerInList} onPayClause={handleClauseTrigger} onOpenPlayer={openPlayerProfileById} />
+            : <PlayerProfileScreen player={selectedPlayer} players={selectedPlayerList} game={game} team={TEAMS.find(team=>team.id===selectedPlayerTeamId)} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen(selectedPlayer.academyStatus==="academy"?"youth":"training")} onMarketStatus={handleUserMarketStatus} onRenewalOffer={handleCreateRenewal} onGoContracts={()=>setScreen("contracts")} onNavigatePlayer={navigateToPlayerInList} onPayClause={handleClauseTrigger} />
+          )}
           {screen === "conversation" && game && <ConversationScreen conversation={selectedConversation} onRespond={handleConversationResponse} onBack={goBack} />}
           {screen === "scene" && game && <InteractiveSceneScreen scene={selectedScene} onChoose={handleSceneDecision} onBack={goBack} />}
           {screen === "match"     && game && <MatchScreen game={game} saveId={activeSaveId} tactics={tactics} setTactics={setTactics} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} formation={formation} onMatchEnd={handleMatchEnd} onAbandonMatch={()=>{setRecoverableMatch(null);setScreen("dashboard");}} isPC={isPC} />}

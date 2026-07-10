@@ -97,7 +97,7 @@ export default function PCContractsScreen({ game, onOpenPlayer, onCreateRenewal,
               bucket={bucket}
               activeRenewal={activeByPlayer.get(player.id)}
               vulnerable={isVulnerableClause(player)}
-              onOpenPlayer={onOpenPlayer}
+              onOpenPlayer={p => onOpenPlayer(p, shown.map(item => item.player))}
               onRenew={() => setRenewTarget(player)}
               onViewRenewal={id => setSelectedRenewalId(id)}
             />

@@ -39,6 +39,11 @@ export default function PCNewsScreen({ game, teams, onOpenPlayer }) {
   const visibleFeed = mainFeed.slice(0, visibleCount);
   const hasMore = mainFeed.length > visibleCount;
 
+  // Ids de jugadores mencionados en lo que está visible ahora mismo, para que
+  // prev/next en el perfil navegue solo entre jugadores de este mismo vistazo.
+  const relatedIds = [...new Set([...featuredItems, ...visibleFeed].flatMap(item => item.playerIds ?? []))];
+  const handleOpenPlayer = playerId => onOpenPlayer?.(playerId, relatedIds);
+
   const handleCategoryChange = id => { setCategory(id); setVisibleCount(PAGE_SIZE); };
   const handleLeagueChange = id => { setLeagueFilter(id); setVisibleCount(PAGE_SIZE); };
   const handleSeasonChange = value => { setSeason(value); setVisibleCount(PAGE_SIZE); };
@@ -79,7 +84,7 @@ export default function PCNewsScreen({ game, teams, onOpenPlayer }) {
           <div className="pc-ns-section-label">Destacadas</div>
           <div className="pc-ns-featured-row">
             {featuredItems.map(item => (
-              <PCFeaturedCard key={item.id} item={item} game={game} teams={teams} onOpenPlayer={onOpenPlayer} />
+              <PCFeaturedCard key={item.id} item={item} game={game} teams={teams} onOpenPlayer={handleOpenPlayer} />
             ))}
           </div>
         </>
@@ -90,7 +95,7 @@ export default function PCNewsScreen({ game, teams, onOpenPlayer }) {
         <>
           <div className="pc-ns-list">
             {visibleFeed.map(item => (
-              <PCNewsRow key={item.id} item={item} game={game} teams={teams} onOpenPlayer={onOpenPlayer} />
+              <PCNewsRow key={item.id} item={item} game={game} teams={teams} onOpenPlayer={handleOpenPlayer} />
             ))}
           </div>
           {hasMore && (

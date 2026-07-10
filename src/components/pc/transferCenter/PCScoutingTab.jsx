@@ -29,10 +29,10 @@ function PositionPicker({ value, onChange }) {
   );
 }
 
-function ReportCard({ report, watched, onWatch, onOpen, onRescout, onGoMarket }) {
+function ReportCard({ report, watched, onWatch, onOpen, onRescout, onGoMarket, playerList }) {
   const locked = report.confidence < 88;
   return (
-    <div className="pc-tc-report-card">
+    <div className="pc-tc-report-card" onClick={() => !locked && onOpen(report.player, report.teamId, playerList)} style={{ cursor: locked ? "default" : "pointer" }}>
       <div className="pc-tc-report-top">
         <div>
           <div className="pc-tc-report-name">{report.player.name}</div>
@@ -52,9 +52,9 @@ function ReportCard({ report, watched, onWatch, onOpen, onRescout, onGoMarket })
       {report.opportunity && <div className="pc-tc-opportunity-tag">● {report.opportunity}</div>}
       {locked && <div className="pc-tc-lock-notice">🔒 Perfil completo bloqueado hasta 88% de confianza.</div>}
       <div className="pc-tc-report-actions">
-        <button className={`pc-tc-star-btn${watched ? " active" : ""}`} onClick={() => onWatch(report.id)}>{watched ? "★" : "👁"}</button>
-        <button className="btn-ghost pc-tc-btn-sm" onClick={() => onRescout(report)}>Ojear de nuevo</button>
-        <button className="btn-gold pc-tc-btn-sm" onClick={onGoMarket} disabled={locked} title={locked ? "Necesita más confianza para ofertar" : undefined}>Oferta</button>
+        <button className={`pc-tc-star-btn${watched ? " active" : ""}`} onClick={event => { event.stopPropagation(); onWatch(report.id); }}>{watched ? "★" : "👁"}</button>
+        <button className="btn-ghost pc-tc-btn-sm" onClick={event => { event.stopPropagation(); onRescout(report); }}>Ojear de nuevo</button>
+        <button className="btn-gold pc-tc-btn-sm" onClick={event => { event.stopPropagation(); onGoMarket(); }} disabled={locked} title={locked ? "Necesita más confianza para ofertar" : undefined}>Oferta</button>
       </div>
     </div>
   );
@@ -160,7 +160,7 @@ export default function PCScoutingTab({ game, subTab, onSubTabChange, onStartMis
       {subTab === "informes" && (
         <div className="pc-tc-report-grid">
           {reports.length === 0 && <div className="pc-tc-empty">No hay informes disponibles. Inicia una misión para empezar.</div>}
-          {reports.map(r => <ReportCard key={r.id} report={r} watched={watched.has(r.id)} onWatch={onToggleWatch} onOpen={onOpenPlayer} onRescout={rescout} onGoMarket={onGoMarket} />)}
+          {reports.map(r => <ReportCard key={r.id} report={r} watched={watched.has(r.id)} onWatch={onToggleWatch} onOpen={onOpenPlayer} onRescout={rescout} onGoMarket={onGoMarket} playerList={reports.map(item => item.player)} />)}
         </div>
       )}
 

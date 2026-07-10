@@ -114,7 +114,7 @@ function RankPanel({ icon, title, rows, teams, unit, onOpenPlayer, valueColor })
             key={row.id}
             className="pc-standings-rank-row"
             style={{ cursor: row.playerObj ? "pointer" : "default" }}
-            onClick={() => row.playerObj && onOpenPlayer(row.playerObj, row.teamId)}
+            onClick={() => row.playerObj && onOpenPlayer(row.playerObj, row.teamId, rows.map(r => r.playerObj).filter(Boolean))}
           >
             <div className="pc-standings-rank-pos">{i + 1}</div>
             <TeamCrest team={team} size={20} className="pc-standings-rank-crest" />

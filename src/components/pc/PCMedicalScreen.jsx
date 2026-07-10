@@ -62,7 +62,7 @@ export default function PCMedicalScreen({ game, teams, onOpenPlayer }) {
           {patients.length ? (
             <div className="pc-md-patient-grid">
               {patients.map(({ player }) => (
-                <PCPatientCard key={player.id} player={player} teamId={game.teamId} onOpenPlayer={onOpenPlayer} />
+                <PCPatientCard key={player.id} player={player} teamId={game.teamId} onOpenPlayer={p => onOpenPlayer(p, game.teamId, patients.map(item => item.player))} />
               ))}
             </div>
           ) : <div className="pc-md-empty">🟢 Todos los jugadores están disponibles.</div>}
@@ -75,7 +75,7 @@ export default function PCMedicalScreen({ game, teams, onOpenPlayer }) {
           {warnings.length ? (
             <div className="pc-md-risk-list">
               {warnings.map(item => (
-                <PCRiskRow key={item.player.id} item={item} game={game} onOpenPlayer={onOpenPlayer} />
+                <PCRiskRow key={item.player.id} item={item} game={game} onOpenPlayer={p => onOpenPlayer(p, game.teamId, warnings.map(w => w.player))} />
               ))}
             </div>
           ) : <div className="pc-md-empty">No hay alertas de sobrecarga.</div>}

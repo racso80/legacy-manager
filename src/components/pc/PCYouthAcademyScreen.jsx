@@ -13,6 +13,7 @@ export default function PCYouthAcademyScreen({ game, teams, onPromote, onOpenPla
   const intakeIds = new Set(youth.lastIntake ?? []);
   const canPromote = game.players.length < 30;
   const graduates = getAcademyGraduates(game);
+  const sortedProspects = [...youth.players].sort((a, b) => b.potential - a.potential);
 
   const avgPotential = youth.players.length
     ? Math.round(youth.players.reduce((sum, player) => sum + (player.potential ?? player.overall), 0) / youth.players.length)
@@ -63,13 +64,13 @@ export default function PCYouthAcademyScreen({ game, teams, onPromote, onOpenPla
           <div className="pc-yt-layout">
             {youth.players.length ? (
               <div className="pc-yt-prospect-grid">
-                {[...youth.players].sort((a, b) => b.potential - a.potential).map(player => (
+                {sortedProspects.map(player => (
                   <PCProspectCard
                     key={player.id}
                     player={player}
                     isNew={intakeIds.has(player.id)}
                     canPromote={canPromote}
-                    onOpenPlayer={onOpenPlayer}
+                    onOpenPlayer={p => onOpenPlayer(p, sortedProspects)}
                     onPromote={promotePlayer}
                   />
                 ))}
@@ -81,7 +82,7 @@ export default function PCYouthAcademyScreen({ game, teams, onPromote, onOpenPla
         </>
       )}
 
-      {tab === "history" && <PCAcademyHistoryTab graduates={graduates} onOpenPlayer={onOpenPlayer} />}
+      {tab === "history" && <PCAcademyHistoryTab graduates={graduates} onOpenPlayer={p => onOpenPlayer(p, graduates)} />}
     </div>
   );
 }

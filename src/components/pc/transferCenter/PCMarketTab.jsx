@@ -218,7 +218,7 @@ export default function PCMarketTab({ game, teams, players, allOtherPlayers, sub
             const dealType = free ? "free" : p._listing?.type === "loan" ? "loan" : "transfer";
             const dealLabel = dealType === "free" ? "AGENTE LIBRE" : dealType === "loan" ? "CEDIBLE" : "TRANSFERIBLE";
             return (
-              <div key={p.id} className="pc-tc-listing-card">
+              <div key={p.id} className="pc-tc-listing-card" onClick={() => onOpenPlayer(p, game.teamId, marketPlayers)} style={{ cursor: "pointer" }}>
                 <div className="pc-tc-listing-top">
                   <PlayerAvatar player={p} size={40} />
                   <div>
@@ -230,7 +230,7 @@ export default function PCMarketTab({ game, teams, players, allOtherPlayers, sub
                 {dealType === "loan" && <div className="pc-tc-loan-terms">{p._listing.wageCoverage}% sueldo · {p._listing.optionType === "none" ? "sin opción" : `opción ${fmt(p._listing.optionPrice)}`}</div>}
                 <div className="pc-tc-listing-foot">
                   <span className="pc-tc-value-cell">{free ? "—" : fmt(transferCost(p))}</span>
-                  <button className="btn-gold pc-tc-btn-sm" onClick={() => setOfferTarget(p)}>{free ? "Negociar" : "Oferta"}</button>
+                  <button className="btn-gold pc-tc-btn-sm" onClick={event => { event.stopPropagation(); setOfferTarget(p); }}>{free ? "Negociar" : "Oferta"}</button>
                 </div>
               </div>
             );

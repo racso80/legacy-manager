@@ -39,6 +39,8 @@ const PC_NAV_GROUPS = [
   },
 ];
 
+export const PC_SCREEN_LABELS = Object.fromEntries(PC_NAV_GROUPS.flatMap(group => group.items).map(item => [item.id, item.label]));
+
 export default function PCSidebar({ screen, setScreen, attentionCount = 0, onExit }) {
   return (
     <nav className="pc-sidebar">

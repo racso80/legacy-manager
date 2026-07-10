@@ -96,12 +96,12 @@ export default function PCLockerRoomScreen({ game, conversations, onRespond, onO
             )}
           </div>
 
-          <PCLeadersPanel players={squad} summary={summary} onOpenPlayer={onOpenPlayer} />
+          <PCLeadersPanel players={squad} summary={summary} onOpenPlayer={p => onOpenPlayer(p, squad)} />
         </div>
       )}
 
       {tab === "roster" && (
-        <PCRosterTab players={squad} conversations={lockerConversations} leaderIds={leaderIds} onOpenPlayer={onOpenPlayer} onOpenConversation={setSelectedConversationId} />
+        <PCRosterTab players={squad} conversations={lockerConversations} leaderIds={leaderIds} onOpenPlayer={p => onOpenPlayer(p, squad)} onOpenConversation={setSelectedConversationId} />
       )}
 
       <PCConversationModal conversation={selectedConversation} onRespond={handleRespond} onClose={() => setSelectedConversationId(null)} />
