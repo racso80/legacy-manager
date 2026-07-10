@@ -7,6 +7,7 @@ import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
 import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
 import PCMedicalScreen from "./components/pc/PCMedicalScreen.jsx";
 import PCTacticsScreen from "./components/pc/PCTacticsScreen.jsx";
+import PCFanbaseScreen from "./components/pc/PCFanbaseScreen.jsx";
 import PCPlayerProfileScreen from "./components/pc/PCPlayerProfileScreen.jsx";
 import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
 import PCTrainingScreen from "./components/pc/PCTrainingScreen.jsx";
@@ -4017,6 +4018,68 @@ const GLOBAL_CSS = `
     .pc-tt-modal-icon-btn.active { background: rgba(201,168,76,.2); border-color: var(--tt-gold, #c9a84c); }
     .pc-tt-modal-actions { display: flex; gap: 8px; }
     .pc-tt-modal-actions .pc-tt-btn { flex: 1; padding: 10px; border-radius: 8px; font-size: 12px; }
+
+    /* ─── PC Afición ── Mismos tokens que el resto de pantallas PC. */
+    .pc-fb-root {
+      --fb-gold: var(--club-accent, #c9a84c);
+      --fb-text-on-accent: var(--club-text-on-accent, #1a1200);
+      --fb-panel: #111726;
+      --fb-card: #161d2e;
+      --fb-line: rgba(255,255,255,.07);
+      --fb-text: #e8eaf0;
+      --fb-text-dim: #9aa0b4;
+      --fb-text-dim2: #6b7280;
+      --fb-green: #22c55e;
+      --fb-red: #ef4444;
+      --fb-orange: #f59e0b;
+    }
+
+    .pc-fb-social-header { background: linear-gradient(135deg, rgba(201,168,76,.1), var(--fb-panel, #111726)); border: 1px solid var(--fb-line, rgba(255,255,255,.07)); border-radius: 10px; padding: 20px 24px; margin-bottom: 18px; }
+    .pc-fb-sh-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--fb-gold, #c9a84c); margin-bottom: 6px; }
+    .pc-fb-sh-title { font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; color: var(--fb-text, #e8eaf0); }
+    .pc-fb-stars { color: var(--fb-gold, #c9a84c); font-size: 16px; }
+    .pc-fb-sh-sub { font-size: 12px; color: var(--fb-text-dim, #9aa0b4); margin-top: 4px; }
+    .pc-fb-sh-bar { height: 8px; border-radius: 4px; background: var(--fb-card, #161d2e); overflow: hidden; margin-top: 14px; }
+    .pc-fb-sh-bar-fill { height: 100%; background: linear-gradient(90deg, var(--fb-green, #22c55e), var(--fb-gold, #c9a84c)); }
+
+    .pc-fb-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+    .pc-fb-stat-card { background: var(--fb-panel, #111726); border: 1px solid var(--fb-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; text-align: center; }
+    .pc-fb-stat-value { font-size: 26px; font-weight: 800; }
+    .pc-fb-stat-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--fb-text-dim, #9aa0b4); margin-top: 4px; }
+
+    .pc-fb-mini-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+    .pc-fb-mini-stat { background: var(--fb-panel, #111726); border: 1px solid var(--fb-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 12px 16px; text-align: center; }
+    .pc-fb-mini-value { font-size: 16px; font-weight: 700; color: var(--fb-text, #e8eaf0); }
+    .pc-fb-mini-label { font-size: 9.5px; text-transform: uppercase; color: var(--fb-text-dim2, #6b7280); margin-top: 3px; }
+
+    .pc-fb-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .pc-fb-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--fb-text-dim, #9aa0b4); margin-bottom: 10px; }
+
+    .pc-fb-info-box { background: var(--fb-panel, #111726); border: 1px solid var(--fb-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px 18px; margin-bottom: 14px; display: flex; align-items: center; gap: 14px; }
+    .pc-fb-info-icon { font-size: 22px; }
+    .pc-fb-info-title { font-size: 13px; font-weight: 700; }
+    .pc-fb-info-desc { font-size: 11px; color: var(--fb-text-dim, #9aa0b4); margin-top: 2px; }
+
+    .pc-fb-econ-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .pc-fb-econ-card { background: var(--fb-panel, #111726); border: 1px solid var(--fb-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 14px 16px; text-align: center; }
+    .pc-fb-econ-value { font-size: 20px; font-weight: 800; color: var(--fb-gold, #c9a84c); }
+    .pc-fb-econ-label { font-size: 10px; color: var(--fb-text-dim, #9aa0b4); text-transform: uppercase; margin-top: 4px; }
+
+    .pc-fb-chart-box { background: var(--fb-panel, #111726); border: 1px solid var(--fb-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px 18px; margin-bottom: 14px; }
+    .pc-fb-chart-bars { display: flex; align-items: flex-end; gap: 8px; height: 100px; margin-top: 10px; }
+    .pc-fb-chart-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; }
+    .pc-fb-chart-bar-track { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+    .pc-fb-chart-bar { width: 100%; border-radius: 3px 3px 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 4px; }
+    .pc-fb-chart-bar-value { font-size: 10px; font-weight: 800; color: #0c0f16; }
+    .pc-fb-chart-md { font-size: 9px; color: var(--fb-text-dim2, #6b7280); }
+    .pc-fb-chart-empty { background: var(--fb-card, #161d2e); border-radius: 8px; padding: 18px; text-align: center; font-size: 11px; color: var(--fb-text-dim, #9aa0b4); margin-top: 10px; }
+
+    .pc-fb-reaction-item { background: var(--fb-panel, #111726); border: 1px solid var(--fb-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
+    .pc-fb-reaction-item.concern { border-left: 3px solid var(--fb-red, #ef4444); }
+    .pc-fb-reaction-title { font-size: 12.5px; font-weight: 700; color: var(--fb-text, #e8eaf0); }
+    .pc-fb-reaction-summary { font-size: 11px; color: var(--fb-text-dim, #9aa0b4); margin-top: 3px; }
+    .pc-fb-reaction-meta { font-size: 9.5px; color: var(--fb-text-dim2, #6b7280); margin-top: 5px; }
+    .pc-fb-reactions-empty { background: var(--fb-panel, #111726); border-radius: 8px; padding: 18px; text-align: center; font-size: 11px; color: var(--fb-text-dim, #9aa0b4); }
   }
 `;
 
@@ -10308,7 +10371,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             ? <PCLockerRoomScreen game={game} conversations={activeConversations} onRespond={(conversationId,responseId)=>handleConversationResponse(conversationId,responseId,{stay:true})} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />
             : <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />
           )}
-          {screen === "fans" && game && <FanbaseScreen game={ensureFanbaseState(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} />}
+          {screen === "fans" && game && (isPC
+            ? <PCFanbaseScreen game={ensureFanbaseState(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} />
+            : <FanbaseScreen game={ensureFanbaseState(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} />
+          )}
           {screen === "training"  && game && (isPC
             ? <PCTrainingScreen game={game} teams={TEAMS} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />
             : <TrainingCenterScreen game={game} onPlanChange={handleTrainingPlanChange} onOpenPlayer={openPlayerProfile} />

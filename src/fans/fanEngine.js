@@ -230,7 +230,7 @@ function buildMatchReaction({ won, drew, goalsFor, goalsAgainst, support, atmosp
   let summary = pickVariant(summarySeed, summaryPool);
   if (!won && streak.winless >= 4) summary += " La racha empieza a generar presión.";
 
-  return { id: `fan-reaction-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, season: String(new Date().getFullYear()), matchday: fixture?.matchday, title, summary, mood: mood.label, stadium: stadium.label, createdAt: new Date().toISOString() };
+  return { id: `fan-reaction-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, season: String(new Date().getFullYear()), matchday: fixture?.matchday, title, summary, mood: mood.label, stadium: stadium.label, result: outcome, createdAt: new Date().toISOString() };
 }
 
 function coachSupportText(value) {
