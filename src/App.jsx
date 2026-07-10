@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { resolvePlayerPhoto } from "./data/dataLoader.js";
 import { computeRarityCount, computeSquadRatings, getTeamDifficulty, getTopPlayers, lineRatingColor } from "./data/teamStats.js";
 import NewsScreen from "./components/NewsScreen.jsx";
+import PCNewsScreen from "./components/pc/PCNewsScreen.jsx";
 import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
 import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
 import PCMedicalScreen from "./components/pc/PCMedicalScreen.jsx";
@@ -3622,6 +3623,55 @@ const GLOBAL_CSS = `
     .pc-lr-roster-stats .lbl { display: block; font-size: 8px; color: var(--lr-text-dim2, #6b7280); font-weight: 800; }
     .pc-lr-roster-stats .val { display: block; font-size: 13px; font-weight: 800; color: #e8eaf0; margin-top: 2px; }
     .pc-lr-roster-btn { width: 100%; padding: 7px; font-size: 11px; }
+
+    /* ─── PC Noticias ── Mismos tokens que .pc-ct-root/.pc-md-root/.pc-tr-root/.pc-yt-root/.pc-lr-root:
+       dorado = --club-accent, panel #111726, líneas rgba(255,255,255,.07), radios 6-8px. */
+    .pc-ns-root {
+      --ns-gold: var(--club-accent, #c9a84c);
+      --ns-text-on-accent: var(--club-text-on-accent, #1a1200);
+      --ns-panel: #111726;
+      --ns-card: #161d2e;
+      --ns-line: rgba(255,255,255,.07);
+      --ns-text-dim: #9aa0b4;
+      --ns-text-dim2: #6b7280;
+      --ns-green: #22c55e;
+      --ns-yellow: #eab308;
+      --ns-orange: #f97316;
+      --ns-red: #ef4444;
+    }
+    .pc-ns-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .pc-ns-header h1 { font-size: 19px; font-weight: 700; color: #e8eaf0; }
+    .pc-ns-header select { background: var(--ns-panel, #111726); border: 1px solid var(--ns-line, rgba(255,255,255,.07)); color: #e8eaf0; padding: 8px 12px; border-radius: 6px; font-size: 12px; }
+
+    .pc-ns-filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .pc-ns-league-row { margin-bottom: 20px; }
+    .pc-ns-pill { padding: 7px 13px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--ns-text-dim, #9aa0b4); border: 1px solid var(--ns-line, rgba(255,255,255,.07)); background: var(--ns-panel, #111726); }
+    .pc-ns-pill.active { background: var(--ns-gold, #c9a84c); color: var(--ns-text-on-accent, #1a1200); border-color: var(--ns-gold, #c9a84c); }
+
+    .pc-ns-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--ns-text-dim, #9aa0b4); margin: 4px 0 10px; }
+    .pc-ns-empty { background: var(--ns-panel, #111726); border-radius: 8px; padding: 24px; text-align: center; font-size: 11.5px; color: var(--ns-text-dim, #9aa0b4); }
+
+    .pc-ns-featured-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+    .pc-ns-featured-card { display: flex; align-items: stretch; gap: 10px; background: var(--ns-panel, #111726); border: 1px solid var(--ns-line, rgba(255,255,255,.07)); border-left: 3px solid var(--ns-red, #ef4444); border-radius: 8px; padding: 14px 16px; cursor: pointer; }
+    .pc-ns-featured-body { flex: 1; min-width: 0; }
+    .pc-ns-featured-tag { font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; }
+    .pc-ns-featured-title { font-size: 13px; font-weight: 700; color: #e8eaf0; margin-bottom: 4px; line-height: 1.35; }
+    .pc-ns-featured-summary { font-size: 11.5px; color: var(--ns-text-dim, #9aa0b4); line-height: 1.4; }
+    .pc-ns-featured-meta { font-size: 10px; color: var(--ns-text-dim2, #6b7280); margin-top: 8px; }
+    .pc-ns-featured-visual { width: 60px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border-left: 1px solid var(--ns-line, rgba(255,255,255,.07)); padding-left: 10px; }
+
+    .pc-ns-list { display: flex; flex-direction: column; gap: 8px; }
+    .pc-ns-row { background: var(--ns-panel, #111726); border: 1px solid var(--ns-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; }
+    .pc-ns-row-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--ns-card, #161d2e); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .pc-ns-row-body { flex: 1; min-width: 0; }
+    .pc-ns-row-title { font-size: 13px; font-weight: 700; color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-ns-row-summary { font-size: 11.5px; color: var(--ns-text-dim, #9aa0b4); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-ns-row-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .pc-ns-league-tag { font-size: 9px; padding: 2px 7px; border-radius: 5px; background: rgba(255,255,255,.05); color: var(--ns-text-dim, #9aa0b4); white-space: nowrap; }
+    .pc-ns-importance-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .pc-ns-matchday { font-size: 10.5px; color: var(--ns-text-dim2, #6b7280); white-space: nowrap; }
+
+    .pc-ns-load-more { text-align: center; margin-top: 20px; }
   }
 `;
 
@@ -9767,7 +9817,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "tactics"   && <TacticsScreen tactics={tactics} setTactics={setTactics} />}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} setScreen={setScreen} leagues={game.leagues} activeLeagueId={game.leagueId} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} isPC={isPC} teams={TEAMS} season={game.season} leagueConfig={game.leagueConfig} leagues={game.leagues} activeLeagueId={game.leagueId} />}
-          {screen === "news"      && game && <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />}
+          {screen === "news"      && game && (isPC
+            ? <PCNewsScreen game={game} teams={TEAMS} onOpenPlayer={openPlayerProfileById} />
+            : <NewsScreen news={game.news ?? []} currentSeason={game.season ?? "2025"} game={game} onOpenPlayer={openPlayerProfileById} />
+          )}
           {screen === "medical"   && game && (isPC
             ? <PCMedicalScreen game={game} teams={TEAMS} onOpenPlayer={openPlayerProfile} />
             : <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />

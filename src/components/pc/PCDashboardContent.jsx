@@ -1,27 +1,18 @@
 import { useState } from "react";
 import TeamCrest from "../TeamCrest.jsx";
-import { Initials } from "../../App.jsx";
 import { getMedicalAlerts } from "../../state/gameStateSelectors.js";
 import { getDashboardNews } from "../../news/newsEngine.js";
 import { getLockerRoomSummary } from "../../morale/moraleEngine.js";
 import { getPrestigeLevel } from "../../legacy/legacyEngine.js";
 import { getStandingsZone, LEAGUES } from "../../data/leagues.js";
+import { NEWS_TYPE_LABEL, NEWS_META_TEXT, newsAccent, resolveNewsLeagueId } from "./news/newsPresentation.js";
+import NewsRightZone from "./news/NewsRightZone.jsx";
 
 const ALL_LEAGUES_FILTER = "all";
-// Las noticias no guardan leagueId propio: se deriva del equipo mencionado (item.teamIds[0]),
-// que ya refleja la liga actual del equipo (incluso tras un ascenso/descenso reciente).
-// Si la noticia no menciona ningún equipo, se asume la liga del propio club del usuario.
-function resolveNewsLeagueId(item, game, teams) {
-  const team = item.teamIds?.[0] ? teams.find(t => t.id === item.teamIds[0]) : null;
-  return team?.leagueId ?? game.leagueId ?? "esp_primera";
-}
 
 const WEEKDAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MONTH_LABELS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const MONTH_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-const NEWS_TYPE_ICON = { result: "⚽", standings: "📊", streak: "🔥", scorer: "🥇", performance: "⭐", transfer: "🔄", finance: "💶", injury: "🚑", board: "🤝", youth: "🌱", scouting: "🔎" };
-const NEWS_TYPE_LABEL = { result: "Liga", standings: "Liga", streak: "Liga", scorer: "Liga", performance: "Liga", transfer: "Mercado", finance: "Finanzas", injury: "Médico", board: "Directiva", youth: "Cantera", scouting: "Scouting" };
-const NEWS_META_TEXT = { result: "LaLiga", standings: "LaLiga", streak: "LaLiga", scorer: "LaLiga", performance: "LaLiga", transfer: "Mercado de fichajes", finance: "Finanzas del club", injury: "Parte médico", board: "Directiva del club", youth: "Academia", scouting: "Departamento de scouting" };
 
 // El juego no tiene un calendario real (solo número de jornada), así que las fechas de
 // partidos/entrenos/mercado en el calendario se sintetizan anclando la próxima jornada del
@@ -63,41 +54,11 @@ function formFor(teamId, fixtures) {
 function sortedStandings(game) {
   return [...(game.standings ?? [])].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor);
 }
-function newsAccent(type) {
-  if (type === "youth") return "#3ecf8e";
-  if (type === "board") return "#c9a84c";
-  return "var(--club-accent, #c9a84c)";
-}
 const fmtBudget = v => (v >= 1000 ? `€${(v / 1000).toFixed(1)}M` : `€${Math.round(v ?? 0)}K`);
 
 function FormDot({ result }) {
   const cls = result === "V" ? "fd-w" : result === "E" ? "fd-d" : "fd-l";
   return <div className={`pc-dash-v2-fd ${cls}`}>{result}</div>;
-}
-
-// Zona derecha del slide de noticias: avatar del jugador si la noticia lo menciona (con el
-// escudo del club debajo), o el escudo del equipo en grande si es una noticia de club.
-function NewsRightZone({ item, game, teams }) {
-  const player = item.playerIds?.[0] ? (game.players ?? []).find(p => p.id === item.playerIds[0]) : null;
-  const team = item.teamIds?.[0] ? teams.find(t => t.id === item.teamIds[0]) : (player ? teams.find(t => t.id === game.teamId) : null);
-  if (player) {
-    return (
-      <>
-        <Initials name={player.name} size={64} rarity={player.rarity} borderRadius={999} />
-        <div className="pc-dash-v2-news-right-label">{player.name.split(" ").slice(-1)[0]}</div>
-        {team && <TeamCrest team={team} size={26} />}
-      </>
-    );
-  }
-  if (team) {
-    return (
-      <>
-        <TeamCrest team={team} size={52} />
-        <div className="pc-dash-v2-news-right-label">{team.name}</div>
-      </>
-    );
-  }
-  return <span style={{ fontSize: 36 }}>{NEWS_TYPE_ICON[item.type] ?? "📌"}</span>;
 }
 
 function NextMatchPanel({ game, teams, nextFixture, nextOpponent, position, lineup, setScreen, onPlay, anchorDate }) {
