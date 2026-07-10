@@ -1,4 +1,4 @@
-import { staffModifier } from "../staff/staffEngine.js";
+import { getAssistantSquadManagementMultiplier } from "../staff/staffEngine.js";
 
 const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(value)));
 const PLAYER_PERSONALITIES_ENABLED = true;
@@ -155,8 +155,8 @@ export function updatePlayerHumanState(player, game, context = {}) {
   const starterBonus = context.started ? 3 : context.played ? 1 : 0;
   // assistantCoach.squadManagement suaviza (staff bueno) o agrava (staff flojo) el golpe
   // de moral por quedarse fuera — gestiona bien (o mal) las expectativas de rotación.
-  // Floor en .6 para que un mal segundo entrenador no dispare la penalización sin límite.
-  const squadManagementMod = Math.max(.6, 1 - staffModifier(game, "assistantCoach", "squadManagement", .25));
+  // Fórmula centralizada en getAssistantSquadManagementMultiplier (staffEngine.js).
+  const squadManagementMod = getAssistantSquadManagementMultiplier(game);
   const benchPenalty = !context.played && ["Estrella","Titular"].includes(current.squadRole) ? -(current.squadRole==="Estrella" ? 5 : 3) * squadManagementMod : 0;
   const injuryPenalty = current.injured ? -4 : 0;
   const trainingPenalty = (game?.trainingPlan?.load === "veryHigh" && (current.morale ?? 70) < 55) ? -2 : 0;

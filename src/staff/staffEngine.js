@@ -215,6 +215,22 @@ export function staffModifier(game, roleId, key = null, scale = .18) {
   return (getStaffQuality(game, roleId, key) - 70) / 30 * scale;
 }
 
+// assistantCoach.matchReading — minutos que se adelanta (staff bueno) o retrasa (staff
+// flojo) la detección de señales tácticas en liveMatchEngine.js. Extraído aquí para que
+// el disparador real (App.jsx) y cualquier lectura informativa (paneles de staff) usen
+// exactamente la misma fórmula y el mismo clamp ±8, en vez de recalcularlo cada uno.
+export function getAssistantMatchReadingShift(game) {
+  return Math.round(Math.max(-8, Math.min(8, staffModifier(game, "assistantCoach", "matchReading", 8))));
+}
+
+// assistantCoach.squadManagement — multiplicador sobre el benchPenalty de moraleEngine.js
+// (updatePlayerHumanState). Floor en .6 para que un mal segundo entrenador no dispare la
+// penalización sin límite. Misma razón de ser que getAssistantMatchReadingShift: una sola
+// fórmula, reutilizada por el motor real y por cualquier lectura informativa.
+export function getAssistantSquadManagementMultiplier(game) {
+  return Math.max(.6, 1 - staffModifier(game, "assistantCoach", "squadManagement", .25));
+}
+
 export function getStaffLevel(value = 70) {
   if (value >= 88) return { label:"Élite", color:"#a78bfa" };
   if (value >= 78) return { label:"Muy bueno", color:"#22c55e" };

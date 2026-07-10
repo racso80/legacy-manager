@@ -26,6 +26,7 @@ import ContractsScreen from "./components/ContractsScreen.jsx";
 import PCContractsScreen from "./components/pc/PCContractsScreen.jsx";
 import PCLockerRoomScreen from "./components/pc/PCLockerRoomScreen.jsx";
 import StaffScreen from "./components/StaffScreen.jsx";
+import PCStaffScreen from "./components/pc/PCStaffScreen.jsx";
 import CoachCreateScreen from "./components/CoachCreateScreen.jsx";
 import CoachCareerScreen from "./components/CoachCareerScreen.jsx";
 import FanbaseScreen from "./components/FanbaseScreen.jsx";
@@ -57,7 +58,7 @@ import { acceptClubCounter, acceptPlayerCounter, acceptRoleCounter, advanceTrans
 import { getAttentionCount, getAttentionItems, markAttentionItem } from "./attention/attentionEngine.js";
 import { acceptRenewalCounter, advanceRenewals, completeRenewal, createRenewalOffer, ensureContractState, withdrawRenewalOffer } from "./contracts/contractEngine.js";
 import { ensurePlayerMorale, ensureSquadMorale, getLockerRoomSummary, getMoraleLevel, updatePlayerHumanState } from "./morale/moraleEngine.js";
-import { ensureStaffState, staffModifier } from "./staff/staffEngine.js";
+import { ensureStaffState, getAssistantMatchReadingShift, staffModifier } from "./staff/staffEngine.js";
 import { createCoachCareer, ensureCoachCareer, finalizeCoachSeason, recordCoachMatch } from "./coach/coachCareerEngine.js";
 import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, applyFanYouthReaction, ensureFanbaseState, estimateFanAttendance, generateFanNews } from "./fans/fanEngine.js";
 import { advanceConversationMemory, ensureConversationState, getActiveConversations, respondToConversation } from "./conversations/conversationEngine.js";
@@ -3675,6 +3676,54 @@ const GLOBAL_CSS = `
     .pc-ns-matchday { font-size: 10.5px; color: var(--ns-text-dim2, #6b7280); white-space: nowrap; }
 
     .pc-ns-load-more { text-align: center; margin-top: 20px; }
+
+    /* ─── PC Staff ── Mismos tokens que .pc-ct-root/.pc-md-root/.pc-tr-root/.pc-yt-root/
+       .pc-lr-root/.pc-ns-root: dorado = --club-accent, panel #111726, líneas
+       rgba(255,255,255,.07), radios 6-8px. */
+    .pc-sf-root {
+      --sf-gold: var(--club-accent, #c9a84c);
+      --sf-panel: #111726;
+      --sf-card: #161d2e;
+      --sf-line: rgba(255,255,255,.07);
+      --sf-text-dim: #9aa0b4;
+      --sf-text-dim2: #6b7280;
+      --sf-green: #22c55e;
+      --sf-red: #ef4444;
+    }
+    .pc-sf-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    .pc-sf-header h1 { font-size: 19px; font-weight: 700; color: #e8eaf0; }
+    .pc-sf-sub { font-size: 11.5px; color: var(--sf-text-dim, #9aa0b4); margin-top: 3px; }
+
+    .pc-sf-legend { display: flex; gap: 18px; margin-bottom: 18px; font-size: 11px; color: var(--sf-text-dim, #9aa0b4); }
+    .pc-sf-legend span { display: flex; align-items: center; gap: 6px; }
+
+    .pc-sf-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .pc-sf-card { background: var(--sf-panel, #111726); border: 1px solid var(--sf-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 18px; }
+    .pc-sf-top { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+    .pc-sf-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--sf-card, #161d2e); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .pc-sf-name { font-size: 14px; font-weight: 700; color: #e8eaf0; }
+    .pc-sf-role { font-size: 11px; color: var(--sf-gold, #c9a84c); margin-top: 2px; }
+    .pc-sf-meta { font-size: 10.5px; color: var(--sf-text-dim2, #6b7280); margin-top: 2px; }
+    .pc-sf-empty { font-size: 11px; color: var(--sf-text-dim, #9aa0b4); font-style: italic; }
+
+    .pc-sf-inert-badge { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(107,114,128,.15); color: var(--sf-text-dim2, #6b7280); margin-left: auto; align-self: flex-start; }
+
+    .pc-sf-attr-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+    .pc-sf-attr-row { display: flex; align-items: center; gap: 10px; }
+    .pc-sf-attr-label { width: 150px; font-size: 11.5px; color: var(--sf-text-dim, #9aa0b4); flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+    .pc-sf-attr-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--sf-card, #161d2e); overflow: hidden; }
+    .pc-sf-attr-fill { height: 100%; border-radius: 3px; background: var(--sf-gold, #c9a84c); }
+    .pc-sf-attr-fill.inert { background: var(--sf-text-dim2, #6b7280); }
+    .pc-sf-attr-value { width: 26px; text-align: right; font-size: 11px; font-weight: 700; color: #e8eaf0; flex-shrink: 0; }
+
+    .pc-sf-dot-real { width: 6px; height: 6px; border-radius: 50%; background: var(--sf-green, #22c55e); flex-shrink: 0; }
+    .pc-sf-dot-inert { width: 6px; height: 6px; border-radius: 50%; background: var(--sf-text-dim2, #6b7280); flex-shrink: 0; }
+
+    .pc-sf-effect-summary { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--sf-line, rgba(255,255,255,.07)); font-size: 11px; color: var(--sf-text-dim, #9aa0b4); line-height: 1.6; }
+    .pc-sf-effect-summary b { font-weight: 700; color: #e8eaf0; }
+    .pc-sf-effect-summary b.good, .pc-sf-effect-summary span.good { color: var(--sf-green, #22c55e); }
+    .pc-sf-effect-summary b.bad, .pc-sf-effect-summary span.bad { color: var(--sf-red, #ef4444); }
+    .pc-sf-inert-text { color: var(--sf-text-dim2, #6b7280); font-style: italic; }
   }
 `;
 
@@ -6686,10 +6735,10 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
 
   // assistantCoach.matchReading: minutos que se adelanta (staff bueno) o retrasa (staff
   // flojo) la detección de dos señales tácticas ya existentes ("vamos perdiendo" y "el
-  // rival encuentra ocasiones"). Clamp a ±8 min para que nunca empuje un umbral a algo
-  // absurdo; se calcula aquí (no dentro de liveMatchEngine.js) para no acoplar ese motor
-  // a staffEngine.js, igual que trainingPlan ya se pasa en crudo y se resuelve dentro.
-  const matchReadingShift = Math.round(Math.max(-8, Math.min(8, staffModifier(game, "assistantCoach", "matchReading", 8))));
+  // rival encuentra ocasiones"). Se calcula aquí (no dentro de liveMatchEngine.js) para no
+  // acoplar ese motor a staffEngine.js, igual que trainingPlan ya se pasa en crudo y se
+  // resuelve dentro. Fórmula centralizada en getAssistantMatchReadingShift (staffEngine.js).
+  const matchReadingShift = getAssistantMatchReadingShift(game);
 
   const getLiveMatchState = () => buildLiveMatchState({
     minute: currentMinute,
@@ -9856,7 +9905,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}
           {screen === "legacyMuseum" && game && <LegacyMuseumScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
           {screen === "career" && game && <CoachCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
-          {screen === "staff" && game && <StaffScreen game={ensureStaffState(game,TEAMS)} onNavigate={setScreen} />}
+          {screen === "staff" && game && (isPC
+            ? <PCStaffScreen game={game} teams={TEAMS} />
+            : <StaffScreen game={ensureStaffState(game,TEAMS)} onNavigate={setScreen} />
+          )}
           {screen === "scouting" && game && (isPC
             ? <PCTransferCenterScreen initialMainTab="scouting" game={game} teams={TEAMS} candidates={getScoutingPool(game)} budgetSnapshot={pcBudgetSnapshot} onOpenPlayer={openPlayerProfile} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} />
             : <ScoutingScreen game={game} candidates={getScoutingPool(game)} focusReportId={scoutingFocusId} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} onOpenPlayer={openPlayerProfile} onGoMarket={()=>setScreen("transfers")} />
