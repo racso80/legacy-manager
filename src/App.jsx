@@ -9,7 +9,9 @@ import PCMedicalScreen from "./components/pc/PCMedicalScreen.jsx";
 import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
 import PCTrainingScreen from "./components/pc/PCTrainingScreen.jsx";
 import BoardLegacyScreen from "./components/BoardLegacyScreen.jsx";
+import PCBoardScreen from "./components/pc/PCBoardScreen.jsx";
 import LegacyMuseumScreen from "./components/LegacyMuseumScreen.jsx";
+import PCLegacyCareerScreen from "./components/pc/PCLegacyCareerScreen.jsx";
 import ScoutingScreen from "./components/ScoutingScreen.jsx";
 import TeamCrest from "./components/TeamCrest.jsx";
 import { MATCH_FORMATIONS, buildMatchdaySquad, buildStartingEleven, calculateMatchRatings, chooseOpponentFormation, eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
@@ -3724,6 +3726,146 @@ const GLOBAL_CSS = `
     .pc-sf-effect-summary b.good, .pc-sf-effect-summary span.good { color: var(--sf-green, #22c55e); }
     .pc-sf-effect-summary b.bad, .pc-sf-effect-summary span.bad { color: var(--sf-red, #ef4444); }
     .pc-sf-inert-text { color: var(--sf-text-dim2, #6b7280); font-style: italic; }
+
+    /* ─── PC Directiva ── Mismos tokens que el resto de pantallas PC: dorado =
+       --club-accent, panel #111726, líneas rgba(255,255,255,.07), radios 6-8px. */
+    .pc-bd-root {
+      --bd-gold: var(--club-accent, #c9a84c);
+      --bd-panel: #111726;
+      --bd-card: #161d2e;
+      --bd-line: rgba(255,255,255,.07);
+      --bd-text-dim: #9aa0b4;
+      --bd-text-dim2: #6b7280;
+    }
+    .pc-bd-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .pc-bd-header h1 { font-size: 19px; font-weight: 700; color: #e8eaf0; }
+    .pc-bd-sub { font-size: 11.5px; color: var(--bd-text-dim, #9aa0b4); margin-top: 3px; }
+
+    .pc-bd-summary-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 20px; }
+    .pc-bd-summary-card { background: var(--bd-panel, #111726); border: 1px solid var(--bd-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px 18px; }
+    .pc-bd-summary-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--bd-text-dim, #9aa0b4); margin-bottom: 6px; }
+    .pc-bd-summary-value { font-size: 26px; font-weight: 800; }
+    .pc-bd-summary-value .unit { font-size: 12px; color: var(--bd-text-dim, #9aa0b4); font-weight: 400; }
+    .pc-bd-summary-sub { font-size: 11px; font-weight: 700; margin-top: 4px; }
+    .pc-bd-summary-detail { font-size: 10px; color: var(--bd-text-dim, #9aa0b4); margin-top: 4px; line-height: 1.4; }
+
+    .pc-bd-layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+    .pc-bd-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--bd-text-dim, #9aa0b4); margin: 4px 0 10px; }
+    .pc-bd-empty { background: var(--bd-panel, #111726); border-radius: 8px; padding: 24px; text-align: center; font-size: 11.5px; color: var(--bd-text-dim, #9aa0b4); }
+
+    .pc-bd-objectives { display: flex; flex-direction: column; gap: 10px; }
+    .pc-bd-objective-card { background: var(--bd-panel, #111726); border: 1px solid var(--bd-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 14px 16px; }
+    .pc-bd-objective-top { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .pc-bd-objective-label { font-size: 12px; font-weight: 700; color: #e8eaf0; }
+    .pc-bd-objective-pct { font-size: 12px; font-weight: 800; }
+    .pc-bd-objective-reward { font-size: 10.5px; color: var(--bd-text-dim, #9aa0b4); margin-top: 8px; }
+    .pc-bd-progress-track { height: 6px; border-radius: 3px; background: var(--bd-card, #161d2e); overflow: hidden; }
+    .pc-bd-progress-fill { height: 100%; border-radius: 3px; }
+
+    .pc-bd-report-panel { background: var(--bd-panel, #111726); border: 1px solid var(--bd-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; }
+    .pc-bd-report-meta { font-size: 10.5px; color: var(--bd-text-dim, #9aa0b4); margin-bottom: 8px; }
+    .pc-bd-report-verdict { font-size: 11.5px; color: #c9ced8; line-height: 1.5; margin-bottom: 14px; }
+    .pc-bd-report-metric { margin-bottom: 12px; }
+    .pc-bd-report-metric-top { display: flex; justify-content: space-between; font-size: 10.5px; margin-bottom: 5px; color: var(--bd-text-dim, #9aa0b4); }
+
+    /* ─── PC Legado y Carrera ── Mismos tokens que el resto de pantallas PC. */
+    .pc-lc-root {
+      --lc-gold: var(--club-accent, #c9a84c);
+      --lc-text-on-accent: var(--club-text-on-accent, #1a1200);
+      --lc-panel: #111726;
+      --lc-card: #161d2e;
+      --lc-line: rgba(255,255,255,.07);
+      --lc-text-dim: #9aa0b4;
+      --lc-text-dim2: #6b7280;
+    }
+    .pc-lc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .pc-lc-header h1 { font-size: 19px; font-weight: 700; color: #e8eaf0; }
+    .pc-lc-sub { font-size: 11.5px; color: var(--lc-text-dim, #9aa0b4); margin-top: 3px; }
+
+    .pc-lc-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--lc-line, rgba(255,255,255,.07)); padding-bottom: 12px; }
+    .pc-lc-tab { padding: 8px 16px; border-radius: 6px; font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--lc-text-dim, #9aa0b4); }
+    .pc-lc-tab.active { background: var(--lc-gold, #c9a84c); color: var(--lc-text-on-accent, #1a1200); }
+
+    .pc-lc-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--lc-text-dim, #9aa0b4); margin: 4px 0 10px; }
+    .pc-lc-empty { background: var(--lc-panel, #111726); border-radius: 8px; padding: 24px; text-align: center; font-size: 11.5px; color: var(--lc-text-dim, #9aa0b4); margin-bottom: 16px; }
+
+    .pc-lc-progress-track { height: 7px; border-radius: 4px; background: var(--lc-card, #161d2e); overflow: hidden; }
+    .pc-lc-progress-fill { height: 100%; border-radius: 4px; }
+
+    .pc-lc-career-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+    .pc-lc-identity-card { background: var(--lc-panel, #111726); border: 1px solid var(--lc-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 18px; margin-bottom: 20px; }
+    .pc-lc-identity-top { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; }
+    .pc-lc-avatar { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; }
+    .pc-lc-identity-name { font-size: 19px; font-weight: 800; color: #e8eaf0; }
+    .pc-lc-identity-level { font-size: 11.5px; font-weight: 700; margin-top: 4px; }
+    .pc-lc-identity-meta { font-size: 10.5px; color: var(--lc-text-dim, #9aa0b4); margin-top: 4px; }
+
+    .pc-lc-highlights-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
+    .pc-lc-trio-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 18px; }
+    .pc-lc-four-grid { grid-template-columns: repeat(4, 1fr); }
+    .pc-lc-stat-card { background: var(--lc-panel, #111726); border: 1px solid var(--lc-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 12px; text-align: center; }
+    .pc-lc-stat-value { font-size: 15px; font-weight: 800; color: var(--lc-gold, #c9a84c); }
+    .pc-lc-stat-label { font-size: 9px; color: var(--lc-text-dim, #9aa0b4); font-weight: 700; margin-top: 4px; text-transform: uppercase; letter-spacing: .4px; }
+    .pc-lc-stat-detail { font-size: 9px; color: var(--lc-gold, #c9a84c); margin-top: 3px; }
+
+    .pc-lc-milestone-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .pc-lc-milestone-item { display: flex; gap: 12px; background: var(--lc-panel, #111726); border-left: 3px solid var(--lc-gold, #c9a84c); border-radius: 8px; padding: 12px 14px; }
+    .pc-lc-milestone-icon { font-size: 22px; }
+    .pc-lc-milestone-title { font-size: 12px; font-weight: 700; color: #e8eaf0; }
+    .pc-lc-milestone-summary { font-size: 10px; color: var(--lc-text-dim, #9aa0b4); margin-top: 3px; }
+
+    .pc-lc-side-panel { background: var(--lc-panel, #111726); border: 1px solid var(--lc-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; position: sticky; top: 20px; }
+    .pc-lc-chart-card { background: var(--lc-card, #161d2e); border-radius: 8px; padding: 12px; }
+    .pc-lc-chart-svg { width: 100%; height: 100px; overflow: visible; }
+    .pc-lc-chart-axis { display: flex; justify-content: space-between; font-size: 8px; color: var(--lc-text-dim, #9aa0b4); margin-top: 4px; }
+
+    .pc-lc-protagonist-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .pc-lc-protagonist-row { display: flex; align-items: center; gap: 10px; background: var(--lc-panel, #111726); border-radius: 8px; padding: 10px 12px; }
+    .pc-lc-protagonist-info { flex: 1; min-width: 0; }
+    .pc-lc-protagonist-name { font-size: 12px; font-weight: 700; color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-lc-protagonist-label { font-size: 10px; color: var(--lc-text-dim, #9aa0b4); margin-top: 2px; }
+    .pc-lc-protagonist-value { font-size: 15px; font-weight: 800; color: var(--lc-gold, #c9a84c); flex-shrink: 0; }
+    .pc-lc-legend-note { font-size: 9.5px; color: var(--lc-gold, #c9a84c); font-style: italic; margin-top: 3px; }
+
+    .pc-lc-season-pills { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; }
+    .pc-lc-season-pill { flex: 0 0 auto; background: var(--lc-panel, #111726); border: 1px solid var(--lc-line, rgba(255,255,255,.07)); border-radius: 6px; padding: 8px 14px; font-size: 11px; font-weight: 700; color: var(--lc-text-dim, #9aa0b4); cursor: pointer; }
+    .pc-lc-season-pill.active { background: rgba(201,168,76,.14); border-color: var(--lc-gold, #c9a84c); color: var(--lc-gold, #c9a84c); }
+    .pc-lc-season-hero { display: flex; justify-content: space-between; align-items: flex-start; background: linear-gradient(135deg, rgba(201,168,76,.14), var(--lc-panel, #111726)); border: 1px solid rgba(201,168,76,.22); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+    .pc-lc-season-hero-label { font-size: 10px; color: var(--lc-text-dim, #9aa0b4); }
+    .pc-lc-season-hero-position { font-size: 20px; font-weight: 800; color: #e8eaf0; margin-top: 4px; }
+    .pc-lc-season-hero-trophy { font-size: 26px; }
+
+    .pc-lc-standings-table { background: var(--lc-panel, #111726); border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+    .pc-lc-standings-row { display: grid; grid-template-columns: 26px 1fr 40px 40px; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--lc-line, rgba(255,255,255,.07)); font-size: 11px; color: var(--lc-text-dim, #9aa0b4); }
+    .pc-lc-standings-row.own { background: rgba(201,168,76,.08); color: var(--lc-gold, #c9a84c); font-weight: 700; }
+    .pc-lc-standings-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .pc-lc-trophy-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .pc-lc-trophy-card { background: radial-gradient(circle at 50% 20%, rgba(201,168,76,.18), transparent 60%), var(--lc-panel, #111726); border: 1px solid rgba(201,168,76,.25); border-radius: 10px; padding: 16px; text-align: center; }
+    .pc-lc-trophy-icon { font-size: 34px; }
+    .pc-lc-trophy-name { font-size: 12px; font-weight: 800; color: #e8eaf0; margin-top: 8px; }
+    .pc-lc-trophy-season { font-size: 10px; color: var(--lc-gold, #c9a84c); margin-top: 4px; }
+    .pc-lc-trophy-meta { font-size: 9px; color: var(--lc-text-dim, #9aa0b4); margin-top: 6px; line-height: 1.4; }
+
+    .pc-lc-pitch { position: relative; background: linear-gradient(180deg, #173f2d, #0f2d21); border: 1px solid rgba(34,197,94,.28); border-radius: 12px; padding: 20px 10px; margin-bottom: 20px; }
+    .pc-lc-pitch-line { display: flex; justify-content: center; gap: 10px; min-height: 64px; align-items: center; }
+    .pc-lc-pitch-card { background: rgba(8,15,12,.88); border: 1px solid rgba(201,168,76,.22); border-radius: 8px; padding: 8px 6px; text-align: center; max-width: 110px; }
+    .pc-lc-pitch-pos { font-size: 9px; color: var(--lc-gold, #c9a84c); font-weight: 800; }
+    .pc-lc-pitch-name { font-size: 10px; color: #fff; font-weight: 700; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .pc-lc-club-spell-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+    .pc-lc-club-spell-card { background: var(--lc-panel, #111726); border: 1px solid var(--lc-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; }
+    .pc-lc-club-spell-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .pc-lc-club-spell-name { font-size: 14px; font-weight: 800; color: #e8eaf0; }
+    .pc-lc-club-spell-range { font-size: 10.5px; color: var(--lc-text-dim, #9aa0b4); margin-top: 3px; }
+    .pc-lc-exit-badge { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(239,68,68,.14); color: #ef4444; }
+
+    .pc-lc-history-list { display: flex; flex-direction: column; gap: 8px; }
+    .pc-lc-history-row { display: flex; justify-content: space-between; background: var(--lc-panel, #111726); border-radius: 8px; padding: 12px 14px; }
+    .pc-lc-history-club { font-size: 12px; font-weight: 700; color: #e8eaf0; }
+    .pc-lc-history-season { font-size: 10px; color: var(--lc-text-dim, #9aa0b4); margin-top: 3px; }
+    .pc-lc-history-result { text-align: right; font-size: 12px; font-weight: 800; color: var(--lc-text-dim, #9aa0b4); }
+    .pc-lc-history-title { font-size: 10px; color: var(--lc-gold, #c9a84c); margin-top: 3px; }
   }
 `;
 
@@ -9902,9 +10044,18 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             ? <PCYouthAcademyScreen game={game} teams={TEAMS} onPromote={handleYouthPromotion} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} />
             : <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />
           )}
-          {screen === "board"     && game && <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />}
-          {screen === "legacyMuseum" && game && <LegacyMuseumScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
-          {screen === "career" && game && <CoachCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />}
+          {screen === "board"     && game && (isPC
+            ? <PCBoardScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />
+            : <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />
+          )}
+          {screen === "legacyMuseum" && game && (isPC
+            ? <PCLegacyCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />
+            : <LegacyMuseumScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />
+          )}
+          {screen === "career" && game && (isPC
+            ? <PCLegacyCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />
+            : <CoachCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />
+          )}
           {screen === "staff" && game && (isPC
             ? <PCStaffScreen game={game} teams={TEAMS} />
             : <StaffScreen game={ensureStaffState(game,TEAMS)} onNavigate={setScreen} />

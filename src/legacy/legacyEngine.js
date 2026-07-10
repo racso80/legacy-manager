@@ -198,8 +198,10 @@ export function evaluateLegacyMatchday(game,{team,result,income,trainingReport,m
   const attendanceBonus=(income?.occupancy??0)>=.9?.08:0;
   const developmentBonus=Math.min(.35,(trainingReport?.improved?.length??0)*.12);
   const clubPrestige=clamp(legacy.clubPrestige+(result==="win"?.12:result==="loss"?-.04:0)+attendanceBonus+developmentBonus);
-  const managerPrestige=clamp(legacy.manager.prestige+(result==="win"?.16:result==="draw"?.04:-.03)+developmentBonus*.5);
-  const manager={...legacy.manager,prestige:managerPrestige,wins:legacy.manager.wins+(result==="win"?1:0),draws:legacy.manager.draws+(result==="draw"?1:0),losses:legacy.manager.losses+(result==="loss"?1:0)};
+  // legacy.manager (prestigio, wins/draws/losses) ya NO se recalcula aquí: coachCareerEngine.js's
+  // recordCoachMatch() lo sobrescribe por completo dos líneas más tarde en App.jsx vía su propio
+  // ensureCoachCareer sync, así que cualquier valor calculado en esta función era descartado
+  // siempre antes de poder observarse. legacy.manager pasa sin tocar vía el spread de abajo.
   const objectives=legacy.objectives.map(objective=>objective.type==="sport"?{...objective,progress:sportScore}:objective.type==="economy"?{...objective,progress:Math.round(budgetHealth)}:{...objective,progress:Math.min(100,Math.round(improvedPlayers/Math.max(1,objective.target)*100))});
   const report={id:`board_${game.season}_${matchday}`,season:String(game.season),matchday,sport:Math.round(sportScore),economy:Math.round(budgetHealth),development:Math.round(developmentScore),overall,confidence:Math.round(confidence),position,createdAt:new Date().toISOString()};
   const isMonthly=matchday%4===0&&!legacy.monthlyReports.some(item=>item.id===report.id);
@@ -220,7 +222,7 @@ export function evaluateLegacyMatchday(game,{team,result,income,trainingReport,m
       "La directiva ve con buenos ojos la marcha del equipo en la tabla; el objetivo de la temporada sigue intacto.",
     ]),importance:"medium",fingerprint:`objective-alive:${game.season}:${matchday}`});
   }
-  return {legacy:{...legacy,clubPrestige,confidence,objectives,monthlyReports,manager,lastEvaluationMatchday:matchday},report:isMonthly?report:null,news};
+  return {legacy:{...legacy,clubPrestige,confidence,objectives,monthlyReports,lastEvaluationMatchday:matchday},report:isMonthly?report:null,news};
 }
 
 export function getJobRisk(confidence){

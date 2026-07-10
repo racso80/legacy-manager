@@ -123,6 +123,7 @@ Philosophy: "The world exists even when you're not looking." Focus shifts to the
 - Realistic standings/stats from AI clubs
 - Dynamically generated news, team/coach streaks, press and fan reactions
 - NOTE: REAL_SQUADS refactor (currently a mutable module-level object outside React state, mutated directly in 8 places in App.jsx) should happen before or during this phase — AI squad management will make the desync risk much worse.
+- NOTE: "Despido" (getJobRisk's job-risk tiers in `legacyEngine.js`) currently has zero mechanical consequence — confirmed and deliberately deferred, not a bug. Fully scoped during the Directiva/Legado PC redesign session: recommendation is sacked→new-club-offer (not game over), evaluated at the existing monthly-report checkpoint rather than instantly, reusing `coachCareer.career.clubs[].exitReason` (already exists, always null today), new club effective next preseason (not mid-season), club selection UI adapted from `PCClubSelectScreen`, dramatic moment reusing `SeasonTransitionScreen`'s multi-phase pattern. Deserves its own dedicated session — touches every club-scoped subsystem (youth/staff/scouting/contracts/transferMarket), comparable in scope to the youth-academy or transfer-market systems.
 
 ### v0.99 — Release Candidate
 Philosophy: "Add nothing more. Only fix." No new content, screens, or systems.

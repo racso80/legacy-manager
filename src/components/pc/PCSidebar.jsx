@@ -29,12 +29,11 @@ const PC_NAV_GROUPS = [
     items: [
       { id: "news", icon: "📰", label: "Noticias" },
       { id: "board", icon: "🏛", label: "Directiva" },
-      { id: "legacyMuseum", icon: "🏆", label: "Legado" },
+      { id: "legacyMuseum", icon: "🏆", label: "Legado y Carrera" },
       { id: "standings", icon: "🏆", label: "Clasificación" },
       { id: "calendar", icon: "📅", label: "Calendario" },
       { id: "settings", icon: "⚙", label: "Ajustes" },
       { id: "attention", icon: "🔔", label: "Centro de Atención", badge: true },
-      { id: "career", icon: "📈", label: "Carrera" },
       { id: "cloudSaves", icon: "☁️", label: "Guardado en nube" },
     ],
   },
