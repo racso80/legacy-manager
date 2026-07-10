@@ -6,6 +6,7 @@ import PCNewsScreen from "./components/pc/PCNewsScreen.jsx";
 import PlayerProfileScreen from "./components/PlayerProfileScreen.jsx";
 import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
 import PCMedicalScreen from "./components/pc/PCMedicalScreen.jsx";
+import PCTacticsScreen from "./components/pc/PCTacticsScreen.jsx";
 import PCPlayerProfileScreen from "./components/pc/PCPlayerProfileScreen.jsx";
 import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
 import PCTrainingScreen from "./components/pc/PCTrainingScreen.jsx";
@@ -53,6 +54,7 @@ import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlaye
 import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle, lifecycleNews, processBirthdays } from "./players/lifecycle.js";
 import { advanceMedicalRecovery, applyInjury, createInjuryEvent, getAccumulatedLoad, getLoadLevel, getPhysicalStatus, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
 import { applyTrainingFocusPreset, applyWeeklyTraining, DEFAULT_TRAINING_PLAN, getTrainingMatchModifiers, normalizeTrainingPlan } from "./training/trainingEngine.js";
+import { DEFAULT_TACTICS, TACTICS_FIELD_DESCRIPTIONS, TACTICS_FIELD_LABELS, TACTICS_FIELD_OPTIONS, TACTICS_PRESET_ICONS, normalizeTactics, tacticModifiers } from "./tactics/tacticsEngine.js";
 import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason } from "./legacy/legacyEngine.js";
 import { applyYouthDevelopmentCycle, createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
 import { advanceScouting, bootstrapScouting, cancelScoutingMission, createScoutingMission, ensureScoutingState, refreshScoutingRecommendations, registerScoutingSigning, toggleScoutingWatch } from "./scouting/scoutingEngine.js";
@@ -722,72 +724,7 @@ function backfillMissingLeagues(parsed) {
 }
 
 // ─── TÁCTICAS ─────────────────────────────────────────────────────────────────
-
-const DEFAULT_TACTICS = {
-  mentalidad: "equilibrada",  // defensiva | equilibrada | ofensiva
-  presion:    "media",        // baja | media | alta
-  ritmo:      "normal",       // lento | normal | rapido
-  estilo:     "posesion",     // directo | posesion | bandas | contraataque
-  riesgo:     "normal",       // conservador | normal | agresivo
-};
-
-const TACTICS_FIELD_OPTIONS = {
-  mentalidad: ["defensiva", "equilibrada", "ofensiva"],
-  presion:    ["baja", "media", "alta"],
-  ritmo:      ["lento", "normal", "rapido"],
-  estilo:     ["directo", "posesion", "bandas", "contraataque"],
-  riesgo:     ["conservador", "normal", "agresivo"],
-};
-
-const TACTICS_FIELD_LABELS = {
-  mentalidad: { defensiva:"Defensiva", equilibrada:"Equilibrada", ofensiva:"Ofensiva" },
-  presion:    { baja:"Presión baja", media:"Presión media", alta:"Presión alta" },
-  ritmo:      { lento:"Ritmo lento", normal:"Ritmo normal", rapido:"Ritmo rápido" },
-  estilo:     { directo:"Directo", posesion:"Posesión", bandas:"Bandas", contraataque:"Contra" },
-  riesgo:     { conservador:"Conservador", normal:"Riesgo normal", agresivo:"Agresivo" },
-};
-
-const TACTICS_PRESET_ICONS = ["⚙️","🛡️","⚔️","🔥","🧊","🎯","🔄"];
-
-// Migración: partidas guardadas sin _tactics (o con un valor corrupto en algún
-// campo) caen de vuelta a DEFAULT_TACTICS campo a campo, igual que
-// normalizeTrainingPlan hace con el plan de entrenamiento semanal.
-function normalizeTactics(tactics) {
-  const result = { ...DEFAULT_TACTICS };
-  Object.keys(TACTICS_FIELD_OPTIONS).forEach(field => {
-    if (TACTICS_FIELD_OPTIONS[field].includes(tactics?.[field])) result[field] = tactics[field];
-  });
-  return result;
-}
-
-// Modificadores tácticos sobre la fuerza de ataque/defensa y cansancio
-function tacticModifiers(tactics) {
-  const m = { atkBonus: 0, defBonus: 0, fatigueExtra: 0, goalConvRate: 0, chancesRate: 0, yellowRisk: 0 };
-
-  // Mentalidad
-  if (tactics.mentalidad === "ofensiva")   { m.atkBonus += 4; m.defBonus -= 3; m.chancesRate += 0.06; }
-  if (tactics.mentalidad === "defensiva")  { m.atkBonus -= 3; m.defBonus += 4; m.chancesRate -= 0.04; }
-
-  // Presión
-  if (tactics.presion === "alta")  { m.atkBonus += 2; m.fatigueExtra += 4; m.yellowRisk += 0.05; m.chancesRate += 0.03; }
-  if (tactics.presion === "baja")  { m.defBonus += 2; m.fatigueExtra -= 2; }
-
-  // Ritmo
-  if (tactics.ritmo === "rapido") { m.chancesRate += 0.04; m.fatigueExtra += 3; }
-  if (tactics.ritmo === "lento")  { m.chancesRate -= 0.03; m.fatigueExtra -= 2; m.defBonus += 1; }
-
-  // Estilo
-  if (tactics.estilo === "directo")       { m.goalConvRate += 0.06; m.chancesRate -= 0.02; }
-  if (tactics.estilo === "posesion")      { m.defBonus += 1; m.chancesRate += 0.02; }
-  if (tactics.estilo === "bandas")        { m.atkBonus += 2; m.chancesRate += 0.03; }
-  if (tactics.estilo === "contraataque")  { m.atkBonus -= 1; m.defBonus += 3; m.goalConvRate += 0.08; }
-
-  // Riesgo
-  if (tactics.riesgo === "agresivo")    { m.atkBonus += 3; m.defBonus -= 2; m.yellowRisk += 0.04; }
-  if (tactics.riesgo === "conservador") { m.atkBonus -= 2; m.defBonus += 3; }
-
-  return m;
-}
+// Constantes y funciones puras extraídas a tactics/tacticsEngine.js (ver import arriba).
 
 const LIVE_FORMATION_OPTIONS = Object.keys(MATCH_FORMATIONS);
 
@@ -4013,6 +3950,73 @@ const GLOBAL_CSS = `
     .pc-pp-btn.gold { background: var(--pp-gold, #c9a84c); color: var(--pp-text-on-accent, #1a1200); }
     .pc-pp-btn.gold.full { width: 100%; margin-top: 10px; }
     .pc-pp-btn.ghost { background: transparent; border: 1px solid var(--pp-line, rgba(255,255,255,.07)); color: var(--pp-text-dim, #9aa0b4); }
+
+    /* ─── PC Táctica ── Mismos tokens que el resto de pantallas PC. */
+    .pc-tt-root {
+      --tt-gold: var(--club-accent, #c9a84c);
+      --tt-text-on-accent: var(--club-text-on-accent, #1a1200);
+      --tt-panel: #111726;
+      --tt-card: #161d2e;
+      --tt-line: rgba(255,255,255,.07);
+      --tt-text: #e8eaf0;
+      --tt-text-dim: #9aa0b4;
+      --tt-text-dim2: #6b7280;
+      --tt-green: #22c55e;
+      --tt-red: #ef4444;
+      --tt-orange: #f59e0b;
+    }
+    .pc-tt-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    .pc-tt-header h1 { font-size: 20px; font-weight: 700; color: var(--tt-text, #e8eaf0); }
+    .pc-tt-sub { font-size: 11.5px; color: var(--tt-text-dim, #9aa0b4); margin-top: 3px; }
+
+    .pc-tt-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+
+    .pc-tt-impact-box { background: var(--tt-panel, #111726); border: 1px solid var(--tt-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px 18px; margin-bottom: 18px; }
+    .pc-tt-impact-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--tt-gold, #c9a84c); margin-bottom: 12px; }
+    .pc-tt-impact-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .pc-tt-impact-card { background: var(--tt-card, #161d2e); border-radius: 8px; padding: 12px 14px; text-align: center; }
+    .pc-tt-impact-label { font-size: 10.5px; color: var(--tt-text-dim, #9aa0b4); margin-bottom: 4px; }
+    .pc-tt-impact-value { font-size: 20px; font-weight: 800; color: var(--tt-text-dim2, #6b7280); }
+    .pc-tt-impact-value.pos { color: var(--tt-green, #22c55e); }
+    .pc-tt-impact-value.neg { color: var(--tt-red, #ef4444); }
+    .pc-tt-impact-value.neutral { color: var(--tt-text-dim2, #6b7280); }
+    .pc-tt-impact-disclaimer { font-size: 10px; color: var(--tt-text-dim2, #6b7280); margin-top: 10px; text-align: center; }
+
+    .pc-tt-secondary-row { display: flex; gap: 10px; margin-top: 12px; }
+    .pc-tt-secondary-chip { flex: 1; background: var(--tt-card, #161d2e); border-radius: 6px; padding: 8px 12px; font-size: 11px; color: var(--tt-text-dim, #9aa0b4); display: flex; justify-content: space-between; }
+    .pc-tt-secondary-chip .val { font-weight: 700; color: var(--tt-text, #e8eaf0); }
+
+    .pc-tt-dim-section { background: var(--tt-panel, #111726); border: 1px solid var(--tt-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px 18px; margin-bottom: 12px; }
+    .pc-tt-dim-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--tt-text-dim, #9aa0b4); margin-bottom: 10px; }
+    .pc-tt-dim-pills { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .pc-tt-dim-pill { flex: 1; min-width: 90px; text-align: center; padding: 10px; border-radius: 6px; border: 1px solid var(--tt-line, rgba(255,255,255,.07)); background: var(--tt-card, #161d2e); cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--tt-text-dim, #9aa0b4); }
+    .pc-tt-dim-pill.active { border-color: var(--tt-gold, #c9a84c); color: var(--tt-text, #e8eaf0); background: rgba(201,168,76,.1); }
+    .pc-tt-dim-desc { font-size: 11px; color: var(--tt-text-dim2, #6b7280); }
+
+    .pc-tt-presets-panel { background: var(--tt-panel, #111726); border: 1px solid var(--tt-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; position: sticky; top: 20px; }
+    .pc-tt-presets-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--tt-text-dim, #9aa0b4); margin-bottom: 12px; }
+    .pc-tt-presets-empty { font-size: 11px; color: var(--tt-text-dim2, #6b7280); text-align: center; padding: 10px 0; margin-bottom: 6px; }
+    .pc-tt-preset-item { display: flex; align-items: center; gap: 10px; background: var(--tt-card, #161d2e); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
+    .pc-tt-preset-icon { font-size: 16px; }
+    .pc-tt-preset-name { font-size: 12.5px; font-weight: 600; color: var(--tt-text, #e8eaf0); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-tt-preset-del { font-size: 11px; color: var(--tt-text-dim2, #6b7280); cursor: pointer; flex-shrink: 0; }
+    .pc-tt-preset-del:hover { color: var(--tt-red, #ef4444); }
+
+    .pc-tt-btn { border: none; padding: 9px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; width: 100%; }
+    .pc-tt-btn-gold { background: var(--tt-gold, #c9a84c); color: var(--tt-text-on-accent, #1a1200); margin-top: 6px; }
+    .pc-tt-btn-gold:disabled { opacity: .5; cursor: not-allowed; }
+    .pc-tt-btn-ghost { background: transparent; border: 1px solid var(--tt-line, rgba(255,255,255,.07)); color: var(--tt-text-dim, #9aa0b4); }
+
+    .pc-tt-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .pc-tt-modal { background: var(--tt-panel, #111726); border: 1px solid rgba(201,168,76,.3); border-radius: 12px; padding: 18px; width: 100%; max-width: 320px; }
+    .pc-tt-modal-title { font-size: 14px; font-weight: 700; color: var(--tt-gold, #c9a84c); margin-bottom: 12px; }
+    .pc-tt-modal-input { width: 100%; background: var(--tt-card, #161d2e); border: 1px solid rgba(255,255,255,.1); color: var(--tt-text, #e8eaf0); padding: 9px 11px; border-radius: 7px; font-size: 13px; margin-bottom: 12px; font-family: inherit; }
+    .pc-tt-modal-icon-label { font-size: 10px; color: var(--tt-text-dim, #9aa0b4); font-weight: 600; margin-bottom: 6px; }
+    .pc-tt-modal-icons { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+    .pc-tt-modal-icon-btn { width: 36px; height: 36px; border-radius: 7px; font-size: 17px; cursor: pointer; background: var(--tt-card, #161d2e); border: 1.5px solid rgba(255,255,255,.08); }
+    .pc-tt-modal-icon-btn.active { background: rgba(201,168,76,.2); border-color: var(--tt-gold, #c9a84c); }
+    .pc-tt-modal-actions { display: flex; gap: 8px; }
+    .pc-tt-modal-actions .pc-tt-btn { flex: 1; padding: 10px; border-radius: 8px; font-size: 12px; }
   }
 `;
 
@@ -6583,34 +6587,7 @@ function TacticsScreen({ tactics, setTactics, savedTacticsPresets = [], onSaveTa
     );
   }
 
-  const impacts = {
-    mentalidad: {
-      defensiva:   "−3 ataque · +4 defensa · Menos ocasiones generadas",
-      equilibrada: "Balance neutro entre ataque y defensa",
-      ofensiva:    "+4 ataque · −3 defensa · Más ocasiones, más espacios atrás",
-    },
-    presion: {
-      baja:  "Menos cansancio · +2 defensa · Menor riesgo de amarillas",
-      media: "Balance neutro · Presión moderada en todo el campo",
-      alta:  "+2 ataque · +3 cansancio · Más amarillas · Más recuperaciones",
-    },
-    ritmo: {
-      lento:  "−1 cansancio · Más control · Menos ocasiones por tramo",
-      normal: "Ritmo equilibrado en el partido",
-      rapido: "+1.5 cansancio · Más transiciones · Más ocasiones",
-    },
-    estilo: {
-      directo:      "Balones largos · Mejor conversión de gol · Menos toque",
-      posesion:     "+1 defensa · Más toque · Desgaste rival",
-      bandas:       "+2 ataque · Más centros · Ideal con extremos rápidos",
-      contraataque: "+3 defensa · Alta conversión · Ideal siendo inferior",
-    },
-    riesgo: {
-      conservador: "−2 ataque · +3 defensa · Gestión segura del resultado",
-      normal:      "Riesgo equilibrado según el contexto",
-      agresivo:    "+3 ataque · −2 defensa · Más amarillas · A por el partido",
-    },
-  };
+  const impacts = TACTICS_FIELD_DESCRIPTIONS;
 
   // Impacto real: mismos pesos que calcTeamStrength/calcDefStrength/matchFatigueDelta
   // usan de verdad al simular el partido (no una aproximación de UI aparte).
@@ -10313,7 +10290,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
           {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} isPC={isPC} />}
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} isPC={isPC} onPlay={() => setScreen("match")} />}
-          {screen === "tactics"   && game && <TacticsScreen tactics={tactics} setTactics={setTactics} savedTacticsPresets={game.savedTacticsPresets ?? []} onSaveTacticsPresets={(newSaved) => { const newGame = {...game, savedTacticsPresets: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs, tactics); autosaveCloud(newGame,"tactics-presets",{lineup,formation,subs,tactics}); }} />}
+          {screen === "tactics"   && game && (isPC
+            ? <PCTacticsScreen tactics={tactics} setTactics={setTactics} savedTacticsPresets={game.savedTacticsPresets ?? []} onSaveTacticsPresets={(newSaved) => { const newGame = {...game, savedTacticsPresets: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs, tactics); autosaveCloud(newGame,"tactics-presets",{lineup,formation,subs,tactics}); }} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} />
+            : <TacticsScreen tactics={tactics} setTactics={setTactics} savedTacticsPresets={game.savedTacticsPresets ?? []} onSaveTacticsPresets={(newSaved) => { const newGame = {...game, savedTacticsPresets: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs, tactics); autosaveCloud(newGame,"tactics-presets",{lineup,formation,subs,tactics}); }} />
+          )}
           {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} setScreen={setScreen} leagues={game.leagues} activeLeagueId={game.leagueId} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} isPC={isPC} teams={TEAMS} season={game.season} leagueConfig={game.leagueConfig} leagues={game.leagues} activeLeagueId={game.leagueId} />}
           {screen === "news"      && game && (isPC
