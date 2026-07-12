@@ -9,6 +9,7 @@ import PCMedicalScreen from "./components/pc/PCMedicalScreen.jsx";
 import PCTacticsScreen from "./components/pc/PCTacticsScreen.jsx";
 import PCFanbaseScreen from "./components/pc/PCFanbaseScreen.jsx";
 import PCAttentionCenterScreen from "./components/pc/PCAttentionCenterScreen.jsx";
+import PCFinancesScreen from "./components/pc/PCFinancesScreen.jsx";
 import PCPlayerProfileScreen from "./components/pc/PCPlayerProfileScreen.jsx";
 import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
 import PCTrainingScreen from "./components/pc/PCTrainingScreen.jsx";
@@ -4147,6 +4148,87 @@ const GLOBAL_CSS = `
     .pc-ac-empty-icon { font-size: 30px; margin-bottom: 8px; }
     .pc-ac-empty-title { font-size: 16px; font-weight: 800; color: var(--ac-text, #e8eaf0); }
     .pc-ac-empty-desc { font-size: 11.5px; color: var(--ac-text-dim, #9aa0b4); margin-top: 6px; line-height: 1.5; }
+
+    /* ─── PC Finanzas ── Mismos tokens que el resto de pantallas PC. */
+    .pc-fn-root {
+      --fn-gold: var(--club-accent, #c9a84c);
+      --fn-text-on-accent: var(--club-text-on-accent, #1a1200);
+      --fn-panel: #111726;
+      --fn-card: #161d2e;
+      --fn-line: rgba(255,255,255,.07);
+      --fn-text: #e8eaf0;
+      --fn-text-dim: #9aa0b4;
+      --fn-text-dim2: #6b7280;
+      --fn-green: #22c55e;
+      --fn-red: #ef4444;
+      --fn-blue: #60a5fa;
+      --fn-orange: #f59e0b;
+      --fn-purple: #a78bfa;
+    }
+    .pc-fn-header { margin-bottom: 18px; }
+    .pc-fn-header h1 { font-size: 20px; font-weight: 700; color: var(--fn-text, #e8eaf0); }
+
+    .pc-fn-season-card { background: linear-gradient(135deg, rgba(201,168,76,.13), var(--fn-panel, #111726)); border: 1px solid rgba(201,168,76,.25); border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
+    .pc-fn-season-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--fn-gold, #c9a84c); font-weight: 800; margin-bottom: 10px; }
+    .pc-fn-season-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; color: var(--fn-text-dim, #9aa0b4); border-bottom: 1px solid var(--fn-line, rgba(255,255,255,.07)); }
+    .pc-fn-season-total { display: flex; justify-content: space-between; padding-top: 10px; font-size: 13px; }
+    .pc-fn-season-total span { color: var(--fn-text, #e8eaf0); font-weight: 800; }
+    .pc-fn-season-total strong { color: var(--fn-gold, #c9a84c); }
+
+    .pc-fn-balance-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+    .pc-fn-balance-card { background: var(--fn-panel, #111726); border: 1px solid var(--fn-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; }
+    .pc-fn-balance-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--fn-text-dim, #9aa0b4); margin-bottom: 6px; }
+    .pc-fn-balance-value { font-size: 20px; font-weight: 800; }
+    .pc-fn-balance-sub { font-size: 10px; color: var(--fn-text-dim2, #6b7280); margin-top: 4px; }
+
+    .pc-fn-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+    .pc-fn-box { background: var(--fn-panel, #111726); border: 1px solid var(--fn-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px 18px; }
+    .pc-fn-box-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--fn-text-dim, #9aa0b4); margin-bottom: 12px; }
+
+    .pc-fn-breakdown-row { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 9px; padding-bottom: 9px; border-bottom: 1px solid var(--fn-line, rgba(255,255,255,.07)); color: var(--fn-text-dim, #9aa0b4); }
+    .pc-fn-breakdown-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .pc-fn-breakdown-row .val { font-weight: 700; color: var(--fn-text, #e8eaf0); }
+
+    .pc-fn-free-bar-wrap { margin-top: 14px; }
+    .pc-fn-free-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--fn-text-dim, #9aa0b4); margin-bottom: 6px; }
+    .pc-fn-free-bar { height: 8px; border-radius: 4px; background: var(--fn-card, #161d2e); overflow: hidden; }
+    .pc-fn-free-bar-fill { height: 100%; border-radius: 4px; }
+
+    .pc-fn-fan-box-wrap { margin-bottom: 16px; }
+    .pc-fn-fan-box { display: flex; align-items: center; gap: 14px; }
+    .pc-fn-fan-icon { font-size: 24px; }
+    .pc-fn-fan-bar-wrap { flex: 1; }
+    .pc-fn-fan-top { display: flex; justify-content: space-between; font-size: 12px; color: var(--fn-text-dim, #9aa0b4); }
+    .pc-fn-fan-bar { height: 8px; border-radius: 4px; background: var(--fn-card, #161d2e); overflow: hidden; margin-top: 6px; }
+    .pc-fn-fan-bar-fill { height: 100%; background: linear-gradient(90deg, var(--fn-green, #22c55e), var(--fn-gold, #c9a84c)); }
+    .pc-fn-fan-desc { font-size: 10px; color: var(--fn-text-dim2, #6b7280); margin-top: 6px; }
+
+    .pc-fn-wage-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .pc-fn-wage-card { background: var(--fn-card, #161d2e); border-radius: 8px; padding: 14px; text-align: center; }
+    .pc-fn-wage-value { font-size: 16px; font-weight: 800; color: var(--fn-text, #e8eaf0); }
+    .pc-fn-wage-label { font-size: 9.5px; text-transform: uppercase; color: var(--fn-text-dim2, #6b7280); margin-top: 4px; }
+
+    .pc-fn-income-box { margin-bottom: 16px; }
+    .pc-fn-income-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--fn-line, rgba(255,255,255,.07)); }
+    .pc-fn-income-row:last-child { border-bottom: none; }
+    .pc-fn-income-icon { width: 32px; height: 32px; border-radius: 7px; background: var(--fn-card, #161d2e); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .pc-fn-income-name { font-size: 12.5px; font-weight: 600; color: var(--fn-text, #e8eaf0); }
+    .pc-fn-income-meta { font-size: 10px; color: var(--fn-text-dim2, #6b7280); }
+    .pc-fn-income-value { margin-left: auto; font-size: 13.5px; font-weight: 700; }
+
+    .pc-fn-earner-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .pc-fn-earner-rank { font-size: 12px; font-weight: 700; color: var(--fn-text-dim2, #6b7280); width: 16px; text-align: center; flex-shrink: 0; }
+    .pc-fn-earner-info { flex: 1; min-width: 0; }
+    .pc-fn-earner-top { display: flex; justify-content: space-between; margin-bottom: 3px; gap: 8px; }
+    .pc-fn-earner-name { font-size: 12px; font-weight: 600; color: var(--fn-text, #e8eaf0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-fn-earner-salary { font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .pc-fn-earner-bar { height: 3px; background: var(--fn-card, #161d2e); border-radius: 2px; overflow: hidden; }
+    .pc-fn-earner-bar-fill { height: 100%; border-radius: 2px; }
+
+    .pc-fn-summary-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--fn-line, rgba(255,255,255,.07)); font-size: 12px; color: var(--fn-text-dim, #9aa0b4); }
+    .pc-fn-summary-row:last-child { border-bottom: none; }
+    .pc-fn-summary-row strong { color: var(--fn-text, #e8eaf0); font-weight: 600; }
   }
 `;
 
@@ -10497,7 +10579,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             : <ScoutingScreen game={game} candidates={getScoutingPool(game)} focusReportId={scoutingFocusId} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} onOpenPlayer={openPlayerProfile} onGoMarket={()=>setScreen("transfers")} />
           )}
           {screen === "settings"  && game && <SettingsScreen game={game} />}
-          {screen === "finances"  && game && <FinancesScreen game={game} />}
+          {screen === "finances"  && game && (isPC
+            ? <PCFinancesScreen game={game} team={pcTeam} budgetSnapshot={pcBudgetSnapshot} />
+            : <FinancesScreen game={game} />
+          )}
           {screen === "contracts" && game && (isPC
             ? <PCContractsScreen game={ensureContractState(game)} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />
             : <ContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />
