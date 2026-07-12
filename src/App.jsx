@@ -1479,6 +1479,15 @@ function FinancesScreen({ game }) {
   const matchdaysPlayed = Math.max(0, matchday - 1);
   const totalWageSpent  = matchdaysPlayed * weeklyWages;
 
+  // Gasto en fichajes de la temporada actual — derivado de game.transfers filtrado
+  // por season, sin acumulador propio: budgetAdjustment ya resta el coste ahí mismo
+  // (handleTransfer, App.jsx), así que esto es solo una lectura del mismo dato para
+  // desglosarlo en la tarjeta de Gastos sin poder desincronizarse.
+  const seasonTransferSpend = (game.transfers ?? [])
+    .filter(t => String(t.season) === String(game.season) && ["buy","loanIn"].includes(t.type))
+    .reduce((s,t) => s + (t.cost ?? 0), 0);
+  const totalExpenses = totalWageSpent + seasonTransferSpend;
+
   // ── Ingresos reales acumulados de cada jornada jugada ──
   const incomeLog = game.incomeLog ?? [];
   const totalGate    = incomeLog.reduce((s,e) => s + (e.gateRevenue ?? 0), 0);
@@ -1495,7 +1504,7 @@ function FinancesScreen({ game }) {
     : 0;
   const lastIncome = incomeLog[incomeLog.length - 1];
 
-  const balance = totalIncome - totalWageSpent;
+  const balance = totalIncome - totalExpenses;
   const balanceColor = balance >= 0 ? "#22c55e" : "#ef4444";
   const budgetK       = budgetTotal * 1000;
   const budgetAdjustment = game.budgetAdjustment ?? 0; // €K acumulado: ingresos de jornadas + fichajes/ventas
@@ -1525,8 +1534,8 @@ function FinancesScreen({ game }) {
           </div>
           <div style={{ background:"#0d0f14", borderRadius:8, padding:"10px 12px" }}>
             <div style={{ fontSize:10, color:"#6b7280", marginBottom:4 }}>GASTOS</div>
-            <div style={{ fontSize:20, fontWeight:700, color:"#ef4444" }}>{fmt(totalWageSpent)}</div>
-            <div style={{ fontSize:10, color:"#4b5563", marginTop:2 }}>Masa salarial acum.</div>
+            <div style={{ fontSize:20, fontWeight:700, color:"#ef4444" }}>{fmt(totalExpenses)}</div>
+            <div style={{ fontSize:10, color:"#4b5563", marginTop:2 }}>Salarios {fmt(totalWageSpent)} + fichajes {fmt(seasonTransferSpend)}</div>
           </div>
         </div>
         <div style={{ background:"#0d0f14", borderRadius:8, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
