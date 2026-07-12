@@ -26,6 +26,7 @@ import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
 import PCYouthAcademyScreen from "./components/pc/PCYouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
+import PCSettingsScreen from "./components/pc/PCSettingsScreen.jsx";
 import SeasonTransitionScreen from "./components/SeasonTransitionScreen.jsx";
 import PreseasonScreen from "./components/PreseasonScreen.jsx";
 import AttentionCenterScreen from "./components/AttentionCenterScreen.jsx";
@@ -4229,6 +4230,37 @@ const GLOBAL_CSS = `
     .pc-fn-summary-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--fn-line, rgba(255,255,255,.07)); font-size: 12px; color: var(--fn-text-dim, #9aa0b4); }
     .pc-fn-summary-row:last-child { border-bottom: none; }
     .pc-fn-summary-row strong { color: var(--fn-text, #e8eaf0); font-weight: 600; }
+
+    .pc-st-root {
+      --st-gold: var(--club-accent, #c9a84c);
+      --st-text-on-accent: var(--club-text-on-accent, #1a1200);
+      --st-panel: #111726;
+      --st-card: #161d2e;
+      --st-line: rgba(255,255,255,.07);
+      --st-text: #e8eaf0;
+      --st-text-dim: #9aa0b4;
+      --st-text-dim2: #6b7280;
+    }
+    .pc-st-header { background: linear-gradient(135deg, rgba(201,168,76,.08), var(--st-panel, #111726)); border: 1px solid var(--st-line, rgba(255,255,255,.07)); border-radius: 10px; padding: 20px 24px; margin-bottom: 20px; }
+    .pc-st-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--st-gold, #c9a84c); margin-bottom: 6px; }
+    .pc-st-title { font-size: 22px; font-weight: 800; color: var(--st-text, #e8eaf0); }
+    .pc-st-sub { font-size: 12px; color: var(--st-text-dim, #9aa0b4); margin-top: 4px; margin-bottom: 18px; }
+
+    .pc-st-info-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .pc-st-info-card { background: var(--st-card, #161d2e); border-radius: 8px; padding: 14px; text-align: center; }
+    .pc-st-info-value { font-size: 15px; font-weight: 700; color: var(--st-text, #e8eaf0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-st-info-label { font-size: 9.5px; text-transform: uppercase; color: var(--st-text-dim2, #6b7280); margin-top: 4px; letter-spacing: .5px; }
+
+    .pc-st-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--st-text-dim, #9aa0b4); margin-bottom: 10px; }
+    .pc-st-toggle-row { background: var(--st-panel, #111726); border: 1px solid var(--st-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px 18px; display: flex; align-items: center; gap: 14px; }
+    .pc-st-toggle-icon { width: 38px; height: 38px; border-radius: 8px; background: var(--st-card, #161d2e); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .pc-st-toggle-text { flex: 1; }
+    .pc-st-toggle-name { font-size: 13px; font-weight: 700; color: var(--st-text, #e8eaf0); }
+    .pc-st-toggle-desc { font-size: 11px; color: var(--st-text-dim, #9aa0b4); margin-top: 2px; }
+
+    .pc-st-switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; border: none; padding: 0; background: none; cursor: pointer; }
+    .pc-st-switch-track { position: absolute; inset: 0; border-radius: 999px; transition: background .2s; display: block; }
+    .pc-st-switch-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #0c0f16; transition: transform .2s; display: block; }
   }
 `;
 
@@ -10578,7 +10610,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             ? <PCTransferCenterScreen initialMainTab="scouting" game={game} teams={TEAMS} candidates={getScoutingPool(game)} budgetSnapshot={pcBudgetSnapshot} onOpenPlayer={openPlayerProfile} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} />
             : <ScoutingScreen game={game} candidates={getScoutingPool(game)} focusReportId={scoutingFocusId} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} onOpenPlayer={openPlayerProfile} onGoMarket={()=>setScreen("transfers")} />
           )}
-          {screen === "settings"  && game && <SettingsScreen game={game} />}
+          {screen === "settings"  && game && (isPC
+            ? <PCSettingsScreen game={game} />
+            : <SettingsScreen game={game} />
+          )}
           {screen === "finances"  && game && (isPC
             ? <PCFinancesScreen game={game} team={pcTeam} budgetSnapshot={pcBudgetSnapshot} />
             : <FinancesScreen game={game} />
