@@ -6,7 +6,7 @@ import { getFanPressureItems } from "../fans/fanEngine.js";
 import { getTotalMatchdays } from "../data/leagues.js";
 
 const PRIORITY_ORDER = { critical: 0, important: 1, info: 2 };
-const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "career", "lockerRoom", "fans", "staff", "youth", "scouting", "training"];
+export const CATEGORY_ORDER = ["medical", "match", "market", "contracts", "finance", "board", "career", "lockerRoom", "fans", "staff", "youth", "scouting", "training"];
 
 export const ATTENTION_CATEGORIES = {
   medical: { label: "Médico", icon: "🏥", accent: "#ef4444" },

@@ -8,6 +8,7 @@ import MedicalCenterScreen from "./components/MedicalCenterScreen.jsx";
 import PCMedicalScreen from "./components/pc/PCMedicalScreen.jsx";
 import PCTacticsScreen from "./components/pc/PCTacticsScreen.jsx";
 import PCFanbaseScreen from "./components/pc/PCFanbaseScreen.jsx";
+import PCAttentionCenterScreen from "./components/pc/PCAttentionCenterScreen.jsx";
 import PCPlayerProfileScreen from "./components/pc/PCPlayerProfileScreen.jsx";
 import TrainingCenterScreen from "./components/TrainingCenterScreen.jsx";
 import PCTrainingScreen from "./components/pc/PCTrainingScreen.jsx";
@@ -4080,6 +4081,63 @@ const GLOBAL_CSS = `
     .pc-fb-reaction-summary { font-size: 11px; color: var(--fb-text-dim, #9aa0b4); margin-top: 3px; }
     .pc-fb-reaction-meta { font-size: 9.5px; color: var(--fb-text-dim2, #6b7280); margin-top: 5px; }
     .pc-fb-reactions-empty { background: var(--fb-panel, #111726); border-radius: 8px; padding: 18px; text-align: center; font-size: 11px; color: var(--fb-text-dim, #9aa0b4); }
+
+    /* ─── PC Centro de Atención ── Mismos tokens que el resto de pantallas PC. */
+    .pc-ac-root {
+      --ac-gold: var(--club-accent, #c9a84c);
+      --ac-text-on-accent: var(--club-text-on-accent, #1a1200);
+      --ac-panel: #111726;
+      --ac-card: #161d2e;
+      --ac-line: rgba(255,255,255,.07);
+      --ac-text: #e8eaf0;
+      --ac-text-dim: #9aa0b4;
+      --ac-text-dim2: #6b7280;
+      --ac-green: #22c55e;
+      --ac-red: #ef4444;
+      --ac-blue: #60a5fa;
+      --ac-orange: #f59e0b;
+    }
+    .pc-ac-header { margin-bottom: 18px; }
+    .pc-ac-header h1 { font-size: 20px; font-weight: 700; color: var(--ac-text, #e8eaf0); }
+    .pc-ac-sub { font-size: 11.5px; color: var(--ac-text-dim, #9aa0b4); margin-top: 3px; }
+
+    .pc-ac-summary-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 22px; }
+    .pc-ac-summary-card { background: var(--ac-panel, #111726); border: 1px solid var(--ac-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 14px 16px; text-align: center; }
+    .pc-ac-summary-value { font-size: 22px; font-weight: 800; color: var(--ac-text, #e8eaf0); }
+    .pc-ac-summary-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--ac-text-dim, #9aa0b4); margin-top: 4px; }
+
+    .pc-ac-filter-row { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+    .pc-ac-filter-pill { padding: 6px 13px; border-radius: 6px; font-size: 11.5px; font-weight: 600; cursor: pointer; color: var(--ac-text-dim, #9aa0b4); border: 1px solid var(--ac-line, rgba(255,255,255,.07)); background: var(--ac-panel, #111726); }
+    .pc-ac-filter-pill.active { background: var(--ac-gold, #c9a84c); color: var(--ac-text-on-accent, #1a1200); border-color: var(--ac-gold, #c9a84c); }
+
+    .pc-ac-category-block { margin-bottom: 22px; }
+    .pc-ac-category-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12.5px; font-weight: 700; color: var(--ac-text-dim, #9aa0b4); }
+    .pc-ac-category-count { font-size: 11px; color: var(--ac-text-dim2, #6b7280); }
+
+    .pc-ac-item-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .pc-ac-item-card { background: var(--ac-panel, #111726); border: 1px solid var(--ac-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 14px 16px; border-left: 3px solid var(--ac-text-dim2, #6b7280); }
+    .pc-ac-item-card.critical { border-left-color: var(--ac-red, #ef4444); }
+    .pc-ac-item-card.important { border-left-color: var(--ac-orange, #f59e0b); }
+    .pc-ac-item-card.info { border-left-color: var(--ac-blue, #60a5fa); }
+    .pc-ac-item-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .pc-ac-priority-badge { font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+    .pc-ac-priority-badge.critical { background: rgba(239,68,68,.15); color: var(--ac-red, #ef4444); }
+    .pc-ac-priority-badge.important { background: rgba(245,158,11,.15); color: var(--ac-orange, #f59e0b); }
+    .pc-ac-priority-badge.info { background: rgba(96,165,250,.15); color: var(--ac-blue, #60a5fa); }
+    .pc-ac-new-badge { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(96,165,250,.15); color: var(--ac-blue, #60a5fa); }
+    .pc-ac-item-staff { font-size: 9.5px; font-weight: 700; color: var(--ac-gold, #c9a84c); margin-bottom: 6px; }
+    .pc-ac-item-title { font-size: 13.5px; font-weight: 700; color: var(--ac-text, #e8eaf0); margin-bottom: 4px; }
+    .pc-ac-item-summary { font-size: 11.5px; color: var(--ac-text-dim, #9aa0b4); margin-bottom: 12px; }
+    .pc-ac-item-actions { display: flex; gap: 8px; }
+    .pc-ac-btn { border: none; padding: 8px 14px; border-radius: 6px; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+    .pc-ac-btn-gold { background: var(--ac-gold, #c9a84c); color: var(--ac-text-on-accent, #1a1200); flex: 1; text-align: left; }
+    .pc-ac-btn-ghost { background: transparent; border: 1px solid var(--ac-line, rgba(255,255,255,.07)); color: var(--ac-text-dim, #9aa0b4); }
+    .pc-ac-item-actions .pc-ac-btn-ghost:first-child { flex: 1; text-align: left; }
+
+    .pc-ac-empty-state { background: linear-gradient(145deg, rgba(34,197,94,.12), var(--ac-panel, #111726)); border: 1px solid rgba(34,197,94,.22); border-radius: 10px; padding: 24px; text-align: center; }
+    .pc-ac-empty-icon { font-size: 30px; margin-bottom: 8px; }
+    .pc-ac-empty-title { font-size: 16px; font-weight: 800; color: var(--ac-text, #e8eaf0); }
+    .pc-ac-empty-desc { font-size: 11.5px; color: var(--ac-text-dim, #9aa0b4); margin-top: 6px; line-height: 1.5; }
   }
 `;
 
@@ -10373,7 +10431,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           )}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
           {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />}
-          {screen === "attention" && game && <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />}
+          {screen === "attention" && game && (isPC
+            ? <PCAttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />
+            : <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />
+          )}
           {screen === "squad"     && game && <SquadScreen game={game} players={game.players} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} isPC={isPC} />}
           {screen === "lineup"    && game && <LineupScreen game={game} players={game.players} lineup={normalizeSlots(lineup,STARTERS_SLOTS)} setLineup={setLineup} formation={formation} setFormation={setFormation} subs={normalizeSlots(subs,BENCH_SLOTS)} setSubs={setSubs} savedLineups={game.savedLineups ?? []} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onSaveLineups={(newSaved) => { const newGame = {...game, savedLineups: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs); autosaveCloud(newGame,"lineup-presets",{lineup,formation,subs}); }} isPC={isPC} onPlay={() => setScreen("match")} />}
           {screen === "tactics"   && game && (isPC
