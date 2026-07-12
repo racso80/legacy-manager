@@ -27,6 +27,10 @@ import PCYouthAcademyScreen from "./components/pc/PCYouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
 import PCSettingsScreen from "./components/pc/PCSettingsScreen.jsx";
+import PCMainMenu from "./components/pc/PCMainMenu.jsx";
+import PCSavesScreen from "./components/pc/PCSavesScreen.jsx";
+import PCCoachCreateScreen from "./components/pc/PCCoachCreateScreen.jsx";
+import PCCloudSavesScreen from "./components/pc/PCCloudSavesScreen.jsx";
 import SeasonTransitionScreen from "./components/SeasonTransitionScreen.jsx";
 import PreseasonScreen from "./components/PreseasonScreen.jsx";
 import AttentionCenterScreen from "./components/AttentionCenterScreen.jsx";
@@ -4261,6 +4265,114 @@ const GLOBAL_CSS = `
     .pc-st-switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; border: none; padding: 0; background: none; cursor: pointer; }
     .pc-st-switch-track { position: absolute; inset: 0; border-radius: 999px; transition: background .2s; display: block; }
     .pc-st-switch-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #0c0f16; transition: transform .2s; display: block; }
+
+    /* ─── Flujo pre-partida en PC: menú, partidas, crear entrenador, nube ────── */
+    /* Paleta gold estática (sin --club-accent, todavía no hay team) — misma
+       excepción ya establecida en .pc-clubselect. Namespace compartido entre las
+       4 pantallas porque el mockup aprobado ya reutiliza las mismas primitivas
+       (tarjeta/badge/botón) entre "saves" y "cloud". */
+    .pc-pregame {
+      --pg-gold: #c9a84c; --pg-gold-text: #1a1200;
+      --pg-panel: #111726; --pg-card: #161d2e; --pg-line: rgba(255,255,255,.07);
+      --pg-text: #e8eaf0; --pg-text-dim: #9aa0b4; --pg-text-dim2: #6b7280;
+      --pg-green: #22c55e; --pg-red: #ef4444; --pg-blue: #60a5fa;
+      flex: 1; overflow-y: auto; color: var(--pg-text);
+    }
+    .pc-pregame-accent { color: var(--pg-gold); }
+
+    .pc-pregame-btn { border: none; padding: 10px 14px; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .pc-pregame-btn-gold { background: var(--pg-gold); color: var(--pg-gold-text); flex: 1; }
+    .pc-pregame-btn-danger { background: rgba(239,68,68,.12); color: var(--pg-red); width: 44px; }
+    .pc-pregame-btn-danger-solid { background: rgba(239,68,68,.18); border: 1px solid rgba(239,68,68,.35); color: var(--pg-red); }
+    .pc-pregame-btn-ghost { background: transparent; border: 1px solid var(--pg-line); color: var(--pg-text-dim); }
+
+    /* Menú principal */
+    .pc-pregame-menu { display: flex; align-items: center; justify-content: center; position: relative; min-height: 100%; overflow: hidden; background: radial-gradient(ellipse at 50% 0%, rgba(201,168,76,.08), transparent 60%), #0a0d12; }
+    .pc-pregame-menu-pitch { position: absolute; inset: 0; opacity: .05; background-image: linear-gradient(var(--pg-text) 1px, transparent 1px), linear-gradient(90deg, var(--pg-text) 1px, transparent 1px); background-size: 80px 80px; }
+    .pc-pregame-menu-content { position: relative; text-align: center; max-width: 420px; padding: 40px 20px; }
+    .pc-pregame-menu-logo { width: 150px; height: 170px; margin: 0 auto 22px; filter: drop-shadow(0 8px 20px rgba(201,168,76,.35)); }
+    .pc-pregame-menu-title { font-size: 34px; font-weight: 800; letter-spacing: 2px; color: var(--pg-text); }
+    .pc-pregame-menu-tagline { font-size: 12.5px; color: var(--pg-text-dim); letter-spacing: 3px; margin: 14px 0 34px; text-transform: uppercase; }
+    .pc-pregame-menu-btn { display: block; width: 100%; padding: 15px; border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 12px; border: none; }
+    .pc-pregame-menu-btn.primary { background: linear-gradient(180deg, var(--pg-gold), #a8863a); color: var(--pg-gold-text); }
+    .pc-pregame-menu-btn.secondary { background: var(--pg-panel); border: 1px solid var(--pg-line); color: var(--pg-text); }
+    .pc-pregame-menu-btn.link { background: transparent; color: var(--pg-blue); font-weight: 600; }
+    .pc-pregame-menu-footer { font-size: 11px; color: var(--pg-text-dim2); margin-top: 30px; letter-spacing: 1px; }
+
+    /* Cabecera compartida (saves + cloud) */
+    .pc-pregame-saves, .pc-pregame-cloud { padding: 40px 60px; max-width: 900px; margin: 0 auto; }
+    .pc-pregame-saves-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .pc-pregame-saves-header h1 { font-size: 24px; font-weight: 800; color: var(--pg-text); }
+    .pc-pregame-sub { font-size: 12px; color: var(--pg-text-dim); margin-top: 4px; }
+    .pc-pregame-back-link { font-size: 12.5px; color: var(--pg-text-dim); cursor: pointer; }
+    .pc-pregame-back-link:hover { color: var(--pg-text); }
+    .pc-pregame-saves-empty { background: var(--pg-panel); border: 1px solid var(--pg-line); border-radius: 10px; padding: 24px; text-align: center; color: var(--pg-text-dim); font-size: 12.5px; margin-bottom: 16px; }
+
+    /* Tarjeta de partida — compartida por SavesScreen y CloudSavesScreen (estado C) */
+    .pc-pregame-saves-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 20px; }
+    .pc-pregame-save-card { background: var(--pg-panel); border: 1px solid var(--pg-line); border-radius: 10px; padding: 18px; }
+    .pc-pregame-save-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .pc-pregame-badge { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0; }
+    .pc-pregame-save-name { font-size: 14.5px; font-weight: 700; color: var(--pg-text); }
+    .pc-pregame-save-meta { font-size: 11px; color: var(--pg-text-dim); margin-top: 2px; }
+    .pc-pregame-save-date { font-size: 10.5px; color: var(--pg-text-dim2); margin-top: 2px; }
+    .pc-pregame-save-actions { display: flex; gap: 8px; }
+    .pc-pregame-save-confirm { display: flex; align-items: center; gap: 7px; }
+    .pc-pregame-save-confirm-text { flex: 1; font-size: 10.5px; color: var(--pg-red); line-height: 1.35; }
+    .pc-pregame-new-game-card { border: 1px dashed var(--pg-line); border-radius: 10px; padding: 20px; text-align: center; color: var(--pg-text-dim); cursor: pointer; font-size: 13px; font-weight: 600; }
+    .pc-pregame-new-game-card:hover { border-color: var(--pg-gold); color: var(--pg-gold); }
+
+    /* Crear entrenador */
+    .pc-pregame-cc { padding: 40px 60px; max-width: 760px; margin: 0 auto; }
+    .pc-pregame-cc-header h1 { font-size: 24px; font-weight: 800; margin-bottom: 20px; color: var(--pg-text); }
+    .pc-pregame-cc-intro { background: linear-gradient(135deg, rgba(201,168,76,.1), var(--pg-panel)); border: 1px solid var(--pg-line); border-radius: 10px; padding: 18px 20px; margin-bottom: 22px; }
+    .pc-pregame-cc-intro-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--pg-gold); margin-bottom: 6px; }
+    .pc-pregame-cc-intro-title { font-size: 18px; font-weight: 800; margin-bottom: 6px; color: var(--pg-text); }
+    .pc-pregame-cc-intro-desc { font-size: 12px; color: var(--pg-text-dim); }
+    .pc-pregame-cc-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .pc-pregame-cc-field label { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--pg-text-dim); margin-bottom: 7px; }
+    .pc-pregame-cc-field input, .pc-pregame-cc-field select { width: 100%; background: var(--pg-panel); border: 1px solid var(--pg-line); color: var(--pg-text); padding: 11px 13px; border-radius: 7px; font-size: 13px; }
+    .pc-pregame-cc-avatar-row { display: flex; gap: 16px; align-items: flex-end; margin-bottom: 16px; }
+    .pc-pregame-cc-avatar-box { width: 64px !important; height: 64px; border-radius: 12px; text-align: center; font-size: 28px; padding: 0 !important; }
+    .pc-pregame-cc-philosophy-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
+    .pc-pregame-cc-philosophy-pill { padding: 10px 8px; text-align: center; border-radius: 7px; border: 1px solid var(--pg-line); background: var(--pg-panel); font-size: 11.5px; font-weight: 600; cursor: pointer; color: var(--pg-text-dim); }
+    .pc-pregame-cc-philosophy-pill[data-active] { border-color: var(--pg-gold); color: var(--pg-gold); background: rgba(201,168,76,.08); }
+    .pc-pregame-cc-summary { background: var(--pg-panel); border: 1px solid var(--pg-line); border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; font-size: 12.5px; color: var(--pg-text-dim); }
+    .pc-pregame-cc-summary strong { color: var(--pg-text); }
+    .pc-pregame-cc-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .pc-pregame-cc-actions .pc-pregame-btn-gold { flex: none; padding: 11px 24px; }
+    .pc-pregame-cc-actions .pc-pregame-btn-ghost { padding: 11px 20px; font-size: 13px; font-weight: 700; }
+
+    /* Cargar desde la nube — 3 estados */
+    .pc-pregame-cloud-warn { background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.25); border-radius: 10px; padding: 20px; font-size: 13px; color: var(--pg-text-dim); }
+    .pc-pregame-cloud-login-card { background: var(--pg-panel); border: 1px solid var(--pg-line); border-radius: 10px; padding: 24px; max-width: 380px; margin: 0 auto; }
+    .pc-pregame-cloud-login-card h2 { font-size: 16px; margin-bottom: 16px; color: var(--pg-text); }
+    .pc-pregame-cloud-login-card input { width: 100%; background: var(--pg-card); border: 1px solid var(--pg-line); color: var(--pg-text); padding: 11px 13px; border-radius: 7px; font-size: 13px; margin-bottom: 10px; }
+    .pc-pregame-cloud-error { color: var(--pg-red); font-size: 10px; margin-bottom: 8px; }
+    .pc-pregame-cloud-status-msg { color: var(--pg-blue); font-size: 10px; margin-bottom: 8px; }
+    .pc-pregame-cloud-switch-mode { text-align: center; font-size: 11.5px; color: var(--pg-blue); margin-top: 12px; cursor: pointer; }
+    .pc-pregame-cloud-account { background: var(--pg-panel); border: 1px solid var(--pg-line); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+    .pc-pregame-cloud-email { font-size: 14px; font-weight: 700; color: var(--pg-text); }
+    .pc-pregame-cloud-status-line { font-size: 11px; color: var(--pg-text-dim); margin-top: 3px; }
+    .pc-pregame-cloud-actions-row { display: flex; gap: 8px; margin-top: 14px; }
+    .pc-pregame-cloud-actions-row .pc-pregame-btn-ghost { flex: .65; padding: 10px; }
+    .pc-pregame-cloud-conflict { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.28); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .pc-pregame-cloud-conflict-title { color: #f59e0b; font-size: 13px; font-weight: 800; }
+    .pc-pregame-cloud-conflict-desc { color: var(--pg-text); font-size: 11px; line-height: 1.45; margin-top: 6px; }
+    .pc-pregame-cloud-conflict-meta { color: var(--pg-text-dim2); font-size: 10px; margin-top: 6px; }
+    .pc-pregame-cloud-local-box { background: #10131a; border: 1px solid rgba(201,168,76,.16); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+    .pc-pregame-cloud-local-label { color: var(--pg-gold); font-size: 10px; font-weight: 800; letter-spacing: .5px; }
+    .pc-pregame-cloud-local-name { color: var(--pg-text); font-size: 13px; font-weight: 700; margin-top: 4px; }
+    .pc-pregame-cloud-local-meta { color: var(--pg-text-dim2); font-size: 10.5px; margin-top: 3px; }
+    .pc-pregame-cloud-freshness { font-size: 9.5px; font-weight: 800; }
+    .pc-pregame-cloud-freshness.ok { color: var(--pg-green); }
+    .pc-pregame-cloud-freshness.warn { color: #f59e0b; }
+    .pc-pregame-cloud-freshness.info { color: var(--pg-blue); }
+
+    @media (max-width: 1180px) {
+      .pc-pregame-saves-grid { grid-template-columns: 1fr; }
+      .pc-pregame-cc-philosophy-grid { grid-template-columns: repeat(2, 1fr); }
+    }
   }
 `;
 
@@ -10497,6 +10609,9 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   // (que siguen existiendo para móvil) sin usar PCTopBar/PCSidebar, ya que todavía
   // no existe game/team en este punto del flujo.
   const showClubSelectPC = isPC && ["country", "league", "teams"].includes(screen);
+  // Menú, partidas guardadas, crear entrenador y nube (solo antes de tener partida):
+  // mismo motivo que showClubSelectPC, sin PCTopBar/PCSidebar porque no hay game/team.
+  const showPreGamePC = isPC && (["menu", "saves", "coachCreate"].includes(screen) || (screen === "cloudSaves" && !game));
   const pcTeam = game ? TEAMS.find(t=>t.id===game.teamId) : null;
   const clubAccent = pcTeam ? getClubAccentColor(pcTeam.color) : "#c9a84c";
   const clubTextOnAccent = pcTeam ? getClubTextColor(pcTeam.color) : "#0d0f14";
@@ -10536,8 +10651,14 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
 
   const screenContent = (
         <ScreenWrapper animKey={screen}>
-          {screen === "menu"      && <MainMenu onNew={() => setScreen("country")} onSaves={() => setScreen("saves")} onCloud={() => setScreen("cloudSaves")} savesCount={savesIndex.length} />}
-          {screen === "saves"     && <SavesScreen saves={savesIndex} onLoad={loadGame} onDelete={deleteSave} onNew={() => setScreen("country")} onBack={() => setScreen("menu")} />}
+          {screen === "menu"      && (showPreGamePC
+            ? <PCMainMenu onNew={() => setScreen("country")} onSaves={() => setScreen("saves")} onCloud={() => setScreen("cloudSaves")} savesCount={savesIndex.length} />
+            : <MainMenu onNew={() => setScreen("country")} onSaves={() => setScreen("saves")} onCloud={() => setScreen("cloudSaves")} savesCount={savesIndex.length} />
+          )}
+          {screen === "saves"     && (showPreGamePC
+            ? <PCSavesScreen saves={savesIndex} teams={TEAMS} onLoad={loadGame} onDelete={deleteSave} onNew={() => setScreen("country")} onBack={() => setScreen("menu")} />
+            : <SavesScreen saves={savesIndex} onLoad={loadGame} onDelete={deleteSave} onNew={() => setScreen("country")} onBack={() => setScreen("menu")} />
+          )}
           {(screen === "country" || screen === "league" || screen === "teams") && (showClubSelectPC ? (
             <PCClubSelectScreen teams={TEAMS} onContinue={team => { setPendingTeam(team); setScreen("coachCreate"); }} />
           ) : (
@@ -10547,13 +10668,19 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
               {screen === "teams"   && <TeamSelection league={pendingLeague} onSelect={team=>{setPendingTeam(team);setScreen("coachCreate");}} />}
             </>
           ))}
-          {screen === "coachCreate" && pendingTeam && <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />}
+          {screen === "coachCreate" && pendingTeam && (showPreGamePC
+            ? <PCCoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />
+            : <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />
+          )}
           {screen === "dashboard" && game && (isPC
             ? <PCDashboardContent game={game} teams={TEAMS} position={pcPosition} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} lineup={lineup} setScreen={setScreen} onPlay={() => setScreen("match")} directorItems={legacyDirectorItems} chiefBriefing={chiefBriefing} medicalAlerts={pcMedicalAlerts} consequences={pcConsequences} budgetSnapshot={pcBudgetSnapshot} />
             : <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} conversations={activeConversations} clubLifeIssues={clubLifeIssues} directorItems={legacyDirectorItems} onOpenAttention={handleAttentionOpen} onOpenConversation={openConversation} onOpenClubLifeIssue={handleClubLifeIssueOpen} onOpenScene={handleOpenScene} />
           )}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}
-          {screen === "cloudSaves" && <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />}
+          {screen === "cloudSaves" && (showPreGamePC
+            ? <PCCloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} teams={TEAMS} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} onBack={()=>setScreen("menu")} />
+            : <CloudSavesScreen session={cloudSession} localSave={activeLocalSave} status={cloudStatus} syncState={cloudSyncState} conflict={cloudConflict} onSignIn={handleCloudSignIn} onSignUp={handleCloudSignUp} onSignOut={handleCloudSignOut} onSaveCloud={()=>saveGameToCloud(game)} onForceSaveCloud={()=>saveGameToCloud(game,{force:true})} onLoadCloud={handleLoadCloudSave} onDeleteCloud={handleDeleteCloudSave} onClearConflict={()=>setCloudConflict(null)} />
+          )}
           {screen === "attention" && game && (isPC
             ? <PCAttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />
             : <AttentionCenterScreen items={attentionItems} onOpenItem={handleAttentionOpen} onDismissItem={handleAttentionDismiss} />
@@ -10641,7 +10768,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   );
 
   return (
-    <div {...edgeSwipe.handlers} className={showPCShell?`pc-shell${screen==="match"?" pc-match-fullscreen":""}`:undefined} style={{ background:showPCShell?undefined:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:(showPCShell||showClubSelectPC)?"none":540, margin:(showPCShell||showClubSelectPC)?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y", ...(showPCShell?{"--club-accent":clubAccent,"--club-text-on-accent":clubTextOnAccent}:{}) }}>
+    <div {...edgeSwipe.handlers} className={showPCShell?`pc-shell${screen==="match"?" pc-match-fullscreen":""}`:undefined} style={{ background:showPCShell?undefined:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:(showPCShell||showClubSelectPC||showPreGamePC)?"none":540, margin:(showPCShell||showClubSelectPC||showPreGamePC)?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y", ...(showPCShell?{"--club-accent":clubAccent,"--club-text-on-accent":clubTextOnAccent}:{}) }}>
       {edgeSwipe.indicator}
       {showPCShell && (
         <>
@@ -10649,7 +10776,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           <PCSidebar screen={screen} setScreen={setScreen} attentionCount={attentionCount} onExit={handleExitToMenu} />
         </>
       )}
-      {!showPCShell && !showClubSelectPC && screen !== "menu" && (
+      {!showPCShell && !showClubSelectPC && !showPreGamePC && screen !== "menu" && (
         <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"11px 14px", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
           {screen === "dashboard" && game && (
             <button onClick={handleExitToMenu}
