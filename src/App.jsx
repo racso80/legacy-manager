@@ -67,7 +67,7 @@ import { ensurePlayerMorale, ensureSquadMorale, getLockerRoomSummary, getMoraleL
 import { ensureStaffState, getAssistantMatchReadingShift, staffModifier } from "./staff/staffEngine.js";
 import { createCoachCareer, ensureCoachCareer, finalizeCoachSeason, recordCoachMatch } from "./coach/coachCareerEngine.js";
 import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, applyFanYouthReaction, ensureFanbaseState, estimateFanAttendance, generateFanNews } from "./fans/fanEngine.js";
-import { advanceConversationMemory, ensureConversationState, getActiveConversations, respondToConversation } from "./conversations/conversationEngine.js";
+import { advanceConversationMemory, dismissConversation, ensureConversationState, getActiveConversations, respondToConversation } from "./conversations/conversationEngine.js";
 import { advanceClubLife, ensureClubLifeState, getClubLifeIssues, resolveClubLifeIssue } from "./clubLife/clubLifeEngine.js";
 import { ensureLegacyDirectorState, getLegacyDirectorExpectations, getLegacyDirectorSelection, getWaitingExpectationItems, markLegacyDirectorItem, rememberLegacyDirectorSelection } from "./legacyDirector/legacyDirectorEngine.js";
 import { buildLegacyDirectorEvents, dedupeAttentionItems, legacyDirectorEventsToAttentionItems } from "./legacyDirector/legacyDirectorEventSystem.js";
@@ -10224,8 +10224,31 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   const handleAttentionDismiss = (item) => {
     setGame(prev => {
       if (!prev) return prev;
-      const matchingDirectorItem = legacyDirectorItems.find(directorItem => directorItem.rawId === item.id || directorItem.id === `attention:${item.id}`);
       let updated = markAttentionItem(prev, item.id, "dismissed");
+
+      // Cierre permanente en la fuente nativa de cada categoría: getClubLifeIssues,
+      // getActiveConversations y getWaitingExpectationItems no leen attentionCenter.items,
+      // así que sin esto regenerarían el mismo item en el siguiente render pese a
+      // haberlo marcado como "dismissed" ahí. "dismissed" ya es un estado reconocido
+      // por clubLifeEngine.js y conversationEngine.js (distinto de "ignored", que
+      // conlleva la consecuencia de la escalada automática) — este cierre es gratuito
+      // a propósito.
+      if (item.id.startsWith("club-life:")) {
+        updated = resolveClubLifeIssue(updated, item.id.replace("club-life:", ""), "dismissed");
+      } else if (item.id.startsWith("conversation:")) {
+        updated = dismissConversation(updated, item.id.replace("conversation:", ""));
+      } else if (item.id.startsWith("expectation:") && item.issueKey) {
+        updated = markLegacyDirectorItem(updated, item.id, "archived", { issueKey: item.issueKey });
+      }
+
+      // rawId/issueKey también cubre los candidatos "expectation:" cuando sí están
+      // seleccionados como persona en espera del Despacho ese día — mantiene el
+      // archivado consistente con su estado de "mostrado"/anti-spam existente.
+      const matchingDirectorItem = legacyDirectorItems.find(directorItem =>
+        directorItem.rawId === item.id ||
+        directorItem.id === `attention:${item.id}` ||
+        (item.issueKey && (directorItem.rawId === item.issueKey || directorItem.issueKey === item.issueKey))
+      );
       if (matchingDirectorItem) {
         updated = markLegacyDirectorItem(updated, matchingDirectorItem.id, "archived", {
           item: matchingDirectorItem,

@@ -318,6 +318,30 @@ function applySquadDelta(players, effects = {}) {
   return players.map(player => applyPlayerDelta(player, { morale: effects.squadMorale ?? 0, trust: effects.squadTrust ?? 0 }));
 }
 
+// Descarte manual desde el Centro de Atención — distinto de respondToConversation
+// (no aplica efectos ni deja recuerdo), pero cierra la conversación de forma
+// permanente: alreadyClosed() ya reconoce "dismissed" igual que "resolved",
+// así que deja de aparecer también en la cola de Vestuario.
+export function dismissConversation(game, conversationId) {
+  const safeGame = ensureConversationState(game);
+  const state = normalizeState(safeGame.conversations);
+  return {
+    ...safeGame,
+    conversations: {
+      ...state,
+      items: {
+        ...state.items,
+        [conversationId]: {
+          status: "dismissed",
+          resolvedAt: nowStamp(),
+          lastResponseId: state.items[conversationId]?.lastResponseId ?? null,
+          createdAt: state.items[conversationId]?.createdAt ?? nowStamp(),
+        },
+      },
+    },
+  };
+}
+
 export function respondToConversation(game, conversationId, responseId, context = {}) {
   const safeGame = ensureConversationState(game);
   const conversation = getActiveConversations(safeGame, context).find(item => item.id === conversationId);
