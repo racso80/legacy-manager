@@ -1,6 +1,7 @@
 import { staffModifier } from "../staff/staffEngine.js";
 import { getTotalMatchdays } from "../data/leagues.js";
 import { getMarketValue } from "../players/playerProfile.js";
+import { setRealSquad, mutateRealSquad } from "../data/realSquadsStore.js";
 
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 
@@ -229,15 +230,15 @@ export function maybeCreateAITransfer(game,teams,squads){
   if(renewal&&Math.random()<.28){
     const years=renewal.age>=31?2:renewal.age<=23?4:3;
     const updated={...renewal,contractEnd:String(Number(game.season)+years),salary:Math.round((renewal.salary??20)*(1.08+Math.random()*.16)),squadRole:renewal.overall>=84?"Estrella":renewal.overall>=78?"Titular":renewal.squadRole??"Rotación"};
-    squads[buyer.id]=buyerSquad.map(player=>player.id===renewal.id?updated:player);
+    setRealSquad(buyer.id, buyerSquad.map(player=>player.id===renewal.id?updated:player));
     const transfer={id:`ai-renewal-${game.season}-${matchday}-${renewal.id}`,type:"renewal",player:updated,fromTeamId:buyer.id,toTeamId:buyer.id,value:0,season:String(game.season),matchday,reason:"Renovación estratégica"};
     return {...current,transfers:[...(current.transfers??[]),transfer],transferMarket:{...market,lastAiMatchday:matchday,aiTransfers:[transfer,...(market.aiTransfers??[])],marketPulse:[transfer,...(market.marketPulse??[])]}};
   }
   const target=targetForNeed(buyer,buyerSquad,clubs,squads,game);
   if(target&&Math.random()<.64){
     const {player,fromTeam}=target;const value=marketValue(player);const fee=Math.round(value*(Number(player.contractEnd??9999)<=Number(game.season)+1 ? .72 : .95+Math.random()*.2));
-    squads[fromTeam.id]=(squads[fromTeam.id]??[]).filter(item=>item.id!==player.id);
-    squads[buyer.id]=[...buyerSquad,{...player,contractEnd:String(Number(game.season)+(player.age>=31?2:3)),marketStatus:null}];
+    mutateRealSquad(fromTeam.id, squad=>(squad??[]).filter(item=>item.id!==player.id));
+    setRealSquad(buyer.id, [...buyerSquad,{...player,contractEnd:String(Number(game.season)+(player.age>=31?2:3)),marketStatus:null}]);
     const transfer={id:`ai-buy-${game.season}-${matchday}-${player.id}`,type:player.age<=23?"youth":"ai",player,fromTeamId:fromTeam.id,toTeamId:buyer.id,value:fee,season:String(game.season),matchday,reason:`Refuerzo para ${groupLabel[player.group]??"plantilla"}`};
     return {...current,transfers:[...(current.transfers??[]),transfer],transferMarket:{...market,lastAiMatchday:matchday,aiTransfers:[transfer,...(market.aiTransfers??[])],marketPulse:[transfer,...(market.marketPulse??[])]}};
   }
@@ -245,14 +246,17 @@ export function maybeCreateAITransfer(game,teams,squads){
   const destinations=clubs.filter(team=>team.id!==from.id);const to=destinations[Math.floor(Math.random()*destinations.length)];
   const loan=loanCandidate(squads[from.id]??[]);
   if(loan&&Math.random()<.36){
-    const value=marketValue(loan);squads[from.id]=(squads[from.id]??[]).filter(item=>item.id!==loan.id);squads[to.id]=[...(squads[to.id]??[]),{...loan,loanData:{fromTeamId:from.id,untilSeason:String(game.season)}}];
+    const value=marketValue(loan);
+    mutateRealSquad(from.id, squad=>(squad??[]).filter(item=>item.id!==loan.id));
+    mutateRealSquad(to.id, squad=>[...(squad??[]),{...loan,loanData:{fromTeamId:from.id,untilSeason:String(game.season)}}]);
     const transfer={id:`ai-loan-${game.season}-${matchday}-${loan.id}`,type:"loan",player:loan,fromTeamId:from.id,toTeamId:to.id,value:Math.round(value*.07),season:String(game.season),matchday,reason:"Busca minutos"};
     return {...current,transfers:[...(current.transfers??[]),transfer],transferMarket:{...market,lastAiMatchday:matchday,aiTransfers:[transfer,...(market.aiTransfers??[])],marketPulse:[transfer,...(market.marketPulse??[])]}};
   }
   const sale=saleCandidate(squads[from.id]??[],game.season,from);
   if(!sale)return current;
   const value=marketValue(sale);
-  squads[from.id]=(squads[from.id]??[]).filter(item=>item.id!==sale.id);squads[to.id]=[...(squads[to.id]??[]),{...sale,marketStatus:null}];
+  mutateRealSquad(from.id, squad=>(squad??[]).filter(item=>item.id!==sale.id));
+  mutateRealSquad(to.id, squad=>[...(squad??[]),{...sale,marketStatus:null}]);
   const transfer={id:`ai-${game.season}-${matchday}-${sale.id}`,type:"ai",player:sale,fromTeamId:from.id,toTeamId:to.id,value:Math.round(value*(.85+Math.random()*.18)),season:String(game.season),matchday,reason:Number(sale.contractEnd??9999)<=Number(game.season)+1?"Evita que salga libre":"Ajuste de plantilla"};
   return {...current,transfers:[...(current.transfers??[]),transfer],transferMarket:{...market,lastAiMatchday:matchday,aiTransfers:[transfer,...(market.aiTransfers??[])],marketPulse:[transfer,...(market.marketPulse??[])]}};
 }

@@ -31,6 +31,7 @@ import PCMainMenu from "./components/pc/PCMainMenu.jsx";
 import PCSavesScreen from "./components/pc/PCSavesScreen.jsx";
 import PCCoachCreateScreen from "./components/pc/PCCoachCreateScreen.jsx";
 import PCCloudSavesScreen from "./components/pc/PCCloudSavesScreen.jsx";
+import { setRealSquad, mutateRealSquad } from "./data/realSquadsStore.js";
 import SeasonTransitionScreen from "./components/SeasonTransitionScreen.jsx";
 import PreseasonScreen from "./components/PreseasonScreen.jsx";
 import AttentionCenterScreen from "./components/AttentionCenterScreen.jsx";
@@ -9038,8 +9039,20 @@ function detachFreeAgentsFromRealSquads(game) {
   const freeAgentIds = new Set((game.freeAgents ?? []).map(player => player.id));
   if (!freeAgentIds.size) return;
   Object.keys(REAL_SQUADS).forEach(teamId => {
-    REAL_SQUADS[teamId] = (REAL_SQUADS[teamId] ?? []).filter(player => !freeAgentIds.has(player.id));
+    mutateRealSquad(teamId, squad => (squad ?? []).filter(player => !freeAgentIds.has(player.id)));
   });
+}
+
+// Despido (v0.98): al cambiar de club el mánager, hay que guardar un snapshot
+// del plantel real del club que deja (game.players en ese momento) antes de
+// que REAL_SQUADS[ese equipo] vuelva a leerse — hasta ahora nunca se leía,
+// porque todo consumidor excluye game.teamId, así que seguía con el snapshot
+// desfasado de data.json. game.formerClubs es aditivo y opcional (?? {} en
+// todas las lecturas), no hace falta migración para partidas guardadas antes
+// de esta función. El replay al cargar la partida vive en loadGame, arriba
+// del reaplique de transfers.
+function recordFormerClub(game, teamId, players) {
+  return { ...game, formerClubs: { ...(game.formerClubs ?? {}), [teamId]: { players, season: game.season } } };
 }
 
 export default function App({ externalData }) {
@@ -9287,14 +9300,23 @@ export default function App({ externalData }) {
         loadedSubs = cleanLoadedSelection.subs;
         setLineup(cleanLoadedSelection.lineup);
         setSubs(cleanLoadedSelection.subs);
+        // Despido (v0.98): si el mánager gestionó y dejó algún club, game.formerClubs
+        // guarda el plantel real que tenía en ese momento (no el snapshot de data.json,
+        // que quedó congelado mientras REAL_SQUADS[ese equipo] estaba excluido de todas
+        // las lecturas por ser el club del usuario). Se aplica ANTES del replay de
+        // transfers de abajo, para que cualquier movimiento posterior (fichajes IA tras
+        // el cambio de club) se reaplique sobre el plantel real, no sobre el desfasado.
+        Object.entries(parsed.formerClubs ?? {}).forEach(([teamId, snapshot]) => {
+          if (REAL_SQUADS[teamId] && snapshot?.players) setRealSquad(teamId, snapshot.players);
+        });
         // Reaplicar fichajes pasados: quitar de REAL_SQUADS los jugadores ya comprados
         // de su equipo de origen (REAL_SQUADS es estático y se resetea al recargar la página)
         (parsed.transfers ?? []).forEach(t => {
           if ((t.type === "buy"||(t.type==="loanIn"&&String(t.season)===String(parsed.season))) && t.fromTeamId && t.fromTeamId !== "agente_libre" && REAL_SQUADS[t.fromTeamId]) {
-            REAL_SQUADS[t.fromTeamId] = REAL_SQUADS[t.fromTeamId].filter(p => p.id !== t.player.id);
+            mutateRealSquad(t.fromTeamId, squad => squad.filter(p => p.id !== t.player.id));
           }
-          if((t.type==="sell"||(t.type==="loanOut"&&String(t.season)===String(parsed.season)))&&t.toTeamId&&REAL_SQUADS[t.toTeamId]&&!REAL_SQUADS[t.toTeamId].some(player=>player.id===t.player.id))REAL_SQUADS[t.toTeamId]=[...REAL_SQUADS[t.toTeamId],t.player];
-          if((t.type==="ai"||(t.type==="loan"&&String(t.season)===String(parsed.season)))&&t.fromTeamId&&t.toTeamId&&REAL_SQUADS[t.fromTeamId]&&REAL_SQUADS[t.toTeamId]){REAL_SQUADS[t.fromTeamId]=REAL_SQUADS[t.fromTeamId].filter(player=>player.id!==t.player.id);if(!REAL_SQUADS[t.toTeamId].some(player=>player.id===t.player.id))REAL_SQUADS[t.toTeamId]=[...REAL_SQUADS[t.toTeamId],t.player];}
+          if((t.type==="sell"||(t.type==="loanOut"&&String(t.season)===String(parsed.season)))&&t.toTeamId&&REAL_SQUADS[t.toTeamId]&&!REAL_SQUADS[t.toTeamId].some(player=>player.id===t.player.id))mutateRealSquad(t.toTeamId, squad=>[...squad,t.player]);
+          if((t.type==="ai"||(t.type==="loan"&&String(t.season)===String(parsed.season)))&&t.fromTeamId&&t.toTeamId&&REAL_SQUADS[t.fromTeamId]&&REAL_SQUADS[t.toTeamId]){mutateRealSquad(t.fromTeamId, squad=>squad.filter(player=>player.id!==t.player.id));if(!REAL_SQUADS[t.toTeamId].some(player=>player.id===t.player.id))mutateRealSquad(t.toTeamId, squad=>[...squad,t.player]);}
         });
         setActiveSaveId(saveId);
         const loadedTeam=TEAMS.find(team=>team.id===parsed.teamId);
@@ -9518,7 +9540,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   const squad = REAL_SQUADS[teamId] ?? [];
   if (!squad.length) return;
   const starterIds = new Set(buildStartingEleven(squad, formation).filter(Boolean));
-  REAL_SQUADS[teamId] = squad.map(player => {
+  mutateRealSquad(teamId, () => squad.map(player => {
     const starts = starterIds.has(player.id);
     const resistance = player.attrs?.fisico ?? 70;
     const ageFactor = player.age >= 32 ? 1.18 : player.age <= 22 ? .92 : 1;
@@ -9529,7 +9551,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     const accumulatedFatigue = Math.max(0,Math.min(100,previousLoad+loadGain));
     const updated = { ...ensurePlayerMorale(player), fatigue:Math.max(0,Math.min(100,Math.round((player.fatigue??18)+matchFatigue))), accumulatedFatigue, medical:{...(player.medical??{}),accumulatedFatigue} };
     return updatePlayerHumanState(updated,{season:"2025",matchday:1,teamId,fixtures:[],players:squad,trainingPlan:{load:"medium"}},{result:null,started:starts,played:starts});
-  });
+  }));
 }
 
   const handleMatchEnd = (fixtureId, homeGoals, awayGoals, events, livePlayer, participation) => {
@@ -9747,6 +9769,20 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const fanNews=generateFanNews({game:newGame,before:beforeFanbase,matchday});
       if(fanNews.length)newGame={...newGame,news:mergeNews(newGame.news??[],fanNews)};
       if((newGame.fanbase?.support??65)<38)newGame={...newGame,legacy:{...newGame.legacy,confidence:Math.max(0,(newGame.legacy?.confidence??65)-1.2)}};
+      // Despido (v0.98): se evalúa solo en el informe mensual (legacyEvaluation.report,
+      // matchday%4===0), no cada jornada. La consecuencia mecánica (cambio de club) queda
+      // diferida al cierre de temporada — aquí solo se marca el estado y se avisa; el
+      // usuario sigue gestionando este club con normalidad el resto de la temporada. El
+      // guard managerStatus==="active" evita que se dispare de nuevo en informes posteriores.
+      if (legacyEvaluation.report && newGame.legacy.confidence <= 15 && (newGame.managerStatus ?? "active") === "active") {
+        const despidoNews = generateBoardNews({items:[{
+          title:"La directiva pone fin a tu etapa",
+          summary:`La confianza ha caído a ${Math.round(newGame.legacy.confidence)}/100. La directiva no continuará contigo la próxima temporada.`,
+          importance:"critical",
+          fingerprint:`despido:${prev.season}:${prev.teamId}`,
+        }],season:prev.season??"2025",matchday,userTeamId:prev.teamId});
+        newGame={...newGame,managerStatus:"sacked",news:mergeNews(newGame.news??[],despidoNews)};
+      }
       newGame=recordCoachMatch(newGame,{result:won?"win":drew?"draw":"loss",goalsFor:userGoals,goalsAgainst:oppGoals,fixture,lockerSummary,trainingReport:trainingResult.report});
       const scoutingProgress=advanceScouting(newGame,getScoutingPool(newGame),matchday+1);
       const scoutingNews=generateScoutingNews({items:scoutingProgress.news,season:prev.season??"2025",matchday,userTeamId:prev.teamId});
@@ -9866,7 +9902,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     if (!seasonSummary) return;
     setGame(prev => {
       const newSeason = String(parseInt(prev.season ?? "2025") + 1);
-      (prev.transfers??[]).filter(item=>item.type==="loan"&&String(item.season)===String(prev.season)).forEach(item=>{if(REAL_SQUADS[item.toTeamId]&&REAL_SQUADS[item.fromTeamId]){REAL_SQUADS[item.toTeamId]=REAL_SQUADS[item.toTeamId].filter(player=>player.id!==item.player.id);if(!REAL_SQUADS[item.fromTeamId].some(player=>player.id===item.player.id))REAL_SQUADS[item.fromTeamId]=[...REAL_SQUADS[item.fromTeamId],item.player];}});
+      (prev.transfers??[]).filter(item=>item.type==="loan"&&String(item.season)===String(prev.season)).forEach(item=>{if(REAL_SQUADS[item.toTeamId]&&REAL_SQUADS[item.fromTeamId]){mutateRealSquad(item.toTeamId, squad=>squad.filter(player=>player.id!==item.player.id));if(!REAL_SQUADS[item.fromTeamId].some(player=>player.id===item.player.id))mutateRealSquad(item.fromTeamId, squad=>[...squad,item.player]);}});
 
       // ── Ascensos y descensos entre Primera y Segunda ──
       // Toda liga tiene ahora fixtures/standings reales todo el año
@@ -9945,15 +9981,15 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const openingBalance=closingBalance+annualNet;
       const seasonOpeningStatement={previousSeason:String(prev.season),closingBalance,tvRights,sponsorship,members,positionPrize,operatingCosts,annualNet,openingBalance};
       const expiredLoanIns=prev.players.filter(player=>player.loanData?.untilSeason===String(prev.season));
-      expiredLoanIns.forEach(player=>{const origin=player.loanData?.fromTeamId;if(origin&&REAL_SQUADS[origin]&&!REAL_SQUADS[origin].some(item=>item.id===player.id))REAL_SQUADS[origin]=[...REAL_SQUADS[origin],{...player,loanData:null}];});
-      const expiredLoanOutTransfers=(prev.transfers??[]).filter(item=>item.type==="loanOut"&&String(item.season)===String(prev.season));expiredLoanOutTransfers.forEach(item=>{if(item.toTeamId&&REAL_SQUADS[item.toTeamId])REAL_SQUADS[item.toTeamId]=REAL_SQUADS[item.toTeamId].filter(player=>player.id!==item.player.id);});
+      expiredLoanIns.forEach(player=>{const origin=player.loanData?.fromTeamId;if(origin&&REAL_SQUADS[origin]&&!REAL_SQUADS[origin].some(item=>item.id===player.id))mutateRealSquad(origin, squad=>[...squad,{...player,loanData:null}]);});
+      const expiredLoanOutTransfers=(prev.transfers??[]).filter(item=>item.type==="loanOut"&&String(item.season)===String(prev.season));expiredLoanOutTransfers.forEach(item=>{if(item.toTeamId&&REAL_SQUADS[item.toTeamId])mutateRealSquad(item.toTeamId, squad=>squad.filter(player=>player.id!==item.player.id));});
       const returningLoanOuts=expiredLoanOutTransfers.map(item=>({...item.player,marketStatus:null,morale:Math.max(55,item.player.morale??65)}));
       const seasonPlayers=[...prev.players.filter(player=>player.loanData?.untilSeason!==String(prev.season)),...returningLoanOuts.filter(player=>!prev.players.some(item=>item.id===player.id))];
       const lifecycleResult=advanceSquadLifecycle(seasonPlayers,{previousSeason:prev.season??"2025",newSeason,teamId:prev.teamId,userTeamId:prev.teamId,allowRetirements:true});
       const worldLifecycleEvents=[];
       TEAMS.filter(team=>team.id!==prev.teamId).forEach(team=>{
         const result=advanceSquadLifecycle((REAL_SQUADS[team.id]??[]).map(player=>ensurePlayerLifecycle(player,prev.season??"2025",getTotalMatchdays(getLeagueById(team.leagueId)))),{previousSeason:prev.season??"2025",newSeason,teamId:team.id,userTeamId:prev.teamId,allowRetirements:true});
-        REAL_SQUADS[team.id]=result.players;
+        setRealSquad(team.id, result.players);
         worldLifecycleEvents.push(...result.events);
       });
       const lifecycleEvents=[...lifecycleResult.events,...worldLifecycleEvents];
@@ -10008,11 +10044,11 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
         // IMPORTANTE: quitar al jugador de la plantilla real de su equipo de origen,
         // para que deje de aparecer marcando goles o disponible para esa IA.
         if (fromTeamId && fromTeamId !== "agente_libre" && REAL_SQUADS[fromTeamId]) {
-          REAL_SQUADS[fromTeamId] = REAL_SQUADS[fromTeamId].filter(p => p.id !== player.id);
+          mutateRealSquad(fromTeamId, squad => squad.filter(p => p.id !== player.id));
         }
       } else if (type === "sell" || type === "loanOut") {
         newPlayers = newPlayers.filter(p => p.id !== player.id);
-        if(toTeamId&&REAL_SQUADS[toTeamId]&&!REAL_SQUADS[toTeamId].some(item=>item.id===player.id))REAL_SQUADS[toTeamId]=[...REAL_SQUADS[toTeamId],player];
+        if(toTeamId&&REAL_SQUADS[toTeamId]&&!REAL_SQUADS[toTeamId].some(item=>item.id===player.id))mutateRealSquad(toTeamId, squad=>[...squad,player]);
         sanitizedLineupAfterTransfer = sanitizeLineupSelection(lineup, subs, newPlayers, { starters:STARTERS_SLOTS, bench:BENCH_SLOTS });
       }
 

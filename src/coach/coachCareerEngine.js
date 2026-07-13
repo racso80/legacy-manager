@@ -174,6 +174,35 @@ function updateCurrentClubSpell(coach, result) {
   return { ...coach, career: { ...coach.career, clubs } };
 }
 
+// Despido (v0.98): cierra la etapa abierta en el club actual. Se llama solo al confirmar
+// el cambio de club (nunca antes, en el momento del despido a mitad de temporada) porque
+// updateCurrentClubSpell necesita esa entrada abierta (!toSeason) para seguir sumando
+// partidos mientras el usuario termina la temporada con el club que le despide.
+export function closeCurrentClubSpell(coach, { toSeason, exitReason, confidenceEnd = null }) {
+  const clubs = (coach.career.clubs ?? []).map(item =>
+    item.clubId === coach.currentClubId && !item.toSeason
+      ? { ...item, toSeason: String(toSeason), exitReason, confidenceEnd: confidenceEnd ?? item.confidenceEnd }
+      : item
+  );
+  return { ...coach, career: { ...coach.career, clubs } };
+}
+
+// Abre la etapa en el club de destino (misma forma que la entrada inicial de
+// createCoachCareer) y aplica la penalización de prestigio del despido (-5 a -10).
+export function openNewClubSpell(coach, newTeam, season) {
+  const clubs = [...(coach.career.clubs ?? []), {
+    clubId: newTeam.id, clubName: newTeam.name, fromSeason: String(season), toSeason: null,
+    seasons: 0, titles: 0, matches: 0, wins: 0, draws: 0, losses: 0, confidenceEnd: null, exitReason: null,
+  }];
+  return {
+    ...coach,
+    currentClubId: newTeam.id,
+    currentClubName: newTeam.name,
+    prestige: clamp((coach.prestige ?? 10) - (5 + Math.random() * 5)),
+    career: { ...coach.career, clubs },
+  };
+}
+
 export function recordCoachMatch(game, { result, goalsFor = 0, goalsAgainst = 0, fixture = null, lockerSummary = null, trainingReport = null } = {}) {
   const seeded = ensureCoachCareer(game);
   let coach = seeded.coachCareer;

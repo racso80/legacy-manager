@@ -258,3 +258,12 @@ export function finalizeLegacySeason(game,{team,position}){
 export function startNextLegacySeason(legacy,team,season){
   return{...legacy,objectives:createSeasonObjectives(team,season),lastEvaluationMatchday:0};
 }
+
+// Despido (v0.98): a diferencia de startNextLegacySeason (misma club, solo se renuevan
+// objetivos), aquí cambia el club — clubPrestige/confidence/monthlyReports son específicos
+// del club y se reinician con los mismos valores que usaría una partida nueva
+// (initialClubPrestige/68, ver ensureLegacyState). trophies/records/archive/manager son
+// del mánager, no del club, y se conservan intactos vía el spread de legacy.
+export function startNewClubLegacy(legacy,newTeam,season){
+  return{...legacy,clubPrestige:initialClubPrestige(newTeam),confidence:68,objectives:createSeasonObjectives(newTeam,season),monthlyReports:[],lastEvaluationMatchday:0};
+}
