@@ -170,7 +170,7 @@ function ClubDetail({ team, onBack, onConfirm }) {
   );
 }
 
-export default function PCClubSelectScreen({ teams, onContinue }) {
+export default function PCClubSelectScreen({ teams, onContinue, excludeTeamId }) {
   const countries = getAvailableCountries();
   const [countryId, setCountryId] = useState(countries[0]?.id ?? null);
   const [leagueId, setLeagueId] = useState(null);
@@ -179,7 +179,10 @@ export default function PCClubSelectScreen({ teams, onContinue }) {
 
   const leagues = countryId ? [...getLeaguesByCountry(countryId)].sort((a, b) => a.tier - b.tier) : [];
   const activeLeague = leagues.find(l => l.id === leagueId) ?? null;
-  const teamsInLeague = activeLeague ? teams.filter(t => t.leagueId === activeLeague.id) : [];
+  // Despido (v0.98): al elegir club nuevo tras un despido, el club que se acaba de dejar
+  // no debería poder volver a elegirse. excludeTeamId es undefined en el flujo pre-partida
+  // normal, así que no cambia nada ahí.
+  const teamsInLeague = activeLeague ? teams.filter(t => t.leagueId === activeLeague.id && t.id !== excludeTeamId) : [];
   const selectedTeam = teamsInLeague.find(t => t.id === teamId) ?? null;
 
   const stepLabel = !countryId ? "Paso 1 · País" : !activeLeague ? "Paso 2 · Liga" : !selectedTeam ? "Paso 3 · Equipo" : "Listo";

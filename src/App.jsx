@@ -57,6 +57,7 @@ import PCSquadScreen from "./components/pc/PCSquadScreen.jsx";
 import PCLineupScreen from "./components/pc/PCLineupScreen.jsx";
 import PCMatchScreen from "./components/pc/PCMatchScreen.jsx";
 import PCClubSelectScreen from "./components/pc/PCClubSelectScreen.jsx";
+import PCDespidoReveal from "./components/pc/PCDespidoReveal.jsx";
 import PCTransferCenterScreen from "./components/pc/PCTransferCenterScreen.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
@@ -64,7 +65,7 @@ import { advanceSquadLifecycle, applyRetirementsToLegacy, ensurePlayerLifecycle,
 import { advanceMedicalRecovery, applyInjury, createInjuryEvent, getAccumulatedLoad, getLoadLevel, getPhysicalStatus, normalizeMedicalPlayer, rollContextualInjury } from "./medical/medicalEngine.js";
 import { applyTrainingFocusPreset, applyWeeklyTraining, DEFAULT_TRAINING_PLAN, getTrainingMatchModifiers, normalizeTrainingPlan } from "./training/trainingEngine.js";
 import { DEFAULT_TACTICS, TACTICS_FIELD_DESCRIPTIONS, TACTICS_FIELD_LABELS, TACTICS_FIELD_OPTIONS, TACTICS_PRESET_ICONS, normalizeTactics, tacticModifiers } from "./tactics/tacticsEngine.js";
-import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason } from "./legacy/legacyEngine.js";
+import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPrestigeLevel, startNextLegacySeason, startNewClubLegacy } from "./legacy/legacyEngine.js";
 import { applyYouthDevelopmentCycle, createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
 import { advanceScouting, bootstrapScouting, cancelScoutingMission, createScoutingMission, ensureScoutingState, refreshScoutingRecommendations, registerScoutingSigning, toggleScoutingWatch } from "./scouting/scoutingEngine.js";
 import { PRIMARY_NAV, SECONDARY_SCREEN_IDS } from "./navigation/navigationConfig.js";
@@ -73,7 +74,7 @@ import { getAttentionCount, getAttentionItems, markAttentionItem } from "./atten
 import { acceptRenewalCounter, advanceRenewals, completeRenewal, createRenewalOffer, ensureContractState, withdrawRenewalOffer } from "./contracts/contractEngine.js";
 import { ensurePlayerMorale, ensureSquadMorale, getLockerRoomSummary, getMoraleLevel, updatePlayerHumanState } from "./morale/moraleEngine.js";
 import { ensureStaffState, getAssistantMatchReadingShift, staffModifier } from "./staff/staffEngine.js";
-import { createCoachCareer, ensureCoachCareer, finalizeCoachSeason, recordCoachMatch } from "./coach/coachCareerEngine.js";
+import { createCoachCareer, ensureCoachCareer, finalizeCoachSeason, recordCoachMatch, closeCurrentClubSpell, openNewClubSpell } from "./coach/coachCareerEngine.js";
 import { advanceAiFanbases, applyFanMatchReaction, applyFanTransferReaction, applyFanYouthReaction, ensureFanbaseState, estimateFanAttendance, generateFanNews } from "./fans/fanEngine.js";
 import { advanceConversationMemory, dismissConversation, ensureConversationState, getActiveConversations, respondToConversation } from "./conversations/conversationEngine.js";
 import { advanceClubLife, ensureClubLifeState, getClubLifeIssues, resolveClubLifeIssue } from "./clubLife/clubLifeEngine.js";
@@ -4374,6 +4375,28 @@ const GLOBAL_CSS = `
       .pc-pregame-saves-grid { grid-template-columns: 1fr; }
       .pc-pregame-cc-philosophy-grid { grid-template-columns: repeat(2, 1fr); }
     }
+
+    /* ─── Despido: momento dramático (v0.98) — pantalla estática, paleta gold
+       estática igual que .pc-pregame (todavía no hay club nuevo, sin --club-accent) ── */
+    .pc-despido-root {
+      --dsp-gold: #c9a84c; --dsp-red: #ef4444;
+      --dsp-panel: #111726; --dsp-card: #161d2e; --dsp-line: rgba(255,255,255,.07);
+      --dsp-text: #e8eaf0; --dsp-text-dim: #9aa0b4; --dsp-text-dim2: #6b7280;
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at 50% 0%, rgba(239,68,68,.08), transparent 60%), #0a0d12;
+      padding: 40px 20px;
+    }
+    .pc-despido-card { width: 100%; max-width: 560px; background: var(--dsp-panel); border: 1px solid rgba(239,68,68,.25); border-radius: 14px; padding: 32px; }
+    .pc-despido-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--dsp-red); font-weight: 800; margin-bottom: 10px; }
+    .pc-despido-title { font-size: 22px; font-weight: 800; color: var(--dsp-text); line-height: 1.3; }
+    .pc-despido-desc { font-size: 12.5px; color: var(--dsp-text-dim); line-height: 1.6; margin-top: 12px; }
+    .pc-despido-summary-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--dsp-gold); font-weight: 800; margin: 26px 0 10px; }
+    .pc-despido-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .pc-despido-stat { background: var(--dsp-card); border-radius: 8px; padding: 12px 6px; text-align: center; }
+    .pc-despido-stat-value { font-size: 18px; font-weight: 800; color: var(--dsp-text); }
+    .pc-despido-record { font-size: 14px; }
+    .pc-despido-stat-label { font-size: 8.5px; text-transform: uppercase; color: var(--dsp-text-dim2); margin-top: 4px; letter-spacing: .5px; }
+    .pc-despido-btn { width: 100%; margin-top: 26px; padding: 14px; border: none; border-radius: 9px; background: linear-gradient(180deg, var(--dsp-gold), #a8863a); color: #1a1200; font-size: 14px; font-weight: 700; cursor: pointer; }
   }
 `;
 
@@ -4637,12 +4660,13 @@ export const TEAM_DETAILS = {
   alaves:      { liga: "Primera División", fundacion: 1921, rivalidad: "Athletic",       estilo: "Compacto · Físico · Contraataque" },
 };
 
-function TeamSelection({ league, onSelect }) {
+function TeamSelection({ league, onSelect, excludeTeamId }) {
   const [selected, setSelected] = useState(null);
   const [search, setSearch]     = useState("");
 
   const filtered = TEAMS.filter(t =>
     (!league || t.leagueId === league.id) &&
+    t.id !== excludeTeamId &&
     (t.name.toLowerCase().includes(search.toLowerCase()) ||
      t.city.toLowerCase().includes(search.toLowerCase()))
   );
@@ -4845,6 +4869,51 @@ function TeamSelection({ league, onSelect }) {
       </div>
     </div>
   );
+}
+
+// Despido (v0.98): momento dramático — versión móvil, pantalla estática única (misma
+// decisión que la versión PC, ver PCDespidoReveal.jsx: mucho menos contenido que una gala
+// de fin de temporada, no hace falta multi-fase).
+function DespidoRevealScreen({ game, teams, onContinue }) {
+  const oldTeam = teams.find(t => t.id === game.teamId);
+  const spell = (game.coachCareer?.career?.clubs ?? []).find(item => item.clubId === game.teamId && !item.toSeason);
+  const confidence = Math.round(game.legacy?.confidence ?? 0);
+  return (
+    <div style={{ flex:1, overflowY:"auto", padding:"18px 14px 24px", background:"linear-gradient(180deg,#0c0e13,#11141b)" }}>
+      <div style={{ background:"radial-gradient(circle at 85% 0%,rgba(239,68,68,.18),transparent 42%),linear-gradient(145deg,#1e1516,#12151d)", border:"1px solid rgba(239,68,68,.28)", borderRadius:16, padding:18 }}>
+        <div style={{ color:"#ef4444", fontSize:10, fontWeight:950, letterSpacing:"1.3px" }}>⚠ DIRECTIVA</div>
+        <div style={{ color:"#fff", fontSize:20, fontWeight:900, marginTop:8, lineHeight:1.3 }}>La directiva pone fin a tu etapa en {oldTeam?.name ?? game.name}</div>
+        <div style={{ color:"#9aa0b4", fontSize:12, lineHeight:1.6, marginTop:10 }}>
+          La confianza cayó a {confidence}/100 y el proyecto no continúa contigo la próxima temporada. Tu etapa en el club queda cerrada, pero tu carrera sigue — toca buscar un nuevo destino.
+        </div>
+      </div>
+
+      <div style={{ color:"#c9a84c", fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"20px 2px 8px" }}>TU ETAPA EN {(oldTeam?.name ?? "").toUpperCase()}</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:7 }}>
+        {[["TEMPORADAS", spell?.seasons ?? 0], ["TÍTULOS", spell?.titles ?? 0], ["PARTIDOS", spell?.matches ?? 0], ["G-E-P", `${spell?.wins ?? 0}-${spell?.draws ?? 0}-${spell?.losses ?? 0}`]].map(([label, value]) => (
+          <div key={label} style={{ background:"#161a24", borderRadius:9, padding:"12px 4px", textAlign:"center" }}>
+            <div style={{ fontSize:16, fontWeight:900, color:"#fff" }}>{value}</div>
+            <div style={{ fontSize:8, color:"#4b5563", fontWeight:800, marginTop:3 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      <button onClick={onContinue} className="btn-gold" style={{ width:"100%", padding:14, borderRadius:10, fontSize:14, marginTop:22 }}>Buscar nuevo club →</button>
+    </div>
+  );
+}
+
+// Despido (v0.98): fallback móvil de despidoClubSelect — mismo motivo que showClubSelectPC
+// (país → liga → equipo por separado en móvil), reutilizando los 3 componentes móviles ya
+// existentes con estado local propio en vez de 3 screen ids nuevos, ya que despidoClubSelect
+// es un único screen id (a diferencia del flujo pre-partida, que sí usa 3 ids separados).
+function MobileDespidoClubSelect({ excludeTeamId, onContinue }) {
+  const [step, setStep] = useState("country");
+  const [country, setCountry] = useState(null);
+  const [league, setLeague] = useState(null);
+  if (step === "country") return <CountryScreen onSelect={c => { setCountry(c); setStep("league"); }} />;
+  if (step === "league") return <LeagueScreen country={country} onSelect={l => { setLeague(l); setStep("team"); }} onBack={() => setStep("country")} />;
+  return <TeamSelection league={league} excludeTeamId={excludeTeamId} onSelect={onContinue} />;
 }
 
 function ConversationScreen({ conversation, onRespond, onBack }) {
@@ -10070,6 +10139,100 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     setScreen("preseason");
   };
 
+  // Despido (v0.98): se llama al confirmar el club nuevo en despidoClubSelect. Es el
+  // equivalente de handleNewSeason para un cambio de club en vez de una continuación —
+  // reutiliza el mismo avance "del mundo" (advanceWorldForNewSeason) y luego inicializa el
+  // club nuevo con las mismas reglas que startNewGame, no con las de continuar el mismo club.
+  const handleDespidoClubChosen = (newTeam) => {
+    setGame(prev => {
+      const world = advanceWorldForNewSeason(prev, { activeTeamId: newTeam.id, excludeTeamId: prev.teamId });
+
+      // Traspaso del club que se deja: en memoria (setRealSquad, para que ya quede
+      // correcto en esta misma sesión) y persistido (recordFormerClub, para que loadGame
+      // lo reconstruya en cargas futuras — REAL_SQUADS no persiste por sí solo).
+      setRealSquad(prev.teamId, prev.players);
+      let newGame = recordFormerClub(prev, prev.teamId, prev.players);
+
+      // Carrera del mánager: cerrar la etapa que termina y abrir la del club nuevo
+      // (aplica también la penalización de prestigio del despido, -5 a -10).
+      let coach = closeCurrentClubSpell(newGame.coachCareer, { toSeason: world.newSeason, exitReason: "sacked", confidenceEnd: newGame.legacy?.confidence });
+      coach = openNewClubSpell(coach, newTeam, world.newSeason);
+      newGame = { ...newGame, coachCareer: coach };
+
+      // Legacy específico de club (prestigio/confianza/objetivos/informes) se reinicia;
+      // lo de carrera (trofeos, récords, archivo, manager) se conserva vía el spread
+      // interno de startNewClubLegacy.
+      newGame = { ...newGame, legacy: startNewClubLegacy(newGame.legacy, newTeam, world.newSeason) };
+
+      // Plantel del club nuevo: lectura en vivo de REAL_SQUADS[newTeam.id], ya avanzada
+      // un año por advanceWorldForNewSeason. Mismo reset de pretemporada (fatiga/moral/
+      // estado médico) que handleNewSeason aplica al club que continúa.
+      const freshSquad = generatePlayers(newTeam.id).map(p => ({
+        ...p,
+        fatigue: Math.max(0, Math.round(Math.random() * 3)),
+        morale: Math.max(50, Math.min(90, (p.morale ?? 70) + Math.floor(Math.random() * 10) - 3)),
+        yellowCards: 0, suspended: false, suspGames: 0, injured: false, injuryGames: 0,
+        medical: { ...(p.medical ?? {}), phase: "available", remainingDays: 0, recovery: 100 },
+        seasonStartOverall: p.overall, seasonStartValue: getMarketValue(p),
+      }));
+      const newBaseBudget = (newTeam.budget ?? 50) * 1000;
+
+      // Identidad de club: a partir de aquí game.teamId ya es el club nuevo. Tiene que
+      // pasar ANTES de los resets forzados de abajo — ensureStaffState/ensureScoutingState/
+      // ensureYouthState leen game.teamId (o el team recibido) para saber para qué club
+      // generar staff/scouts/cantera; si se llamaran con el teamId viejo, generarían para
+      // el club equivocado.
+      newGame = {
+        ...newGame,
+        teamId: newTeam.id, name: newTeam.name,
+        leagueId: world.resolvedLeagueId, tier: world.resolvedTier, leagueConfig: world.resolvedLeagueConfig,
+        fixtures: world.newFixtures, standings: world.newStandings, leagues: world.newLeagues,
+        season: world.newSeason, matchday: 1, standingsMovement: {},
+        players: freshSquad,
+        budgetAdjustment: 0, incomeLog: [],
+        seasonOpeningStatement: { previousSeason: null, closingBalance: 0, tvRights: 0, sponsorship: 0, members: 0, positionPrize: 0, operatingCosts: 0, annualNet: 0, openingBalance: newBaseBudget },
+        trainingPlan: normalizeTrainingPlan(DEFAULT_TRAINING_PLAN),
+        lastTrainingReport: null, lastYouthTrainingReport: null, trainingTacticalBonus: 0,
+        managerStatus: "active", seasonTransition: "preseason", playoff: null,
+      };
+
+      // Resets forzados antes de volver a llamar cada ensure*State: todas siguen el mismo
+      // patrón defensivo confirmado esta sesión ("si ya hay datos, no los regenero"), así
+      // que sin este paso ensureStaffState/ensureScoutingState/ensureFanbaseState/
+      // ensureYouthState se quedarían con el staff/scouts/afición/cantera del club VIEJO
+      // en vez de generar de cero para el nuevo.
+      newGame = { ...newGame, staff: { ...(newGame.staff ?? {}), members: [] } };
+      newGame = ensureStaffState(newGame, TEAMS);
+      newGame = { ...newGame, scouting: { ...(newGame.scouting ?? {}), scouts: [], missions: [], reports: [], watchlist: [] } };
+      newGame = ensureScoutingState(newGame);
+      newGame = { ...newGame, fanbase: undefined };
+      newGame = ensureFanbaseState(newGame, newTeam, TEAMS);
+      newGame = { ...newGame, youth: { players: [], promotions: [], sales: [], annualReports: [], historical: [], generatedSeasons: [] } };
+      newGame = ensureYouthState(newGame, newTeam);
+      newGame = { ...newGame, contracts: { renewals: [], notifications: [] } };
+      newGame = ensureContractState(newGame);
+      newGame = { ...newGame, transferMarket: { offers: [], incomingOffers: [], listings: [], notifications: [], aiTransfers: [], lastAiMatchday: 0, marketPulse: [] } };
+      newGame = ensureTransferState(newGame);
+      newGame = refreshTransferListings(newGame, TEAMS, REAL_SQUADS, true);
+
+      newGame = ensureCoachCareer(newGame, newTeam, TEAMS);
+
+      // Vida de club / conversaciones / director de legacy / escenas: hilos narrativos
+      // atados a gente y situaciones del club viejo — se limpian por el mismo motivo que
+      // staff/scouting arriba, para que no aparezcan issues sobre jugadores que ya no
+      // gestiona. Mismo encadenado que usa startNewGame para un club recién creado.
+      newGame = { ...newGame, clubLife: undefined, conversations: undefined, legacyDirector: undefined, scene: undefined };
+      newGame = ensureSceneState(ensureLegacyDirectorState(advanceClubLife(ensureClubLifeState(ensureConversationState(newGame)), { lineup: emptyLineup() })));
+
+      saveGame(newGame);
+      autosaveCloud(newGame, "despido-new-club");
+      return newGame;
+    });
+    setLineup(emptyLineup());
+    setSubs(emptyBench());
+    setScreen("preseason");
+  };
+
   const handleTransfer = ({ type, player, cost, salary, value, fromTeamId, toTeamId, offerId, incomingOfferId }) => {
     let sanitizedLineupAfterTransfer = null;
     setGame(prev => {
@@ -10844,6 +11007,14 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} onPlayoff={()=>setScreen("playoffBracket")} teams={TEAMS} squads={REAL_SQUADS} />}
           {screen === "playoffBracket" && game?.playoff && <PlayoffBracketScreen game={game} teams={TEAMS} lineup={lineup} setScreen={setScreen} onPlayLeg={handlePlayoffPlayLeg} onFinish={handleNewSeason} />}
           {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"preseason-start",{lineup,formation,subs});return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}
+          {screen === "despidoReveal" && game && (showDespidoPC
+            ? <PCDespidoReveal game={game} teams={TEAMS} onContinue={()=>{setGame(prev=>{const updated={...prev,seasonTransition:"despidoClubSelect"};saveGame(updated);return updated;});setScreen("despidoClubSelect");}} />
+            : <DespidoRevealScreen game={game} teams={TEAMS} onContinue={()=>{setGame(prev=>{const updated={...prev,seasonTransition:"despidoClubSelect"};saveGame(updated);return updated;});setScreen("despidoClubSelect");}} />
+          )}
+          {screen === "despidoClubSelect" && game && (showDespidoPC
+            ? <PCClubSelectScreen teams={TEAMS} excludeTeamId={game.teamId} onContinue={handleDespidoClubChosen} />
+            : <MobileDespidoClubSelect excludeTeamId={game.teamId} onContinue={handleDespidoClubChosen} />
+          )}
         </ScreenWrapper>
   );
 
