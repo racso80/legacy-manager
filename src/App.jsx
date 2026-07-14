@@ -7277,11 +7277,15 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
     };
   }, []);
 
-  if (!fixture) return <div style={{ padding: 20, color: "#9aa0b4" }}>No hay partido disponible.</div>;
-
-  const isHome     = fixture.homeTeamId === teamId;
+  // OJO: no hacer "return" aquí todavía aunque falte fixture (fin de temporada: game.fixtures
+  // ya no tiene ninguna sin jugar para este equipo, pero screen sigue en "match" un tick más
+  // hasta que handleMatchEnd hace setScreen("seasonEnd")). Cortar la función acá saltaría el
+  // useEffect de más abajo (simNext) en ese render, violando las Rules of Hooks ("Rendered
+  // fewer hooks than expected"). Los hooks tienen que llamarse siempre, así que el bail-out
+  // real se hace más abajo, después del último hook, justo antes del JSX.
+  const isHome     = fixture?.homeTeamId === teamId;
   const userTeam   = TEAMS.find(t => t.id === teamId);
-  const oppTeamId  = isHome ? fixture.awayTeamId : fixture.homeTeamId;
+  const oppTeamId  = isHome ? fixture?.awayTeamId : fixture?.homeTeamId;
   const oppTeam    = TEAMS.find(t => t.id === oppTeamId);
   const homeName   = isHome ? userTeam?.short : oppTeam?.short;
   const awayName   = isHome ? oppTeam?.short  : userTeam?.short;
@@ -7762,14 +7766,18 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
 
   // El equipo LOCAL siempre a la IZQUIERDA, VISITANTE a la DERECHA
   // score.home = goles del equipo que juega en casa (fixture.homeTeamId)
-  const homeTeam   = TEAMS.find(t => t.id === fixture.homeTeamId);
-  const awayTeam   = TEAMS.find(t => t.id === fixture.awayTeamId);
+  const homeTeam   = TEAMS.find(t => t.id === fixture?.homeTeamId);
+  const awayTeam   = TEAMS.find(t => t.id === fixture?.awayTeamId);
   const leftTeam   = homeTeam;   // izquierda = local
   const rightTeam  = awayTeam;   // derecha = visitante
   const leftGoals  = score.home;
   const rightGoals = score.away;
   const leftIsUser  = isHome;    // usuario es local → resaltado a la izquierda
   const rightIsUser = !isHome;   // usuario es visitante → resaltado a la derecha
+
+  // Bail-out real (fin de temporada, sin fixture pendiente): recién ahora, después de
+  // llamar todos los hooks del componente en todos los renders por igual.
+  if (!fixture) return <div style={{ padding: 20, color: "#9aa0b4" }}>No hay partido disponible.</div>;
 
   if (isPC) {
     return (
@@ -9338,6 +9346,7 @@ export default function App({ externalData }) {
         setGame(migrated);
         if(options.targetScreen){setScreen(options.targetScreen);}
         else if(migrated.seasonTransition==="seasonEnd"){setSeasonSummary({standings:migrated.standings,teamId:migrated.teamId,season:migrated.season,history:migrated.history??[],players:migrated.players,legacy:migrated.legacy,game:migrated});setScreen("seasonEnd");}
+        else if(["despidoReveal","despidoClubSelect"].includes(migrated.seasonTransition)) setScreen(migrated.seasonTransition);
         else setScreen(migrated.seasonTransition==="preseason"?"preseason":"dashboard");
       }
     } catch (e) {}
@@ -9898,74 +9907,109 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     });
   };
 
+  // Extraído de handleNewSeason: la parte de "avanzar el mundo" que no depende de qué
+  // club gestiona el usuario, más allá de dos parámetros — activeTeamId (el club cuyo
+  // leagueId activo determina newFixtures/newStandings/newLeagues: el propio en una
+  // continuación normal, el nuevo club en un cambio por Despido) y excludeTeamId (el
+  // club que se salta el lifecycle genérico de IA de aquí porque cada llamador lo trata
+  // aparte — la continuación normal vía lifecycleResult con prev.players, Despido vía el
+  // handoff de formerClubs). Usada tanto por handleNewSeason como por
+  // handleDespidoClubChosen.
+  function advanceWorldForNewSeason(prev, { activeTeamId, excludeTeamId }) {
+    const newSeason = String(parseInt(prev.season ?? "2025") + 1);
+    (prev.transfers??[]).filter(item=>item.type==="loan"&&String(item.season)===String(prev.season)).forEach(item=>{if(REAL_SQUADS[item.toTeamId]&&REAL_SQUADS[item.fromTeamId]){mutateRealSquad(item.toTeamId, squad=>squad.filter(player=>player.id!==item.player.id));if(!REAL_SQUADS[item.fromTeamId].some(player=>player.id===item.player.id))mutateRealSquad(item.fromTeamId, squad=>[...squad,item.player]);}});
+
+    // ── Ascensos y descensos entre Primera y Segunda ──
+    // Toda liga tiene ahora fixtures/standings reales todo el año
+    // (game.leagues). La liga que el usuario no jugó esta temporada puede
+    // tener menos jornadas simuladas si su calendario es más largo que el
+    // de la liga del usuario: aquí se pone al día jugando de golpe sus
+    // jornadas restantes antes de resolver ascensos/descensos, de modo que
+    // ninguna liga dependa ya de una aproximación por overall de plantilla.
+    const primeraConfig = getLeagueById("esp_primera");
+    const segundaConfig = getLeagueById("esp_segunda");
+    const prevLeagueId = prev.leagueId ?? "esp_primera";
+    const userWasPrimera = prevLeagueId === "esp_primera";
+
+    const caughtUpLeagues = { ...(prev.leagues ?? {}) };
+    LEAGUES.forEach(leagueDef => {
+      if (leagueDef.id === prevLeagueId) return; // la del usuario ya está completa y es la fuente real (prev.standings)
+      const leagueState = caughtUpLeagues[leagueDef.id];
+      if (!leagueState) return;
+      const totalMatchdaysForLeague = getTotalMatchdays(leagueDef);
+      if (leagueState.matchday > totalMatchdaysForLeague) return; // ya completa
+      const { league: caughtUp } = simulateLeagueToMatchday(leagueState, TEAMS, simAIGame, totalMatchdaysForLeague + 1);
+      caughtUpLeagues[leagueDef.id] = caughtUp;
+    });
+    const segundaStandings = userWasPrimera ? (caughtUpLeagues["esp_segunda"]?.standings ?? []) : prev.standings;
+    const primeraStandings = userWasPrimera ? prev.standings : (caughtUpLeagues["esp_primera"]?.standings ?? []);
+
+    let relegatedFromPrimera = [], promotedToPrimera = [];
+    if (userWasPrimera) {
+      relegatedFromPrimera = getRelegationCandidates(primeraStandings, primeraConfig);
+      const direct = getDirectPromotionCandidates(segundaStandings, segundaConfig);
+      const playoffPool = getPlayoffCandidates(segundaStandings, segundaConfig);
+      const playoffWinner = simulateOffscreenPlayoff(playoffPool);
+      promotedToPrimera = [...direct, playoffWinner].filter(Boolean);
+    } else {
+      const direct = getDirectPromotionCandidates(segundaStandings, segundaConfig);
+      let playoffWinner = prev.playoff?.stage === "done" ? prev.playoff.promotedTeamId : null;
+      if (!playoffWinner) {
+        const playoffPool = getPlayoffCandidates(segundaStandings, segundaConfig);
+        playoffWinner = simulateOffscreenPlayoff(playoffPool);
+      }
+      promotedToPrimera = [...direct, playoffWinner].filter(Boolean);
+      relegatedFromPrimera = getRelegationCandidates(primeraStandings, primeraConfig);
+    }
+    relegatedFromPrimera.forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t){t.leagueId="esp_segunda";t.tier=2;}});
+    promotedToPrimera.forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t){t.leagueId="esp_primera";t.tier=1;}});
+
+    let resolvedLeagueId = prevLeagueId, resolvedTier = prev.tier ?? (userWasPrimera?1:2);
+    const transitionNewsItems=[];
+    if (userWasPrimera && relegatedFromPrimera.includes(activeTeamId)) {
+      resolvedLeagueId="esp_segunda"; resolvedTier=2;
+      transitionNewsItems.push({title:`${TEAMS.find(t=>t.id===activeTeamId)?.name??prev.name} desciende a LaLiga Hypermotion`,summary:"El club competirá la próxima temporada en Segunda División.",importance:"critical",fingerprint:`relegation:${newSeason}:${activeTeamId}`});
+    } else if (!userWasPrimera && promotedToPrimera.includes(activeTeamId)) {
+      resolvedLeagueId="esp_primera"; resolvedTier=1;
+      transitionNewsItems.push({title:`¡${TEAMS.find(t=>t.id===activeTeamId)?.name??prev.name} asciende a LaLiga!`,summary:"El equipo jugará la próxima temporada en Primera División.",importance:"critical",fingerprint:`promotion:${newSeason}:${activeTeamId}`});
+    }
+    relegatedFromPrimera.filter(id=>id!==activeTeamId).forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t)transitionNewsItems.push({title:`${t.name} desciende a LaLiga Hypermotion`,summary:"Finaliza la temporada entre los últimos clasificados.",importance:"medium",fingerprint:`relegation:${newSeason}:${id}`});});
+    promotedToPrimera.filter(id=>id!==activeTeamId).forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t)transitionNewsItems.push({title:`${t.name} asciende a LaLiga`,summary:"Certifica el ascenso a Primera División.",importance:"medium",fingerprint:`promotion:${newSeason}:${id}`});});
+    const resolvedLeagueConfig = getLeagueById(resolvedLeagueId) ?? primeraConfig;
+    const promotionRelegationNews = generateBoardNews({items:transitionNewsItems,season:prev.season??"2025",matchday:1,userTeamId:activeTeamId});
+
+    const newFixtures  = generateFixtures(resolvedLeagueId);
+    const newStandings = initStandings(resolvedLeagueId);
+    const newLeagues = buildFreshLeaguesState(resolvedLeagueId, newFixtures, newStandings);
+
+    const worldLifecycleEvents=[];
+    TEAMS.filter(team=>team.id!==excludeTeamId).forEach(team=>{
+      const result=advanceSquadLifecycle((REAL_SQUADS[team.id]??[]).map(player=>ensurePlayerLifecycle(player,prev.season??"2025",getTotalMatchdays(getLeagueById(team.leagueId)))),{previousSeason:prev.season??"2025",newSeason,teamId:team.id,userTeamId:activeTeamId,allowRetirements:true});
+      setRealSquad(team.id, result.players);
+      worldLifecycleEvents.push(...result.events);
+    });
+
+    return { newSeason, resolvedLeagueId, resolvedTier, resolvedLeagueConfig, newFixtures, newStandings, newLeagues, promotionRelegationNews, worldLifecycleEvents };
+  }
+
   const handleNewSeason = () => {
     if (!seasonSummary) return;
+    let sacked = false;
     setGame(prev => {
-      const newSeason = String(parseInt(prev.season ?? "2025") + 1);
-      (prev.transfers??[]).filter(item=>item.type==="loan"&&String(item.season)===String(prev.season)).forEach(item=>{if(REAL_SQUADS[item.toTeamId]&&REAL_SQUADS[item.fromTeamId]){mutateRealSquad(item.toTeamId, squad=>squad.filter(player=>player.id!==item.player.id));if(!REAL_SQUADS[item.fromTeamId].some(player=>player.id===item.player.id))mutateRealSquad(item.fromTeamId, squad=>[...squad,item.player]);}});
-
-      // ── Ascensos y descensos entre Primera y Segunda ──
-      // Toda liga tiene ahora fixtures/standings reales todo el año
-      // (game.leagues). La liga que el usuario no jugó esta temporada puede
-      // tener menos jornadas simuladas si su calendario es más largo que el
-      // de la liga del usuario: aquí se pone al día jugando de golpe sus
-      // jornadas restantes antes de resolver ascensos/descensos, de modo que
-      // ninguna liga dependa ya de una aproximación por overall de plantilla.
-      const primeraConfig = getLeagueById("esp_primera");
-      const segundaConfig = getLeagueById("esp_segunda");
-      const prevLeagueId = prev.leagueId ?? "esp_primera";
-      const userWasPrimera = prevLeagueId === "esp_primera";
-
-      const caughtUpLeagues = { ...(prev.leagues ?? {}) };
-      LEAGUES.forEach(leagueDef => {
-        if (leagueDef.id === prevLeagueId) return; // la del usuario ya está completa y es la fuente real (prev.standings)
-        const leagueState = caughtUpLeagues[leagueDef.id];
-        if (!leagueState) return;
-        const totalMatchdaysForLeague = getTotalMatchdays(leagueDef);
-        if (leagueState.matchday > totalMatchdaysForLeague) return; // ya completa
-        const { league: caughtUp } = simulateLeagueToMatchday(leagueState, TEAMS, simAIGame, totalMatchdaysForLeague + 1);
-        caughtUpLeagues[leagueDef.id] = caughtUp;
-      });
-      const segundaStandings = userWasPrimera ? (caughtUpLeagues["esp_segunda"]?.standings ?? []) : prev.standings;
-      const primeraStandings = userWasPrimera ? prev.standings : (caughtUpLeagues["esp_primera"]?.standings ?? []);
-
-      let relegatedFromPrimera = [], promotedToPrimera = [];
-      if (userWasPrimera) {
-        relegatedFromPrimera = getRelegationCandidates(primeraStandings, primeraConfig);
-        const direct = getDirectPromotionCandidates(segundaStandings, segundaConfig);
-        const playoffPool = getPlayoffCandidates(segundaStandings, segundaConfig);
-        const playoffWinner = simulateOffscreenPlayoff(playoffPool);
-        promotedToPrimera = [...direct, playoffWinner].filter(Boolean);
-      } else {
-        const direct = getDirectPromotionCandidates(segundaStandings, segundaConfig);
-        let playoffWinner = prev.playoff?.stage === "done" ? prev.playoff.promotedTeamId : null;
-        if (!playoffWinner) {
-          const playoffPool = getPlayoffCandidates(segundaStandings, segundaConfig);
-          playoffWinner = simulateOffscreenPlayoff(playoffPool);
-        }
-        promotedToPrimera = [...direct, playoffWinner].filter(Boolean);
-        relegatedFromPrimera = getRelegationCandidates(primeraStandings, primeraConfig);
+      // Despido (v0.98): la consecuencia mecánica del despido (cambiar de club) se
+      // decidió a mitad de temporada (managerStatus:"sacked", ver handleMatchEnd) pero
+      // queda diferida hasta este punto — el cierre de temporada normal. En vez de
+      // continuar con el mismo club, se desvía a la pantalla de despido; la
+      // inicialización real del nuevo club ocurre en handleDespidoClubChosen una vez el
+      // usuario elige club, no aquí.
+      if (prev.managerStatus === "sacked") {
+        sacked = true;
+        const updated = { ...prev, seasonTransition: "despidoReveal" };
+        saveGame(updated);
+        autosaveCloud(updated, "despido-reveal");
+        return updated;
       }
-      relegatedFromPrimera.forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t){t.leagueId="esp_segunda";t.tier=2;}});
-      promotedToPrimera.forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t){t.leagueId="esp_primera";t.tier=1;}});
-
-      let resolvedLeagueId = prevLeagueId, resolvedTier = prev.tier ?? (userWasPrimera?1:2);
-      const transitionNewsItems=[];
-      if (userWasPrimera && relegatedFromPrimera.includes(prev.teamId)) {
-        resolvedLeagueId="esp_segunda"; resolvedTier=2;
-        transitionNewsItems.push({title:`${TEAMS.find(t=>t.id===prev.teamId)?.name??prev.name} desciende a LaLiga Hypermotion`,summary:"El club competirá la próxima temporada en Segunda División.",importance:"critical",fingerprint:`relegation:${newSeason}:${prev.teamId}`});
-      } else if (!userWasPrimera && promotedToPrimera.includes(prev.teamId)) {
-        resolvedLeagueId="esp_primera"; resolvedTier=1;
-        transitionNewsItems.push({title:`¡${TEAMS.find(t=>t.id===prev.teamId)?.name??prev.name} asciende a LaLiga!`,summary:"El equipo jugará la próxima temporada en Primera División.",importance:"critical",fingerprint:`promotion:${newSeason}:${prev.teamId}`});
-      }
-      relegatedFromPrimera.filter(id=>id!==prev.teamId).forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t)transitionNewsItems.push({title:`${t.name} desciende a LaLiga Hypermotion`,summary:"Finaliza la temporada entre los últimos clasificados.",importance:"medium",fingerprint:`relegation:${newSeason}:${id}`});});
-      promotedToPrimera.filter(id=>id!==prev.teamId).forEach(id=>{const t=TEAMS.find(x=>x.id===id);if(t)transitionNewsItems.push({title:`${t.name} asciende a LaLiga`,summary:"Certifica el ascenso a Primera División.",importance:"medium",fingerprint:`promotion:${newSeason}:${id}`});});
-      const resolvedLeagueConfig = getLeagueById(resolvedLeagueId) ?? primeraConfig;
-      const promotionRelegationNews = generateBoardNews({items:transitionNewsItems,season:prev.season??"2025",matchday:1,userTeamId:prev.teamId});
-
-      const newFixtures  = generateFixtures(resolvedLeagueId);
-      const newStandings = initStandings(resolvedLeagueId);
-      const newLeagues = buildFreshLeaguesState(resolvedLeagueId, newFixtures, newStandings);
+      const { newSeason, resolvedLeagueId, resolvedTier, resolvedLeagueConfig, newFixtures, newStandings, newLeagues, promotionRelegationNews, worldLifecycleEvents } = advanceWorldForNewSeason(prev, { activeTeamId: prev.teamId, excludeTeamId: prev.teamId });
       // Recuperar jugadores: reset fatiga, reducir lesiones, mantener moral parcialmente
       const teamData = TEAMS.find(team => team.id === prev.teamId);
       const baseBudget=(teamData?.budget??50)*1000;
@@ -9986,12 +10030,6 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       const returningLoanOuts=expiredLoanOutTransfers.map(item=>({...item.player,marketStatus:null,morale:Math.max(55,item.player.morale??65)}));
       const seasonPlayers=[...prev.players.filter(player=>player.loanData?.untilSeason!==String(prev.season)),...returningLoanOuts.filter(player=>!prev.players.some(item=>item.id===player.id))];
       const lifecycleResult=advanceSquadLifecycle(seasonPlayers,{previousSeason:prev.season??"2025",newSeason,teamId:prev.teamId,userTeamId:prev.teamId,allowRetirements:true});
-      const worldLifecycleEvents=[];
-      TEAMS.filter(team=>team.id!==prev.teamId).forEach(team=>{
-        const result=advanceSquadLifecycle((REAL_SQUADS[team.id]??[]).map(player=>ensurePlayerLifecycle(player,prev.season??"2025",getTotalMatchdays(getLeagueById(team.leagueId)))),{previousSeason:prev.season??"2025",newSeason,teamId:team.id,userTeamId:prev.teamId,allowRetirements:true});
-        setRealSquad(team.id, result.players);
-        worldLifecycleEvents.push(...result.events);
-      });
       const lifecycleEvents=[...lifecycleResult.events,...worldLifecycleEvents];
       const newPlayers = lifecycleResult.players.map(p => {
         const historyEntry = createSeasonHistoryEntry(p, prev, prev.teamId, teamData?.name ?? prev.name);
@@ -10026,6 +10064,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
       autosaveCloud(g,"new-season");
       return g;
     });
+    if (sacked) { setScreen("despidoReveal"); return; }
     setLineup(emptyLineup());
     setSubs(emptyBench());
     setScreen("preseason");
@@ -10634,13 +10673,14 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
     summary: "Resumen del partido", finances: "Finanzas",
     seasonEnd: "Gala de Fin de Temporada", playoffBracket:"Playoff de Ascenso", preseason:"Pretemporada", transfers: "Mercado de Fichajes", contracts:"Contratos", staff:"Staff Técnico", career:"Mi Carrera", cloudSaves:"Mis partidas", scouting:"Scouting", news: "Noticias", medical:"Centro Médico", lockerRoom:"Vestuario", fans:"Afición", training:"Centro de Entrenamiento", youth:"Cantera", board:"Directiva y Legacy", legacyMuseum:"Legacy del Club", attention:"Centro de Atención", more:"Más", settings:"Configuración",
     playerProfile: selectedPlayer?.name ?? "Perfil de jugador", conversation: selectedConversation?.actorName ?? "Conversación", scene: selectedScene?.actor?.name ?? "Escena",
+    despidoReveal: "Despido", despidoClubSelect: "Nuevo club",
   };
-  const showNav = Boolean(game) && !["menu","saves","country","league","teams","match","summary","seasonEnd","playoffBracket","preseason","playerProfile","conversation","scene"].includes(screen);
-  const inGame  = Boolean(game) && !["menu","saves","country","league","teams","coachCreate"].includes(screen);
+  const showNav = Boolean(game) && !["menu","saves","country","league","teams","match","summary","seasonEnd","playoffBracket","preseason","playerProfile","conversation","scene","despidoReveal","despidoClubSelect"].includes(screen);
+  const inGame  = Boolean(game) && !["menu","saves","country","league","teams","coachCreate","despidoReveal","despidoClubSelect"].includes(screen);
   const edgeSwipe=useEdgeSwipeBack(goBack,{enabled:screen!=="dashboard"&&(showNav||screen==="playerProfile"||screen==="conversation"||screen==="scene")});
 
   const isPC = useIsPC();
-  const showPCShell = isPC && Boolean(game) && screen !== "menu";
+  const showPCShell = isPC && Boolean(game) && !["menu", "despidoReveal", "despidoClubSelect"].includes(screen);
   // Pantalla única País → Liga → Equipo en PC: sustituye a los 3 pasos separados
   // (que siguen existiendo para móvil) sin usar PCTopBar/PCSidebar, ya que todavía
   // no existe game/team en este punto del flujo.
@@ -10648,6 +10688,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   // Menú, partidas guardadas, crear entrenador y nube (solo antes de tener partida):
   // mismo motivo que showClubSelectPC, sin PCTopBar/PCSidebar porque no hay game/team.
   const showPreGamePC = isPC && (["menu", "saves", "coachCreate"].includes(screen) || (screen === "cloudSaves" && !game));
+  // Despido (v0.98): a diferencia de showPreGamePC, aquí SÍ hay game (mitad de carrera),
+  // pero tampoco corresponde PCTopBar/PCSidebar — no hay club "actual" coherente durante
+  // la transición (se acaba de dejar uno, todavía no se elige el siguiente).
+  const showDespidoPC = isPC && ["despidoReveal", "despidoClubSelect"].includes(screen);
   const pcTeam = game ? TEAMS.find(t=>t.id===game.teamId) : null;
   const clubAccent = pcTeam ? getClubAccentColor(pcTeam.color) : "#c9a84c";
   const clubTextOnAccent = pcTeam ? getClubTextColor(pcTeam.color) : "#0d0f14";
@@ -10804,7 +10848,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
   );
 
   return (
-    <div {...edgeSwipe.handlers} className={showPCShell?`pc-shell${screen==="match"?" pc-match-fullscreen":""}`:undefined} style={{ background:showPCShell?undefined:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:(showPCShell||showClubSelectPC||showPreGamePC)?"none":540, margin:(showPCShell||showClubSelectPC||showPreGamePC)?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y", ...(showPCShell?{"--club-accent":clubAccent,"--club-text-on-accent":clubTextOnAccent}:{}) }}>
+    <div {...edgeSwipe.handlers} className={showPCShell?`pc-shell${screen==="match"?" pc-match-fullscreen":""}`:undefined} style={{ background:showPCShell?undefined:"#0d0f14", color:"#e8eaf0", fontFamily:"system-ui,-apple-system,sans-serif", minHeight:"100dvh", width:"100%", maxWidth:(showPCShell||showClubSelectPC||showPreGamePC||showDespidoPC)?"none":540, margin:(showPCShell||showClubSelectPC||showPreGamePC||showDespidoPC)?0:"0 auto", display:"flex", flexDirection:"column", touchAction:"pan-y", ...(showPCShell?{"--club-accent":clubAccent,"--club-text-on-accent":clubTextOnAccent}:{}) }}>
       {edgeSwipe.indicator}
       {showPCShell && (
         <>
@@ -10812,7 +10856,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           <PCSidebar screen={screen} setScreen={setScreen} attentionCount={attentionCount} onExit={handleExitToMenu} />
         </>
       )}
-      {!showPCShell && !showClubSelectPC && !showPreGamePC && screen !== "menu" && (
+      {!showPCShell && !showClubSelectPC && !showPreGamePC && !showDespidoPC && screen !== "menu" && (
         <div style={{ background:"#13161f", borderBottom:"1px solid rgba(255,255,255,.07)", padding:"11px 14px", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
           {screen === "dashboard" && game && (
             <button onClick={handleExitToMenu}
