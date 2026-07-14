@@ -58,6 +58,7 @@ import PCLineupScreen from "./components/pc/PCLineupScreen.jsx";
 import PCMatchScreen from "./components/pc/PCMatchScreen.jsx";
 import PCClubSelectScreen from "./components/pc/PCClubSelectScreen.jsx";
 import PCDespidoReveal from "./components/pc/PCDespidoReveal.jsx";
+import PCPreseasonScreen from "./components/pc/PCPreseasonScreen.jsx";
 import PCTransferCenterScreen from "./components/pc/PCTransferCenterScreen.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
@@ -4397,6 +4398,57 @@ const GLOBAL_CSS = `
     .pc-despido-record { font-size: 14px; }
     .pc-despido-stat-label { font-size: 8.5px; text-transform: uppercase; color: var(--dsp-text-dim2); margin-top: 4px; letter-spacing: .5px; }
     .pc-despido-btn { width: 100%; margin-top: 26px; padding: 14px; border: none; border-radius: 9px; background: linear-gradient(180deg, var(--dsp-gold), #a8863a); color: #1a1200; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+    /* ─── PC Pretemporada — mismos tokens que pc-bd (dorado = --club-accent). */
+    .pc-ps-root { --ps-gold: var(--club-accent, #c9a84c); }
+    .pc-ps-header { background: linear-gradient(135deg, rgba(201,168,76,.1), #111726); border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: 22px 26px; margin-bottom: 20px; }
+    .pc-ps-header-top { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+    .pc-ps-crest { width: 48px; height: 48px; border-radius: 8px; background: #161d2e; display: flex; align-items: center; justify-content: center; }
+    .pc-ps-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ps-gold); }
+    .pc-ps-title { font-size: 20px; font-weight: 800; color: #e8eaf0; margin-top: 2px; }
+    .pc-ps-sub { font-size: 11.5px; color: #9aa0b4; margin-top: 2px; }
+    .pc-ps-hero-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+    .pc-ps-hero-stat { background: #161d2e; border-radius: 8px; padding: 14px; text-align: center; }
+    .pc-ps-hero-value { font-size: 18px; font-weight: 800; color: #e8eaf0; }
+    .pc-ps-hero-label { font-size: 9.5px; text-transform: uppercase; color: #6b7280; margin-top: 4px; }
+    .pc-ps-goal { font-size: 12px; color: #9aa0b4; border-top: 1px solid rgba(255,255,255,.07); padding-top: 12px; }
+    .pc-ps-goal b { color: #e8eaf0; }
+
+    .pc-ps-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .pc-ps-box { background: #111726; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; padding: 16px 18px; }
+    .pc-ps-box-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #9aa0b4; margin-bottom: 12px; }
+
+    .pc-ps-objective-card { background: #161d2e; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
+    .pc-ps-objective-card:last-child { margin-bottom: 0; }
+    .pc-ps-objective-label { font-size: 12.5px; font-weight: 700; color: #e8eaf0; }
+    .pc-ps-objective-reward { font-size: 10.5px; color: var(--ps-gold); margin-top: 3px; }
+    .pc-ps-objective-progress { height: 5px; border-radius: 3px; background: #111726; overflow: hidden; margin-top: 8px; }
+    .pc-ps-objective-progress-fill { height: 100%; background: #22c55e; }
+
+    .pc-ps-breakdown-row { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 9px; padding-bottom: 9px; border-bottom: 1px solid rgba(255,255,255,.07); }
+    .pc-ps-breakdown-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .pc-ps-breakdown-empty { font-size: 12px; color: #6b7280; font-style: italic; text-align: center; padding: 14px 0; }
+
+    .pc-ps-need-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 6px 12px; border-radius: 999px; margin: 0 6px 6px 0; }
+    .pc-ps-need-chip.need { background: rgba(239,68,68,.12); color: #ef4444; }
+    .pc-ps-need-chip.excess { background: rgba(96,165,250,.12); color: #60a5fa; }
+    .pc-ps-need-empty { font-size: 12px; color: #6b7280; }
+
+    .pc-ps-squad-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+    .pc-ps-squad-card { background: #161d2e; border-radius: 8px; padding: 12px; text-align: center; }
+    .pc-ps-squad-value { font-size: 16px; font-weight: 800; color: #e8eaf0; }
+    .pc-ps-squad-label { font-size: 9px; text-transform: uppercase; color: #6b7280; margin-top: 3px; }
+    .pc-ps-squad-row-2 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+    .pc-ps-changes-box { margin-bottom: 20px; }
+    .pc-ps-change-item { display: flex; justify-content: space-between; font-size: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.07); }
+    .pc-ps-change-item:last-child { border-bottom: none; }
+    .pc-ps-change-tag { font-weight: 700; }
+    .pc-ps-change-tag.up { color: #22c55e; }
+    .pc-ps-change-tag.down { color: #ef4444; }
+    .pc-ps-change-empty { font-size: 12px; color: #6b7280; font-style: italic; text-align: center; padding: 14px 0; }
+
+    .pc-ps-cta-row { display: flex; justify-content: flex-end; margin-top: 6px; }
   }
 `;
 
@@ -11006,7 +11058,10 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           {screen === "summary"   && matchSummary && <MatchSummaryScreen summary={matchSummary} onContinue={() => setScreen("dashboard")} />}
           {screen === "seasonEnd" && seasonSummary && <SeasonTransitionScreen seasonSummary={seasonSummary} onNewSeason={handleNewSeason} onPlayoff={()=>setScreen("playoffBracket")} teams={TEAMS} squads={REAL_SQUADS} />}
           {screen === "playoffBracket" && game?.playoff && <PlayoffBracketScreen game={game} teams={TEAMS} lineup={lineup} setScreen={setScreen} onPlayLeg={handlePlayoffPlayLeg} onFinish={handleNewSeason} />}
-          {screen === "preseason" && game && <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"preseason-start",{lineup,formation,subs});return updated;});setSeasonSummary(null);setScreen("dashboard");}} />}
+          {screen === "preseason" && game && (isPC
+            ? <PCPreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"preseason-start",{lineup,formation,subs});return updated;});setSeasonSummary(null);setScreen("dashboard");}} />
+            : <PreseasonScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} onStart={()=>{setGame(prev=>{const updated={...prev,seasonTransition:null};saveGame(updated,lineup,formation,subs);autosaveCloud(updated,"preseason-start",{lineup,formation,subs});return updated;});setSeasonSummary(null);setScreen("dashboard");}} />
+          )}
           {screen === "despidoReveal" && game && (showDespidoPC
             ? <PCDespidoReveal game={game} teams={TEAMS} onContinue={()=>{setGame(prev=>{const updated={...prev,seasonTransition:"despidoClubSelect"};saveGame(updated);return updated;});setScreen("despidoClubSelect");}} />
             : <DespidoRevealScreen game={game} teams={TEAMS} onContinue={()=>{setGame(prev=>{const updated={...prev,seasonTransition:"despidoClubSelect"};saveGame(updated);return updated;});setScreen("despidoClubSelect");}} />

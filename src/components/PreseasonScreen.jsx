@@ -31,7 +31,15 @@ export default function PreseasonScreen({ game, team, teams, onStart }) {
   if (groups.DEL < 5) needs.push("Delantero");
   const excess = Object.entries(groups).filter(([, count]) => count > 8).map(([group]) => ({ POR: "Porteros", DEF: "Defensas", MED: "Centrocampistas", DEL: "Delanteros" }[group]));
   const previousSeason = String(Number(game.season) - 1);
-  const seasonTransfers = (game.transfers ?? []).filter(item => String(item.season) === previousSeason);
+  // Filtrado por club, no solo por temporada: game.transfers guarda TODOS los traspasos
+  // de la liga (incluidos los de IA-vs-IA), no solo los del usuario. fromTeamId===teamId
+  // cubre sell/loanOut (donde sí se guarda); buy/loanIn nunca guardan toTeamId (ver
+  // handleFinalizeOffer, App.jsx) así que se identifican por type — "buy"/"loanIn"/"sell"/
+  // "loanOut" son los únicos tipos que produce handleTransfer, siempre del usuario.
+  const seasonTransfers = (game.transfers ?? []).filter(item =>
+    String(item.season) === previousSeason &&
+    (item.fromTeamId === game.teamId || item.toTeamId === game.teamId || ["buy", "loanIn"].includes(item.type))
+  );
   const promoted = game.players.filter(player => player.academyData?.promotedSeason === previousSeason);
   const transferables = game.players.filter(player => player.marketStatus === "transfer"), loanable = game.players.filter(player => player.marketStatus === "loan");
   const fanMood = getFanMood(game.fanLove ?? 65);
