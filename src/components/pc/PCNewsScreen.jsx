@@ -11,14 +11,6 @@ const FEATURED_IMPORTANCE = new Set(["critical", "high"]);
 
 export default function PCNewsScreen({ game, teams, onOpenPlayer }) {
   const news = game.news ?? [];
-  // 3 puntos de origen (tensión de vestuario, oferta entrante, traspaso IA) construyen su
-  // noticia a mano sin pasar por createNews() y no fijan clubRelated, aunque sí marcan
-  // metadata.userClub — se rellena aquí (solo para filtrar, sin tocar game.news) para que
-  // no desaparezcan silenciosamente del filtro "Club".
-  const normalized = useMemo(
-    () => news.map(item => (item.clubRelated === undefined && item.metadata?.userClub === true ? { ...item, clubRelated: true } : item)),
-    [news]
-  );
 
   const [category, setCategory] = useState("club");
   const [leagueFilter, setLeagueFilter] = useState("all");
@@ -28,7 +20,7 @@ export default function PCNewsScreen({ game, teams, onOpenPlayer }) {
   const seasons = useMemo(() => [...new Set(news.map(item => String(item.season)))].sort((a, b) => Number(b) - Number(a)), [news]);
   const leagueIds = useMemo(() => [...new Set(news.map(item => resolveNewsLeagueId(item, game, teams)))], [news, game, teams]);
 
-  const categoryFiltered = useMemo(() => getFilteredNews(normalized, category, season, { game }), [normalized, category, season, game]);
+  const categoryFiltered = useMemo(() => getFilteredNews(news, category, season, { game }), [news, category, season, game]);
   const filtered = leagueFilter === "all"
     ? categoryFiltered
     : categoryFiltered.filter(item => resolveNewsLeagueId(item, game, teams) === leagueFilter);

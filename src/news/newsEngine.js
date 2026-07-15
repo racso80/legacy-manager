@@ -438,6 +438,24 @@ export function generateBoardNews({ items = [], season, matchday, userTeamId }) 
   }));
 }
 
+export function generateContractNews({ items = [], season, matchday, userTeamId }) {
+  return items.map((item,index)=>createNews({
+    type:"contract",title:item.title,summary:item.summary,importance:item.importance??"medium",
+    season,matchday,teamIds:[userTeamId],playerIds:item.playerId?[item.playerId]:[],userTeamId,
+    fingerprint:item.fingerprint??`contract:${matchday}:${index}:${item.title}`,
+    metadata:{userClub:true,contract:true},
+  }));
+}
+
+export function generateMarketUpdateNews({ items = [], season, matchday, userTeamId }) {
+  return items.map((item,index)=>createNews({
+    type:"transfer",title:item.title,summary:item.summary,importance:item.importance??"medium",
+    season,matchday,teamIds:[userTeamId],userTeamId,
+    fingerprint:item.fingerprint??`market-update:${matchday}:${index}:${item.title}`,
+    metadata:{userClub:true,marketUpdate:true},
+  }));
+}
+
 export function generateYouthNews({ items = [], season, matchday, userTeamId, playerIds = [] }) {
   return items.map((item,index)=>createNews({
     type:"youth",title:item.title,summary:item.summary,importance:item.importance??"medium",
