@@ -59,6 +59,7 @@ import PCMatchScreen from "./components/pc/PCMatchScreen.jsx";
 import PCClubSelectScreen from "./components/pc/PCClubSelectScreen.jsx";
 import PCDespidoReveal from "./components/pc/PCDespidoReveal.jsx";
 import PCPreseasonScreen from "./components/pc/PCPreseasonScreen.jsx";
+import PCCalendarScreen from "./components/pc/PCCalendarScreen.jsx";
 import PCTransferCenterScreen from "./components/pc/PCTransferCenterScreen.jsx";
 import { buildPlayerLookup, generateBoardNews, generateDevelopmentNews, generateMatchdayNews, generateMedicalNews, generateScoutingNews, generateTransferNews, generateYouthNews, getDashboardNews, mergeNews } from "./news/newsEngine.js";
 import { createSeasonHistoryEntry, enrichPlayerProfile, getMarketValue, getPlayerSeasonStats } from "./players/playerProfile.js";
@@ -4449,6 +4450,55 @@ const GLOBAL_CSS = `
     .pc-ps-change-empty { font-size: 12px; color: #6b7280; font-style: italic; text-align: center; padding: 14px 0; }
 
     .pc-ps-cta-row { display: flex; justify-content: flex-end; margin-top: 6px; }
+
+    /* ─── PC Calendario — mismos tokens que pc-ps/pc-bd. Los pills de liga se
+       renderizan con LeagueSwitchPills (App.jsx) sin reestilizar, igual que Clasificación. */
+    .pc-cal-layout { display: grid; grid-template-columns: 1fr 280px; gap: 16px; align-items: start; }
+    .pc-cal-md-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .pc-cal-md-btn { background: #111726; border: 1px solid rgba(255,255,255,.07); color: #9aa0b4; width: 34px; height: 34px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .pc-cal-md-btn:hover { background: #161d2e; }
+    .pc-cal-md-select { flex: 1; background: #111726; border: 1px solid rgba(255,255,255,.07); color: #e8eaf0; padding: 9px 12px; border-radius: 6px; font-size: 13px; text-align: center; }
+
+    .pc-cal-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .pc-cal-tab { padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; color: #9aa0b4; border: 1px solid rgba(255,255,255,.07); }
+    .pc-cal-tab.active { background: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #1a1200); border-color: var(--club-accent, #c9a84c); }
+
+    .pc-cal-fixture-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .pc-cal-fixture-card { background: #111726; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; padding: 14px 16px; }
+    .pc-cal-fixture-card.next-match { border-color: var(--club-accent, #c9a84c); background: rgba(201,168,76,.06); }
+    .pc-cal-fixture-card.user-match { border-left: 3px solid var(--club-accent, #c9a84c); }
+    .pc-cal-fixture-eyebrow { font-size: 9.5px; font-weight: 800; text-transform: uppercase; color: var(--club-accent, #c9a84c); margin-bottom: 8px; letter-spacing: .5px; }
+    .pc-cal-fixture-teams { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .pc-cal-team-side { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .pc-cal-team-side.away { flex-direction: row-reverse; text-align: right; }
+    .pc-cal-team-name { font-size: 12.5px; font-weight: 600; color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-cal-team-name.user { color: var(--club-accent, #c9a84c); font-weight: 800; }
+    .pc-cal-score-box { background: #161d2e; border-radius: 6px; padding: 6px 12px; font-size: 14px; font-weight: 800; color: #e8eaf0; margin: 0 10px; text-align: center; min-width: 50px; flex-shrink: 0; }
+    .pc-cal-result-chip { font-size: 9px; font-weight: 800; text-align: center; margin-top: 3px; }
+    .pc-cal-result-chip.win { color: #22c55e; }
+    .pc-cal-result-chip.draw { color: #f59e0b; }
+    .pc-cal-result-chip.loss { color: #ef4444; }
+    .pc-cal-inline-play-btn { width: 100%; margin-top: 10px; padding: 8px; border-radius: 6px; font-size: 11.5px; }
+    .pc-cal-empty { grid-column: 1 / -1; background: #111726; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+
+    .pc-cal-box { background: #111726; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; padding: 16px 18px; margin-bottom: 14px; }
+    .pc-cal-box-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #9aa0b4; margin-bottom: 12px; }
+    .pc-cal-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+    .pc-cal-stat-mini { text-align: center; background: #161d2e; border-radius: 6px; padding: 8px 4px; }
+    .pc-cal-stat-mini-value { font-size: 14px; font-weight: 800; }
+    .pc-cal-stat-mini-label { font-size: 8.5px; color: #6b7280; text-transform: uppercase; margin-top: 2px; }
+    .pc-cal-form-row { display: flex; gap: 5px; justify-content: center; }
+    .pc-cal-form-chip { width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; }
+    .pc-cal-form-chip.win { background: rgba(34,197,94,.18); color: #22c55e; }
+    .pc-cal-form-chip.draw { background: rgba(245,158,11,.18); color: #f59e0b; }
+    .pc-cal-form-chip.loss { background: rgba(239,68,68,.18); color: #ef4444; }
+
+    .pc-cal-history-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.07); font-size: 11.5px; color: #9aa0b4; }
+    .pc-cal-history-item:last-child { border-bottom: none; }
+    .pc-cal-history-chip { width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; flex-shrink: 0; }
+    .pc-cal-history-jornada { color: #6b7280; }
+    .pc-cal-history-score { margin-left: auto; font-weight: 700; color: #e8eaf0; }
+    .pc-cal-other-league-note { font-size: 12px; color: #6b7280; text-align: center; }
   }
 `;
 
@@ -6505,7 +6555,7 @@ function LeagueSwitchPills({ selectedId, onSelect }) {
   );
 }
 
-function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen, leagues, activeLeagueId }) {
+function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen, leagues, activeLeagueId, isPC }) {
   const [selectedLeagueId, setSelectedLeagueId] = useState(activeLeagueId);
   const isViewingActive = selectedLeagueId === activeLeagueId;
   const vFixtures = isViewingActive ? fixtures : (leagues?.[selectedLeagueId]?.fixtures ?? []);
@@ -6528,6 +6578,17 @@ function CalendarScreen({ fixtures, teamId, onPlay, lineup, players, setScreen, 
     setMatchday(nextDefaultMatchday);
     if (!nextIsActive) setTab("todos");
   };
+
+  if (isPC) {
+    return (
+      <div style={{ display:"flex", flexDirection:"column", height:"100%" }}>
+        <LeagueSwitchPills selectedId={selectedLeagueId} onSelect={handleSelectLeague} />
+        <div style={{ flex:1, minHeight:0 }}>
+          <PCCalendarScreen key={selectedLeagueId} fixtures={vFixtures} teamId={vTeamId} isViewingActive={isViewingActive} onPlay={onPlay} lineup={lineup} players={players} setScreen={setScreen} teams={TEAMS} />
+        </div>
+      </div>
+    );
+  }
 
   const getTeam = (id) => TEAMS.find(t => t.id === id);
   const available    = players ? players.filter(p => !p.injured && !p.suspended) : [];
@@ -10986,7 +11047,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             ? <PCTacticsScreen tactics={tactics} setTactics={setTactics} savedTacticsPresets={game.savedTacticsPresets ?? []} onSaveTacticsPresets={(newSaved) => { const newGame = {...game, savedTacticsPresets: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs, tactics); autosaveCloud(newGame,"tactics-presets",{lineup,formation,subs,tactics}); }} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} />
             : <TacticsScreen tactics={tactics} setTactics={setTactics} savedTacticsPresets={game.savedTacticsPresets ?? []} onSaveTacticsPresets={(newSaved) => { const newGame = {...game, savedTacticsPresets: newSaved}; setGame(newGame); saveGame(newGame, lineup, formation, subs, tactics); autosaveCloud(newGame,"tactics-presets",{lineup,formation,subs,tactics}); }} />
           )}
-          {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} setScreen={setScreen} leagues={game.leagues} activeLeagueId={game.leagueId} />}
+          {screen === "calendar"  && game && <CalendarScreen fixtures={game.fixtures} teamId={game.teamId} onPlay={() => setScreen("match")} lineup={lineup} players={game.players} setScreen={setScreen} leagues={game.leagues} activeLeagueId={game.leagueId} isPC={isPC} />}
           {screen === "standings" && game && <StandingsScreen standings={game.standings} teamId={game.teamId} fixtures={game.fixtures} players={game.players} movement={game.standingsMovement} onOpenPlayer={openPlayerProfile} isPC={isPC} teams={TEAMS} season={game.season} leagueConfig={game.leagueConfig} leagues={game.leagues} activeLeagueId={game.leagueId} />}
           {screen === "news"      && game && (isPC
             ? <PCNewsScreen game={game} teams={TEAMS} onOpenPlayer={openPlayerProfileById} />
