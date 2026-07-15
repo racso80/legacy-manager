@@ -5736,6 +5736,7 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
   const [lineupNotice, setLineupNotice] = useState(null);
   const [confirmDeletePresetId, setConfirmDeletePresetId] = useState(null);
   const [confirmClearLineup, setConfirmClearLineup] = useState(false);
+  const [playWarning, setPlayWarning] = useState(null);
   const { feedback, showFeedback } = useFeedback();
 
   const formations = LINEUP_FORMATIONS;
@@ -6059,6 +6060,13 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
     return b.overall - a.overall; // role (default): por calidad
   });
 
+  // Mismo comportamiento que PCLineupScreen.jsx: si es válida, juega; si no, solo avisa
+  // (ya estamos en Alineación, no hay a dónde navegar).
+  const handlePlayClick = () => {
+    if (lineupValid) { onPlay?.(); return; }
+    setPlayWarning(`Completa la alineación (${startersCount}/11 titulares) antes de jugar.`);
+  };
+
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
@@ -6079,6 +6087,20 @@ function LineupScreen({ game, players, lineup, setLineup, formation, setFormatio
             <span>🔴</span><span style={{ fontSize:12, fontWeight:700, color:"#ef4444" }}>{veryTired}</span><span style={{ fontSize:10, color:"#6b7280" }}>muy cansados</span>
           </div>
         </div>
+      </div>
+
+      {/* ── CTA de partido: misma lógica que PCLineupScreen.jsx (válida → juega, si no solo avisa) ── */}
+      <div style={{ padding:"10px 14px 0", flexShrink:0 }}>
+        {!lineupValid && playWarning && (
+          <div style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.25)", color:"#fca5a5", fontSize:11, fontWeight:700, borderRadius:8, padding:"8px 10px", marginBottom:8 }}>
+            ⚠️ {playWarning}
+          </div>
+        )}
+        <button onClick={handlePlayClick} className={lineupValid ? "btn-gold" : ""}
+          style={{ width:"100%", padding:"12px", borderRadius:9, fontSize:13, fontWeight:700, cursor:"pointer",
+            ...(!lineupValid ? { background:"#374151", color:"#9aa0b4", border:"1px solid rgba(255,255,255,.08)" } : {}) }}>
+          {lineupValid ? "▶ Jugar partido" : `⚠️ Alineación incompleta (${startersCount}/11)`}
+        </button>
       </div>
 
       {/* ── Formaciones (colapsable) + acciones rápidas (8 y 9) ── */}
