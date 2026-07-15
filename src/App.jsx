@@ -2752,6 +2752,27 @@ const GLOBAL_CSS = `
     .pc-dash-v2-inbox-msg-content { flex: 1; min-width: 0; }
     .pc-dash-v2-inbox-msg-title { font-size: 11px; font-weight: 700; color: #e9edf6; line-height: 1.3; margin-bottom: 3px; }
     .pc-dash-v2-inbox-msg-preview { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.4; }
+
+    /* Tarjetas de persona ("Requiere tu atención") — mismos campos que el equivalente
+       móvil (App.jsx, Dashboard): avatar, nombre, prioridad, ánimo, frase citada, motivo,
+       consecuencia. Fila más alta que .pc-dash-v2-inbox-msg por tener más líneas de texto. */
+    .pc-dash-v2-persona-card { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border: none; border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; transition: background .1s; background: rgba(255,255,255,0.015); text-align: left; width: 100%; font-family: inherit; }
+    .pc-dash-v2-persona-card:last-child { border-bottom: none; }
+    .pc-dash-v2-persona-card:hover { background: rgba(255,255,255,0.035); }
+    .pc-dash-v2-persona-card.urgent { background: rgba(224,82,74,0.08); }
+    .pc-dash-v2-persona-card.urgent:hover { background: rgba(224,82,74,0.13); }
+    .pc-dash-v2-persona-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .pc-dash-v2-persona-top { display: flex; align-items: center; gap: 6px; }
+    .pc-dash-v2-persona-name { font-size: 11px; font-weight: 800; color: #e9edf6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-dash-v2-persona-priority { font-size: 7.5px; font-weight: 900; letter-spacing: .3px; flex-shrink: 0; }
+    .pc-dash-v2-persona-mood { font-size: 10px; flex-shrink: 0; }
+    .pc-dash-v2-persona-role-title { font-size: 10px; font-weight: 700; color: #e9edf6; line-height: 1.35; }
+    .pc-dash-v2-persona-subject { font-size: 9px; font-weight: 700; color: var(--club-accent, #c9a84c); line-height: 1.35; }
+    .pc-dash-v2-persona-line { font-size: 10.5px; color: rgba(255,255,255,0.55); line-height: 1.4; }
+    .pc-dash-v2-persona-meta { font-size: 8.5px; color: rgba(255,255,255,0.3); line-height: 1.35; }
+    .pc-dash-v2-persona-consequence { font-size: 8px; color: #c99a3e; line-height: 1.35; margin-top: 1px; }
+    .pc-dash-v2-persona-action { font-size: 9px; font-weight: 800; color: var(--club-accent, #c9a84c); white-space: nowrap; flex-shrink: 0; align-self: center; }
+
     .pc-dash-v2-inbox-sep { height: 4px; background: var(--dv2-bg-app); }
 
     /* Centro */
@@ -11051,7 +11072,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             : <CoachCreateScreen team={pendingTeam} onBack={()=>setScreen("teams")} onCreate={coachData=>startNewGame(pendingTeam,coachData)} />
           )}
           {screen === "dashboard" && game && (isPC
-            ? <PCDashboardContent game={game} teams={TEAMS} position={pcPosition} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} lineup={lineup} setScreen={setScreen} onPlay={() => setScreen("match")} directorItems={legacyDirectorItems} chiefBriefing={chiefBriefing} medicalAlerts={pcMedicalAlerts} consequences={pcConsequences} budgetSnapshot={pcBudgetSnapshot} />
+            ? <PCDashboardContent game={game} teams={TEAMS} position={pcPosition} nextFixture={pcNextFixture} nextOpponent={pcNextOpponent} lineup={lineup} setScreen={setScreen} onPlay={() => setScreen("match")} directorItems={legacyDirectorItems} chiefBriefing={chiefBriefing} medicalAlerts={pcMedicalAlerts} consequences={pcConsequences} budgetSnapshot={pcBudgetSnapshot} onOpenScene={handleOpenScene} />
             : <Dashboard game={game} onPlay={() => setScreen("match")} setScreen={setScreen} lineup={lineup} attentionItems={attentionItems} conversations={activeConversations} clubLifeIssues={clubLifeIssues} directorItems={legacyDirectorItems} onOpenAttention={handleAttentionOpen} onOpenConversation={openConversation} onOpenClubLifeIssue={handleClubLifeIssueOpen} onOpenScene={handleOpenScene} />
           )}
           {screen === "more"      && game && <MoreMenuScreen game={game} onNavigate={setScreen} attentionCount={attentionCount} />}

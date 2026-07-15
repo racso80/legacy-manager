@@ -7,6 +7,80 @@ import { getPrestigeLevel } from "../../legacy/legacyEngine.js";
 import { getStandingsZone, LEAGUES } from "../../data/leagues.js";
 import { NEWS_TYPE_LABEL, NEWS_META_TEXT, newsAccent, resolveNewsLeagueId } from "./news/newsPresentation.js";
 import NewsRightZone from "./news/NewsRightZone.jsx";
+import { PersonAvatar, STAFF_PERSONAS } from "../../App.jsx";
+
+// Mismo mapeo que Dashboard (móvil, App.jsx) — se duplica en vez de exportarse/importarse,
+// igual que el resto de lógica derivada compartida entre pantallas PC/móvil en esta sesión.
+function emotionMeta(state = "neutral") {
+  const key = String(state).toLowerCase();
+  if (key.includes("enfad") || key.includes("dolido") || key.includes("tenso")) return { icon: "😠", label: "Enfadado", color: "#ef4444" };
+  if (key.includes("preocup") || key.includes("serio") || key.includes("inquiet")) return { icon: "😟", label: "Preocupado", color: "#f59e0b" };
+  if (key.includes("agrade") || key.includes("positivo") || key.includes("feliz")) return { icon: "😊", label: "Contento", color: "#22c55e" };
+  if (key.includes("motivad")) return { icon: "🔥", label: "Motivado", color: "#f97316" };
+  if (key.includes("lesion")) return { icon: "🤕", label: "Tocado", color: "#ef4444" };
+  return { icon: "😐", label: "Neutral", color: "#9aa0b4" };
+}
+const priorityLabel = priority => (priority === "urgent" || priority === "critical") ? "Urgente" : priority === "important" ? "Importante" : "Informativa";
+const priorityColor = priority => (priority === "urgent" || priority === "critical") ? "#ef4444" : priority === "important" ? "#f59e0b" : "#22c55e";
+const priorityRank = priority => (priority === "urgent" || priority === "critical") ? 0 : priority === "important" ? 1 : 2;
+
+function attentionPersona(item) {
+  const title = `${item.title ?? ""} ${item.summary ?? ""}`.toLowerCase();
+  if (item.category === "medical" || title.includes("lesion") || title.includes("riesgo físico") || title.includes("fatiga")) {
+    return { ...Object.values(STAFF_PERSONAS).find(person => person.role?.toLowerCase().includes("dico")), name: "Médico", emotionalState: "preocupado", line: `${item.summary ?? item.title}`, action: item.actionLabel ?? "Ver informe" };
+  }
+  if (item.category === "contracts" || title.includes("contrato") || title.includes("renov")) {
+    return { ...STAFF_PERSONAS["Director deportivo"], name: "Director deportivo", emotionalState: "serio", line: `He revisado este asunto contractual. ${item.summary ?? "Creo que deberíamos movernos pronto."}`, action: item.actionLabel ?? "Negociar" };
+  }
+  if (item.category === "market" || title.includes("oferta") || title.includes("mercado")) {
+    return { ...STAFF_PERSONAS["Director deportivo"], name: "Director deportivo", emotionalState: "expectante", line: item.summary ?? "Hay movimiento en el mercado y necesitamos decidir.", action: item.actionLabel ?? "Revisar" };
+  }
+  if (item.category === "match" || title.includes("alineación") || title.includes("partido") || title.includes("sancionado")) {
+    return { ...STAFF_PERSONAS["Segundo entrenador"], name: "Segundo entrenador", emotionalState: "directo", line: item.summary ?? "Míster, hay algo del próximo partido que debemos resolver.", action: item.actionLabel ?? "Preparar" };
+  }
+  if (item.category === "lockerRoom") {
+    return { ...STAFF_PERSONAS["Capitán"], name: "Capitán", emotionalState: "preocupado", line: item.summary ?? "Hay un tema del vestuario que conviene atender.", action: item.actionLabel ?? "Hablar" };
+  }
+  if (item.category === "fans") {
+    return { ...STAFF_PERSONAS.Presidente, name: "Presidente", emotionalState: "exigente", line: item.summary ?? "La afición está hablando y conviene escucharla.", action: item.actionLabel ?? "Responder" };
+  }
+  if (item.category === "staff" || item.category === "training") {
+    return { ...STAFF_PERSONAS["Preparador físico"], name: "Preparador físico", emotionalState: "preocupado", line: item.summary ?? "Tengo una recomendación para el trabajo del equipo.", action: item.actionLabel ?? "Revisar" };
+  }
+  if (item.category === "board" || item.category === "career") {
+    return { ...STAFF_PERSONAS.Presidente, name: "Presidente", emotionalState: "serio", line: item.summary ?? "Necesito comentar contigo una cuestión importante.", action: item.actionLabel ?? "Entrar" };
+  }
+  if (item.category === "youth") {
+    return { emoji: "🌱", color: "#84cc16", role: "Responsable de cantera", personality: "protege el futuro", name: "Responsable de cantera", emotionalState: "ilusionado", line: item.summary ?? "Hay un chico que merece tu atención.", action: item.actionLabel ?? "Ver cantera" };
+  }
+  return { ...STAFF_PERSONAS["Segundo entrenador"], name: "Segundo entrenador", emotionalState: "neutral", line: item.summary ?? item.title, action: item.actionLabel ?? "Revisar" };
+}
+
+function clubLifePersona(issue) {
+  const actorMap = {
+    sportingDirector: "Director deportivo", assistantCoach: "Segundo entrenador", doctor: "Médico",
+    fitnessCoach: "Preparador físico", psychologist: "Psicólogo", captain: "Capitán",
+    president: "Presidente", academyChief: "Jefe de cantera", pressOfficer: "Responsable de prensa",
+  };
+  const actorName = actorMap[issue.actorId] ?? "Segundo entrenador";
+  const base = STAFF_PERSONAS[actorName] ?? { emoji: "👤", color: "#c9a84c", role: actorName, personality: "necesita una decisión" };
+  return {
+    ...base,
+    name: issue.person?.name ?? actorName,
+    role: issue.person?.name ? `${base.name ?? actorName} · ${base.role ?? issue.origin}` : base.role,
+    portrait: issue.person?.portrait ?? null,
+    emotionalState: issue.emotionalState,
+    line: issue.message,
+    action: issue.actionLabel,
+    consequence: issue.consequenceIfIgnored,
+  };
+}
+
+function conversationPersona(conversation) {
+  if (conversation.actorType === "player") return { name: conversation.actorName, role: conversation.role, portrait: conversation.portrait, emoji: "👤", color: "#c9a84c", emotionalState: conversation.emotionalState, line: conversation.opening, action: "Hablar", personality: conversation.personalityLabel };
+  const base = STAFF_PERSONAS[conversation.actorName] ?? { emoji: "👤", color: "#c9a84c", role: conversation.role, personality: "profesional" };
+  return { ...base, name: conversation.actorName, role: conversation.role ?? base.role, emotionalState: conversation.emotionalState, line: conversation.opening, action: "Hablar" };
+}
 
 const ALL_LEAGUES_FILTER = "all";
 
@@ -301,7 +375,7 @@ function StandingsPanel({ game, teams, setScreen }) {
 
 export default function PCDashboardContent({
   game, teams = [], position, nextFixture, nextOpponent, lineup = [],
-  setScreen, onPlay, directorItems = [], chiefBriefing, medicalAlerts = [], consequences = [], budgetSnapshot = null,
+  setScreen, onPlay, directorItems = [], chiefBriefing, medicalAlerts = [], consequences = [], budgetSnapshot = null, onOpenScene,
 }) {
   const [newsIndex, setNewsIndex] = useState(0);
   const [newsLeagueFilter, setNewsLeagueFilter] = useState(game.leagueId);
@@ -315,6 +389,22 @@ export default function PCDashboardContent({
   const handleNewsLeagueFilterChange = (id) => { setNewsLeagueFilter(id); setNewsIndex(0); };
 
   const nonInfoDirector = directorItems.filter(item => item.priority !== "info");
+
+  // Misma derivación que waitingPeople en Dashboard (móvil, App.jsx) — duplicada, no
+  // importada, mismo criterio que el resto de lógica derivada PC/móvil de esta sesión.
+  const waitingPeople = nonInfoDirector.map(item => {
+    if (item.issueCard) {
+      const issue = item.issueCard;
+      return {
+        kind: "issue", id: issue.id, priority: issue.priority,
+        person: { ...(issue.owner ?? {}), emotionalState: item.issue?.emotionalState ?? item.conversation?.emotionalState ?? item.attention?.emotionalState ?? "neutral", line: issue.summary, action: issue.availableActions?.[0] ?? "Revisar", consequence: issue.consequenceIfIgnored, subjectName: issue.subjectName, title: issue.title },
+        onClick: () => onOpenScene?.(item),
+      };
+    }
+    if (item.source === "clubLife") return { kind: "clubLife", id: item.rawId, priority: item.priority, person: { ...clubLifePersona(item.issue), mergedCount: item.mergedCount, protagonistOfDay: item.protagonistOfDay }, onClick: () => onOpenScene?.(item) };
+    if (item.source === "conversation") return { kind: "conversation", id: item.rawId, priority: item.priority, person: { ...conversationPersona(item.conversation), mergedCount: item.mergedCount, protagonistOfDay: item.protagonistOfDay }, onClick: () => onOpenScene?.(item) };
+    return { kind: "attention", id: item.rawId, priority: item.priority, person: { ...attentionPersona(item.attention), mergedCount: item.mergedCount, protagonistOfDay: item.protagonistOfDay }, onClick: () => onOpenScene?.(item) };
+  }).sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority)).slice(0, 3);
 
   const allMedicalAlerts = medicalAlerts.length ? medicalAlerts : getMedicalAlerts(game);
   const topMedical = allMedicalAlerts.slice(0, 2);
@@ -334,15 +424,7 @@ export default function PCDashboardContent({
       rows: [{ title: chiefTitle, preview: chiefPreview, accent: "var(--club-accent, #c9a84c)", onClick: () => setScreen("attention") }],
     },
     {
-      key: "attention", icon: "🔔", title: "Requiere tu atención", titleColor: "#e0524a", badge: nonInfoDirector.length || null,
-      rows: nonInfoDirector.length
-        ? nonInfoDirector.slice(0, 2).map(item => ({
-            title: item.issueCard?.title ?? item.title ?? "Asunto pendiente",
-            preview: item.issueCard?.summary ?? item.summary ?? "",
-            accent: "#e0524a",
-            onClick: () => setScreen("attention"),
-          }))
-        : [{ title: "Sin asuntos urgentes", preview: "No hay decisiones pendientes por ahora.", accent: "#e0524a", onClick: () => setScreen("attention") }],
+      key: "attention", icon: "🔔", title: "Requiere tu atención", titleColor: "#e0524a", badge: waitingPeople.length || null,
     },
     {
       key: "medical", icon: "🏥", title: "Informe Médico", titleColor: "#e0a83e",
@@ -380,15 +462,51 @@ export default function PCDashboardContent({
                 <span className="pc-dash-v2-inbox-group-title" style={{ color: group.titleColor }}>{group.title}</span>
                 {group.badge ? <span className="pc-dash-v2-inbox-group-badge">{group.badge}</span> : null}
               </div>
-              {group.rows.map((row, ri) => (
-                <button key={ri} className="pc-dash-v2-inbox-msg" onClick={row.onClick}>
-                  <span className="pc-dash-v2-inbox-msg-accent" style={{ background: row.accent }} />
-                  <span className="pc-dash-v2-inbox-msg-content">
-                    <span className="pc-dash-v2-inbox-msg-title">{row.title}</span>
-                    <span className="pc-dash-v2-inbox-msg-preview">{row.preview}</span>
-                  </span>
-                </button>
-              ))}
+              {group.key === "attention" ? (
+                waitingPeople.length ? (
+                  waitingPeople.map(item => {
+                    const person = item.person;
+                    const mood = emotionMeta(person.emotionalState);
+                    const urgent = item.priority === "urgent" || item.priority === "critical";
+                    return (
+                      <button key={`${item.kind}-${item.id}`} className={`pc-dash-v2-persona-card${urgent ? " urgent" : ""}`} onClick={item.onClick}>
+                        <PersonAvatar person={person} size={38} />
+                        <span className="pc-dash-v2-persona-body">
+                          <span className="pc-dash-v2-persona-top">
+                            <strong className="pc-dash-v2-persona-name">{person.name}</strong>
+                            <span className="pc-dash-v2-persona-priority" style={{ color: priorityColor(item.priority) }}>{priorityLabel(item.priority).toUpperCase()}</span>
+                            <span className="pc-dash-v2-persona-mood" style={{ color: mood.color }}>{mood.icon}</span>
+                          </span>
+                          {person.title && <span className="pc-dash-v2-persona-role-title">{person.title}</span>}
+                          {person.subjectName && <span className="pc-dash-v2-persona-subject">Sobre: {person.subjectName}</span>}
+                          <span className="pc-dash-v2-persona-line">"{person.line}"</span>
+                          <span className="pc-dash-v2-persona-meta">{person.role} · {mood.label} · {person.personality ?? "necesita una decisión"}</span>
+                          {person.consequence && <span className="pc-dash-v2-persona-consequence">Si se ignora: {person.consequence}</span>}
+                        </span>
+                        <span className="pc-dash-v2-persona-action">{person.action} →</span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <button className="pc-dash-v2-inbox-msg" onClick={() => setScreen("attention")}>
+                    <span className="pc-dash-v2-inbox-msg-accent" style={{ background: "#e0524a" }} />
+                    <span className="pc-dash-v2-inbox-msg-content">
+                      <span className="pc-dash-v2-inbox-msg-title">Sin asuntos urgentes</span>
+                      <span className="pc-dash-v2-inbox-msg-preview">No hay decisiones pendientes por ahora.</span>
+                    </span>
+                  </button>
+                )
+              ) : (
+                group.rows.map((row, ri) => (
+                  <button key={ri} className="pc-dash-v2-inbox-msg" onClick={row.onClick}>
+                    <span className="pc-dash-v2-inbox-msg-accent" style={{ background: row.accent }} />
+                    <span className="pc-dash-v2-inbox-msg-content">
+                      <span className="pc-dash-v2-inbox-msg-title">{row.title}</span>
+                      <span className="pc-dash-v2-inbox-msg-preview">{row.preview}</span>
+                    </span>
+                  </button>
+                ))
+              )}
               {gi < inboxGroups.length - 1 && <div className="pc-dash-v2-inbox-sep" />}
             </div>
           ))}
