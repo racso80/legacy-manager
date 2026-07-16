@@ -65,6 +65,7 @@ export default function PCTransferCenterScreen({
           onAcceptPlayerCounter={onAcceptPlayerCounter} onAcceptRoleCounter={onAcceptRoleCounter}
           onWithdrawOffer={onWithdrawOffer} onFinalizeOffer={onFinalizeOffer}
           onUserMarketStatus={onUserMarketStatus} onIncomingOffer={onIncomingOffer}
+          onGoScouting={() => goTo("scouting")}
         />
       )}
 

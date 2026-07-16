@@ -3105,6 +3105,24 @@ const GLOBAL_CSS = `
 
     .pc-tc-athletic-note { background: var(--tc-gold-soft); border: 1px solid var(--tc-gold-border); border-radius: 8px; padding: 10px 14px; font-size: 11.5px; color: #e8eaf0; margin-bottom: 14px; line-height: 1.5; }
 
+    .pc-tc-filter-toolbar { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+    .pc-tc-mode-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .pc-tc-mode-chip { padding: 7px 13px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--tc-text-dim); border: 1px solid var(--tc-line); background: var(--tc-card); transition: background .15s, color .15s; }
+    .pc-tc-mode-chip.active { background: var(--tc-gold); color: var(--tc-text-on-accent); border-color: var(--tc-gold); }
+    .pc-tc-controls-row { display: flex; gap: 10px; align-items: center; }
+    .pc-tc-search-box { flex: 1; background: var(--tc-card); border: 1px solid var(--tc-line); color: #e8eaf0; padding: 9px 12px; border-radius: 7px; font-size: 12.5px; font-family: inherit; }
+    .pc-tc-search-box::placeholder { color: var(--tc-text-dim); }
+    .pc-tc-controls-row select { background: var(--tc-card); border: 1px solid var(--tc-line); color: #e8eaf0; padding: 9px 12px; border-radius: 7px; font-size: 12px; font-family: inherit; }
+    .pc-tc-more-toggle { font-size: 11.5px; color: var(--tc-text-dim); cursor: pointer; padding: 9px 4px; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .pc-tc-more-toggle:hover { color: var(--tc-gold); }
+    .pc-tc-more-panel { border-top: 1px solid var(--tc-line); margin-top: 12px; padding-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .pc-tc-slider-group label { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--tc-text-dim); margin-bottom: 8px; }
+    .pc-tc-slider-group label b { color: var(--tc-gold); font-weight: 700; }
+    .pc-tc-slider-group input[type=range] { width: 100%; accent-color: var(--tc-gold); }
+    .pc-tc-result-count { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--tc-text-dim); margin-bottom: 14px; }
+    .pc-tc-scouting-link { font-size: 11.5px; color: var(--tc-gold); cursor: pointer; }
+    .pc-tc-scouting-link:hover { text-decoration: underline; }
+
     .pc-tc-listing-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 13px; }
     .pc-tc-listing-card { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 9px; }
     .pc-tc-listing-top { display: flex; align-items: center; gap: 9px; }

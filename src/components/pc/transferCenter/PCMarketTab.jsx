@@ -158,7 +158,58 @@ function OfferModal({ player, onClose, onClubOffer, onFreeAgentOffer }) {
   );
 }
 
-export default function PCMarketTab({ game, teams, players, allOtherPlayers, subTab, onSubTabChange, onOpenPlayer, onClubOffer, onFreeAgentOffer, onAcceptClubCounter, onContractOffer, onAcceptPlayerCounter, onAcceptRoleCounter, onWithdrawOffer, onFinalizeOffer, onUserMarketStatus, onIncomingOffer }) {
+const POSITIONS = ["", "POR", "DFC", "LD", "LI", "MCD", "MC", "MCO", "ED", "EI", "DC"];
+const OVERALL_BUCKETS = [[60, 99, "Nivel: 60-99"], [85, 99, "85-99 ⭐"], [80, 84, "80-84"], [75, 79, "75-79"], [70, 74, "70-74"], [60, 69, "<70"]];
+const MODE_CHIPS = [["all", "Todos"], ["transfer", "📌 Transferibles"], ["loan", "🔁 Cedibles"], ["free", "Libres"], ["contract", "Último año"], ["young", "Jóvenes"], ["opportunity", "Oportunidades"]];
+const PRICE_MAX_SLIDER = 100; // €M — el tope del slider representa "sin límite", no un cap real de 100M€
+const SALARY_MAX_SLIDER = 200; // €K/sem — mismo criterio
+
+function MarketFilterBar({ marketMode, onMarketMode, filter, onFilter, showMore, onToggleMore, resultCount, onGoScouting }) {
+  const priceUnlimited = filter.maxPrice >= 999999;
+  const salaryUnlimited = filter.maxSalary >= 9999;
+  return (
+    <>
+      <div className="pc-tc-filter-toolbar">
+        <div className="pc-tc-mode-row">
+          {MODE_CHIPS.map(([id, label]) => (
+            <div key={id} className={`pc-tc-mode-chip${marketMode === id ? " active" : ""}`} onClick={() => onMarketMode(id)}>{label}</div>
+          ))}
+        </div>
+        <div className="pc-tc-controls-row">
+          <input className="pc-tc-search-box" value={filter.search} onChange={e => onFilter(f => ({ ...f, search: e.target.value }))} placeholder="Buscar jugador por nombre..." />
+          <select value={filter.pos} onChange={e => onFilter(f => ({ ...f, pos: e.target.value }))}>
+            <option value="">Posición: cualquiera</option>
+            {POSITIONS.filter(Boolean).map(pos => <option key={pos} value={pos}>{pos}</option>)}
+          </select>
+          <select value={`${filter.min}-${filter.max}`} onChange={e => { const [min, max] = e.target.value.split("-").map(Number); onFilter(f => ({ ...f, min, max })); }}>
+            {OVERALL_BUCKETS.map(([min, max, label]) => <option key={label} value={`${min}-${max}`}>{label}</option>)}
+          </select>
+          <div className="pc-tc-more-toggle" onClick={onToggleMore}>Más filtros {showMore ? "▴" : "▾"}</div>
+        </div>
+        {showMore && (
+          <div className="pc-tc-more-panel">
+            <div className="pc-tc-slider-group">
+              <label>Precio máximo de traspaso <b>{priceUnlimited ? "Sin límite" : `${filter.maxPrice / 1000}M€`}</b></label>
+              <input type="range" min="0" max={PRICE_MAX_SLIDER} step="1" value={priceUnlimited ? PRICE_MAX_SLIDER : filter.maxPrice / 1000}
+                onChange={e => { const val = Number(e.target.value); onFilter(f => ({ ...f, maxPrice: val >= PRICE_MAX_SLIDER ? 999999 : val * 1000 })); }} />
+            </div>
+            <div className="pc-tc-slider-group">
+              <label>Salario máximo semanal <b>{salaryUnlimited ? "Sin límite" : `${filter.maxSalary}K€`}</b></label>
+              <input type="range" min="0" max={SALARY_MAX_SLIDER} step="5" value={salaryUnlimited ? SALARY_MAX_SLIDER : filter.maxSalary}
+                onChange={e => { const val = Number(e.target.value); onFilter(f => ({ ...f, maxSalary: val >= SALARY_MAX_SLIDER ? 9999 : val })); }} />
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="pc-tc-result-count">
+        {resultCount} jugador{resultCount === 1 ? "" : "es"} disponible{resultCount === 1 ? "" : "s"} · Solo aparecen jugadores con informe
+        <span className="pc-tc-scouting-link" onClick={onGoScouting}>🔎 Abrir scouting</span>
+      </div>
+    </>
+  );
+}
+
+export default function PCMarketTab({ game, teams, players, allOtherPlayers, subTab, onSubTabChange, onOpenPlayer, onClubOffer, onFreeAgentOffer, onAcceptClubCounter, onContractOffer, onAcceptPlayerCounter, onAcceptRoleCounter, onWithdrawOffer, onFinalizeOffer, onUserMarketStatus, onIncomingOffer, onGoScouting }) {
   const [offerTarget, setOfferTarget] = useState(null);
   const [selectedOfferId, setSelectedOfferId] = useState(null);
   const [selectedIncomingId, setSelectedIncomingId] = useState(null);
@@ -166,6 +217,9 @@ export default function PCMarketTab({ game, teams, players, allOtherPlayers, sub
   const [contractSalary, setContractSalary] = useState(0);
   const [contractYears, setContractYears] = useState(3);
   const [contractRole, setContractRole] = useState("Rotación");
+  const [marketMode, setMarketMode] = useState("all");
+  const [filter, setFilter] = useState({ search: "", pos: "", min: 60, max: 99, maxPrice: 999999, maxSalary: 9999 });
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   const negotiationBoost = getNegotiationBoost(game);
   const directorName = getStaffMember(game, "sportingDirector").name;
@@ -178,6 +232,16 @@ export default function PCMarketTab({ game, teams, players, allOtherPlayers, sub
     if (players.some(owned => owned.id === p.id)) return false;
     const listing = listingsByPlayer.get(p.id);
     if (!knownIds.has(p.id) && !listing) return false;
+    if (marketMode === "transfer" && listing?.type !== "transfer") return false;
+    if (marketMode === "loan" && listing?.type !== "loan") return false;
+    if (marketMode === "free" && p._teamId !== "agente_libre") return false;
+    if (marketMode === "contract" && Number(p.contractEnd ?? 9999) > Number(game.season) + 1) return false;
+    if (marketMode === "young" && p.age > 23) return false;
+    if (marketMode === "opportunity" && !(listing?.type === "transfer" && listing.askingPrice <= marketValue(p))) return false;
+    if (filter.search && !p.name.toLowerCase().includes(filter.search.toLowerCase())) return false;
+    if (filter.pos && p.pos !== filter.pos) return false;
+    if (p.overall < filter.min || p.overall > filter.max) return false;
+    if ((!isFreeAgent(p) && marketValue(p) > filter.maxPrice) || (p.salary ?? 0) > filter.maxSalary) return false;
     return true;
   }).map(p => ({ ...p, _listing: listingsByPlayer.get(p.id) })).sort((a, b) => b.overall - a.overall).slice(0, 60);
 
@@ -211,7 +275,14 @@ export default function PCMarketTab({ game, teams, players, allOtherPlayers, sub
       </div>
 
       {subTab === "listados" && (
-        <div className="pc-tc-listing-grid">
+        <>
+          <MarketFilterBar
+            marketMode={marketMode} onMarketMode={setMarketMode}
+            filter={filter} onFilter={setFilter}
+            showMore={showMoreFilters} onToggleMore={() => setShowMoreFilters(s => !s)}
+            resultCount={marketPlayers.length} onGoScouting={onGoScouting}
+          />
+          <div className="pc-tc-listing-grid">
           {marketPlayers.length === 0 && <div className="pc-tc-empty">No hay jugadores en el mercado todavía. Usa Scouting para descubrir candidatos.</div>}
           {marketPlayers.map(p => {
             const free = isFreeAgent(p);
@@ -235,7 +306,8 @@ export default function PCMarketTab({ game, teams, players, allOtherPlayers, sub
               </div>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
 
       {subTab === "misofertas" && (
