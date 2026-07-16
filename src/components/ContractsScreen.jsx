@@ -45,7 +45,7 @@ export default function ContractsScreen({game,onOpenPlayer,onCreateRenewal,onAcc
       {feedback&&<FeedbackBanner feedback={feedback}/>}
       {shown.map(player=>{const offer=activeByPlayer.get(player.id);const status=offer?statusMap[offer.status]??["•",offer.status,COLORS.textDim]:null;return <div key={player.id} style={{background:"#161a24",border:`1px solid ${status?.[2]??"rgba(255,255,255,.06)"}33`,borderRadius:11,padding:11,marginBottom:8}}>
         <div style={{display:"flex",gap:10,alignItems:"center"}}>
-          <button onClick={()=>onOpenPlayer(player)} style={{width:38,height:38,borderRadius:9,background:"rgba(201,168,76,.12)",border:"1px solid rgba(201,168,76,.25)",color:"#c9a84c",fontWeight:900}}>{player.overall}</button>
+          <button onClick={()=>onOpenPlayer(player, shown)} style={{width:38,height:38,borderRadius:9,background:"rgba(201,168,76,.12)",border:"1px solid rgba(201,168,76,.25)",color:"#c9a84c",fontWeight:900}}>{player.overall}</button>
           <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:850,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</div><div style={{fontSize:9,color:COLORS.textDim,marginTop:3}}>{player.pos} · {player.age}a · {fmt(player.salary??0)}/sem · rol {player.squadRole??"Rotación"}</div></div>
           <div style={{textAlign:"right"}}><div style={{fontSize:12,color:Number(player.contractEnd)<=Number(game.season)+1?"#f59e0b":COLORS.muted,fontWeight:900}}>{player.contractEnd??"—"}</div><div style={{fontSize:8,color:COLORS.textDim}}>FINALIZA</div></div>
         </div>

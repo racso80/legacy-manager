@@ -43,6 +43,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
     return text;
   })();
   const historical = getAcademyGraduates(game);
+  const sortedProspects = [...youth.players].sort((a, b) => b.potential - a.potential);
   const promotePlayer = (player) => {
     const result = onPromote?.(player.id);
     setFeedback(result ?? { ok:false, message:"No se ha podido promocionar al canterano." });
@@ -92,7 +93,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                 </div>
               )}
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {[...youth.players].sort((a, b) => b.potential - a.potential).map(player => {
+                {sortedProspects.map(player => {
                   const category = getTalentCategory(player.potential);
                   const projection = getYouthProjection(player);
                   const trendId = player.academyData?.trend ?? "stable";
@@ -106,7 +107,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                   return (
                     <div key={player.id} style={{ background:"#161a24", border:`1px solid ${category.color}22`, borderLeft:`3px solid ${category.color}`, borderRadius:10, padding:11 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                        <button onClick={() => onOpenPlayer(player, game.teamId)} style={{ width:42, height:42, borderRadius:9, background:`${category.color}18`, border:"none", color:category.color, fontSize:16, fontWeight:900, cursor:"pointer" }}>
+                        <button onClick={() => onOpenPlayer(player, sortedProspects)} style={{ width:42, height:42, borderRadius:9, background:`${category.color}18`, border:"none", color:category.color, fontSize:16, fontWeight:900, cursor:"pointer" }}>
                           {player.overall}
                         </button>
                         <div style={{ flex:1, minWidth:0 }}>
@@ -153,7 +154,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                       )}
 
                       <div style={{ display:"flex", gap:7, marginTop:9 }}>
-                        <Button data-swipe-ignore="true" variant="secondary" onClick={() => onOpenPlayer(player, game.teamId)} style={{ flex:1, minHeight:38, padding:8, fontSize:10 }}>
+                        <Button data-swipe-ignore="true" variant="secondary" onClick={() => onOpenPlayer(player, sortedProspects)} style={{ flex:1, minHeight:38, padding:8, fontSize:10 }}>
                           Ver perfil
                         </Button>
                         <Button data-swipe-ignore="true" variant={canPromote ? "primary" : "secondary"} onClick={() => promotePlayer(player)} style={{ flex:1, minHeight:38, padding:8, fontSize:10 }}>
@@ -194,7 +195,7 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                   {historical.map(player => {
                     const stats = player.academyStats ?? {};
                     return (
-                      <button key={player.id} onClick={() => onOpenPlayer(player, game.teamId)} style={{ display:"flex", alignItems:"center", gap:10, textAlign:"left", background:"#161a24", border:"1px solid rgba(255,255,255,.06)", borderRadius:9, padding:11, cursor:"pointer" }}>
+                      <button key={player.id} onClick={() => onOpenPlayer(player, historical)} style={{ display:"flex", alignItems:"center", gap:10, textAlign:"left", background:"#161a24", border:"1px solid rgba(255,255,255,.06)", borderRadius:9, padding:11, cursor:"pointer" }}>
                         <div style={{ width:36, height:36, borderRadius:8, background:"rgba(201,168,76,.1)", color:"#c9a84c", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800 }}>{player.overall}</div>
                         <div style={{ flex:1 }}>
                           <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:700 }}>{player.name}</div>

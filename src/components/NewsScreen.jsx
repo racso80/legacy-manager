@@ -40,6 +40,11 @@ export default function NewsScreen({ news = [], currentSeason, game, onOpenPlaye
   const featured = filtered.find(item => item.featured || item.importance === "critical" || item.importance === "high") ?? filtered[0];
   const rest = featured ? filtered.filter(item => item.id !== featured.id) : filtered;
 
+  // Ids de jugadores mencionados en lo que está visible ahora mismo (mismo criterio que
+  // PCNewsScreen.jsx: sin paginación en móvil, "visible" es directamente `filtered`).
+  const relatedIds = [...new Set(filtered.flatMap(item => item.playerIds ?? []))];
+  const handleOpenPlayer = playerId => onOpenPlayer?.(playerId, relatedIds);
+
   return (
     <div style={{ flex:1, overflowY:"auto", padding:14 }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:12 }}>
@@ -61,9 +66,9 @@ export default function NewsScreen({ news = [], currentSeason, game, onOpenPlaye
       {featured ? (
         <>
           <div style={{ fontSize:10, color:COLORS.textDim, fontWeight:700, letterSpacing:".6px", marginBottom:8 }}>NOTICIA DESTACADA</div>
-          <NewsItem item={featured} featured onOpenPlayer={onOpenPlayer} />
+          <NewsItem item={featured} featured onOpenPlayer={handleOpenPlayer} />
           <div style={{ fontSize:10, color:COLORS.textDim, fontWeight:700, letterSpacing:".6px", margin:"18px 0 8px" }}>ÚLTIMAS NOTICIAS</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>{rest.map(item => <NewsItem key={item.id} item={item} onOpenPlayer={onOpenPlayer} />)}</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>{rest.map(item => <NewsItem key={item.id} item={item} onOpenPlayer={handleOpenPlayer} />)}</div>
         </>
       ) : (
         <div style={{ textAlign:"center", padding:"55px 20px", color:COLORS.textDim }}>

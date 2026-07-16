@@ -11135,7 +11135,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           )}
           {screen === "youth"     && game && (isPC
             ? <PCYouthAcademyScreen game={game} teams={TEAMS} onPromote={handleYouthPromotion} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />
-            : <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={openPlayerProfile} />
+            : <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />
           )}
           {screen === "board"     && game && (isPC
             ? <PCBoardScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />
@@ -11167,7 +11167,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           )}
           {screen === "contracts" && game && (isPC
             ? <PCContractsScreen game={ensureContractState(game)} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />
-            : <ContractsScreen game={ensureContractState(game)} onOpenPlayer={player=>openPlayerProfile(player,game.teamId)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />
+            : <ContractsScreen game={ensureContractState(game)} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} onCreateRenewal={handleCreateRenewal} onAcceptCounter={handleAcceptRenewalCounter} onComplete={handleCompleteRenewal} onWithdraw={handleWithdrawRenewal} />
           )}
           {screen === "transfers" && game && (isPC
             ? <PCTransferCenterScreen initialMainTab="mercado" game={game} teams={TEAMS} candidates={getScoutingPool(game)} budgetSnapshot={pcBudgetSnapshot} onOpenPlayer={openPlayerProfile} onClubOffer={handleClubOffer} onFreeAgentOffer={handleFreeAgentOffer} onAcceptClubCounter={handleAcceptClubCounter} onContractOffer={handleContractOffer} onAcceptPlayerCounter={handleAcceptPlayerCounter} onAcceptRoleCounter={handleAcceptRoleCounter} onWithdrawOffer={handleWithdrawOffer} onFinalizeOffer={handleFinalizeOffer} onUserMarketStatus={handleUserMarketStatus} onIncomingOffer={handleIncomingOffer} onStartMission={handleScoutingMission} onCancelMission={handleScoutingCancel} onToggleWatch={handleScoutingWatch} />
