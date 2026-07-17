@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getLoadLevel, getRiskLevel } from "../medical/medicalEngine.js";
+import { getInjuryRiskBreakdown, getLoadLevel, getRiskLevel } from "../medical/medicalEngine.js";
 import { getMedicalAlerts } from "../state/gameStateSelectors.js";
 import { SwipeTabs } from "./SwipeNavigation.jsx";
 import { COLORS } from "../utils/tokens.js";
@@ -7,6 +7,52 @@ import { COLORS } from "../utils/tokens.js";
 function RiskBar({ risk }) {
   const level = getRiskLevel(risk);
   return <div><div style={{ display:"flex", justifyContent:"space-between", fontSize:10, marginBottom:4 }}><span style={{ color:level.color, fontWeight:700 }}>{level.icon} Riesgo {level.label}</span><strong style={{ color:level.color }}>{risk}%</strong></div><div style={{ height:4, background:"#252a36", borderRadius:3, overflow:"hidden" }}><div style={{ width:`${risk}%`, height:"100%", background:level.color }}/></div></div>;
+}
+
+// Mismas etiquetas y misma lógica "hot" que PCRiskRow.jsx (duplicado, no compartido,
+// igual que el resto de pantallas PC/móvil de esta sesión). tacticalRisk/inMatchRisk
+// casi nunca aparecen aquí en la práctica (solo son != 0 durante un partido en vivo,
+// y esta pantalla no pasa tactics/currentMatchMinutes), pero se traducen igual por si acaso.
+const FACTOR_LABELS = {
+  fatigueRisk: () => "Fatiga alta",
+  accumulatedRisk: () => "Carga acumulada",
+  ageRisk: meta => `Edad (${meta.age})`,
+  streakRisk: meta => `${meta.consecutiveStarts} titularidad${meta.consecutiveStarts === 1 ? "" : "es"} seguida${meta.consecutiveStarts === 1 ? "" : "s"}`,
+  minutesRisk: () => "Minutos temporada",
+  inMatchRisk: () => "Minutos en el partido",
+  historyRisk: meta => `Historial: ${meta.seriousInjuryCount} lesión${meta.seriousInjuryCount === 1 ? "" : "es"} grave${meta.seriousInjuryCount === 1 ? "" : "s"}`,
+  limitationRisk: () => "Apto con limitaciones",
+  trainingRisk: () => "Carga de entrenamiento",
+  tacticalRisk: () => "Exigencia táctica",
+};
+
+// Muestra hasta 3 factores no despreciables, de mayor a menor. "hot" marca el factor
+// dominante y cualquier otro que esté a menos del 40% de distancia de él.
+function topFactors(factors, meta) {
+  const entries = Object.entries(factors).filter(([, value]) => value > .5).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) return [];
+  const topValue = entries[0][1];
+  return entries.slice(0, 3).map(([key, value]) => ({
+    key,
+    label: (FACTOR_LABELS[key] ?? (() => key))(meta),
+    hot: value >= topValue * .6,
+  }));
+}
+
+function RiskFactorChips({ player, game }) {
+  const breakdown = getInjuryRiskBreakdown(player, { fixtures: game.fixtures ?? [], teamId: game.teamId, game });
+  const chips = topFactors(breakdown.factors, breakdown.meta);
+  if (!chips.length) return null;
+  return (
+    <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:8 }}>
+      {chips.map(chip => (
+        <span key={chip.key} style={{ fontSize:9, padding:"3px 8px", borderRadius:999,
+          background:chip.hot?"rgba(239,68,68,.12)":"rgba(255,255,255,.05)", color:chip.hot?"#ef4444":COLORS.textDim }}>
+          {chip.label}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default function MedicalCenterScreen({ game, onOpenPlayer }) {
@@ -17,7 +63,7 @@ export default function MedicalCenterScreen({ game, onOpenPlayer }) {
     energy:item.state.energy,
   }));
   const patients = assessed.filter(item => item.state.isInjured || item.state.isRecovering);
-  const warnings = assessed.filter(item => !(item.state.isInjured || item.state.isRecovering)).slice(0,5);
+  const warnings = assessed.filter(item => !(item.state.isInjured || item.state.isRecovering));
 
   const tabs=[["patients",`🏥 Pacientes (${patients.length})`],["prevention",`🛡 Prevención (${warnings.length})`]];
   return <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
@@ -31,7 +77,7 @@ export default function MedicalCenterScreen({ game, onOpenPlayer }) {
       return <button key={player.id} onClick={()=>onOpenPlayer(player,game.teamId,patients.map(item=>item.player))} style={{ width:"100%", textAlign:"left", background:"#161a24", border:"1px solid rgba(239,68,68,.16)", borderRadius:10, padding:12, cursor:"pointer" }}><div style={{ display:"flex", alignItems:"center", gap:10 }}><div style={{ width:38,height:38,borderRadius:8,background:`${status.color}18`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>🏥</div><div style={{ flex:1 }}><div style={{ color:"#e8eaf0", fontSize:13, fontWeight:700 }}>{player.name}</div><div style={{ color:status.color, fontSize:10, marginTop:2 }}>{status.label} · {medical.type??"Lesión muscular"}</div></div><div style={{ textAlign:"right" }}><div style={{ color:"#fff", fontWeight:800, fontSize:14 }}>{medical.remainingDays??0} días</div><div style={{ color:COLORS.textDim, fontSize:9 }}>restantes</div></div></div><div style={{ marginTop:10 }}><div style={{ display:"flex", justifyContent:"space-between", color:COLORS.textDim, fontSize:9, marginBottom:4 }}><span>RECUPERACIÓN</span><span>{medical.recovery??0}%</span></div><div style={{ height:5, background:"#252a36", borderRadius:3, overflow:"hidden" }}><div style={{ width:`${medical.recovery??0}%`, height:"100%", background:status.color }}/></div></div></button>;
     })}</div>:<div style={{ background:"#161a24", borderRadius:9, padding:18, textAlign:"center", color:COLORS.textDim, fontSize:11, marginBottom:18 }}>🟢 Todos los jugadores están disponibles.</div>}{patients.some(item=>item.player.medical?.remainingDays>0)&&<div style={{ color:COLORS.textDim, fontSize:9, lineHeight:1.5, marginTop:15 }}>Los plazos son estimados y pueden variar según la evolución del jugador.</div>}</>}
     {tab==="prevention"&&<><div style={{ fontSize:10, color:COLORS.textDim, fontWeight:800, letterSpacing:".6px", marginBottom:8 }}>RECOMENDACIONES DE DESCANSO</div>
-    {warnings.length ? <div style={{ display:"flex", flexDirection:"column", gap:7 }}>{warnings.map(({player,risk,status,load,loadLevel,energy})=><button key={player.id} onClick={()=>onOpenPlayer(player,game.teamId,warnings.map(item=>item.player))} style={{ width:"100%", textAlign:"left", background:"#161a24", border:"1px solid rgba(255,255,255,.06)", borderRadius:9, padding:11, cursor:"pointer" }}><div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:8 }}><div style={{ flex:1 }}><div style={{ color:"#e8eaf0", fontSize:12, fontWeight:700 }}>{player.name}</div><div style={{ color:status.color, fontSize:9, marginTop:2 }}>{status.label} · Energía: {energy}%</div><div style={{ color:loadLevel.color, fontSize:9, marginTop:2 }}>Carga {loadLevel.label.toLowerCase()}: {load}%</div></div><div style={{ color:COLORS.muted, fontSize:9, maxWidth:130, textAlign:"right" }}>{loadLevel.id==="critical"?"Necesita parar antes de que el cuerpo lo haga por él.":loadLevel.id==="high"?"Conviene aliviar su carga esta semana.":"Vigilar sin urgencia, dosificar minutos si el calendario aprieta."}</div></div><RiskBar risk={risk}/></button>)}</div>:<div style={{ color:COLORS.textDim, fontSize:11, textAlign:"center", padding:20 }}>No hay alertas de sobrecarga.</div>}
+    {warnings.length ? <div style={{ display:"flex", flexDirection:"column", gap:7 }}>{warnings.map(({player,risk,status,load,loadLevel,energy})=><button key={player.id} onClick={()=>onOpenPlayer(player,game.teamId,warnings.map(item=>item.player))} style={{ width:"100%", textAlign:"left", background:"#161a24", border:"1px solid rgba(255,255,255,.06)", borderRadius:9, padding:11, cursor:"pointer" }}><div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:8 }}><div style={{ flex:1 }}><div style={{ color:"#e8eaf0", fontSize:12, fontWeight:700 }}>{player.name}</div><div style={{ color:status.color, fontSize:9, marginTop:2 }}>{status.label} · Energía: {energy}%</div><div style={{ color:loadLevel.color, fontSize:9, marginTop:2 }}>Carga {loadLevel.label.toLowerCase()}: {load}%</div></div><div style={{ color:COLORS.muted, fontSize:9, maxWidth:130, textAlign:"right" }}>{loadLevel.id==="critical"?"Necesita parar antes de que el cuerpo lo haga por él.":loadLevel.id==="high"?"Conviene aliviar su carga esta semana.":"Vigilar sin urgencia, dosificar minutos si el calendario aprieta."}</div></div><RiskBar risk={risk}/><RiskFactorChips player={player} game={game}/></button>)}</div>:<div style={{ color:COLORS.textDim, fontSize:11, textAlign:"center", padding:20 }}>No hay alertas de sobrecarga.</div>}
     </>}
     </div>
     </SwipeTabs>
