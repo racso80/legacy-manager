@@ -1,9 +1,10 @@
 import { ensureStaffState, STAFF_ROLES } from "../../staff/staffEngine.js";
 import PCStaffCard from "./staff/PCStaffCard.jsx";
+import PCStaffRecommendations from "./staff/PCStaffRecommendations.jsx";
 
 const ROLE_ORDER = Object.keys(STAFF_ROLES);
 
-export default function PCStaffScreen({ game, teams }) {
+export default function PCStaffScreen({ game, teams, onNavigate }) {
   const ensured = ensureStaffState(game, teams ?? []);
 
   return (
@@ -19,6 +20,8 @@ export default function PCStaffScreen({ game, teams }) {
         <span><span className="pc-sf-dot-real" /> Atributo con efecto real en el juego</span>
         <span><span className="pc-sf-dot-inert" /> Atributo decorativo (sin efecto aún)</span>
       </div>
+
+      <PCStaffRecommendations game={ensured} onNavigate={onNavigate} />
 
       <div className="pc-sf-grid">
         {ROLE_ORDER.map(roleId => (

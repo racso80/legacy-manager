@@ -3754,6 +3754,18 @@ const GLOBAL_CSS = `
     .pc-sf-effect-summary b.bad, .pc-sf-effect-summary span.bad { color: var(--sf-red, #ef4444); }
     .pc-sf-inert-text { color: var(--sf-text-dim2, #6b7280); font-style: italic; }
 
+    .pc-sf-recs { margin-bottom: 20px; }
+    .pc-sf-recs-title { font-size: 10px; font-weight: 900; letter-spacing: .8px; text-transform: uppercase; color: var(--sf-gold, #c9a84c); margin-bottom: 10px; }
+    .pc-sf-recs-list { display: flex; flex-direction: column; gap: 8px; }
+    .pc-sf-rec-card { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; background: var(--sf-panel, #111726); border: 1px solid var(--sf-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 12px 14px; cursor: pointer; font-family: inherit; transition: border-color .15s; }
+    .pc-sf-rec-card:hover { border-color: var(--sf-gold, #c9a84c); }
+    .pc-sf-rec-icon { font-size: 19px; flex-shrink: 0; }
+    .pc-sf-rec-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .pc-sf-rec-heading { font-size: 12px; font-weight: 700; color: #e8eaf0; }
+    .pc-sf-rec-quote { font-size: 11px; color: var(--sf-text-dim, #9aa0b4); line-height: 1.45; }
+    .pc-sf-rec-profile { font-size: 9.5px; font-style: italic; color: var(--sf-text-dim2, #6b7280); }
+    .pc-sf-recs-empty { background: var(--sf-panel, #111726); border-radius: 8px; padding: 16px; color: var(--sf-text-dim, #9aa0b4); font-size: 11.5px; text-align: center; }
+
     /* ─── PC Directiva ── Mismos tokens que el resto de pantallas PC: dorado =
        --club-accent, panel #111726, líneas rgba(255,255,255,.07), radios 6-8px. */
     .pc-bd-root {
@@ -11150,7 +11162,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             : <CoachCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />
           )}
           {screen === "staff" && game && (isPC
-            ? <PCStaffScreen game={game} teams={TEAMS} />
+            ? <PCStaffScreen game={game} teams={TEAMS} onNavigate={setScreen} />
             : <StaffScreen game={ensureStaffState(game,TEAMS)} onNavigate={setScreen} />
           )}
           {screen === "scouting" && game && (isPC
