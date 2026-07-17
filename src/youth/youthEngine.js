@@ -245,6 +245,30 @@ export function createYouthAnnualReport(game){
   return{id:`academy_report_${game.season}`,season:String(game.season),promoted:promotions.length,sold:sales.length,generatedValue,standout:standout?{id:standout.id,name:standout.name,potential:standout.potential}:null,createdAt:new Date().toISOString()};
 }
 
+const hashSeedText=value=>{let h=0;for(const c of String(value))h=(h*31+c.charCodeAt(0))>>>0;return h;};
+
+// Compartido entre móvil y PC (a diferencia del resto de duplicados pequeños de esta
+// sesión): el texto es lo bastante extenso como para justificar una única fuente en
+// vez de mantener dos copias sincronizadas manualmente.
+export function getChiefScoutReport(game){
+  const youth=game.youth??{players:[]};
+  const standout=[...youth.players].sort((a,b)=>b.potential-a.potential||a.age-b.age)[0];
+  if(!standout)return "No hay juveniles disponibles actualmente.";
+  const variants=[
+    `La hornada cuenta con ${youth.players.length} juveniles. ${standout.name}, ${standout.pos} de ${standout.age} años, destaca con un potencial estimado de ${standout.potential}.`,
+    `Esta generación trae ${youth.players.length} nombres propios. El que más ilusiona es ${standout.name}, ${standout.pos} de ${standout.age} años, con un techo estimado de ${standout.potential}.`,
+    `El filial presenta ${youth.players.length} juveniles esta temporada. Entre ellos sobresale ${standout.name} (${standout.pos}, ${standout.age} años), con un potencial cercano a ${standout.potential}.`,
+  ];
+  let text=variants[hashSeedText(`${game.season}:${standout.id}`)%variants.length];
+  const lastStandoutPotential=youth.annualReports?.[0]?.standout?.potential;
+  if(lastStandoutPotential!=null){
+    if(standout.potential>lastStandoutPotential)text+=" Un nivel por encima del de la última hornada.";
+    else if(standout.potential<lastStandoutPotential)text+=" Algo por debajo de lo visto la temporada pasada, aunque con margen de progresión.";
+    else text+=" Un nivel similar al de la última hornada.";
+  }
+  return text;
+}
+
 export function getAcademyGraduates(game){
   return [
     ...(game.players??[]).filter(player=>player.academyData),

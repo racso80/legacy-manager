@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { getAcademyGraduates, getAcademyMetrics, getTalentCategory, getYouthProjection } from "../youth/youthEngine.js";
+import { getAcademyGraduates, getAcademyMetrics, getChiefScoutReport, getTalentCategory, getYouthProjection } from "../youth/youthEngine.js";
+import { ensureStaffState } from "../staff/staffEngine.js";
+import { getStaffCardEffects } from "./pc/staff/staffEffectSummary.js";
 import Button from "./ui/Button.jsx";
 import { SwipeTabs } from "./SwipeNavigation.jsx";
 import { COUNTRY_NAMES, FLAGS } from "./PlayerProfileScreen.jsx";
 import { COLORS } from "../utils/tokens.js";
 
 const fmt = value => value >= 1000 ? `€${(value / 1000).toFixed(1)}M` : `€${value}K`;
-const hashSeed = value => { let h = 0; for (const c of String(value)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
 const describeWeeklyChanges = changes => {
   const parts = changes.map(change => `${change.label} (+${change.delta})`);
   const joined = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} y ${parts[parts.length - 1]}` : parts[0];
@@ -18,32 +19,24 @@ const trendMeta = {
   stable:{ icon:"➖", label:"Estable", color:COLORS.muted },
 };
 
-export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
+export default function YouthAcademyScreen({ game, teams, onPromote, onOpenPlayer }) {
   const [tab, setTab] = useState("current");
   const [feedback, setFeedback] = useState(null);
   const youth = game.youth;
   const metrics = getAcademyMetrics(game);
   const report = youth.annualReports?.[0];
   const intakeIds = new Set(youth.lastIntake ?? []);
-  const standout = [...youth.players].sort((a, b) => b.potential - a.potential || a.age - b.age)[0];
-  const chiefReportText = (() => {
-    if (!standout) return "No hay juveniles disponibles actualmente.";
-    const variants = [
-      `La hornada cuenta con ${youth.players.length} juveniles. ${standout.name}, ${standout.pos} de ${standout.age} años, destaca con un potencial estimado de ${standout.potential}.`,
-      `Esta generación trae ${youth.players.length} nombres propios. El que más ilusiona es ${standout.name}, ${standout.pos} de ${standout.age} años, con un techo estimado de ${standout.potential}.`,
-      `El filial presenta ${youth.players.length} juveniles esta temporada. Entre ellos sobresale ${standout.name} (${standout.pos}, ${standout.age} años), con un potencial cercano a ${standout.potential}.`,
-    ];
-    let text = variants[hashSeed(`${game.season}:${standout.id}`) % variants.length];
-    const lastStandoutPotential = report?.standout?.potential;
-    if (lastStandoutPotential != null) {
-      if (standout.potential > lastStandoutPotential) text += " Un nivel por encima del de la última hornada.";
-      else if (standout.potential < lastStandoutPotential) text += " Algo por debajo de lo visto la temporada pasada, aunque con margen de progresión.";
-      else text += " Un nivel similar al de la última hornada.";
-    }
-    return text;
-  })();
+  const chiefReportText = getChiefScoutReport(game);
   const historical = getAcademyGraduates(game);
   const sortedProspects = [...youth.players].sort((a, b) => b.potential - a.potential);
+  const staffGame = ensureStaffState(game, teams ?? []);
+  const { member: academyDirector, effects: academyEffects } = getStaffCardEffects(staffGame, "academyDirector");
+  const talentEffect = academyEffects.find(effect => effect.key === "talentDevelopment");
+  const visionEffect = academyEffects.find(effect => effect.key === "academyVision");
+  const academyNotes = youth.players
+    .flatMap(player => (player.academyData?.developmentNotes ?? []).map(note => ({ ...note, playerId: player.id, playerName: player.name })))
+    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+    .slice(0, 8);
   const promotePlayer = (player) => {
     const result = onPromote?.(player.id);
     setFeedback(result ?? { ok:false, message:"No se ha podido promocionar al canterano." });
@@ -185,6 +178,39 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                   </div>
                 </>
               )}
+
+              <div style={{ fontSize:10, color:COLORS.muted, fontWeight:800, letterSpacing:".6px", margin:"18px 0 8px" }}>🌱 DIRECTOR DE CANTERA</div>
+              <div style={{ background:"#161a24", borderRadius:9, padding:12 }}>
+                {!academyDirector ? (
+                  <div style={{ color:COLORS.muted, fontSize:11, fontStyle:"italic", lineHeight:1.5 }}>No hay nadie en este puesto. Sin efecto sobre el desarrollo ni el olfato de cantera.</div>
+                ) : (
+                  <>
+                    <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:800, marginBottom:9 }}>{academyDirector.name}</div>
+                    <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#c9ced8", marginBottom:7 }}>
+                      <span>Desarrollo de talento</span>
+                      <strong style={{ color:talentEffect?.negative ? "#ef4444" : "#22c55e" }}>{talentEffect?.formatted}</strong>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#c9ced8" }}>
+                      <span>Visión de cantera</span>
+                      <strong style={{ color:visionEffect?.positive ? "#22c55e" : visionEffect?.negative ? "#ef4444" : COLORS.muted }}>
+                        {visionEffect?.positive ? "Mejora las probabilidades de encontrar una joya" : visionEffect?.negative ? "Reduce las probabilidades de encontrar una joya" : "Efecto neutro en la captación"}
+                      </strong>
+                    </div>
+                  </>
+                )}
+                <div style={{ fontSize:9, color:COLORS.muted, fontWeight:800, letterSpacing:".5px", margin:"12px 0 6px" }}>SEGUIMIENTO RECIENTE</div>
+                {academyNotes.length ? (
+                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                    {academyNotes.map((note, index) => (
+                      <div key={`${note.playerId}-${note.matchday}-${index}`} style={{ color:"#c9ced8", fontSize:10, lineHeight:1.45 }}>
+                        <strong style={{ color:"#e8eaf0" }}>{note.playerName}</strong> (J{note.matchday}): {note.text}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ color:COLORS.muted, fontSize:10, fontStyle:"italic" }}>Sin novedades esta semana.</div>
+                )}
+              </div>
             </>
           )}
 
@@ -194,14 +220,16 @@ export default function YouthAcademyScreen({ game, onPromote, onOpenPlayer }) {
                 <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                   {historical.map(player => {
                     const stats = player.academyStats ?? {};
+                    const sold = player.academyStatus === "sold";
                     return (
                       <button key={player.id} onClick={() => onOpenPlayer(player, historical)} style={{ display:"flex", alignItems:"center", gap:10, textAlign:"left", background:"#161a24", border:"1px solid rgba(255,255,255,.06)", borderRadius:9, padding:11, cursor:"pointer" }}>
                         <div style={{ width:36, height:36, borderRadius:8, background:"rgba(201,168,76,.1)", color:"#c9a84c", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800 }}>{player.overall}</div>
                         <div style={{ flex:1 }}>
                           <div style={{ color:"#e8eaf0", fontSize:12, fontWeight:700 }}>{player.name}</div>
                           <div style={{ color:COLORS.muted, fontSize:9, marginTop:3 }}>Llegó en T. {player.academyData?.joinedSeason} · {player.academyData?.debutSeason ? `Debutó en T. ${player.academyData.debutSeason}` : "Aún sin debutar"}</div>
+                          <div style={{ color:sold ? COLORS.muted : "#22c55e", fontSize:9, marginTop:3 }}>{sold ? `Vendido${player.saleValue != null ? ` (${fmt(player.saleValue)})` : ""}` : "En plantilla"}{player.academyData?.promotedSeason ? ` · Promovido T. ${player.academyData.promotedSeason}` : ""}</div>
                         </div>
-                        <div style={{ textAlign:"right", fontSize:9, color:"#c9ced8" }}>{stats.appearances ?? 0} part.<br />{stats.goals ?? 0} goles</div>
+                        <div style={{ textAlign:"right", fontSize:9, color:"#c9ced8" }}>{stats.appearances ?? 0} part.<br />{stats.goals ?? 0} goles<br />{stats.seasons ?? 0} temp. · {stats.titles ?? 0} títulos</div>
                       </button>
                     );
                   })}

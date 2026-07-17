@@ -3,7 +3,15 @@ import { getTalentCategory, getYouthProjection } from "../../../youth/youthEngin
 
 const FULL_TOOLTIP = "No se puede promocionar: la plantilla del primer equipo tiene el máximo de 30 jugadores.";
 
-export default function PCProspectCard({ player, isNew, canPromote, onOpenPlayer, onPromote }) {
+// Mismo formato que describeWeeklyChanges en YouthAcademyScreen.jsx (móvil), duplicado
+// igual que el resto de helpers pequeños PC/móvil de esta sesión.
+function describeWeeklyChanges(changes) {
+  const parts = changes.map(change => `${change.label} (+${change.delta})`);
+  const joined = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} y ${parts[parts.length - 1]}` : parts[0];
+  return `Mejora en ${joined} esta semana.`;
+}
+
+export default function PCProspectCard({ player, isNew, canPromote, progress, onOpenPlayer, onPromote }) {
   const category = getTalentCategory(player.potential);
   const projection = getYouthProjection(player);
   const initialPotential = player.academyData?.initialPotential ?? player.potential;
@@ -34,6 +42,16 @@ export default function PCProspectCard({ player, isNew, canPromote, onOpenPlayer
       <div className="pc-yt-projection-tag" style={{ color: projection.color, background: `${projection.color}16`, borderColor: `${projection.color}30` }}>
         {projection.icon} {projection.label}
       </div>
+
+      {progress && (
+        <div className={`pc-yt-progress-note${progress.changes?.length ? " good" : ""}`}>
+          {progress.changes?.length
+            ? `📈 ${describeWeeklyChanges(progress.changes)}`
+            : progress.progress?.[0]
+              ? `Avanza en ${progress.progress[0].label}, ya está al ${progress.progress[0].value}% de su objetivo de mejora.`
+              : "Desarrollo estable"}
+        </div>
+      )}
 
       <div className="pc-yt-card-foot">
         <button className="btn-ghost pc-yt-btn-sm" onClick={() => onOpenPlayer(player)}>Ver perfil</button>

@@ -3493,7 +3493,11 @@ const GLOBAL_CSS = `
     .pc-yt-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
     .pc-yt-header h1 { font-size: 19px; font-weight: 700; color: #e8eaf0; }
 
-    .pc-yt-summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+    .pc-yt-chief-report { background: linear-gradient(135deg, rgba(34,197,94,.13), var(--yt-panel, #111726)); border: 1px solid rgba(34,197,94,.22); border-radius: 8px; padding: 14px 16px; margin-bottom: 18px; }
+    .pc-yt-chief-title { font-size: 11px; font-weight: 800; letter-spacing: .5px; color: var(--yt-green, #22c55e); text-transform: uppercase; margin-bottom: 7px; }
+    .pc-yt-chief-body { font-size: 12.5px; color: #c9ced8; line-height: 1.55; }
+
+    .pc-yt-summary-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 18px; }
     .pc-yt-summary-card { background: var(--yt-panel, #111726); border: 1px solid var(--yt-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 14px 16px; }
     .pc-yt-summary-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--yt-text-dim, #9aa0b4); margin-bottom: 6px; }
     .pc-yt-summary-value { font-size: 20px; font-weight: 800; color: #e8eaf0; }
@@ -3531,8 +3535,18 @@ const GLOBAL_CSS = `
 
     .pc-yt-projection-tag { align-self: flex-start; font-size: 10px; font-weight: 800; border: 1px solid; border-radius: 999px; padding: 4px 9px; }
 
+    .pc-yt-progress-note { font-size: 10.5px; color: var(--yt-text-dim, #9aa0b4); line-height: 1.4; }
+    .pc-yt-progress-note.good { color: var(--yt-green, #22c55e); }
+
     .pc-yt-card-foot { display: flex; gap: 7px; margin-top: 2px; }
     .pc-yt-btn-sm { flex: 1; padding: 7px 10px; font-size: 11px; }
+
+    .pc-yt-side-stack { display: flex; flex-direction: column; gap: 16px; }
+    .pc-yt-annual-card { background: var(--yt-panel, #111726); border: 1px solid var(--yt-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; }
+    .pc-yt-annual-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--yt-text-dim, #9aa0b4); margin-bottom: 10px; }
+    .pc-yt-annual-body { font-size: 12px; color: #c9ced8; line-height: 1.7; }
+    .pc-yt-annual-body strong { color: var(--yt-gold, #c9a84c); }
+    .pc-yt-annual-body strong.good { color: var(--yt-green, #22c55e); }
 
     .pc-yt-side-panel { background: var(--yt-panel, #111726); border: 1px solid var(--yt-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; position: sticky; top: 20px; }
     .pc-yt-staff-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--yt-text-dim, #9aa0b4); margin-bottom: 10px; }
@@ -11147,7 +11161,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
           )}
           {screen === "youth"     && game && (isPC
             ? <PCYouthAcademyScreen game={game} teams={TEAMS} onPromote={handleYouthPromotion} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />
-            : <YouthAcademyScreen game={game} onPromote={handleYouthPromotion} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />
+            : <YouthAcademyScreen game={game} teams={TEAMS} onPromote={handleYouthPromotion} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />
           )}
           {screen === "board"     && game && (isPC
             ? <PCBoardScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />
