@@ -1,10 +1,21 @@
 import { useState } from "react";
 import { CONTRACT_ROLES, suggestedRenewalSalary } from "../contracts/contractEngine.js";
+import { getMarketValue } from "../players/playerProfile.js";
 import FeedbackBanner from "./ui/FeedbackBanner.jsx";
 import { useFeedback } from "../utils/feedback.js";
 import { COLORS } from "../utils/tokens.js";
 
 const fmt=value=>value>=1000?`€${(value/1000).toFixed(1)}M`:`€${value}K`;
+
+// Misma lógica que PCContractsScreen.jsx (duplicado, no compartido, igual que el resto de
+// pantallas PC/móvil de esta sesión).
+const VULNERABLE_TOOLTIP = "Cláusula relativamente baja para su nivel. Hoy ningún club puede pagarla y llevárselo sin negociar contigo — es solo una señal a vigilar si eso cambia más adelante.";
+function isVulnerableClause(player) {
+  if (!["Estrella", "Titular"].includes(player.squadRole)) return false;
+  const marketValue = getMarketValue(player);
+  if (!marketValue || !player.releaseClause) return false;
+  return player.releaseClause / marketValue <= 1.65;
+}
 const statusMap={
   pending:["⏳","Esperando respuesta","#f59e0b"],
   accepted:["✅","Aceptada","#22c55e"],
@@ -43,10 +54,10 @@ export default function ContractsScreen({game,onOpenPlayer,onCreateRenewal,onAcc
     </div>
     <div style={{flex:1,overflowY:"auto",padding:12}}>
       {feedback&&<FeedbackBanner feedback={feedback}/>}
-      {shown.map(player=>{const offer=activeByPlayer.get(player.id);const status=offer?statusMap[offer.status]??["•",offer.status,COLORS.textDim]:null;return <div key={player.id} style={{background:"#161a24",border:`1px solid ${status?.[2]??"rgba(255,255,255,.06)"}33`,borderRadius:11,padding:11,marginBottom:8}}>
+      {shown.map(player=>{const offer=activeByPlayer.get(player.id);const status=offer?statusMap[offer.status]??["•",offer.status,COLORS.textDim]:null;const vulnerable=isVulnerableClause(player);return <div key={player.id} style={{background:"#161a24",border:`1px solid ${status?.[2]??"rgba(255,255,255,.06)"}33`,borderRadius:11,padding:11,marginBottom:8}}>
         <div style={{display:"flex",gap:10,alignItems:"center"}}>
           <button onClick={()=>onOpenPlayer(player, shown)} style={{width:38,height:38,borderRadius:9,background:"rgba(201,168,76,.12)",border:"1px solid rgba(201,168,76,.25)",color:"#c9a84c",fontWeight:900}}>{player.overall}</button>
-          <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:850,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</div><div style={{fontSize:9,color:COLORS.textDim,marginTop:3}}>{player.pos} · {player.age}a · {fmt(player.salary??0)}/sem · rol {player.squadRole??"Rotación"}</div></div>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,color:"#e8eaf0",fontWeight:850,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</div><div style={{fontSize:9,color:COLORS.textDim,marginTop:3}}>{player.pos} · {player.age}a · {fmt(player.salary??0)}/sem · rol {player.squadRole??"Rotación"} · Cláusula {fmt(player.releaseClause??0)}{vulnerable&&<span title={VULNERABLE_TOOLTIP}> 🛡️</span>}</div></div>
           <div style={{textAlign:"right"}}><div style={{fontSize:12,color:Number(player.contractEnd)<=Number(game.season)+1?"#f59e0b":COLORS.muted,fontWeight:900}}>{player.contractEnd??"—"}</div><div style={{fontSize:8,color:COLORS.textDim}}>FINALIZA</div></div>
         </div>
         {offer&&<div style={{marginTop:9,background:"#0d0f14",borderRadius:8,padding:9}}><div style={{fontSize:10,color:status[2],fontWeight:900}}>{status[0]} {status[1]}</div><div style={{fontSize:9,color:COLORS.muted,marginTop:4}}>Oferta: {fmt(offer.salary)}/sem · {offer.years} años · {offer.role}</div>{["salaryCounter","yearsCounter","roleCounter"].includes(offer.status)&&<button onClick={()=>onAcceptCounter(offer.id)} className="btn-gold" style={{width:"100%",marginTop:8,padding:8,borderRadius:8,fontSize:10}}>Aceptar petición del jugador</button>}{offer.status==="accepted"&&<button onClick={()=>{onComplete(offer.id);showFeedback(`Renovación firmada con ${player.name}.`,"success");}} className="btn-gold" style={{width:"100%",marginTop:8,padding:8,borderRadius:8,fontSize:10}}>Firmar renovación</button>}{!["completed","withdrawn"].includes(offer.status)&&<button onClick={()=>onWithdraw(offer.id)} className="btn-ghost" style={{width:"100%",marginTop:7,padding:7,borderRadius:8,fontSize:10}}>Retirar oferta</button>}</div>}
