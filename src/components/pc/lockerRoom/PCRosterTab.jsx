@@ -1,13 +1,25 @@
 import { useState } from "react";
 import PlayerAvatar from "../../PlayerAvatar.jsx";
 import { getMoraleLevel } from "../../../morale/moraleEngine.js";
+import { getPlayerSmartActions } from "../../../state/gameStateSelectors.js";
 
 const FILTERS = [["all", "Todos"], ["concerns", "Preocupados"], ["leaders", "Líderes"], ["young", "Jóvenes"]];
 const ROLE_COLOR = { Estrella: "#c9a84c", Titular: "#22c55e", "Rotación": "#60a5fa", Promesa: "#84cc16", Suplente: "#9ca3af", Emergencia: "#6b7280" };
 const isConcern = player => (player.morale ?? 70) < 45 || (player.happiness ?? 70) < 45 || (player.managerTrust ?? 70) < 45;
+// Umbral para mostrar acciones rápidas — mismo que "concern" en LockerRoomScreen.jsx
+// (móvil): más amplio que isConcern (filtro "Preocupados"/borde de la tarjeta), porque
+// un jugador lesionado o sancionado sin problema anímico también necesita una acción.
+const needsSmartAction = player => isConcern(player) || player.injured || player.suspended;
 
-export default function PCRosterTab({ players, conversations, leaderIds, onOpenPlayer, onOpenConversation }) {
+export default function PCRosterTab({ game, players, conversations, leaderIds, onOpenPlayer, onOpenConversation, onGoContracts, onGoLineup, onGoTraining, onGoMedical }) {
   const [filter, setFilter] = useState("all");
+  const runSmartAction = (action, player) => {
+    if (action.screen === "lineup") return onGoLineup?.();
+    if (action.screen === "contracts") return onGoContracts?.();
+    if (action.screen === "training") return onGoTraining?.();
+    if (action.screen === "medical") return onGoMedical?.();
+    return onOpenPlayer?.(player);
+  };
   const filtered = players
     .filter(player => {
       if (filter === "leaders") return leaderIds.has(player.id);
@@ -29,6 +41,7 @@ export default function PCRosterTab({ players, conversations, leaderIds, onOpenP
         {filtered.map(player => {
           const morale = getMoraleLevel(player.morale);
           const pendingConversation = conversations.find(item => item.actorId === player.id);
+          const smartActions = needsSmartAction(player) ? getPlayerSmartActions(player, game) : [];
           return (
             <div key={player.id} className={`pc-lr-roster-card${isConcern(player) ? " concern" : ""}`}>
               <div className="pc-lr-roster-top" onClick={() => onOpenPlayer(player)}>
@@ -43,6 +56,16 @@ export default function PCRosterTab({ players, conversations, leaderIds, onOpenP
                 <div><span className="lbl">Felicidad</span><span className="val">{player.happiness}</span></div>
                 <div><span className="lbl">Confianza</span><span className="val">{player.managerTrust}</span></div>
               </div>
+              {smartActions.length > 0 && (
+                <div className="pc-lr-smart-actions">
+                  <div className="pc-lr-smart-actions-row">
+                    {smartActions.map((action, index) => (
+                      <button key={action.id} className={index === 0 ? "btn-gold" : "btn-ghost"} onClick={() => runSmartAction(action, player)}>{action.label}</button>
+                    ))}
+                  </div>
+                  <div className="pc-lr-smart-actions-reason">Motivo: {smartActions[0]?.reason}</div>
+                </div>
+              )}
               {pendingConversation
                 ? <button className="btn-gold pc-lr-roster-btn" onClick={() => onOpenConversation(pendingConversation.id)}>💬 Hablar</button>
                 : <button className="btn-ghost pc-lr-roster-btn" onClick={() => onOpenPlayer(player)}>Ver perfil</button>}

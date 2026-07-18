@@ -1,11 +1,6 @@
 import PlayerAvatar from "../../PlayerAvatar.jsx";
 
-export default function PCLeadersPanel({ players, summary, onOpenPlayer }) {
-  const recentMoments = players
-    .flatMap(player => (player.moraleEvents ?? []).map(event => ({ player, event })))
-    .sort((a, b) => (b.event.matchday ?? 0) - (a.event.matchday ?? 0))
-    .slice(0, 5);
-
+export default function PCLeadersPanel({ summary, onOpenPlayer }) {
   return (
     <div className="pc-lr-side-panel">
       <div className="pc-lr-side-title">Líderes del grupo</div>
@@ -20,18 +15,6 @@ export default function PCLeadersPanel({ players, summary, onOpenPlayer }) {
           </button>
         ))}
       </div>
-
-      <div className="pc-lr-side-title pc-lr-side-title-spaced">Momentos recientes</div>
-      {recentMoments.length ? (
-        <div className="pc-lr-moments-list">
-          {recentMoments.map(({ player, event }) => (
-            <button key={`${player.id}-${event.id}`} className="pc-lr-moment-item" onClick={() => onOpenPlayer(player)}>
-              <div className="pc-lr-moment-name">{player.name}</div>
-              <div className="pc-lr-moment-label">{event.label}</div>
-            </button>
-          ))}
-        </div>
-      ) : <div className="pc-lr-side-empty">Sin novedades recientes.</div>}
     </div>
   );
 }

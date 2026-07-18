@@ -3623,18 +3623,19 @@ const GLOBAL_CSS = `
 
     .pc-lr-side-panel { background: var(--lr-panel, #111726); border: 1px solid var(--lr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 16px; position: sticky; top: 20px; }
     .pc-lr-side-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--lr-text-dim, #9aa0b4); margin-bottom: 10px; }
-    .pc-lr-side-title-spaced { margin-top: 18px; }
     .pc-lr-leaders-list { display: flex; flex-direction: column; gap: 8px; }
     .pc-lr-leader-row { display: flex; align-items: center; gap: 9px; text-align: left; background: transparent; border: none; padding: 6px; border-radius: 7px; cursor: pointer; width: 100%; }
     .pc-lr-leader-row:hover { background: rgba(255,255,255,.04); }
     .pc-lr-leader-info { min-width: 0; }
     .pc-lr-leader-name { font-size: 12px; font-weight: 700; color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pc-lr-leader-sub { font-size: 10px; color: var(--lr-text-dim, #9aa0b4); margin-top: 2px; }
-    .pc-lr-moments-list { display: flex; flex-direction: column; gap: 8px; }
-    .pc-lr-moment-item { text-align: left; background: transparent; border: none; padding: 0; cursor: pointer; }
+
+    .pc-lr-moments-section { margin-bottom: 18px; }
+    .pc-lr-moments-grid { display: flex; flex-direction: column; gap: 8px; }
+    .pc-lr-moment-card { text-align: left; background: var(--lr-panel, #111726); border: 1px solid var(--lr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 10px 12px; cursor: pointer; width: 100%; }
+    .pc-lr-moment-card:hover { border-color: var(--lr-gold, #c9a84c); }
     .pc-lr-moment-name { font-size: 11px; font-weight: 700; color: #e8eaf0; }
     .pc-lr-moment-label { font-size: 10.5px; color: var(--lr-text-dim, #9aa0b4); margin-top: 2px; line-height: 1.4; }
-    .pc-lr-side-empty { font-size: 11px; color: var(--lr-text-dim, #9aa0b4); font-style: italic; }
 
     .pc-lr-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
     .pc-lr-modal { background: var(--lr-panel, #111726); border: 1px solid var(--lr-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 20px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 12px; }
@@ -3670,6 +3671,10 @@ const GLOBAL_CSS = `
     .pc-lr-roster-stats .lbl { display: block; font-size: 8px; color: var(--lr-text-dim2, #6b7280); font-weight: 800; }
     .pc-lr-roster-stats .val { display: block; font-size: 13px; font-weight: 800; color: #e8eaf0; margin-top: 2px; }
     .pc-lr-roster-btn { width: 100%; padding: 7px; font-size: 11px; }
+
+    .pc-lr-smart-actions-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pc-lr-smart-actions-row button { flex: 1 1 90px; padding: 7px; font-size: 10.5px; }
+    .pc-lr-smart-actions-reason { font-size: 10px; color: var(--lr-text-dim, #9aa0b4); line-height: 1.35; margin-top: 6px; }
 
     /* ─── PC Noticias ── Mismos tokens que .pc-ct-root/.pc-md-root/.pc-tr-root/.pc-yt-root/.pc-lr-root:
        dorado = --club-accent, panel #111726, líneas rgba(255,255,255,.07), radios 6-8px. */
@@ -11175,7 +11180,7 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             : <MedicalCenterScreen game={game} onOpenPlayer={openPlayerProfile} />
           )}
           {screen === "lockerRoom" && game && (isPC
-            ? <PCLockerRoomScreen game={game} conversations={activeConversations} onRespond={(conversationId,responseId)=>handleConversationResponse(conversationId,responseId,{stay:true})} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} />
+            ? <PCLockerRoomScreen game={game} conversations={activeConversations} onRespond={(conversationId,responseId)=>handleConversationResponse(conversationId,responseId,{stay:true})} onOpenPlayer={(player,list)=>openPlayerProfile(player,game.teamId,list)} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />
             : <LockerRoomScreen game={game} onOpenPlayer={openPlayerProfile} onGoContracts={()=>setScreen("contracts")} onGoLineup={()=>setScreen("lineup")} onGoTraining={()=>setScreen("training")} onGoMedical={()=>setScreen("medical")} />
           )}
           {screen === "fans" && game && (isPC

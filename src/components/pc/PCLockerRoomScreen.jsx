@@ -3,6 +3,7 @@ import { ensureSquadMorale, getLockerRoomSummary } from "../../morale/moraleEngi
 import PCConversationCard from "./lockerRoom/PCConversationCard.jsx";
 import PCConversationModal from "./lockerRoom/PCConversationModal.jsx";
 import PCLeadersPanel from "./lockerRoom/PCLeadersPanel.jsx";
+import PCRecentMoments from "./lockerRoom/PCRecentMoments.jsx";
 import PCRosterTab from "./lockerRoom/PCRosterTab.jsx";
 
 const TABS = [["conversations", "🗣️ Conversaciones"], ["roster", "👥 Plantilla"]];
@@ -13,7 +14,7 @@ const TABS = [["conversations", "🗣️ Conversaciones"], ["roster", "👥 Plan
 // pertenecen a Mercado/Noticias/Médico, no al vestuario.
 const isLockerRoomConversation = conversation => conversation.actorType === "player" || conversation.actorName === "Capitán";
 
-export default function PCLockerRoomScreen({ game, conversations, onRespond, onOpenPlayer }) {
+export default function PCLockerRoomScreen({ game, conversations, onRespond, onOpenPlayer, onGoContracts, onGoLineup, onGoTraining, onGoMedical }) {
   const [tab, setTab] = useState("conversations");
   const [selectedConversationId, setSelectedConversationId] = useState(null);
 
@@ -57,6 +58,8 @@ export default function PCLockerRoomScreen({ game, conversations, onRespond, onO
         </div>
       </div>
 
+      <PCRecentMoments players={squad} onOpenPlayer={p => onOpenPlayer(p, squad)} />
+
       <div className="pc-lr-tabs">
         {TABS.map(([id, label]) => (
           <div key={id} className={`pc-lr-tab${tab === id ? " active" : ""}`} onClick={() => setTab(id)}>
@@ -96,12 +99,16 @@ export default function PCLockerRoomScreen({ game, conversations, onRespond, onO
             )}
           </div>
 
-          <PCLeadersPanel players={squad} summary={summary} onOpenPlayer={p => onOpenPlayer(p, squad)} />
+          <PCLeadersPanel summary={summary} onOpenPlayer={p => onOpenPlayer(p, squad)} />
         </div>
       )}
 
       {tab === "roster" && (
-        <PCRosterTab players={squad} conversations={lockerConversations} leaderIds={leaderIds} onOpenPlayer={p => onOpenPlayer(p, squad)} onOpenConversation={setSelectedConversationId} />
+        <PCRosterTab
+          game={game} players={squad} conversations={lockerConversations} leaderIds={leaderIds}
+          onOpenPlayer={p => onOpenPlayer(p, squad)} onOpenConversation={setSelectedConversationId}
+          onGoContracts={onGoContracts} onGoLineup={onGoLineup} onGoTraining={onGoTraining} onGoMedical={onGoMedical}
+        />
       )}
 
       <PCConversationModal conversation={selectedConversation} onRespond={handleRespond} onClose={() => setSelectedConversationId(null)} />
