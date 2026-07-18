@@ -3071,6 +3071,7 @@ const GLOBAL_CSS = `
       --tc-text-dim: #8b92a3;
       --tc-green: #22c55e;
       --tc-red: #ef4444;
+      --tc-orange: #f59e0b;
       --tc-blue: #60a5fa;
     }
     .pc-tc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
@@ -3192,6 +3193,12 @@ const GLOBAL_CSS = `
     .pc-tc-modal { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 8px; padding: 20px; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 12px; }
     .pc-tc-modal-head { display: flex; align-items: center; gap: 11px; }
     .pc-tc-modal-close { width: 100%; }
+
+    .pc-tc-needs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .pc-tc-need-card { background: var(--tc-panel); border: 1px solid var(--tc-line); border-left: 3px solid var(--tc-text-dim); border-radius: 8px; padding: 12px 14px; }
+    .pc-tc-need-label { font-size: 12px; font-weight: 700; color: #e8eaf0; }
+    .pc-tc-need-detail { font-size: 10.5px; color: var(--tc-text-dim); margin-top: 4px; }
+    .pc-tc-need-level { font-size: 10.5px; margin-top: 4px; }
 
     .pc-tc-scout-grid { display: grid; grid-template-columns: 280px 1fr; gap: 18px; }
     .pc-tc-mission-form { background: var(--tc-panel); border: 1px solid var(--tc-line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 13px; }

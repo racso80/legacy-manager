@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { SCOUT_SPECIALTIES } from "../../../scouting/scoutingEngine.js";
+import { getSquadNeeds, SCOUT_SPECIALTIES } from "../../../scouting/scoutingEngine.js";
 
 const fmt = v => v >= 1000 ? `€${(v / 1000).toFixed(1)}M` : `€${Math.round(v)}K`;
+const NEED_COLOR = { Alta: "var(--tc-red)", Media: "var(--tc-orange)", Baja: "var(--tc-green)" };
 
 // Filas de la pizarra de posiciones — mismo layout que el mockup aprobado.
 // El campo real bindeado es `position` (código exacto de createScoutingMission),
@@ -71,6 +72,7 @@ export default function PCScoutingTab({ game, subTab, onSubTabChange, onStartMis
   const watchReports = reports.filter(r => watched.has(r.id));
   const activeMissions = scouting.missions.filter(m => m.status === "active");
   const isAthletic = game.teamId === "athletic";
+  const needs = getSquadNeeds(game);
 
   const submit = () => {
     const label = form.position ? `Buscar ${form.position}${form.maxAge ? ` menor de ${Number(form.maxAge) + 1} años` : ""}` : `Búsqueda general${form.maxAge ? ` sub-${Number(form.maxAge) + 1}` : ""}`;
@@ -96,7 +98,19 @@ export default function PCScoutingTab({ game, subTab, onSubTabChange, onStartMis
       </div>
 
       {subTab === "nueva" && (
-        <div className="pc-tc-scout-grid">
+        <>
+          <div className="pc-tc-section-label">Necesidades de plantilla</div>
+          <div className="pc-tc-needs-grid">
+            {needs.map(item => (
+              <div key={item.group} className="pc-tc-need-card" style={{ borderLeftColor: NEED_COLOR[item.level] }}>
+                <div className="pc-tc-need-label">{item.label}</div>
+                <div className="pc-tc-need-detail">{item.count}/{item.target} jugadores · Media {item.quality}</div>
+                <div className="pc-tc-need-level" style={{ color: NEED_COLOR[item.level] }}>Necesidad {item.level.toLowerCase()}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pc-tc-scout-grid">
           <div className="pc-tc-mission-form">
             <div>
               <label>Ojeador asignado</label>
@@ -154,7 +168,8 @@ export default function PCScoutingTab({ game, subTab, onSubTabChange, onStartMis
               })}
             </div>
           </div>
-        </div>
+          </div>
+        </>
       )}
 
       {subTab === "informes" && (
