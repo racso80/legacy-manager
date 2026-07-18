@@ -1,4 +1,5 @@
 import { COACH_PHILOSOPHIES, getCoachPrestigeLevel } from "../../../coach/coachCareerEngine.js";
+import { getPrestigeLevel } from "../../../legacy/legacyEngine.js";
 
 const money = value => {
   if (value == null) return null;
@@ -10,8 +11,11 @@ const seasonLabel = value => `${value}/${String(Number(value) + 1).slice(-2)}`;
 
 export default function PCCareerOverviewTab({ team, legacy, archive, coach }) {
   const level = getCoachPrestigeLevel(coach?.prestige ?? 10);
+  const clubLevel = getPrestigeLevel(legacy.clubPrestige);
   const philosophy = COACH_PHILOSOPHIES.find(item => item.id === coach?.philosophy) ?? COACH_PHILOSOPHIES[0];
   const stats = coach?.stats ?? {};
+  const notifications = coach?.notifications ?? [];
+  const records = Object.values(archive.playerRecords ?? {});
 
   const highlights = [
     stats.biggestWin && { label: "Mayor victoria", value: `${stats.biggestWin.goalsFor}-${stats.biggestWin.goalsAgainst} (T. ${seasonLabel(stats.biggestWin.season)})` },
@@ -22,7 +26,7 @@ export default function PCCareerOverviewTab({ team, legacy, archive, coach }) {
   ].filter(Boolean);
 
   const seasons = archive.seasons ?? [];
-  const totals = seasons.reduce((sum, item) => ({ matches: sum.matches + (item.results?.fixtures?.length ?? 0), goals: sum.goals + (item.goalsFor ?? 0) }), { matches: 0, goals: 0 });
+  const totals = seasons.reduce((sum, item) => ({ matches: sum.matches + (item.results?.fixtures?.length ?? 0), wins: sum.wins + (item.results?.wins ?? 0), goals: sum.goals + (item.goalsFor ?? 0) }), { matches: 0, wins: 0, goals: 0 });
 
   const points = [...(archive.prestigeHistory ?? [])].reverse();
   const max = Math.max(100, ...points.map(item => item.managerPrestige ?? 0));
@@ -41,7 +45,27 @@ export default function PCCareerOverviewTab({ team, legacy, archive, coach }) {
             </div>
           </div>
           <div className="pc-lc-progress-track"><div className="pc-lc-progress-fill" style={{ width: `${Math.max(0, Math.min(100, coach?.prestige ?? 10))}%`, background: level.color }} /></div>
+
+          <div className="pc-lc-club-prestige-row">
+            <span>Prestigio del club</span>
+            <strong style={{ color: clubLevel.color }}>{clubLevel.label} · {Math.round(legacy.clubPrestige)}/100</strong>
+          </div>
+          <div className="pc-lc-progress-track"><div className="pc-lc-progress-fill" style={{ width: `${Math.max(0, Math.min(100, legacy.clubPrestige))}%`, background: clubLevel.color }} /></div>
         </div>
+
+        {notifications.length > 0 && (
+          <>
+            <div className="pc-lc-section-label">Últimas novedades</div>
+            <div className="pc-lc-notification-list">
+              {notifications.slice(0, 3).map(item => (
+                <div key={item.id} className={`pc-lc-notification-item${item.type === "prestige-drop" ? " drop" : ""}`}>
+                  <div className="pc-lc-notification-title">{item.type === "prestige-drop" ? "📉" : "📈"} {item.title}</div>
+                  <div className="pc-lc-notification-season">T. {item.season}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="pc-lc-section-label">Hitos destacados</div>
         {highlights.length ? (
@@ -83,6 +107,8 @@ export default function PCCareerOverviewTab({ team, legacy, archive, coach }) {
         <div className="pc-lc-trio-grid">
           <div className="pc-lc-stat-card"><div className="pc-lc-stat-value">{seasons.length}</div><div className="pc-lc-stat-label">Archivadas</div></div>
           <div className="pc-lc-stat-card"><div className="pc-lc-stat-value">{legacy.trophies?.length ?? 0}</div><div className="pc-lc-stat-label">Trofeos</div></div>
+          <div className="pc-lc-stat-card"><div className="pc-lc-stat-value">{records.length}</div><div className="pc-lc-stat-label">Jugadores</div></div>
+          <div className="pc-lc-stat-card"><div className="pc-lc-stat-value">{totals.wins}</div><div className="pc-lc-stat-label">Victorias</div></div>
           <div className="pc-lc-stat-card"><div className="pc-lc-stat-value">{totals.goals}</div><div className="pc-lc-stat-label">Goles</div></div>
         </div>
 

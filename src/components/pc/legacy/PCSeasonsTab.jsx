@@ -61,7 +61,7 @@ export default function PCSeasonsTab({ archive, teams }) {
             <div className="pc-lc-stat-card"><div className="pc-lc-stat-value">{money(selected.squadValue)}</div><div className="pc-lc-stat-label">VALOR PLANTILLA</div></div>
             <div className="pc-lc-stat-card"><div className="pc-lc-stat-value" style={{ color: (selected.finances?.balance ?? 0) >= 0 ? "#22c55e" : "#ef4444" }}>{money(selected.finances?.balance)}</div><div className="pc-lc-stat-label">BALANCE</div></div>
             <div className="pc-lc-stat-card"><div className="pc-lc-stat-value">{selected.promotedYouth ?? 0}</div><div className="pc-lc-stat-label">CANTERANOS</div></div>
-            <div className="pc-lc-stat-card"><div className="pc-lc-stat-value">{selected.bestSigning ? `${selected.bestSigning.name?.split(" ").slice(-1)[0] ?? "—"}` : "—"}</div><div className="pc-lc-stat-label">MEJOR FICHAJE</div></div>
+            <div className="pc-lc-stat-card"><div className="pc-lc-stat-value">{selected.bestSigning ? `${selected.bestSigning.name?.split(" ").slice(-1)[0] ?? "—"}${selected.bestSigning.cost ? ` · ${money(selected.bestSigning.cost)}` : ""}` : "—"}</div><div className="pc-lc-stat-label">MEJOR FICHAJE</div></div>
           </div>
 
           <div className="pc-lc-section-label">Clasificación final</div>

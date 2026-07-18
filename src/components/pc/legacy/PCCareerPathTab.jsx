@@ -39,6 +39,7 @@ export default function PCCareerPathTab({ coach }) {
               <div>
                 <div className="pc-lc-history-club">{item.clubName}</div>
                 <div className="pc-lc-history-season">{seasonLabel(item.season)}</div>
+                <div className="pc-lc-history-record">{item.matches} PJ · {item.wins}V {item.draws}E {item.losses}D · {item.points} pts</div>
               </div>
               <div className="pc-lc-history-result">
                 {item.position}.º

@@ -15,8 +15,8 @@ const TABS = [
   ["path", "Trayectoria"],
 ];
 
-export default function PCLegacyCareerScreen({ game, team, teams = [] }) {
-  const [tab, setTab] = useState("career");
+export default function PCLegacyCareerScreen({ game, team, teams = [], initialTab = "career" }) {
+  const [tab, setTab] = useState(initialTab);
   const legacy = game.legacy;
   const archive = legacy.archive ?? { seasons: [], playerRecords: {}, milestones: [], prestigeHistory: [] };
   const coach = game.coachCareer;

@@ -9,6 +9,8 @@ function Stat({ label, value, color = "#fff" }) {
   return <div style={{ background:"rgba(255,255,255,.035)", borderRadius:10, padding:10, textAlign:"center" }}><div style={{ color, fontSize:18, fontWeight:950 }}>{value}</div><div style={{ color:COLORS.textDim, fontSize:8, fontWeight:850, marginTop:3 }}>{label}</div></div>;
 }
 
+const EXIT_REASON_LABEL = { sacked:"Destituido", resigned:"Dimisión" };
+
 const money = value => {
   if (value == null) return null;
   const sign = value < 0 ? "-" : "+";
@@ -99,7 +101,13 @@ export default function CoachCareerScreen({ game, team, teams = [] }) {
         <div style={{ color:COLORS.textDim, fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>CLUBES ENTRENADOS</div>
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>{clubs.map(item => (
           <div key={`${item.clubId}-${item.fromSeason}`} style={{ background:panel, borderRadius:11, padding:11 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", gap:8 }}><div style={{ color:"#fff", fontSize:12, fontWeight:850 }}>{item.clubName}</div><div style={{ color:item.toSeason ? muted : "#22c55e", fontSize:9, fontWeight:850 }}>{item.toSeason ? `${item.fromSeason}-${item.toSeason}` : `Desde ${item.fromSeason}`}</div></div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8 }}>
+              <div style={{ color:"#fff", fontSize:12, fontWeight:850 }}>{item.clubName}</div>
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                {item.exitReason && <span style={{ fontSize:9, fontWeight:700, padding:"3px 8px", borderRadius:999, background:"rgba(239,68,68,.14)", color:"#ef4444" }}>{EXIT_REASON_LABEL[item.exitReason] ?? item.exitReason}</span>}
+                <div style={{ color:item.toSeason ? muted : "#22c55e", fontSize:9, fontWeight:850 }}>{item.toSeason ? `${item.fromSeason}-${item.toSeason}` : `Desde ${item.fromSeason}`}</div>
+              </div>
+            </div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, marginTop:9 }}>
               <Stat label="TEMP" value={item.seasons ?? 0} color={gold} />
               <Stat label="PJ" value={item.matches ?? 0} />

@@ -3842,8 +3842,16 @@ const GLOBAL_CSS = `
     .pc-lc-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--lc-text-dim, #9aa0b4); margin: 4px 0 10px; }
     .pc-lc-empty { background: var(--lc-panel, #111726); border-radius: 8px; padding: 24px; text-align: center; font-size: 11.5px; color: var(--lc-text-dim, #9aa0b4); margin-bottom: 16px; }
 
-    .pc-lc-progress-track { height: 7px; border-radius: 4px; background: var(--lc-card, #161d2e); overflow: hidden; }
+    .pc-lc-progress-track { height: 7px; border-radius: 4px; background: var(--lc-card, #161d2e); overflow: hidden; margin-bottom: 10px; }
+    .pc-lc-progress-track:last-child { margin-bottom: 0; }
     .pc-lc-progress-fill { height: 100%; border-radius: 4px; }
+    .pc-lc-club-prestige-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--lc-text-dim, #9aa0b4); margin: 12px 0 8px; }
+
+    .pc-lc-notification-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .pc-lc-notification-item { background: var(--lc-panel, #111726); border: 1px solid rgba(34,197,94,.2); border-radius: 8px; padding: 10px 12px; }
+    .pc-lc-notification-item.drop { border-color: rgba(239,68,68,.22); }
+    .pc-lc-notification-title { font-size: 11px; font-weight: 700; color: #e8eaf0; }
+    .pc-lc-notification-season { font-size: 10px; color: var(--lc-text-dim, #9aa0b4); margin-top: 3px; }
 
     .pc-lc-career-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
     .pc-lc-identity-card { background: var(--lc-panel, #111726); border: 1px solid var(--lc-line, rgba(255,255,255,.07)); border-radius: 8px; padding: 18px; margin-bottom: 20px; }
@@ -3917,6 +3925,7 @@ const GLOBAL_CSS = `
     .pc-lc-history-row { display: flex; justify-content: space-between; background: var(--lc-panel, #111726); border-radius: 8px; padding: 12px 14px; }
     .pc-lc-history-club { font-size: 12px; font-weight: 700; color: #e8eaf0; }
     .pc-lc-history-season { font-size: 10px; color: var(--lc-text-dim, #9aa0b4); margin-top: 3px; }
+    .pc-lc-history-record { font-size: 9.5px; color: var(--lc-text-dim, #9aa0b4); margin-top: 4px; }
     .pc-lc-history-result { text-align: right; font-size: 12px; font-weight: 800; color: var(--lc-text-dim, #9aa0b4); }
     .pc-lc-history-title { font-size: 10px; color: var(--lc-gold, #c9a84c); margin-top: 3px; }
 
@@ -11168,11 +11177,11 @@ function applyAiPhysicalAfterMatch(teamId, formation = "4-3-3") {
             : <BoardLegacyScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} />
           )}
           {screen === "legacyMuseum" && game && (isPC
-            ? <PCLegacyCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />
+            ? <PCLegacyCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} initialTab="trophies" />
             : <LegacyMuseumScreen game={game} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />
           )}
           {screen === "career" && game && (isPC
-            ? <PCLegacyCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />
+            ? <PCLegacyCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} initialTab="career" />
             : <CoachCareerScreen game={ensureCoachCareer(game,TEAMS.find(team=>team.id===game.teamId),TEAMS)} team={TEAMS.find(team=>team.id===game.teamId)} teams={TEAMS} />
           )}
           {screen === "staff" && game && (isPC
