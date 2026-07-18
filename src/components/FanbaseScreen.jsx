@@ -5,6 +5,22 @@ const panel = "#161a24";
 const muted = COLORS.textDim;
 const gold = "#c9a84c";
 
+// Misma lógica que PCFanReactionsList.jsx (duplicado, no compartido, igual que el resto
+// de pantallas PC/móvil de esta sesión).
+const RESULT_LABEL = { win:"Victoria", draw:"Empate", loss:"Derrota" };
+function contextFor(item){
+  if(item.transferType) return "Traspaso";
+  if(item.result) return RESULT_LABEL[item.result] ?? null;
+  if(item.playerId) return "Cantera";
+  return null;
+}
+function iconFor(item){
+  if(item.actionConcern) return "😟";
+  if(item.result==="win") return "🎉";
+  if(item.playerId && !item.transferType) return "📈";
+  return "📣";
+}
+
 function Meter({ value, color = gold }) {
   return <div style={{ height:6, background:"#252a36", borderRadius:5, overflow:"hidden" }}><div style={{ width:`${Math.max(0, Math.min(100, value))}%`, height:"100%", background:color }} /></div>;
 }
@@ -72,10 +88,16 @@ export default function FanbaseScreen({ game, team }) {
       <section>
         <div style={{ color:COLORS.textDim, fontSize:10, fontWeight:900, letterSpacing:".8px", margin:"0 2px 8px" }}>ÚLTIMAS REACCIONES</div>
         {(fanbase.reactions ?? []).length ? <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {(fanbase.reactions ?? []).slice(0, 8).map(item => <div key={item.id} style={{ background:panel, border:`1px solid ${item.actionConcern ? "rgba(245,158,11,.28)" : "rgba(255,255,255,.06)"}`, borderRadius:11, padding:11 }}>
-            <div style={{ color:"#fff", fontSize:12, fontWeight:850 }}>{item.actionConcern ? "🟠 " : "📣 "}{item.title}</div>
-            <div style={{ color:muted, fontSize:10, lineHeight:1.45, marginTop:4 }}>{item.summary}</div>
-          </div>)}
+          {(fanbase.reactions ?? []).slice(0, 8).map(item => {
+            const context = contextFor(item);
+            return (
+              <div key={item.id} style={{ background:panel, border:"1px solid rgba(255,255,255,.06)", ...(item.actionConcern ? { borderLeft:"3px solid #ef4444" } : {}), borderRadius:11, padding:11 }}>
+                <div style={{ color:"#fff", fontSize:12, fontWeight:850 }}>{iconFor(item)} {item.title}</div>
+                <div style={{ color:muted, fontSize:10, lineHeight:1.45, marginTop:4 }}>{item.summary}</div>
+                <div style={{ color:COLORS.textDim, fontSize:9, marginTop:4 }}>Jornada {item.matchday}{context ? ` · ${context}` : ""}</div>
+              </div>
+            );
+          })}
         </div> : <div style={{ background:panel, borderRadius:11, padding:15, textAlign:"center", color:muted, fontSize:11 }}>Aún no hay reacciones destacadas.</div>}
       </section>
     </div>
