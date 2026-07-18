@@ -3,11 +3,13 @@ import { ATTENTION_PRIORITIES } from "../../../attention/attentionEngine.js";
 export default function PCAttentionItemCard({ item, onOpen, onDismiss }) {
   const priority = ATTENTION_PRIORITIES[item.priority] ?? ATTENTION_PRIORITIES.info;
   const fresh = item.status === "new";
+  const statusLabel = item.status === "waiting" ? "EN ESPERA" : item.status === "seen" ? "VISTO" : null;
   return (
     <div className={`pc-ac-item-card ${item.priority}`}>
       <div className="pc-ac-item-top">
         <span className={`pc-ac-priority-badge ${item.priority}`}>{priority.label}</span>
         {fresh && <span className="pc-ac-new-badge">NUEVO</span>}
+        {statusLabel && <span className="pc-ac-status-badge">{statusLabel}</span>}
       </div>
       {item.staff && <div className="pc-ac-item-staff">{item.staff.icon} {item.staff.role} · {item.staff.name}</div>}
       <div className="pc-ac-item-title">{item.title}</div>

@@ -4222,7 +4222,8 @@ const GLOBAL_CSS = `
     .pc-ac-priority-badge.critical { background: rgba(239,68,68,.15); color: var(--ac-red, #ef4444); }
     .pc-ac-priority-badge.important { background: rgba(245,158,11,.15); color: var(--ac-orange, #f59e0b); }
     .pc-ac-priority-badge.info { background: rgba(96,165,250,.15); color: var(--ac-blue, #60a5fa); }
-    .pc-ac-new-badge { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(96,165,250,.15); color: var(--ac-blue, #60a5fa); }
+    .pc-ac-new-badge { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: var(--ac-gold, #c9a84c); color: var(--ac-text-on-accent, #1a1200); }
+    .pc-ac-status-badge { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.06); color: var(--ac-text-dim2, #6b7280); }
     .pc-ac-item-staff { font-size: 9.5px; font-weight: 700; color: var(--ac-gold, #c9a84c); margin-bottom: 6px; }
     .pc-ac-item-title { font-size: 13.5px; font-weight: 700; color: var(--ac-text, #e8eaf0); margin-bottom: 4px; }
     .pc-ac-item-summary { font-size: 11.5px; color: var(--ac-text-dim, #9aa0b4); margin-bottom: 12px; }
