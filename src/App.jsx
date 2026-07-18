@@ -4300,6 +4300,24 @@ const GLOBAL_CSS = `
     .pc-fn-income-meta { font-size: 10px; color: var(--fn-text-dim2, #6b7280); }
     .pc-fn-income-value { margin-left: auto; font-size: 13.5px; font-weight: 700; }
 
+    .pc-fn-last-matchday { background: var(--fn-card, #161d2e); border-radius: 8px; padding: 12px 14px; margin-top: 8px; }
+    .pc-fn-last-matchday-title { font-size: 10px; color: var(--fn-text-dim, #9aa0b4); margin-bottom: 6px; }
+    .pc-fn-last-matchday-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--fn-text-dim, #9aa0b4); }
+    .pc-fn-last-matchday-away { font-size: 11px; color: var(--fn-text-dim2, #6b7280); }
+    .pc-fn-last-matchday-total { font-size: 13px; font-weight: 700; color: var(--fn-green, #22c55e); margin-top: 4px; }
+
+    .pc-fn-avg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .pc-fn-avg-card { background: var(--fn-card, #161d2e); border-radius: 8px; padding: 8px 10px; text-align: center; }
+    .pc-fn-avg-label { font-size: 9px; color: var(--fn-text-dim, #9aa0b4); }
+    .pc-fn-avg-value { font-size: 14px; font-weight: 700; color: var(--fn-text, #e8eaf0); margin-top: 2px; }
+
+    .pc-fn-wage-group-row { margin-bottom: 8px; }
+    .pc-fn-wage-group-top { display: flex; justify-content: space-between; font-size: 12px; color: var(--fn-text-dim, #9aa0b4); margin-bottom: 4px; }
+    .pc-fn-wage-group-value { color: var(--fn-text, #e8eaf0); font-weight: 600; }
+    .pc-fn-wage-group-pct { color: var(--fn-text-dim2, #6b7280); font-weight: 400; }
+    .pc-fn-wage-group-bar { height: 4px; background: var(--fn-card, #161d2e); border-radius: 2px; overflow: hidden; }
+    .pc-fn-wage-group-bar-fill { height: 100%; border-radius: 2px; }
+
     .pc-fn-earner-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
     .pc-fn-earner-rank { font-size: 12px; font-weight: 700; color: var(--fn-text-dim2, #6b7280); width: 16px; text-align: center; flex-shrink: 0; }
     .pc-fn-earner-info { flex: 1; min-width: 0; }

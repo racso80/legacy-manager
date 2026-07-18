@@ -89,12 +89,13 @@ export default function PCFinancesScreen({ game, team, budgetSnapshot }) {
 
       <div className="pc-fn-layout">
         <PCFinancesReserveBox budgetSnapshot={budgetSnapshot} budgetPct={budgetPct} budgetColor={budgetColor} />
-        <PCFinancesFanAndWages fanLove={fanLove} weeklyWages={weeklyWages} monthlyWages={monthlyWages} seasonWages={seasonWages} />
+        <PCFinancesFanAndWages fanLove={fanLove} weeklyWages={weeklyWages} monthlyWages={monthlyWages} seasonWages={seasonWages} players={players} />
       </div>
 
       <PCFinancesIncomeBox
         totalGate={totalGate} totalMembers={totalMembers} totalShop={totalShop} totalAds={totalAds}
         totalIncome={totalIncome} homeMatchesPlayed={homeMatchesPlayed} clubPrestige={game.legacy?.clubPrestige ?? 30}
+        incomeLog={incomeLog}
       />
 
       <div className="pc-fn-layout">
