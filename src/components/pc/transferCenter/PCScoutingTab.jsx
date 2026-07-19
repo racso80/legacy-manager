@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { getSquadNeeds, SCOUT_SPECIALTIES } from "../../../scouting/scoutingEngine.js";
 
 const fmt = v => v >= 1000 ? `€${(v / 1000).toFixed(1)}M` : `€${Math.round(v)}K`;
@@ -15,17 +15,99 @@ const PITCH_ROWS = [
   ["POR"],
 ];
 
-function PositionPicker({ value, onChange }) {
+// Chips de línea (group) — mismo nivel de granularidad que el <select> de móvil
+// (Missions, ScoutingScreen.jsx). Mutuamente excluyentes con una posición
+// específica de la pizarra: createScoutingMission acepta group Y position de
+// forma independiente, pero la UI solo debe activar uno de los dos a la vez.
+const LINE_GROUPS = [["POR", "Portería"], ["DEF", "Defensa"], ["MED", "Medio"], ["DEL", "Delantera"]];
+
+function PositionPicker({ position, group, onChangePosition, onChangeGroup, onChangeAny }) {
   return (
     <div className="pc-tc-position-picker">
+      <div className="pc-tc-line-row">
+        {LINE_GROUPS.map(([id, label]) => (
+          <button key={id} type="button" className={`pc-tc-line-chip${group === id ? " selected" : ""}`} onClick={() => onChangeGroup(id)}>{label}</button>
+        ))}
+      </div>
       {PITCH_ROWS.map((row, i) => (
         <div key={i} className="pc-tc-pos-row">
           {row.map((pos, j) => (
-            <button key={`${pos}-${j}`} type="button" className={`pc-tc-pos-btn${value === pos ? " selected" : ""}`} onClick={() => onChange(pos)}>{pos}</button>
+            <button key={`${pos}-${j}`} type="button" className={`pc-tc-pos-btn${position === pos ? " selected" : ""}`} onClick={() => onChangePosition(pos)}>{pos}</button>
           ))}
         </div>
       ))}
-      <button type="button" className={`pc-tc-pos-btn any${!value ? " selected" : ""}`} onClick={() => onChange(null)}>Cualquiera</button>
+      <button type="button" className={`pc-tc-pos-btn any${!position && !group ? " selected" : ""}`} onClick={onChangeAny}>Cualquiera</button>
+    </div>
+  );
+}
+
+// Mismo flujo que PlayerSearch (móvil, ScoutingScreen.jsx): busca por nombre/club en
+// `candidates` (el mismo pool que móvil, getScoutingPool ya llega a este tab por props)
+// y crea una misión individual con el primer ojeador libre — sin selector de ojeador,
+// igual que móvil.
+function PCPlayerSearch({ game, candidates, onRequest }) {
+  const [query, setQuery] = useState("");
+  const [teamId, setTeamId] = useState("");
+  const [durationDays, setDurationDays] = useState("7");
+  const activeScoutIds = new Set(game.scouting.missions.filter(m => m.status === "active").map(m => m.scoutId));
+  const availableScout = game.scouting.scouts.find(s => !activeScoutIds.has(s.id));
+  const teams = useMemo(() => Array.from(new Map(candidates.map(item => [item._teamId, item._teamName])).entries()).sort((a, b) => a[1].localeCompare(b[1])), [candidates]);
+  const results = useMemo(() => {
+    if (!query.trim() && !teamId) return [];
+    const needle = query.trim().toLocaleLowerCase("es");
+    return candidates.filter(item => (!teamId || item._teamId === teamId) && (!needle || item.name.toLocaleLowerCase("es").includes(needle))).slice(0, 40);
+  }, [candidates, query, teamId]);
+  const existing = new Set(game.scouting.reports.map(item => item.playerId));
+
+  const request = player => {
+    if (!availableScout) return;
+    onRequest({ playerId: player.id, teamId: player._teamId, label: `Informe individual de ${player.name}`, durationDays, scoutId: availableScout.id, region: player._teamName });
+  };
+
+  return (
+    <div>
+      <div className="pc-tc-mission-form">
+        <div>
+          <label>Buscar jugador</label>
+          <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar: Oyarzabal..." />
+        </div>
+        <div>
+          <label>Club</label>
+          <select value={teamId} onChange={e => setTeamId(e.target.value)}>
+            <option value="">Todos los clubes</option>
+            {teams.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label>Duración</label>
+          <select value={durationDays} onChange={e => setDurationDays(e.target.value)}>
+            {[3, 7, 14, 21].map(v => <option key={v} value={v}>{v} días</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="pc-tc-section-label" style={{ marginTop: 18 }}>{results.length ? `${results.length} jugadores encontrados` : "Búsqueda directa"}</div>
+      {results.length ? (
+        <div className="pc-tc-search-results">
+          {results.map(player => {
+            const hasReport = existing.has(player.id);
+            const pending = game.scouting.missions.some(m => m.status === "active" && m.playerId === player.id);
+            const label = pending ? "EN CURSO" : !availableScout ? "SIN SCOUT" : hasReport ? "AMPLIAR" : "PEDIR INFORME";
+            return (
+              <div key={player.id} className="pc-tc-search-row">
+                <div className="pc-tc-search-pos">{player.pos}</div>
+                <div className="pc-tc-search-info">
+                  <div className="pc-tc-p-name">{player.name}</div>
+                  <div className="pc-tc-p-sub">{player.age} años · {player._teamName} · {player.nat}</div>
+                </div>
+                <button className={`pc-tc-search-btn${hasReport ? " has-report" : ""}`} disabled={pending || !availableScout} onClick={() => request(player)}>{label}</button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="pc-tc-empty">Escribe el nombre de un jugador o selecciona un club para revisar su plantilla.</div>
+      )}
     </div>
   );
 }
@@ -62,11 +144,12 @@ function ReportCard({ report, watched, onWatch, onOpen, onRescout, onGoMarket, p
 }
 
 const DURATIONS = [[3, "3 días (1 jornada)"], [10, "10 días (2 jornadas)"], [21, "21 días (3 jornadas)"]];
+const GROUP_LABEL = { POR: "portero", DEF: "defensa", MED: "centrocampista", DEL: "delantero" };
 
-export default function PCScoutingTab({ game, subTab, onSubTabChange, onStartMission, onCancelMission, onToggleWatch, onOpenPlayer, onGoMarket }) {
+export default function PCScoutingTab({ game, candidates = [], subTab, onSubTabChange, onStartMission, onCancelMission, onToggleWatch, onOpenPlayer, onGoMarket }) {
   const scouting = game.scouting ?? { scouts: [], missions: [], reports: [], watchlist: [] };
   const activeScoutIds = new Set(scouting.missions.filter(m => m.status === "active").map(m => m.scoutId));
-  const [form, setForm] = useState({ scoutId: scouting.scouts.find(s => !activeScoutIds.has(s.id))?.id ?? scouting.scouts[0]?.id ?? "", position: null, maxAge: "23", minOverall: "70", maxValue: "15000000", durationDays: 3, region: "España" });
+  const [form, setForm] = useState({ scoutId: scouting.scouts.find(s => !activeScoutIds.has(s.id))?.id ?? scouting.scouts[0]?.id ?? "", position: null, group: null, maxAge: "23", minOverall: "70", maxValue: "15000000", durationDays: 3, region: "España" });
   const watched = new Set(scouting.watchlist);
   const reports = scouting.reports ?? [];
   const watchReports = reports.filter(r => watched.has(r.id));
@@ -75,8 +158,9 @@ export default function PCScoutingTab({ game, subTab, onSubTabChange, onStartMis
   const needs = getSquadNeeds(game);
 
   const submit = () => {
-    const label = form.position ? `Buscar ${form.position}${form.maxAge ? ` menor de ${Number(form.maxAge) + 1} años` : ""}` : `Búsqueda general${form.maxAge ? ` sub-${Number(form.maxAge) + 1}` : ""}`;
-    onStartMission({ position: form.position, maxAge: form.maxAge ? Number(form.maxAge) : null, minOverall: form.minOverall ? Number(form.minOverall) : null, maxValue: form.maxValue ? Number(form.maxValue) : null, scoutId: form.scoutId, durationDays: form.durationDays, region: form.region, label });
+    const target = form.position ? form.position : form.group ? GROUP_LABEL[form.group] : null;
+    const label = target ? `Buscar ${target}${form.maxAge ? ` menor de ${Number(form.maxAge) + 1} años` : ""}` : `Búsqueda general${form.maxAge ? ` sub-${Number(form.maxAge) + 1}` : ""}`;
+    onStartMission({ position: form.position, group: form.group, maxAge: form.maxAge ? Number(form.maxAge) : null, minOverall: form.minOverall ? Number(form.minOverall) : null, maxValue: form.maxValue ? Number(form.maxValue) : null, scoutId: form.scoutId, durationDays: form.durationDays, region: form.region, label });
   };
 
   const rescout = report => {
@@ -92,7 +176,7 @@ export default function PCScoutingTab({ game, subTab, onSubTabChange, onStartMis
       )}
 
       <div className="pc-tc-sub-tabs">
-        {[["nueva", "Nueva misión"], ["informes", `Informes (${reports.length})`], ["seguimiento", `Seguimiento (${watchReports.length})`]].map(([id, label]) => (
+        {[["nueva", "Nueva misión"], ["informes", `Informes (${reports.length})`], ["seguimiento", `Seguimiento (${watchReports.length})`], ["buscar", "Buscar"]].map(([id, label]) => (
           <button key={id} className={`pc-tc-sub-tab${subTab === id ? " active" : ""}`} onClick={() => onSubTabChange(id)}>{label}</button>
         ))}
       </div>
@@ -120,7 +204,12 @@ export default function PCScoutingTab({ game, subTab, onSubTabChange, onStartMis
             </div>
             <div>
               <label>Posición</label>
-              <PositionPicker value={form.position} onChange={pos => setForm({ ...form, position: pos })} />
+              <PositionPicker
+                position={form.position} group={form.group}
+                onChangePosition={pos => setForm({ ...form, position: pos, group: null })}
+                onChangeGroup={g => setForm({ ...form, group: g, position: null })}
+                onChangeAny={() => setForm({ ...form, position: null, group: null })}
+              />
             </div>
             <div><label>Edad máxima</label><input type="number" value={form.maxAge} onChange={e => setForm({ ...form, maxAge: e.target.value })} /></div>
             <div><label>Media mínima</label><input type="number" value={form.minOverall} onChange={e => setForm({ ...form, minOverall: e.target.value })} /></div>
@@ -204,6 +293,8 @@ export default function PCScoutingTab({ game, subTab, onSubTabChange, onStartMis
           ))}
         </div>
       )}
+
+      {subTab === "buscar" && <PCPlayerSearch game={game} candidates={candidates} onRequest={onStartMission} />}
     </div>
   );
 }
