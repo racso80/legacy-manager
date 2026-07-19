@@ -27,7 +27,7 @@ import PCYouthAcademyScreen from "./components/pc/PCYouthAcademyScreen.jsx";
 import MoreMenuScreen from "./components/MoreMenuScreen.jsx";
 import SettingsScreen from "./components/SettingsScreen.jsx";
 import PCSettingsScreen from "./components/pc/PCSettingsScreen.jsx";
-import PCMainMenu from "./components/pc/PCMainMenu.jsx";
+import PCMainMenu, { PCMenuLogo } from "./components/pc/PCMainMenu.jsx";
 import PCSavesScreen from "./components/pc/PCSavesScreen.jsx";
 import PCCoachCreateScreen from "./components/pc/PCCoachCreateScreen.jsx";
 import PCCloudSavesScreen from "./components/pc/PCCloudSavesScreen.jsx";
@@ -4663,7 +4663,7 @@ function MainMenu({ onNew, onSaves, onCloud, savesCount }) {
       </div>
       <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"40px 28px", position:"relative", zIndex:1 }}>
         <div style={{ textAlign:"center", marginBottom:44 }}>
-          <div style={{ width:90, height:90, background:"linear-gradient(135deg,#c9a84c,#f5d080)", borderRadius:20, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 20px", fontSize:44, boxShadow:"0 8px 32px rgba(201,168,76,.35), 0 0 0 1px rgba(201,168,76,.3)" }}>⚽</div>
+          <div style={{ width:90, height:102, margin:"0 auto 20px", filter:"drop-shadow(0 8px 20px rgba(201,168,76,.35))" }}><PCMenuLogo className="" /></div>
           <div style={{ fontSize:36, fontWeight:800, letterSpacing:6, color:"#c9a84c", lineHeight:1, textShadow:"0 2px 20px rgba(201,168,76,.4)" }}>LEGACY</div>
           <div style={{ fontSize:36, fontWeight:200, letterSpacing:8, color:"#e8eaf0", lineHeight:1.1 }}>MANAGER</div>
           <div style={{ width:60, height:2, background:"linear-gradient(90deg,transparent,#c9a84c,transparent)", margin:"14px auto 12px" }}/>

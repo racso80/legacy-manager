@@ -1,0 +1,15 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#0d0f14"/>
+  <defs>
+    <linearGradient id="iconShieldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8c874"/>
+      <stop offset="45%" stop-color="#c9a84c"/>
+      <stop offset="100%" stop-color="#8a6f2e"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(256,256) scale(2.438) translate(-75,-85)">
+    <path d="M75 4 L140 24 V78 C140 122 112 152 75 166 C38 152 10 122 10 78 V24 Z" fill="url(#iconShieldGrad)"/>
+    <path d="M75 14 L131 31 V78 C131 116 107 142 75 155 C43 142 19 116 19 78 V31 Z" fill="#12161f" stroke="#c9a84c" stroke-width="1.5"/>
+    <path d="M75,61 L80.6,77.3 L97.8,77.6 L84,87.9 L89.1,104.4 L75,94.5 L60.9,104.4 L66,87.9 L52.2,77.6 L69.4,77.3 Z" fill="#c9a84c"/>
+  </g>
+</svg>
