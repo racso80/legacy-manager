@@ -3,9 +3,18 @@ import { calculateInjuryRisk, getAccumulatedLoad, getLoadLevel, getRiskLevel } f
 import { ATTRIBUTE_LABELS, DEFAULT_TRAINING_PLAN, INDIVIDUAL_FOCUSES, WEEKLY_TRAINING_FOCUSES, applyTrainingFocusPreset, normalizeTrainingPlan, TRAINING_DAYS, TRAINING_LOADS, TRAINING_TYPES } from "../training/trainingEngine.js";
 import { COLORS } from "../utils/tokens.js";
 
+// Mismos iconos que PCIndividualFocusTab.jsx (duplicado, no compartido, igual que el
+// resto de pantallas PC/móvil) — decorativo, INDIVIDUAL_FOCUSES no trae iconos propios.
+const FOCUS_ICONS = { ritmo: "⚡", fisico: "💪", pase: "🎯", regate: "👟", tiro: "🥅", defensa: "🛡️", porteria: "🧤" };
+
 export default function TrainingCenterScreen({ game, onPlanChange, onOpenPlayer }) {
   const plan = normalizeTrainingPlan(game.trainingPlan ?? DEFAULT_TRAINING_PLAN);
-  const [selectedPlayerId,setSelectedPlayerId]=useState(game.players[0]?.id??"");
+  // Preferir un jugador que ya tenga foco asignado como selección inicial — solo
+  // maquilla el problema (el picker igual se reinicia al desmontar la pantalla),
+  // la lista "Focos activos" de abajo es la que realmente evita la ilusión de
+  // pérdida de datos al leer plan.individual directamente, sin depender de este
+  // estado local.
+  const [selectedPlayerId,setSelectedPlayerId]=useState(()=>game.players.find(p=>plan.individual[p.id])?.id??game.players[0]?.id??"");
   const report=game.lastTrainingReport;
   const avgEnergy=Math.round(game.players.reduce((sum,p)=>sum+100-(p.fatigue??0),0)/Math.max(1,game.players.length));
   const avgLoad=Math.round(game.players.reduce((sum,p)=>sum+getAccumulatedLoad(p),0)/Math.max(1,game.players.length));
@@ -18,6 +27,15 @@ export default function TrainingCenterScreen({ game, onPlanChange, onOpenPlayer 
   const progressionPlayers=[...game.players].sort((a,b)=>{const ac=changesByPlayer[a.id]?.changes?.length??0;const bc=changesByPlayer[b.id]?.changes?.length??0;return bc-ac||(b.potential-b.overall)-(a.potential-a.overall);}).slice(0,8);
   const improved=(report?.improved??[]).map(id=>game.players.find(p=>p.id===id)).filter(Boolean).slice(0,5);
   const prospects=game.players.filter(p=>p.age<=23&&(p.potential??p.overall)-p.overall>=3).sort((a,b)=>(b.potential-b.overall)-(a.potential-a.overall)).slice(0,5);
+  // Lee plan.individual directamente (no el picker de arriba, que se reinicia al
+  // desmontar la pantalla) — así el usuario siempre ve sus focos realmente
+  // asignados, no lo que el <select> muestra por defecto tras volver a entrar.
+  const activeFoci=Object.entries(plan.individual).filter(([,attr])=>attr).map(([playerId,attr])=>{
+    const rosterAll=[...game.players,...(game.youth?.players??[])];
+    const player=rosterAll.find(p=>p.id===playerId);
+    const isYouth=Boolean(player)&&!game.players.some(p=>p.id===playerId);
+    return{playerId,attr,name:player?.name??playerId,isYouth};
+  });
 
   const setDay=(index,type)=>{const days=[...plan.days];days[index]=type;onPlanChange({...plan,days});};
   const setWeeklyFocus=focusId=>onPlanChange(applyTrainingFocusPreset(plan,focusId));
@@ -43,7 +61,10 @@ export default function TrainingCenterScreen({ game, onPlanChange, onOpenPlayer 
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:16}}>{Object.values(TRAINING_TYPES).map(type=><div key={type.id} style={{background:"#13161f",borderRadius:8,padding:10}}><div style={{color:"#e8eaf0",fontSize:11,fontWeight:700}}>{type.icon} {type.name}</div><div style={{color:COLORS.textDim,fontSize:9,lineHeight:1.45,marginTop:4}}>{type.description}</div></div>)}</div>
 
     <div style={{fontSize:10,color:COLORS.textDim,fontWeight:800,letterSpacing:".6px",marginBottom:8}}>ESPECIALIZACIÓN INDIVIDUAL</div>
-    <div style={{background:"#161a24",borderRadius:9,padding:11,marginBottom:17}}><select value={selectedPlayerId} onChange={event=>setSelectedPlayerId(event.target.value)} style={{width:"100%",background:"#1e2330",border:"1px solid rgba(255,255,255,.08)",color:"#e8eaf0",borderRadius:7,padding:8,fontSize:11,marginBottom:7}}>{game.players.map(player=><option key={player.id} value={player.id}>{player.name} · {player.pos} · {player.overall}/{player.potential}</option>)}</select><select value={plan.individual[selectedPlayerId]??""} onChange={event=>setFocus(selectedPlayerId,event.target.value)} style={{width:"100%",background:"#1e2330",border:"1px solid rgba(255,255,255,.08)",color:"#c9a84c",borderRadius:7,padding:8,fontSize:11}}><option value="">Sin objetivo individual</option>{INDIVIDUAL_FOCUSES.filter(key=>selectedPlayer?.group==="POR"?key==="porteria":key!=="porteria").map(key=><option key={key} value={key}>Mejorar {ATTRIBUTE_LABELS[key]}</option>)}</select></div>
+    <div style={{background:"#161a24",borderRadius:9,padding:11,marginBottom:12}}><select value={selectedPlayerId} onChange={event=>setSelectedPlayerId(event.target.value)} style={{width:"100%",background:"#1e2330",border:"1px solid rgba(255,255,255,.08)",color:"#e8eaf0",borderRadius:7,padding:8,fontSize:11,marginBottom:7}}>{game.players.map(player=><option key={player.id} value={player.id}>{player.name} · {player.pos} · {player.overall}/{player.potential}</option>)}</select><select value={plan.individual[selectedPlayerId]??""} onChange={event=>setFocus(selectedPlayerId,event.target.value)} style={{width:"100%",background:"#1e2330",border:"1px solid rgba(255,255,255,.08)",color:"#c9a84c",borderRadius:7,padding:8,fontSize:11}}><option value="">Sin objetivo individual</option>{INDIVIDUAL_FOCUSES.filter(key=>selectedPlayer?.group==="POR"?key==="porteria":key!=="porteria").map(key=><option key={key} value={key}>Mejorar {ATTRIBUTE_LABELS[key]}</option>)}</select></div>
+
+    <div style={{fontSize:9,color:COLORS.textDim,fontWeight:800,letterSpacing:".5px",marginBottom:7}}>FOCOS ACTIVOS ({activeFoci.length})</div>
+    {activeFoci.length?<div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:17}}>{activeFoci.map(entry=><div key={entry.playerId} style={{background:"#161a24",borderRadius:8,padding:"9px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}><span style={{color:"#e8eaf0",fontSize:10,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{entry.name}{entry.isYouth?" (cantera)":""}</span><span style={{color:"#c9a84c",fontSize:9,fontWeight:700,flexShrink:0}}>{FOCUS_ICONS[entry.attr]??""} {ATTRIBUTE_LABELS[entry.attr]??entry.attr}</span></div>)}</div>:<div style={{background:"#161a24",borderRadius:9,padding:15,textAlign:"center",color:COLORS.textDim,fontSize:10,marginBottom:17}}>No hay focos individuales activos.</div>}
 
     <div style={{fontSize:10,color:COLORS.textDim,fontWeight:800,letterSpacing:".6px",marginBottom:8}}>INFORME DE PROGRESIÓN</div>
     {report?<div style={{display:"flex",flexDirection:"column",gap:7}}>{progressionPlayers.map(player=>{const item=changesByPlayer[player.id];const actual=item?.changes??[];const progress=item?.progress?.[0];return <button key={player.id} onClick={()=>onOpenPlayer(player,game.teamId,progressionPlayers)} style={{display:"flex",alignItems:"center",gap:9,textAlign:"left",background:"#161a24",border:"1px solid rgba(255,255,255,.06)",borderRadius:8,padding:10,cursor:"pointer"}}><div style={{width:34,height:34,borderRadius:7,background:"rgba(201,168,76,.1)",color:"#c9a84c",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800}}>{player.overall}</div><div style={{flex:1}}><div style={{color:"#e8eaf0",fontSize:11,fontWeight:700}}>{player.name} {player.age<=23&&player.potential-player.overall>=3?"🌱":""}</div><div style={{color:actual.length?"#22c55e":COLORS.textDim,fontSize:9,marginTop:3}}>{actual.length?actual.map(change=>`${change.label} ${change.delta>0?"+":""}${change.delta}`).join(" · "):progress?`${progress.label}: ${progress.value}% hacia la mejora`:"Sin progreso significativo"}</div></div><div style={{color:COLORS.textDim,fontSize:9}}>POT {player.potential}</div></button>})}<div style={{color:COLORS.textDim,fontSize:9,lineHeight:1.5,marginTop:5}}>El plan se aplica automáticamente después de cada jornada. Una carga mayor acelera el progreso, pero incrementa cansancio y riesgo médico.</div></div>:<div style={{background:"#161a24",borderRadius:9,padding:20,textAlign:"center",color:COLORS.textDim,fontSize:11}}>El primer informe llegará después de jugar una jornada.</div>}
