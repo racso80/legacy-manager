@@ -79,7 +79,20 @@ export function refreshTransferListings(game,teams,squads,force=false){
   // Un club solo ve listados de su propia division y de las inferiores (nunca hacia arriba).
   const userTier=teams.find(team=>team.id===game.teamId)?.tier??1;
   teams.filter(team=>team.id!==game.teamId&&(team.tier??1)>=userTier).forEach((team,teamIndex)=>{
-    const squad=squads[team.id]??[];
+    let squad=squads[team.id]??[];
+    // Antes de listar a nadie "por final de contrato", el club intenta retener a su
+    // gente clave — mismo candidato/probabilidad que maybeCreateAITransfer's renewal
+    // (isCorePlayer + contractEnd<=season+1, 28% de éxito). Si la renovación sale
+    // bien, el jugador ya no cumple el filtro de "expiring" más abajo porque su
+    // contractEnd ya no vence el año que viene. Jugadores no-core nunca pasan por
+    // renewalCandidate (isCorePlayer lo exige), así que siguen listándose igual.
+    const renewal=renewalCandidate(squad,game.season,team);
+    if(renewal&&Math.random()<.28){
+      const years=renewal.age>=31?2:renewal.age<=23?4:3;
+      const updated={...renewal,contractEnd:String(Number(game.season)+years),salary:Math.round((renewal.salary??20)*(1.08+Math.random()*.16)),squadRole:renewal.overall>=84?"Estrella":renewal.overall>=78?"Titular":renewal.squadRole??"Rotación"};
+      squad=squad.map(player=>player.id===renewal.id?updated:player);
+      setRealSquad(team.id,squad);
+    }
     const balance=squadBalance(squad);
     const safeFallback=stableSort(squad.filter(player=>player.overall<=84&&player.group!=="POR"&&(balance.counts[player.group]??0)>groupMin[player.group]&&!isCorePlayer(player,team)),team.id)[0];
     const sale=saleCandidate(squad,game.season,team)??safeFallback;
@@ -232,7 +245,11 @@ export function maybeCreateAITransfer(game,teams,squads){
     const updated={...renewal,contractEnd:String(Number(game.season)+years),salary:Math.round((renewal.salary??20)*(1.08+Math.random()*.16)),squadRole:renewal.overall>=84?"Estrella":renewal.overall>=78?"Titular":renewal.squadRole??"Rotación"};
     setRealSquad(buyer.id, buyerSquad.map(player=>player.id===renewal.id?updated:player));
     const transfer={id:`ai-renewal-${game.season}-${matchday}-${renewal.id}`,type:"renewal",player:updated,fromTeamId:buyer.id,toTeamId:buyer.id,value:0,season:String(game.season),matchday,reason:"Renovación estratégica"};
-    return {...current,transfers:[...(current.transfers??[]),transfer],transferMarket:{...market,lastAiMatchday:matchday,aiTransfers:[transfer,...(market.aiTransfers??[])],marketPulse:[transfer,...(market.marketPulse??[])]}};
+    // refreshTransferListings solo se regenera al inicio de temporada (force:true), así
+    // que sin esto un jugador renovado a mitad de temporada seguiría apareciendo en el
+    // mercado con el listado obsoleto de "Último año de contrato".
+    const listings=(market.listings??[]).filter(item=>item.playerId!==renewal.id);
+    return {...current,transfers:[...(current.transfers??[]),transfer],transferMarket:{...market,listings,lastAiMatchday:matchday,aiTransfers:[transfer,...(market.aiTransfers??[])],marketPulse:[transfer,...(market.marketPulse??[])]}};
   }
   const target=targetForNeed(buyer,buyerSquad,clubs,squads,game);
   if(target&&Math.random()<.64){
