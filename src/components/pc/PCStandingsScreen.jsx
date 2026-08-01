@@ -149,7 +149,7 @@ export default function PCStandingsScreen({ standings, teamId, fixtures, players
         <div className="pc-standings-table-wrap">
           <div className="pc-standings-table-hdr">
             <span className="pc-standings-table-hdr-icon">🏆</span>
-            <div className="pc-standings-table-hdr-title">{leagueConfig?.name ?? "LaLiga Santander"}</div>
+            <div className="pc-standings-table-hdr-title">{leagueConfig?.name ?? "LaLiga EA Sports"}</div>
             <div className="pc-standings-table-hdr-sub">Temporada {season ?? "—"}</div>
           </div>
           <div className="pc-standings-table-scroll">

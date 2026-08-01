@@ -9,7 +9,7 @@
 export const LEAGUES = [
   {
     id: "esp_primera",
-    name: "LaLiga Santander",
+    name: "LaLiga EA Sports",
     shortName: "LaLiga",
     country: "ES",
     countryName: "España",
