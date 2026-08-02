@@ -63,7 +63,7 @@ export default function StartingXIBar({
           >
             <div className="pc-match-v2-squad-pos">{positions[slot] ?? player.pos}</div>
             <div className="pc-match-v2-squad-shirt">{initialsOf(player.name)}</div>
-            <div className="pc-match-v2-squad-name">{player.name.split(" ").slice(-1)[0]}{isOut ? " 🟥" : ""}</div>
+            <div className="pc-match-v2-squad-name">{player.name.split(" ").slice(-1)[0]}{stats.yellows > 0 ? ` 🟨${stats.yellows > 1 ? `×${stats.yellows}` : ""}` : ""}{isOut ? " 🟥" : ""}</div>
             {rating != null && <div className={`pc-match-v2-squad-rating ${ratingClass(rating)}`}>{rating.toFixed(1)}</div>}
             <EnergyRing energy={energy} />
           </div>
