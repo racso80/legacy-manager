@@ -18,7 +18,7 @@ export default function PCAttentionCenterScreen({ items = [], onOpenItem, onDism
 
       <div className="pc-ac-summary-row">
         <div className="pc-ac-summary-card">
-          <div className="pc-ac-summary-value">{items.length}</div>
+          <div className="pc-ac-summary-value">{urgentCount}</div>
           <div className="pc-ac-summary-label">Total</div>
         </div>
         <div className="pc-ac-summary-card">

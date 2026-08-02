@@ -5450,12 +5450,13 @@ function Dashboard({ game, onPlay, setScreen, lineup, attentionItems = [], conve
   const priorityColor = priority => priority==="urgent"||priority==="critical" ? "#ef4444" : priority==="important" ? "#f59e0b" : "#22c55e";
   const priorityRank = priority => priority==="urgent"||priority==="critical" ? 0 : priority==="important" ? 1 : 2;
   const waitingPeople = directorItems.filter(item=>item.priority!=="info").map(item=>{
-    if(item.issueCard){const issue=item.issueCard;return{kind:"issue",id:issue.id,priority:issue.priority,person:{...(issue.owner??{}),emotionalState:item.issue?.emotionalState??item.conversation?.emotionalState??item.attention?.emotionalState??"neutral",line:issue.summary,action:issue.availableActions?.[0]??"Revisar",consequence:issue.consequenceIfIgnored,subjectName:issue.subjectName,title:issue.title},onClick:()=>onOpenScene?.(item)};}
+    if(item.issueCard){const issue=item.issueCard;return{kind:"issue",id:issue.id,priority:issue.priority,person:{...(issue.owner??{}),emotionalState:item.issue?.emotionalState??item.conversation?.emotionalState??item.attention?.emotionalState??"neutral",line:issue.summary,action:issue.availableActions?.[0]??"Revisar",consequence:issue.consequenceIfIgnored,subjectName:issue.subjectName,title:issue.title,mergedCount:item.mergedCount??1},onClick:()=>onOpenScene?.(item)};}
     if(item.source==="clubLife")return{kind:"clubLife",id:item.rawId,priority:item.priority,person:{...clubLifePersona(item.issue),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
     if(item.source==="conversation")return{kind:"conversation",id:item.rawId,priority:item.priority,person:{...conversationPersona(item.conversation),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
     return{kind:"attention",id:item.rawId,priority:item.priority,person:{...attentionPersona(item.attention),mergedCount:item.mergedCount,protagonistOfDay:item.protagonistOfDay},onClick:()=>onOpenScene?.(item)};
   }).sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)).slice(0,3);
-  const moreInCenterCount = Math.max(0, urgentAttention.filter(item=>!item.dismissed).length - waitingPeople.length);
+  const shownAttentionCount = waitingPeople.reduce((sum,item)=>sum+(item.person?.mergedCount??1),0);
+  const moreInCenterCount = Math.max(0, getAttentionCount(attentionItems) - shownAttentionCount);
   const expectationItems = getLegacyDirectorExpectations(game);
   const expectationReminder = expectationItems[0]
     ? expectationItems[0].expectedToday

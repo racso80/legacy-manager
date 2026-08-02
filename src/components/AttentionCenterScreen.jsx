@@ -56,7 +56,7 @@ export default function AttentionCenterScreen({ items = [], onOpenItem, onDismis
           Tu bandeja prioritaria: lesiones, ofertas, contratos, directiva y decisiones que conviene atender.
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:7, marginTop:13 }}>
-          {[["TOTAL", items.length, "#c9a84c"], ["URGENTES", urgentCount, urgentCount ? "#f59e0b" : "#22c55e"], ["CRÍTICOS", critical, critical ? "#ef4444" : "#22c55e"]].map(([label, value, color]) => (
+          {[["TOTAL", urgentCount, "#c9a84c"], ["URGENTES", urgentCount, urgentCount ? "#f59e0b" : "#22c55e"], ["CRÍTICOS", critical, critical ? "#ef4444" : "#22c55e"]].map(([label, value, color]) => (
             <div key={label} style={{ background:"rgba(0,0,0,.22)", borderRadius:9, padding:9, textAlign:"center" }}>
               <div style={{ color, fontSize:18, fontWeight:900 }}>{value}</div>
               <div style={{ color:COLORS.textDim, fontSize:8, fontWeight:800, marginTop:2 }}>{label}</div>
