@@ -15,6 +15,21 @@ function availabilityFor(player, game) {
   return { label: "Disponible", color: "#22c55e" };
 }
 
+function marketStatusFor(player) {
+  if (player.marketStatus === "transfer") return { icon: "📌", label: "Transferible", color: "#f59e0b" };
+  if (player.marketStatus === "loan") return { icon: "🔁", label: "Cedible", color: "#60a5fa" };
+  return null;
+}
+
+function MarketStatusPill({ status }) {
+  if (!status) return null;
+  return (
+    <span style={{ color: status.color, background: `${status.color}18`, border: `1px solid ${status.color}40`, borderRadius: 4, padding: "2px 6px", fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>
+      {status.icon} {status.label}
+    </span>
+  );
+}
+
 function SquadPhoto({ player, size = 32 }) {
   return (
     <div className="pc-squad-photo-wrap" style={{ width: size, height: size }}>
@@ -95,7 +110,10 @@ export default function PCSquadScreen({ game, players, onOpenPlayer }) {
                 >
                   <SquadPhoto player={p} />
                   <span className="pc-squad-cell-dim">{idx + 1}</span>
-                  <span className="pc-squad-name">{p.name}</span>
+                  <span className="pc-squad-name-cell">
+                    <span className="pc-squad-name">{p.name}</span>
+                    <MarketStatusPill status={marketStatusFor(p)} />
+                  </span>
                   <span className="pc-squad-pos-badge">{p.pos}</span>
                   <span className="pc-squad-ovr">{p.overall}</span>
                   <span className="pc-squad-cell-dim">{p.age}</span>
@@ -123,11 +141,12 @@ export default function PCSquadScreen({ game, players, onOpenPlayer }) {
               <SquadPhoto key={selectedPlayer.id} player={selectedPlayer} size={80} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div className="pc-squad-detail-name">{selectedPlayer.name}</div>
-                <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4, flexWrap: "wrap" }}>
                   <span className="pc-squad-pos-badge">{selectedPlayer.pos}</span>
                   <span style={{ background: `${selectedAccent}22`, color: selectedAccent, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4 }}>
                     {RARITY_LABEL[selectedPlayer.rarity]}
                   </span>
+                  <MarketStatusPill status={marketStatusFor(selectedPlayer)} />
                 </div>
                 <div className="pc-squad-detail-overall" style={{ color: selectedAccent }}>{selectedPlayer.overall}</div>
               </div>

@@ -114,6 +114,8 @@ export function getPlayerTags(player, stats, form, currentSeason) {
   const tags = [];
   const potential = getPotential(player);
   if (player.injured) tags.push({ icon:"🏥", label:"Lesionado", color:"#ef4444" });
+  if (player.marketStatus === "transfer") tags.push({ icon:"📌", label:"Transferible", color:"#f59e0b" });
+  if (player.marketStatus === "loan") tags.push({ icon:"🔁", label:"Cedible", color:"#60a5fa" });
   if (player.age <= 23 && potential - player.overall >= 4) tags.push({ icon:"💎", label:"Promesa", color:"#60a5fa" });
   if (player.overall >= 85) tags.push({ icon:"⭐", label:"Estrella", color:"#c9a84c" });
   if (form.label === "Excelente") tags.push({ icon:"🔥", label:"En forma", color:"#f97316" });

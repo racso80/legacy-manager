@@ -1425,7 +1425,7 @@ function PlayerCard({ player, onSelect, selected }) {
           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 10px 12px", background: "linear-gradient(to top, rgba(0,0,0,.92) 0%, rgba(0,0,0,.5) 60%, transparent 100%)" }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1.2 }}>{player.name}</div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,.6)", marginTop: 2 }}>{NAT_FLAG[player.nat] || "🌍"} · {player.age} años</div>
-            <div style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 9, color: "rgba(255,255,255,.45)", fontWeight: 600 }}>MOR</div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: moraleColor }}>{player.morale}</div>
@@ -1436,6 +1436,8 @@ function PlayerCard({ player, onSelect, selected }) {
               </div>
               {player.injured && <span style={{ background: "#ef444430", color: "#ef4444", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4 }}>LESIÓN</span>}
               {player.suspended && <span style={{ background: "#f59e0b30", color: "#f59e0b", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4 }}>SANCIÓN</span>}
+              {player.marketStatus === "transfer" && <span style={{ background: "#f59e0b30", color: "#f59e0b", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4 }}>📌 TRANSFERIBLE</span>}
+              {player.marketStatus === "loan" && <span style={{ background: "#60a5fa30", color: "#60a5fa", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4 }}>🔁 CEDIBLE</span>}
             </div>
           </div>
         </div>
@@ -1458,6 +1460,8 @@ function PlayerCard({ player, onSelect, selected }) {
             <span style={{ background: `${acc}22`, color: acc, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4 }}>{RARITY_LABEL[player.rarity]}</span>
             {player.injured && <span style={{ background: "#ef444422", color: "#ef4444", fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4 }}>Lesionado</span>}
             {player.suspended && <span style={{ background: "#f59e0b22", color: "#f59e0b", fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4 }}>Sancionado</span>}
+            {player.marketStatus === "transfer" && <span style={{ background: "#f59e0b22", color: "#f59e0b", fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4 }}>📌 Transferible</span>}
+            {player.marketStatus === "loan" && <span style={{ background: "#60a5fa22", color: "#60a5fa", fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4 }}>🔁 Cedible</span>}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.08)" }}>
             {[["MORAL", player.morale, moraleColor], ["CAN", player.fatigue, fatColor], ["🟡", player.yellowCards, "#f59e0b"]].map(([l, v, c]) => (
@@ -2475,7 +2479,8 @@ const GLOBAL_CSS = `
     .pc-squad-photo { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
     .pc-squad-photo-fallback { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; opacity: .55; }
 
-    .pc-squad-name { font-size: 12px; font-weight: 800; color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-squad-name-cell { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+    .pc-squad-name { font-size: 12px; font-weight: 800; color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .pc-squad-cell-dim { font-size: 11px; color: #9aa0b4; text-align: center; }
     .pc-squad-pos-badge { font-size: 10px; font-weight: 800; color: #c9ced8; background: rgba(255,255,255,.08); border-radius: 4px; padding: 2px 6px; text-align: center; width: fit-content; }
     .pc-squad-ovr { font-size: 13px; font-weight: 900; color: var(--club-accent, #c9a84c); text-align: center; }
