@@ -6,6 +6,7 @@ import { positionTier, computePlayerRating, ratingClass, initialsOf, TIER_ORDER_
 // tocado a continuación) y abre el popover de sustitución vía onSlotClick.
 export default function FormationPanel({
   team, formation, lineup = [], players = [], sentOffIds = [], events = [], currentMinute = 0,
+  teamGoalsFor = 0, teamGoalsAgainst = 0,
   sideColorClass = "home", reversed = false, interactive = false, selectedSlot = null, onSlotClick,
 }) {
   const positions = MATCH_FORMATIONS[formation] ?? MATCH_FORMATIONS["4-3-3"];
@@ -37,7 +38,9 @@ export default function FormationPanel({
               <div className="pc-match-v2-p-row" key={tier}>
                 {row.map(({ slot, player }) => {
                   const isOut = sentOffIds.includes(player.id);
-                  const rating = computePlayerRating(player.id, { events, sentOffIds, currentMinute });
+                  const stats = computePlayerRating(player, { events, currentMinute, teamGoalsFor, teamGoalsAgainst });
+                  const hasRating = stats.minutes > 0 || stats.goals || stats.assists || stats.saves || stats.defensiveActions || stats.yellows || stats.red;
+                  const yellowCount = stats.yellows;
                   const selected = interactive && selectedSlot === slot;
                   const clickable = interactive && !isOut && typeof onSlotClick === "function";
                   return (
@@ -54,8 +57,14 @@ export default function FormationPanel({
                         {initialsOf(player.name)}
                       </div>
                       <div className="pc-match-v2-p-name">{player.name.split(" ").slice(-1)[0]}</div>
-                      {rating != null && (
-                        <div className={`pc-match-v2-p-rating ${ratingClass(rating)}`}>{rating.toFixed(1)}</div>
+                      {(yellowCount > 0 || isOut) && (
+                        <div className="pc-match-v2-p-cards">
+                          {yellowCount > 0 && <span className="pc-match-v2-card-icon yellow">🟨{yellowCount > 1 ? `×${yellowCount}` : ""}</span>}
+                          {isOut && <span className="pc-match-v2-card-icon red">🟥</span>}
+                        </div>
+                      )}
+                      {hasRating && (
+                        <div className={`pc-match-v2-p-rating ${ratingClass(stats.rating)}`}>{stats.rating.toFixed(1)}</div>
                       )}
                     </div>
                   );

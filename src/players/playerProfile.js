@@ -1,3 +1,5 @@
+import { computePlayerRating } from "../match/matchFlow.js";
+
 const hashNumber = value => {
   let hash = 0;
   for (const char of String(value)) hash = (Math.imul(hash, 31) + char.charCodeAt(0)) | 0;
@@ -81,13 +83,16 @@ export function getPlayerSeasonStats(player, game, teamId) {
     const matchReds = events.filter(event => event.type === "RED" && event.playerId === player.id).length;
     goals += matchGoals; assists += matchAssists; yellows += matchYellows; reds += matchReds;
 
-    if (player.group === "POR" || player.pos === "POR") {
-      const conceded = fixture.homeTeamId === fixtureTeam ? fixture.awayGoals : fixture.homeGoals;
-      if (conceded === 0) cleanSheets++;
-    }
-    const won = fixtureTeam && ((fixture.homeTeamId === fixtureTeam && fixture.homeGoals > fixture.awayGoals) || (fixture.awayTeamId === fixtureTeam && fixture.awayGoals > fixture.homeGoals));
-    const drew = fixture.homeGoals === fixture.awayGoals;
-    ratings.push(Math.max(4, Math.min(10, 6.2 + (won ? .35 : drew ? .1 : -.25) + matchGoals * 1.15 + matchAssists * .7 - matchYellows * .2 - matchReds * 1.2)));
+    const teamGoalsFor = fixture.homeTeamId === fixtureTeam ? fixture.homeGoals : fixture.awayGoals;
+    const teamGoalsAgainst = fixture.homeTeamId === fixtureTeam ? fixture.awayGoals : fixture.homeGoals;
+    if ((player.group === "POR" || player.pos === "POR") && teamGoalsAgainst === 0) cleanSheets++;
+
+    // Misma fórmula que el partido en vivo y el Resumen post-partido (computePlayerRating,
+    // matchFlow.js) — antes esta agregación de temporada recalculaba su propia versión desde
+    // cero (base/bonus de victoria distintos, sin overall/minutos/paradas/acciones defensivas),
+    // así que la NOTA de temporada (Plantilla/Perfil) podía no coincidir con la nota real del
+    // partido que la generó.
+    ratings.push(computePlayerRating(player, { events, currentMinute: 90, teamGoalsFor, teamGoalsAgainst }).rating);
   });
 
   return {

@@ -19,7 +19,7 @@ import LegacyMuseumScreen from "./components/LegacyMuseumScreen.jsx";
 import PCLegacyCareerScreen from "./components/pc/PCLegacyCareerScreen.jsx";
 import ScoutingScreen from "./components/ScoutingScreen.jsx";
 import TeamCrest from "./components/TeamCrest.jsx";
-import { MATCH_FORMATIONS, buildMatchdaySquad, buildStartingEleven, calculateMatchRatings, chooseOpponentFormation, eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
+import { MATCH_FORMATIONS, buildMatchdaySquad, buildStartingEleven, calculateMatchRatings, chooseOpponentFormation, computePlayerRating, eventsUntilExtraordinary, intervalProbability, promoteSecondYellow, strengthWithPlayerCount } from "./match/matchFlow.js";
 import { buildLiveMatchState } from "./match/liveMatchEngine.js";
 import { createGoalEvent, selectAssistant, selectCardedPlayer, selectGoalScorer, extractNamesFromDescription } from "./match/statisticalEngine.js";
 import YouthAcademyScreen from "./components/YouthAcademyScreen.jsx";
@@ -2574,6 +2574,8 @@ const GLOBAL_CSS = `
     .pc-match-v2-topbar-right { display: flex; justify-self: end; align-items: center; gap: 8px; }
     .pc-match-v2-icon-btn { background: var(--bg-panel-soft); border: 1px solid var(--border-strong); color: var(--text-muted); width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
     .pc-match-v2-icon-btn:hover { color: var(--text-primary); border-color: var(--home); }
+    .pc-match-v2-icon-btn.paused { background: var(--club-accent, #c9a84c); border-color: var(--club-accent, #c9a84c); color: var(--club-text-on-accent, #1a1200); animation: pcMatchV2Pulse 1.6s infinite; }
+    .pc-match-v2-icon-btn.paused:hover { color: var(--club-text-on-accent, #1a1200); }
     .pc-match-v2-icon-btn-sm { width: 20px; height: 20px; font-size: 10px; }
     .pc-match-v2-speed-group { display: flex; gap: 4px; background: var(--bg-panel-soft); border: 1px solid var(--border-strong); border-radius: 7px; padding: 3px; }
     .pc-match-v2-speed-btn { background: none; border: none; color: var(--text-faint); font-size: 10px; font-family: var(--font-mono); padding: 4px 7px; border-radius: 5px; }
@@ -2611,6 +2613,8 @@ const GLOBAL_CSS = `
     .pc-match-v2-p-rating.good { color: var(--good); }
     .pc-match-v2-p-rating.mid { color: var(--mid); }
     .pc-match-v2-p-rating.bad { color: var(--bad); }
+    .pc-match-v2-p-cards { display: flex; gap: 3px; align-items: center; }
+    .pc-match-v2-card-icon { font-size: 9px; line-height: 1; }
 
     .pc-match-v2-stat-row { margin-bottom: 12px; }
     .pc-match-v2-stat-row:last-child { margin-bottom: 0; }
@@ -7416,7 +7420,7 @@ function TacticsScreen({ tactics, setTactics, savedTacticsPresets = [], onSaveTa
   );
 }
 
-export function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[],side,eventTeam,currentMinute=0}){
+export function LiveLineupPanel({team,formation,playerIds,players,events,sentOffIds=[],side,eventTeam,currentMinute=0,teamGoalsFor=0,teamGoalsAgainst=0}){
   const relatedEvents=events.filter(event=>event.team===side||event.team===eventTeam);
   const participantIds=[...new Set([...playerIds,...relatedEvents.flatMap(event=>[event.playerId,event.outPlayerId]).filter(Boolean)])];
   const rank={POR:0,LD:1,DFC:2,LI:3,MCD:4,MC:5,MCO:6,MD:7,MI:8,ED:9,EI:10,DC:11};
@@ -7426,21 +7430,13 @@ export function LiveLineupPanel({team,formation,playerIds,players,events,sentOff
   const average=active.length?Math.round(active.reduce((sum,player)=>sum+player.overall,0)/active.length):0;
   const keyPlayer=[...active].sort((a,b)=>b.overall-a.overall)[0];
   const changes=relatedEvents.filter(event=>event.type==="SUBSTITUTION");
+  // Misma fórmula que el Resumen post-partido (calculateMatchRatings, matchFlow.js) — antes
+  // esta vista recalculaba su propia versión parcial (sin bonus de overall/victoria/portería
+  // a cero), lo que producía una nota distinta a la del Resumen para el mismo jugador.
   const playerData = player => {
-    const own = relatedEvents.filter(event => event.playerId === player.id || event.assistId === player.id || event.outPlayerId === player.id);
-    const goals = own.filter(event => ["GOAL","PENALTY"].includes(event.type) && event.playerId === player.id).length;
-    const assists = own.filter(event => event.assistId === player.id).length;
-    const yellows = own.filter(event => event.type === "YELLOW" && event.playerId === player.id).length;
-    const red = sentOffIds.includes(player.id);
-    const saves = own.filter(event => event.type === "SAVE" && event.playerId === player.id).length;
-    const defensiveActions = own.filter(event => event.type === "DEFENSIVE_ACTION" && event.playerId === player.id).length;
-    const subIn = relatedEvents.find(event => event.type === "SUBSTITUTION" && event.playerId === player.id);
-    const subOut = relatedEvents.find(event => event.type === "SUBSTITUTION" && event.outPlayerId === player.id);
-    const hasPlayed = playerIds.includes(player.id) || subIn || own.length;
-    const minutes = hasPlayed ? Math.max(0, Math.min(currentMinute || 0, subOut?.minute ?? (currentMinute || 0)) - (subIn?.minute ?? 0)) : 0;
-    const hasRating = minutes > 0 || goals || assists || saves || defensiveActions || yellows || red;
-    const rating = hasRating ? Math.max(4, Math.min(10, 6 + Math.min(90, minutes) / 360 + goals * 1.25 + assists * .7 + saves * .18 + defensiveActions * .14 - yellows * .2 - (red ? 1.5 : 0))) : null;
-    return { goals, assists, yellows, red, saves, defensiveActions, minutes, rating: rating ? rating.toFixed(1) : "—" };
+    const stats = computePlayerRating(player, { events: relatedEvents, currentMinute, teamGoalsFor, teamGoalsAgainst });
+    const hasRating = stats.minutes > 0 || stats.goals || stats.assists || stats.saves || stats.defensiveActions || stats.yellows || stats.red;
+    return { ...stats, rating: hasRating ? stats.rating.toFixed(1) : "—" };
   };
   return <div style={{background:"#161a24",border:`1px solid ${team?.color??"#6b7280"}28`,borderRadius:11,padding:12,marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TeamCrest team={team} size={38}/><div style={{flex:1}}><div style={{fontSize:12,color:"#fff",fontWeight:850}}>{team?.name}</div><div style={{fontSize:9,color:team?.color??"#9aa0b4",marginTop:2}}>{formation} · {active.length} jugadores activos</div></div><div style={{textAlign:"center"}}><div style={{fontSize:20,color:"#c9a84c",fontWeight:900}}>{average}</div><div style={{fontSize:7,color:"#6b7280"}}>MEDIA ONCE</div></div></div><div style={{display:"flex",flexDirection:"column",gap:5}}>{lineupPlayers.map(player=>{const data=playerData(player);const red=data.red;const injured=injuredIds.has(player.id);const subOut=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===player.id);const subIn=relatedEvents.find(event=>event.type==="SUBSTITUTION"&&event.playerId===player.id);return <div key={player.id} style={{background:red?"rgba(239,68,68,.07)":injured?"rgba(249,115,22,.07)":"#11141c",borderRadius:7,padding:"7px 9px",opacity:red||subOut?.7:1}}><div style={{display:"flex",alignItems:"center",gap:7}}><span style={{width:29,color:"#6b7280",fontSize:9,fontWeight:800}}>{player.pos}</span><span style={{flex:1,color:red?"#ef4444":injured?"#f97316":"#dfe3ec",fontSize:10,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{player.name}</span>{data.goals>0&&<span>⚽{data.goals}</span>}{data.assists>0&&<span style={{fontSize:8,color:"#60a5fa"}}>A{data.assists}</span>}{data.yellows>0&&<span>🟨</span>}{red&&<span>🟥</span>}{injured&&<span>🏥</span>}<strong style={{fontSize:11,color:Number(data.rating)>=7?"#22c55e":"#c9a84c"}}>{data.rating}</strong></div><div style={{display:"flex",gap:7,marginTop:3,paddingLeft:36,fontSize:8,color:"#697083"}}>{player.fatigue!=null&&<span>⚡ {Math.max(0,Math.round(100-player.fatigue))}%</span>}{subIn&&<span style={{color:"#22c55e"}}>ENTRA {subIn.minute}'</span>}{subOut&&<span style={{color:"#a855f7"}}>SALE {subOut.minute}'</span>}</div></div>})}</div>{keyPlayer&&<div style={{marginTop:9,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.05)",fontSize:9,color:"#6b7280"}}>⭐ Jugador clave: <strong style={{color:team?.color??"#c9a84c"}}>{keyPlayer.name}</strong> · {keyPlayer.overall}</div>}{changes.length>0&&<div style={{marginTop:6,fontSize:8,color:"#a855f7"}}>🔄 {changes.length} cambio{changes.length===1?"":"s"}</div>}</div>;
 }
@@ -8137,7 +8133,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
       {/* Marcador */}
       <div style={{ background: "#1a1f2e", padding: "14px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,.06)", flexShrink: 0 }}>
         <div style={{ fontSize: 11, color: "#c9a84c", fontWeight: 600, letterSpacing: ".5px", marginBottom: 6 }}>
-          J{fixture.matchday} · {finished ? "FINALIZADO" : currentMinute===0 ? "INICIO" : matchPhase==="halftime" ? "DESCANSO" : `MIN ${displayMinute}'${pauseEvent?" · PARTIDO DETENIDO":""}`}
+          J{fixture.matchday} · {finished ? "FINALIZADO" : currentMinute===0 ? "INICIO" : matchPhase==="halftime" ? "DESCANSO" : `MIN ${displayMinute}'${(pauseEvent||!playing)?" · PARTIDO DETENIDO":""}`}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
           <div style={{ flex: 1, textAlign: "right" }}>
@@ -8406,8 +8402,8 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
         )}
         {tab === "alineaciones" && (
           <div style={{padding:12}}>
-            <LiveLineupPanel team={userTeam} formation={matchFormation} playerIds={lineup.filter(Boolean)} players={livePlayer} events={events} sentOffIds={sentOffIds} side="user" eventTeam={isHome?"home":"away"} currentMinute={currentMinute}/>
-            <LiveLineupPanel team={oppTeam} formation={oppFormation} playerIds={oppLineup.filter(Boolean)} players={liveOppPlayers} events={events} sentOffIds={oppSentOffIds} side="opp" eventTeam={isHome?"away":"home"} currentMinute={currentMinute}/>
+            <LiveLineupPanel team={userTeam} formation={matchFormation} playerIds={lineup.filter(Boolean)} players={livePlayer} events={events} sentOffIds={sentOffIds} side="user" eventTeam={isHome?"home":"away"} currentMinute={currentMinute} teamGoalsFor={isHome?score.home:score.away} teamGoalsAgainst={isHome?score.away:score.home}/>
+            <LiveLineupPanel team={oppTeam} formation={oppFormation} playerIds={oppLineup.filter(Boolean)} players={liveOppPlayers} events={events} sentOffIds={oppSentOffIds} side="opp" eventTeam={isHome?"away":"home"} currentMinute={currentMinute} teamGoalsFor={isHome?score.away:score.home} teamGoalsAgainst={isHome?score.home:score.away}/>
           </div>
         )}
         {tab === "tacticas" && (
@@ -8455,7 +8451,7 @@ function MatchScreen({ game, saveId, tactics: baseTactics, setTactics: setBaseTa
           <button onClick={openTacticalBoard} className="btn-ghost" style={{ width:"100%", padding:12, borderRadius:9, fontSize:13, marginBottom:8 }}>
             Cambiar tactica desde la pizarra
           </button>
-          <div style={{fontSize:9,color:pauseEvent?"#c9a84c":"#6b7280",textAlign:"center",lineHeight:1.4,marginTop:7}}>{pauseEvent?`Partido detenido en el ${currentMinute}'. Pulsa Play para reanudar o Avance manual para continuar paso a paso.`:"1 segundo real = 1 minuto de partido. Se detiene en goles, penaltis, tarjetas, lesiones y decisiones."}</div>
+          <div style={{fontSize:9,color:(pauseEvent||(!playing&&currentMinute>0))?"#c9a84c":"#6b7280",textAlign:"center",lineHeight:1.4,marginTop:7}}>{(pauseEvent||(!playing&&currentMinute>0))?`Partido detenido en el ${currentMinute}'. Pulsa Play para reanudar o Avance manual para continuar paso a paso.`:"1 segundo real = 1 minuto de partido. Se detiene en goles, penaltis, tarjetas, lesiones y decisiones."}</div>
           {!playing && currentMinute===0 && (
             <button onClick={abandonMatch} className="btn-danger" style={{ width:"100%", padding:11, borderRadius:9, fontSize:12, marginTop:9 }}>
               Abandonar partido y volver al inicio
@@ -8567,7 +8563,8 @@ export function TacticalBoardOverlay({ minute, formation, lineup = [], subs = []
                 <div style={{ fontSize:11, fontWeight:900, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{player?.name ?? "Libre"}</div>
                 <div style={{ display:"flex", justifyContent:"center", gap:4, marginTop:3, fontSize:9, color:selected?"#4b2d00":"#cbd5e1" }}>
                   <span>{fatigue}%</span>
-                  {yellowCount > 0 && <span style={{ color:"#facc15" }}>A</span>}
+                  {yellowCount > 0 && <span>🟨{yellowCount > 1 ? `×${yellowCount}` : ""}</span>}
+                  {sentOff && <span>🟥</span>}
                   {injury && <span style={{ color:"#fb923c" }}>MED</span>}
                   {warning && <span>FP</span>}
                 </div>

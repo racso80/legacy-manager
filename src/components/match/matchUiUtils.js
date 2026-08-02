@@ -1,4 +1,5 @@
 // Helpers compartidos por los paneles de la pantalla de partido PC.
+export { computePlayerRating } from "../../match/matchFlow.js";
 
 export function ratingClass(rating) {
   const r = Number(rating);
@@ -9,21 +10,6 @@ export function ratingClass(rating) {
 export function initialsOf(name = "") {
   const parts = name.replace(".", " ").split(" ").filter(Boolean);
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
-}
-
-// Mismo cálculo de rating en vivo que usaba PCMatchScreen: puntos por goles/asistencias/paradas/
-// acciones defensivas, penalización por tarjetas. sentOffIds debe ser el del equipo del jugador.
-export function computePlayerRating(playerId, { events, sentOffIds = [], currentMinute }) {
-  if (!playerId || currentMinute <= 0) return null;
-  const own = events.filter(e => e.playerId === playerId || e.assistId === playerId);
-  const goals = own.filter(e => (e.type === "GOAL" || e.type === "PENALTY") && e.playerId === playerId).length;
-  const assists = own.filter(e => e.assistId === playerId).length;
-  const yellows = own.filter(e => e.type === "YELLOW" && e.playerId === playerId).length;
-  const isRed = sentOffIds.includes(playerId);
-  const saves = own.filter(e => e.type === "SAVE" && e.playerId === playerId).length;
-  const defActions = own.filter(e => e.type === "DEFENSIVE_ACTION" && e.playerId === playerId).length;
-  const rating = Math.max(4, Math.min(10, 6 + goals * 1.25 + assists * .7 + saves * .18 + defActions * .14 - yellows * .2 - (isRed ? 1.5 : 0)));
-  return Number(rating.toFixed(1));
 }
 
 // energy = 100 - fatigue. Mismos umbrales de color que el resto de la UI de partido

@@ -4,18 +4,20 @@ import { computePlayerRating, ratingClass, initialsOf } from "./matchUiUtils.js"
 // dorado) de "rival" (away, rojo) — no representa local/visitante del fixture.
 export default function TopPerformersPanel({
   userPlayers = [], oppPlayers = [], userLineup = [], oppLineup = [],
-  sentOffIds = [], oppSentOffIds = [], events = [], currentMinute = 0, userTeam, oppTeam,
+  events = [], currentMinute = 0, userTeam, oppTeam,
+  userGoalsFor = 0, userGoalsAgainst = 0,
 }) {
-  const build = (lineup, players, side, teamSentOff) => lineup.filter(Boolean).map(pid => {
+  const build = (lineup, players, side, teamGoalsFor, teamGoalsAgainst) => lineup.filter(Boolean).map(pid => {
     const player = players.find(p => p.id === pid);
     if (!player) return null;
-    const rating = computePlayerRating(pid, { events, sentOffIds: teamSentOff, currentMinute });
-    return rating == null ? null : { player, side, rating };
+    const stats = computePlayerRating(player, { events, currentMinute, teamGoalsFor, teamGoalsAgainst });
+    const hasRating = stats.minutes > 0 || stats.goals || stats.assists || stats.saves || stats.defensiveActions || stats.yellows || stats.red;
+    return hasRating ? { player, side, rating: stats.rating } : null;
   }).filter(Boolean);
 
   const top3 = [
-    ...build(userLineup, userPlayers, "user", sentOffIds),
-    ...build(oppLineup, oppPlayers, "opp", oppSentOffIds),
+    ...build(userLineup, userPlayers, "user", userGoalsFor, userGoalsAgainst),
+    ...build(oppLineup, oppPlayers, "opp", userGoalsAgainst, userGoalsFor),
   ].sort((a, b) => b.rating - a.rating).slice(0, 3);
 
   return (

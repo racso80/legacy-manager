@@ -52,7 +52,7 @@ export default function MatchScreenHeader({
               </button>
             ))}
           </div>
-          <button className="pc-match-v2-icon-btn" onClick={onTogglePlay} aria-label="Pausar/Reanudar">{playing ? "⏸" : "▶"}</button>
+          <button className={`pc-match-v2-icon-btn${!playing ? " paused" : ""}`} onClick={onTogglePlay} aria-label={playing ? "Pausar" : "Reanudar"} title={playing ? "Pausar" : "Partido detenido — reanudar"}>{playing ? "⏸" : "▶"}</button>
           <button className="pc-match-v2-icon-btn" onClick={onManualAdvance} aria-label="Avance manual" title="Avance manual">⏭</button>
           <div className="pc-match-v2-settings-wrap">
             <button className="pc-match-v2-icon-btn" onClick={onToggleSettings} aria-label="Ajustes">⚙</button>

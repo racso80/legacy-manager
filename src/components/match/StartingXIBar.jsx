@@ -33,6 +33,7 @@ function EnergyRing({ energy }) {
 // selector de slot que los chips del mini-campo (ver PCMatchScreen.handleSlotClick).
 export default function StartingXIBar({
   lineup = [], players = [], formation, sentOffIds = [], events = [], currentMinute = 0,
+  teamGoalsFor = 0, teamGoalsAgainst = 0,
   selectedSlot = null, onSlotClick,
 }) {
   const positions = MATCH_FORMATIONS[formation] ?? MATCH_FORMATIONS["4-3-3"];
@@ -43,7 +44,9 @@ export default function StartingXIBar({
         const player = players.find(p => p.id === pid);
         if (!player) return null;
         const isOut = sentOffIds.includes(pid);
-        const rating = computePlayerRating(pid, { events, sentOffIds, currentMinute });
+        const stats = computePlayerRating(player, { events, currentMinute, teamGoalsFor, teamGoalsAgainst });
+        const hasRating = stats.minutes > 0 || stats.goals || stats.assists || stats.saves || stats.defensiveActions || stats.yellows || stats.red;
+        const rating = hasRating ? stats.rating : null;
         const energy = Math.max(0, Math.min(100, 100 - (player.fatigue ?? 0)));
         const selected = selectedSlot === slot;
         const clickable = !isOut && typeof onSlotClick === "function";

@@ -96,6 +96,8 @@ export default function PCMatchScreen({
   const awayPlayers = leftIsUser ? liveOppPlayers : livePlayer;
   const awayFormation = leftIsUser ? oppFormation : matchFormation;
   const awaySentOff = leftIsUser ? oppSentOffIds : sentOffIds;
+  const userGoalsFor = leftIsUser ? leftGoals : rightGoals;
+  const userGoalsAgainst = leftIsUser ? rightGoals : leftGoals;
 
   const homeVal = (userVal, oppVal) => isHome ? userVal : oppVal;
   const awayVal = (userVal, oppVal) => isHome ? oppVal : userVal;
@@ -109,7 +111,7 @@ export default function PCMatchScreen({
   ];
 
   const clockLabel = finished ? "FIN" : currentMinute === 0 ? "INICIO" : matchPhase === "halftime" ? "DESCANSO" : `${displayMinute}'`;
-  const phaseLabel = `J${fixture.matchday}${pauseEvent ? " · Detenido" : ""}`;
+  const phaseLabel = `J${fixture.matchday}${(pauseEvent || (!playing && currentMinute > 0)) ? " · Detenido" : ""}`;
   const alertText = liveDecision ? `${liveDecision.title}. ${liveDecision.message}` : toast;
   const onDismissAlert = liveDecision ? acknowledgeLiveDecision : (toast ? () => setToast(null) : null);
   const latestEvent = events.length ? events[events.length - 1] : null;
@@ -136,6 +138,7 @@ export default function PCMatchScreen({
         <FormationPanel
           team={leftTeam} formation={homeFormation} lineup={homeLineup} players={homePlayers}
           sentOffIds={homeSentOff} events={events} currentMinute={currentMinute}
+          teamGoalsFor={leftGoals} teamGoalsAgainst={rightGoals}
           sideColorClass="home" reversed={false}
           interactive={leftIsUser} selectedSlot={leftIsUser ? selectedFormationSlot : null}
           onSlotClick={handleSlotClick}
@@ -145,6 +148,7 @@ export default function PCMatchScreen({
         <FormationPanel
           team={rightTeam} formation={awayFormation} lineup={awayLineup} players={awayPlayers}
           sentOffIds={awaySentOff} events={events} currentMinute={currentMinute}
+          teamGoalsFor={rightGoals} teamGoalsAgainst={leftGoals}
           sideColorClass="away" reversed
           interactive={rightIsUser} selectedSlot={rightIsUser ? selectedFormationSlot : null}
           onSlotClick={handleSlotClick}
@@ -162,8 +166,9 @@ export default function PCMatchScreen({
         />
         <TopPerformersPanel
           userPlayers={livePlayer} oppPlayers={liveOppPlayers} userLineup={lineup} oppLineup={oppLineup}
-          sentOffIds={sentOffIds} oppSentOffIds={oppSentOffIds} events={events} currentMinute={currentMinute}
+          events={events} currentMinute={currentMinute}
           userTeam={userTeam} oppTeam={oppTeam}
+          userGoalsFor={userGoalsFor} userGoalsAgainst={userGoalsAgainst}
         />
       </div>
 
@@ -181,6 +186,7 @@ export default function PCMatchScreen({
       <StartingXIBar
         lineup={lineup} players={livePlayer} formation={matchFormation} sentOffIds={sentOffIds}
         events={events} currentMinute={currentMinute}
+        teamGoalsFor={userGoalsFor} teamGoalsAgainst={userGoalsAgainst}
         selectedSlot={selectedFormationSlot} onSlotClick={handleSlotClick}
       />
 

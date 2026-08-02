@@ -70,12 +70,49 @@ export function buildMatchdaySquad(players=[],formation="4-3-3",benchSlots=12){
   return{lineup:starterIds,bench,calledUp:[...starterIds.filter(Boolean),...bench]};
 }
 
-function minutesPlayed(playerId,starterIds,events){
+// matchEndMinute acota "sigue en el campo" (sin evento de salida/expulsión todavía):
+// 90 para el cálculo final post-partido, currentMinute para las vistas en vivo, para que
+// un titular que aún no ha salido no compute como si hubiera jugado el partido completo.
+// starterIds es opcional — si no se pasa (vistas en vivo, que no siempre lo tienen a mano),
+// se infiere "empezó de titular" por la ausencia de un evento de entrada (subIn), que es
+// equivalente porque todo participante no-titular llega vía SUBSTITUTION.
+function minutesPlayed(playerId,events,matchEndMinute=90,starterIds=null){
   const subIn=events.find(event=>event.type==="SUBSTITUTION"&&event.playerId===playerId)?.minute;
   const subOut=events.find(event=>event.type==="SUBSTITUTION"&&event.outPlayerId===playerId)?.minute;
   const red=events.find(event=>event.type==="RED"&&event.playerId===playerId)?.minute;
-  const start=starterIds.includes(playerId)?0:(subIn??90);const end=Math.min(subOut??90,red??90);
+  const isStarter=starterIds?starterIds.includes(playerId):subIn==null;
+  const start=isStarter?0:(subIn??matchEndMinute);
+  const end=Math.min(subOut??matchEndMinute,red??matchEndMinute,matchEndMinute);
   return Math.max(0,end-start);
+}
+
+// Núcleo de rating compartido por el cálculo final post-partido (calculateMatchRatings,
+// usado en el Resumen/MVP) y por las vistas en vivo (LiveLineupPanel móvil, FormationPanel/
+// TopPerformersPanel/StartingXIBar PC) — antes cada vista en vivo reimplementaba su propia
+// versión parcial de esta fórmula, lo que producía notas distintas para el mismo jugador
+// según dónde se mirara. Todos los términos (bonus de calidad por overall, bonus de victoria,
+// portería a cero) se pueden calcular en cualquier punto del partido con el marcador y los
+// eventos conocidos hasta ese momento: "victoria"/"portería a cero" son sobre el resultado
+// PARCIAL (teamGoalsFor/teamGoalsAgainst tal cual van en ese instante), así que la nota en
+// vivo converge exactamente a la nota final en el pitido final (no es una aproximación que
+// se quede corta — simplemente aún puede cambiar si el marcador cambia después).
+export function computePlayerRating(player,{events=[],currentMinute=90,starterIds=null,teamGoalsFor=0,teamGoalsAgainst=0}={}){
+  const playerId=player.id;
+  const minutes=minutesPlayed(playerId,events,currentMinute,starterIds);
+  const goals=events.filter(event=>["GOAL","PENALTY"].includes(event.type)&&event.playerId===playerId).length;
+  const assists=events.filter(event=>event.assistId===playerId).length;
+  const saves=events.filter(event=>event.type==="SAVE"&&event.playerId===playerId).length;
+  const defensiveActions=events.filter(event=>event.type==="DEFENSIVE_ACTION"&&event.playerId===playerId).length;
+  const yellows=events.filter(event=>event.type==="YELLOW"&&event.playerId===playerId).length;
+  const red=events.some(event=>event.type==="RED"&&event.playerId===playerId);
+  const cleanSheet=teamGoalsAgainst===0;const won=teamGoalsFor>teamGoalsAgainst;
+  let rating=6+Math.min(90,minutes)/360+((player.overall??72)-75)*.025+goals*1.25+assists*.7+saves*.18+defensiveActions*.14+(won?.2:0)-yellows*.2-(red?1.5:0);
+  if(cleanSheet&&player.group==="POR")rating+=.8;
+  if(cleanSheet&&player.group==="DEF")rating+=.45;
+  if(!cleanSheet&&player.group==="POR")rating-=Math.max(0,teamGoalsAgainst-1)*.12;
+  if(!cleanSheet&&player.group==="DEF")rating-=Math.max(0,teamGoalsAgainst-1)*.07;
+  rating=Math.max(4,Math.min(10,rating));
+  return{minutes,goals,assists,saves,defensiveActions,yellows,red,rating:Number(rating.toFixed(1))};
 }
 
 export function calculateMatchRatings({events=[],teams=[]}){
@@ -83,24 +120,12 @@ export function calculateMatchRatings({events=[],teams=[]}){
   teams.forEach(team=>{
     const playerById=Object.fromEntries((team.players??[]).map(player=>[player.id,player]));
     const participantIds=[...new Set([...(team.participantIds??[]),...(team.starterIds??[])])];
+    const cleanSheet=(team.goalsAgainst??0)===0;
     participantIds.forEach(playerId=>{
       const player=playerById[playerId];if(!player)return;
-      const minutes=minutesPlayed(playerId,team.starterIds??[],events);
-      const goals=events.filter(event=>["GOAL","PENALTY"].includes(event.type)&&event.playerId===playerId).length;
-      const assists=events.filter(event=>event.assistId===playerId).length;
-      const saves=events.filter(event=>event.type==="SAVE"&&event.playerId===playerId).length;
-      const defensiveActions=events.filter(event=>event.type==="DEFENSIVE_ACTION"&&event.playerId===playerId).length;
-      const yellows=events.filter(event=>event.type==="YELLOW"&&event.playerId===playerId).length;
-      const red=events.some(event=>event.type==="RED"&&event.playerId===playerId);
-      const cleanSheet=(team.goalsAgainst??0)===0;const won=(team.goalsFor??0)>(team.goalsAgainst??0);
-      let rating=6+Math.min(90,minutes)/360+((player.overall??72)-75)*.025+goals*1.25+assists*.7+saves*.18+defensiveActions*.14+(won?.2:0)-yellows*.2-(red?1.5:0);
-      if(cleanSheet&&player.group==="POR")rating+=.8;
-      if(cleanSheet&&player.group==="DEF")rating+=.45;
-      if(!cleanSheet&&player.group==="POR")rating-=Math.max(0,(team.goalsAgainst??0)-1)*.12;
-      if(!cleanSheet&&player.group==="DEF")rating-=Math.max(0,(team.goalsAgainst??0)-1)*.07;
-      rating=Math.max(4,Math.min(10,rating));
+      const{minutes,goals,assists,saves,defensiveActions,yellows,red,rating}=computePlayerRating(player,{events,starterIds:team.starterIds??[],teamGoalsFor:team.goalsFor??0,teamGoalsAgainst:team.goalsAgainst??0});
       const contributions=[];if(goals)contributions.push(`${goals} gol${goals===1?"":"es"}`);if(assists)contributions.push(`${assists} asistencia${assists===1?"":"s"}`);if(saves)contributions.push(`${saves} parada${saves===1?"":"s"}`);if(defensiveActions)contributions.push(`${defensiveActions} acción${defensiveActions===1?"":"es"} defensiva${defensiveActions===1?"":"s"}`);if(cleanSheet&&["POR","DEF"].includes(player.group))contributions.push("portería a cero");if(red)contributions.push("expulsado");
-      ratings.push({...player,teamId:team.teamId,teamName:team.teamName,minutes,goals,assists,saves,defensiveActions,yellows,red,rating:Number(rating.toFixed(1)),contributions});
+      ratings.push({...player,teamId:team.teamId,teamName:team.teamName,minutes,goals,assists,saves,defensiveActions,yellows,red,rating,contributions});
     });
   });
   return ratings.sort((a,b)=>b.rating-a.rating||b.goals-a.goals||b.assists-a.assists||b.overall-a.overall);
