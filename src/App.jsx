@@ -71,7 +71,7 @@ import { ensureLegacyState, evaluateLegacyMatchday, finalizeLegacySeason, getPre
 import { applyYouthDevelopmentCycle, createYouthAnnualReport, ensureYouthState, getTalentCategory } from "./youth/youthEngine.js";
 import { advanceScouting, bootstrapScouting, cancelScoutingMission, createScoutingMission, ensureScoutingState, refreshScoutingRecommendations, registerScoutingSigning, toggleScoutingWatch } from "./scouting/scoutingEngine.js";
 import { PRIMARY_NAV, SECONDARY_SCREEN_IDS } from "./navigation/navigationConfig.js";
-import { acceptClubCounter, acceptPlayerCounter, acceptRoleCounter, advanceTransferNegotiations, completeOffer, createClubOffer, createContractOffer, createFreeAgentOffer, ensureTransferState, maybeCreateAITransfer, maybeCreateIncomingOffer, refreshTransferListings, resolveIncomingOffer, setUserMarketStatus, triggerReleaseClause, withdrawOffer } from "./transfers/transferEngine.js";
+import { acceptClubCounter, acceptPlayerCounter, acceptRoleCounter, advanceTransferNegotiations, completeOffer, createClubOffer, createContractOffer, createFreeAgentOffer, ensureTransferState, isAthleticEligible, maybeCreateAITransfer, maybeCreateIncomingOffer, refreshTransferListings, resolveIncomingOffer, setUserMarketStatus, triggerReleaseClause, withdrawOffer } from "./transfers/transferEngine.js";
 import { getAttentionCount, getAttentionItems, markAttentionItem } from "./attention/attentionEngine.js";
 import { acceptRenewalCounter, advanceRenewals, completeRenewal, createRenewalOffer, ensureContractState, withdrawRenewalOffer } from "./contracts/contractEngine.js";
 import { ensurePlayerMorale, ensureSquadMorale, getLockerRoomSummary, getMoraleLevel, updatePlayerHumanState } from "./morale/moraleEngine.js";
@@ -619,8 +619,7 @@ function getScoutingPool(game) {
   const freeAgents=[...migratedFreeAgents,...soldFreeAgents];
   const unique=[...external,...freeAgents].filter((player,index,array)=>array.findIndex(item=>item.id===player.id)===index);
   if(game?.teamId!=="athletic")return unique;
-  const basqueDevelopmentClubs=new Set(["realsociedad","osasuna","alaves"]);
-  return unique.filter(player=>typeof player.athleticEligible==="boolean"?player.athleticEligible:player._teamId==="agente_libre"||(basqueDevelopmentClubs.has(player._teamId)&&player.nat==="ES"));
+  return unique.filter(player=>isAthleticEligible(player,player._teamId));
 }
 
 function generateFixtures(leagueId = "esp_primera") {
@@ -1813,6 +1812,7 @@ function TransferMarketScreen({ game, onTransfer, onOpenPlayer, onGoScouting, on
     if(marketMode==="contract"&&Number(p.contractEnd??9999)>Number(game.season)+1)return false;
     if(marketMode==="young"&&p.age>23)return false;
     if(marketMode==="opportunity"&&!(listing?.type==="transfer"&&listing.askingPrice<=marketValue(p)))return false;
+    if(game.teamId==="athletic"&&!isAthleticEligible(p,p._teamId))return false;
     if (filter.search && !p.name.toLowerCase().includes(filter.search.toLowerCase())) return false;
     if (filter.pos && p.pos !== filter.pos) return false;
     if (p.overall < filter.min || p.overall > filter.max) return false;

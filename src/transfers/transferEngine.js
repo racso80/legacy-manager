@@ -37,6 +37,17 @@ function chooseWeighted(items,weightFn){
 function stableSort(players,seed){return[...players].sort((a,b)=>String(a.id+seed).localeCompare(String(b.id+seed)));}
 function isCorePlayer(player,team){return(player.overall??0)>=Math.max(80,(team?.avg??76)+3)||player.squadRole==="Estrella";}
 
+// Restricción de cantera del Athletic Club: solo jugadores vasco-elegibles.
+// athleticEligible es el campo curado a mano (admin tool) y siempre manda si está
+// definido; si no, se usa un fallback tosco (agente libre o cantera de un club de
+// desarrollo vasco + nacionalidad española) porque player.nat es solo a nivel país
+// y no distingue región vasca.
+const BASQUE_DEVELOPMENT_CLUBS=new Set(["realsociedad","osasuna","alaves"]);
+export function isAthleticEligible(player,teamId){
+  if(typeof player.athleticEligible==="boolean")return player.athleticEligible;
+  return teamId==="agente_libre"||(BASQUE_DEVELOPMENT_CLUBS.has(teamId)&&player.nat==="ES");
+}
+
 function renewalCandidate(squad,season,team){
   return chooseWeighted(squad.filter(player=>Number(player.contractEnd??9999)<=Number(season)+1&&isCorePlayer(player,team)&&player.age<34),player=>(player.overall??70)+(player.age<=24?8:0));
 }
@@ -65,6 +76,7 @@ function targetForNeed(buyer,buyerSquad,teams,squads,game){
     if(player.group!==wantedGroup)return false;
     if(player.overall>(buyer.avg??76)+8)return false;
     if(marketValue(player)>maxValue)return false;
+    if(buyer.id==="athletic"&&!isAthleticEligible(player,team.id))return false;
     const sellerBalance=squadBalance(squads[team.id]??[]);
     if((sellerBalance.counts[player.group]??0)<=groupMin[player.group])return false;
     const sellable=Number(player.contractEnd??9999)<=Number(game.season)+1||sellerBalance.surplus.includes(player.group)||player.age>=30||player.overall<=(team.avg??76)-2||player.marketStatus==="transfer";
@@ -262,7 +274,7 @@ export function maybeCreateAITransfer(game,teams,squads){
   const from=clubs[Math.floor(Math.random()*clubs.length)];
   const destinations=clubs.filter(team=>team.id!==from.id);const to=destinations[Math.floor(Math.random()*destinations.length)];
   const loan=loanCandidate(squads[from.id]??[]);
-  if(loan&&Math.random()<.36){
+  if(loan&&Math.random()<.36&&(to.id!=="athletic"||isAthleticEligible(loan,from.id))){
     const value=marketValue(loan);
     mutateRealSquad(from.id, squad=>(squad??[]).filter(item=>item.id!==loan.id));
     mutateRealSquad(to.id, squad=>[...(squad??[]),{...loan,loanData:{fromTeamId:from.id,untilSeason:String(game.season)}}]);
@@ -270,7 +282,7 @@ export function maybeCreateAITransfer(game,teams,squads){
     return {...current,transfers:[...(current.transfers??[]),transfer],transferMarket:{...market,lastAiMatchday:matchday,aiTransfers:[transfer,...(market.aiTransfers??[])],marketPulse:[transfer,...(market.marketPulse??[])]}};
   }
   const sale=saleCandidate(squads[from.id]??[],game.season,from);
-  if(!sale)return current;
+  if(!sale||(to.id==="athletic"&&!isAthleticEligible(sale,from.id)))return current;
   const value=marketValue(sale);
   mutateRealSquad(from.id, squad=>(squad??[]).filter(item=>item.id!==sale.id));
   mutateRealSquad(to.id, squad=>[...(squad??[]),{...sale,marketStatus:null}]);

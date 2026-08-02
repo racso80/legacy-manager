@@ -4,7 +4,7 @@ import TeamCrest from "../../TeamCrest.jsx";
 import PlayerAvatar from "../../PlayerAvatar.jsx";
 import { RARITY_ACCENT } from "../../../App.jsx";
 import { getStaffMember } from "../../../staff/staffEngine.js";
-import { CLUB_ACCEPT_RATIO, CLUB_COUNTER_RATIO, PLAYER_ACCEPT_RATIO, PLAYER_COUNTER_RATIO, getNegotiationBoost } from "../../../transfers/transferEngine.js";
+import { CLUB_ACCEPT_RATIO, CLUB_COUNTER_RATIO, PLAYER_ACCEPT_RATIO, PLAYER_COUNTER_RATIO, getNegotiationBoost, isAthleticEligible } from "../../../transfers/transferEngine.js";
 
 const fmt = v => v >= 1000 ? `€${(v / 1000).toFixed(1)}M` : `€${Math.round(v)}K`;
 
@@ -238,6 +238,7 @@ export default function PCMarketTab({ game, teams, players, allOtherPlayers, sub
     if (marketMode === "contract" && Number(p.contractEnd ?? 9999) > Number(game.season) + 1) return false;
     if (marketMode === "young" && p.age > 23) return false;
     if (marketMode === "opportunity" && !(listing?.type === "transfer" && listing.askingPrice <= marketValue(p))) return false;
+    if (game.teamId === "athletic" && !isAthleticEligible(p, p._teamId)) return false;
     if (filter.search && !p.name.toLowerCase().includes(filter.search.toLowerCase())) return false;
     if (filter.pos && p.pos !== filter.pos) return false;
     if (p.overall < filter.min || p.overall > filter.max) return false;
